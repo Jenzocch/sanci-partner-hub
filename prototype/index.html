@@ -1,0 +1,1117 @@
+<title>SANCI Partner Hub</title>
+<style>
+  :root{
+    --bg:#f6f3ee; --surface:#fffdf8; --surface2:#efeae1; --ink:#28221a; --ink2:#6f6759; --faint:#9a9081;
+    --line:#e3dcd0; --line2:#d3cabb;
+    --accent:#15655d; --accent-2:#0e4f49; --accent-soft:#e2ede9; --on-accent:#ffffff;
+    --brass:#8f6527; --brass-bg:#f3ead8;
+    --ok:#1f7a40; --ok-bg:#e1f0e4; --warn:#8f6400; --warn-bg:#f5ecd2; --bad:#b13a2f; --bad-bg:#f7e3df; --off:#7a7260; --off-bg:#ebe6db;
+    --shadow:0 1px 2px rgba(40,34,26,.05),0 10px 28px rgba(40,34,26,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#16130f; --surface:#1f1b16; --surface2:#292319; --ink:#ede6da; --ink2:#a99d8a; --faint:#7d7462;
+      --line:#373025; --line2:#453c2f;
+      --accent:#4aa89a; --accent-2:#63bfb1; --accent-soft:#1e3531; --on-accent:#0b1f1c;
+      --brass:#cfa057; --brass-bg:#332a19;
+      --ok:#5cc27f; --ok-bg:#1c3324; --warn:#d9a93f; --warn-bg:#382e13; --bad:#e0705f; --bad-bg:#3a1f1a; --off:#8d8471; --off-bg:#2b261e;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#16130f; --surface:#1f1b16; --surface2:#292319; --ink:#ede6da; --ink2:#a99d8a; --faint:#7d7462;
+    --line:#373025; --line2:#453c2f;
+    --accent:#4aa89a; --accent-2:#63bfb1; --accent-soft:#1e3531; --on-accent:#0b1f1c;
+    --brass:#cfa057; --brass-bg:#332a19;
+    --ok:#5cc27f; --ok-bg:#1c3324; --warn:#d9a93f; --warn-bg:#382e13; --bad:#e0705f; --bad-bg:#3a1f1a; --off:#8d8471; --off-bg:#2b261e;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  input,select,textarea{font:inherit;color:var(--ink)}
+  .mono{font-family:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;font-variant-numeric:tabular-nums}
+  .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+
+  /* ── prototype bar ─────────────────────────────── */
+  .protobar{
+    display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;
+    padding:8px 14px;border-bottom:1.5px dashed var(--line2);background:var(--surface2);
+    font-size:13px;color:var(--ink2)
+  }
+  .protobar .tag{font-weight:700;letter-spacing:.08em;font-size:11px;color:var(--brass);text-transform:uppercase}
+  .protobar select{padding:5px 8px;border:1px solid var(--line2);border-radius:7px;background:var(--surface);font-size:13px}
+  .protobar label{display:flex;align-items:center;gap:6px;cursor:pointer}
+  .protobar .reset{color:var(--accent);font-weight:600;font-size:13px}
+  .protobar .reset:hover{text-decoration:underline}
+  .offline-note{background:var(--warn-bg);color:var(--warn);padding:2px 9px;border-radius:99px;font-weight:600;font-size:12px}
+
+  /* ── app shell ─────────────────────────────────── */
+  .shell{display:flex;min-height:calc(100vh - 42px)}
+  .side{
+    width:232px;flex:none;border-right:1px solid var(--line);background:var(--surface);
+    padding:20px 14px;display:flex;flex-direction:column;gap:4px
+  }
+  .side .brand{display:flex;align-items:baseline;gap:8px;padding:2px 10px 18px}
+  .side .brand .word{font-size:21px;font-weight:700;letter-spacing:.04em}
+  .side .brand .sub{font-size:12px;color:var(--ink2);letter-spacing:.05em}
+  .navlink{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;
+    font-size:15px;font-weight:600;color:var(--ink2);text-align:left;width:100%
+  }
+  .navlink.on{background:var(--accent-soft);color:var(--accent-2)}
+  .navlink:hover:not(.on){background:var(--surface2)}
+  .side .foot{margin-top:auto;padding:10px 12px;font-size:12px;color:var(--faint);line-height:1.5}
+  .main{flex:1;min-width:0;padding:28px 32px 64px}
+  @media (min-width:1600px){ .main{padding:32px 48px 72px} }
+
+  /* ── type ──────────────────────────────────────── */
+  .pagehead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .pagehead h1{font-size:29px;line-height:1.2;text-wrap:balance}
+  .crumb{font-size:14px;color:var(--ink2);margin-bottom:6px}
+  .crumb button{color:var(--accent);font-weight:600}
+  .crumb button:hover{text-decoration:underline}
+  .muted{color:var(--ink2)} .small{font-size:14px}
+
+  /* ── controls ──────────────────────────────────── */
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:9px;
+    font-size:15px;font-weight:650;border:1px solid var(--line2);background:var(--surface)
+  }
+  .btn:hover{background:var(--surface2)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .btn.primary:hover{background:var(--accent-2);border-color:var(--accent-2)}
+  .btn.danger{color:var(--bad);border-color:var(--bad)}
+  .btn.sm{padding:6px 11px;font-size:13.5px;border-radius:8px}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn:focus-visible,.navlink:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2.5px solid var(--accent);outline-offset:1.5px}
+  .linkbtn{color:var(--accent);font-weight:600}
+  .linkbtn:hover{text-decoration:underline}
+
+  .searchrow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .searchrow input[type="search"]{
+    flex:1;min-width:220px;max-width:520px;padding:11px 14px;font-size:16px;
+    border:1px solid var(--line2);border-radius:9px;background:var(--surface)
+  }
+  .searchrow select{padding:10px 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surface);font-size:15px}
+
+  /* ── table / cards ─────────────────────────────── */
+  .tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;min-width:640px}
+  th{
+    text-align:left;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+    padding:13px 18px;border-bottom:1px solid var(--line);white-space:nowrap
+  }
+  td{padding:15px 18px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:15.5px}
+  tr:last-child td{border-bottom:none}
+  tbody tr.rowlink{cursor:pointer}
+  tbody tr.rowlink:hover{background:var(--surface2)}
+  td .num{font-variant-numeric:tabular-nums}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:20px;box-shadow:var(--shadow)}
+  .cardgrid{display:grid;gap:16px}
+  @media (min-width:1200px){ .cardgrid.two{grid-template-columns:340px 1fr} }
+
+  /* ── chips / identity ──────────────────────────── */
+  .chip{display:inline-block;padding:3px 11px;border-radius:99px;font-size:12.5px;font-weight:700;letter-spacing:.03em;white-space:nowrap}
+  .chip.ACTIVE{background:var(--ok-bg);color:var(--ok)}
+  .chip.DRAFT{background:var(--warn-bg);color:var(--warn)}
+  .chip.SUSPENDED{background:var(--bad-bg);color:var(--bad)}
+  .chip.INACTIVE{background:var(--off-bg);color:var(--off)}
+  .chip.pend{background:var(--warn-bg);color:var(--warn);border:1.5px dashed var(--warn)}
+  .code{
+    display:inline-block;padding:2px 8px;border-radius:6px;background:var(--brass-bg);color:var(--brass);
+    font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:13px;font-weight:700;letter-spacing:.05em
+  }
+  .logo{
+    width:40px;height:40px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:15px;color:var(--on-accent);background:var(--accent);flex:none
+  }
+  .logo.b2{background:var(--brass)}
+  .logo.b3{background:var(--off)}
+  .pname{display:flex;align-items:center;gap:12px}
+  .pname .nm{font-size:17px;font-weight:700;line-height:1.25}
+  .pname .sub{font-size:13.5px;color:var(--ink2)}
+
+  /* ── tabs ──────────────────────────────────────── */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 20px;overflow-x:auto}
+  .tab{padding:9px 15px;font-size:15px;font-weight:650;color:var(--ink2);border-bottom:2.5px solid transparent;white-space:nowrap}
+  .tab.on{color:var(--accent-2);border-bottom-color:var(--accent)}
+  .tab:hover:not(.on){color:var(--ink)}
+
+  /* ── forms ─────────────────────────────────────── */
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:15px;font-weight:650;margin-bottom:6px}
+  .field .hint{font-size:13.5px;color:var(--ink2);margin-top:5px}
+  .field .err{font-size:13.5px;color:var(--bad);font-weight:600;margin-top:5px}
+  .field input[type="text"],.field input[type="tel"],.field select,.field textarea{
+    width:100%;padding:12px 13px;font-size:16px;border:1px solid var(--line2);border-radius:9px;background:var(--surface)
+  }
+  .field textarea{min-height:84px;resize:vertical}
+  .field.invalid input,.field.invalid textarea{border-color:var(--bad)}
+  .radioset{display:flex;flex-direction:column;gap:9px}
+  .radioset label{display:flex;gap:10px;align-items:flex-start;font-weight:500;font-size:15.5px;cursor:pointer}
+  .radioset input{margin-top:4px;accent-color:var(--accent)}
+  .radioset .rd{font-size:13.5px;color:var(--ink2)}
+
+  /* ── modal ─────────────────────────────────────── */
+  .overlay{position:fixed;inset:0;background:rgba(20,16,10,.45);display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow:auto;z-index:40}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);width:100%;max-width:480px;padding:24px}
+  .modal h2{font-size:20px;margin-bottom:16px;text-wrap:balance}
+  .modal .btnrow{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap}
+
+  /* ── banners / states ──────────────────────────── */
+  .banner{border-radius:11px;padding:13px 15px;font-size:14.5px;margin-bottom:15px;line-height:1.45}
+  .banner.warn{background:var(--warn-bg);color:var(--warn)}
+  .banner.bad{background:var(--bad-bg);color:var(--bad)}
+  .banner.ok{background:var(--ok-bg);color:var(--ok)}
+  .banner.info{background:var(--accent-soft);color:var(--accent-2)}
+  .banner .linkbtn{color:inherit;text-decoration:underline;font-weight:700}
+  .emptybox{padding:56px 20px;text-align:center;color:var(--ink2);font-size:16px}
+  .skel{height:16px;border-radius:6px;background:var(--surface2);animation:sk 1.1s ease-in-out infinite alternate}
+  @keyframes sk{from{opacity:.55}to{opacity:1}}
+  @media (prefers-reduced-motion: reduce){ .skel{animation:none} }
+
+  .gate{list-style:none;display:flex;flex-direction:column;gap:9px;font-size:15px}
+  .gate .no{color:var(--ink2)} .gate .yes{color:var(--ok);font-weight:600}
+
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:9px 14px;font-size:15.5px}
+  .kv dt{color:var(--ink2);font-size:14px;padding-top:1px} .kv dd{overflow-wrap:anywhere}
+
+  .audit{list-style:none;display:flex;flex-direction:column;gap:0}
+  .audit li{padding:13px 2px;border-bottom:1px solid var(--line);font-size:14.5px}
+  .audit li:last-child{border-bottom:none}
+  .audit .aha{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline}
+  .audit .act{font-weight:750;font-size:13px;letter-spacing:.05em}
+  .audit .ts{color:var(--faint);font-size:13px;font-variant-numeric:tabular-nums}
+  .audit .diff{margin-top:5px;font-size:13px;color:var(--ink2);font-family:ui-monospace,"SF Mono",Consolas,monospace;overflow-wrap:anywhere}
+
+  /* ── toast ─────────────────────────────────────── */
+  .toasts{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:60;width:min(92vw,420px)}
+  .toast{background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:11px;font-size:14.5px;box-shadow:var(--shadow);text-align:center}
+  .toast.bad{background:var(--bad);color:#fff}
+
+  /* ── partner-persona (mobile-first) ───────────── */
+  .pwrap{max-width:520px;margin:0 auto;padding:22px 16px 70px}
+  .idcard{border-radius:15px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+  .idcard .logos{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .idcard .x{color:var(--faint);font-size:13px}
+  .idcard .sanci{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line2);display:inline-flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:700;font-size:11px;letter-spacing:.04em;color:var(--ink2)}
+  .idcard h2{font-size:21px;line-height:1.25}
+  .idcard .br{font-size:16px;font-weight:650;color:var(--accent-2);margin-top:2px}
+  .idcard .addr{font-size:14.5px;color:var(--ink2);margin-top:8px;line-height:1.5}
+  .biglink{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+    background:var(--surface);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);
+    padding:17px 18px;font-size:17px;font-weight:650;margin-bottom:12px;text-align:left
+  }
+  .biglink .arrow{color:var(--faint)}
+  .biglink:hover{background:var(--surface2)}
+  .staffcard{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:15px 16px;margin-bottom:11px;box-shadow:var(--shadow)}
+  .staffcard .row1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .staffcard .nm{font-size:16.5px;font-weight:700}
+  .staffcard .rl{font-size:14px;color:var(--ink2)}
+  .staffcard .ops{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .backrow{margin-bottom:14px}
+  .mtitle{font-size:24px;margin-bottom:14px;text-wrap:balance}
+  .denied{max-width:520px;margin:8vh auto;text-align:center;padding:0 18px}
+  .denied .ic{font-size:40px;margin-bottom:10px}
+  .denied h2{font-size:22px;margin-bottom:10px}
+  .denied p{color:var(--ink2);font-size:15.5px;margin-bottom:8px}
+
+  /* ── mobile responsive (admin) ─────────────────── */
+  .mcards{display:none}
+  @media (max-width:1199px){
+    .side{width:200px}
+  }
+  @media (max-width:767px){
+    .shell{display:block}
+    .side{width:100%;flex-direction:row;align-items:center;overflow-x:auto;padding:10px 14px;border-right:none;border-bottom:1px solid var(--line)}
+    .side .brand{padding:0 8px 0 0}
+    .side .brand .sub{display:none}
+    .side .foot{display:none}
+    .navlink{width:auto;white-space:nowrap;padding:8px 12px}
+    .main{padding:20px 16px 60px}
+    .pagehead h1{font-size:25px}
+    .tablewrap{display:none}
+    .mcards{display:block}
+    .kv{grid-template-columns:1fr;gap:2px 0}
+    .kv dt{margin-top:9px}
+  }
+  .mcard{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .mcard .r1{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+  .mcard .meta{font-size:14px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:4px 14px}
+</style>
+
+<div id="app"></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+"use strict";
+/* SANCI Partner Hub — Phase 1 UI PROTOTYPE.
+   Mock data only. No database, no auth, no network.
+   Permission behaviour here SIMULATES what RLS must enforce server-side in the real build. */
+
+/* ── seed data ─────────────────────────────────── */
+function seedData(){
+  return {
+    partners:[
+      {id:"p_gh", name:"Golden Home", code:"GH", status:"ACTIVE", lc:"", contact_name:"Budi Hartono", contact_phone:"+62 812-2020-1188", created_at:"2026-07-02"},
+      {id:"p_mn", name:"Mebel Nusantara", code:"MN", status:"ACTIVE", lc:"b2", contact_name:"Sri Wahyuni", contact_phone:"+62 813-5511-7788", created_at:"2026-07-21"},
+      {id:"p_ki", name:"Karya Indah Furnitur", code:"KI", status:"DRAFT", lc:"b3", contact_name:"", contact_phone:"", created_at:"2026-08-10"}
+    ],
+    branches:[
+      {id:"b_cbr", partner_id:"p_gh", name:"Cirebon", code:"CBR", address:"Jl. Cipto Mangunkusumo No. 88", city:"Cirebon", province:"Jawa Barat", contact_name:"Dewi Lestari", contact_phone:"+62 811-2233-4455", status:"ACTIVE"},
+      {id:"b_bdg", partner_id:"p_gh", name:"Bandung", code:"BDG", address:"Jl. Riau No. 25", city:"Bandung", province:"Jawa Barat", contact_name:"Rina Marlina", contact_phone:"+62 811-9090-1212", status:"ACTIVE"},
+      {id:"b_jkt", partner_id:"p_gh", name:"Jakarta", code:"JKT", address:"Jl. Panglima Polim IX No. 5, Kebayoran Baru", city:"Jakarta Selatan", province:"DKI Jakarta", contact_name:"Lia Kartika", contact_phone:"+62 812-7788-3344", status:"ACTIVE"},
+      {id:"b_smg", partner_id:"p_mn", name:"Semarang", code:"SMG", address:"Jl. Pandanaran No. 102", city:"Semarang", province:"Jawa Tengah", contact_name:"Sari Dewanti", contact_phone:"+62 813-4040-5566", status:"ACTIVE"},
+      {id:"b_slo", partner_id:"p_mn", name:"Solo", code:"SLO", address:"Jl. Slamet Riyadi No. 310", city:"Surakarta", province:"Jawa Tengah", contact_name:"Wawan Kurnia", contact_phone:"+62 815-6611-2299", status:"ACTIVE"}
+    ],
+    staff:[
+      {id:"s1", partner_id:"p_gh", full_name:"Andi Setiawan", phone:"+62 812-3456-7890", status:"ACTIVE"},
+      {id:"s2", partner_id:"p_gh", full_name:"Siti Amelia", phone:"+62 813-9876-5432", status:"ACTIVE"},
+      {id:"s3", partner_id:"p_gh", full_name:"Dewi Lestari", phone:"+62 811-2233-4455", status:"ACTIVE"},
+      {id:"s4", partner_id:"p_gh", full_name:"Rudi Pratama", phone:"+62 812-6644-2211", status:"ACTIVE"},
+      {id:"s5", partner_id:"p_gh", full_name:"Maya Putri", phone:"+62 813-7755-8899", status:"ACTIVE"},
+      {id:"s6", partner_id:"p_gh", full_name:"Fajar Nugroho", phone:"+62 812-1122-9900", status:"INACTIVE"},
+      {id:"s7", partner_id:"p_mn", full_name:"Sari Dewanti", phone:"+62 813-4040-5566", status:"ACTIVE"}
+    ],
+    assignments:[
+      {id:"a1", staff_id:"s1", branch_id:"b_bdg", role:"Sales", start_at:"2025-03-01", end_at:"2026-01-31", status:"ENDED"},
+      {id:"a2", staff_id:"s1", branch_id:"b_cbr", role:"Sales", start_at:"2026-02-01", end_at:null, status:"ACTIVE"},
+      {id:"a3", staff_id:"s2", branch_id:"b_cbr", role:"Reception / CS", start_at:"2025-06-15", end_at:null, status:"ACTIVE"},
+      {id:"a4", staff_id:"s3", branch_id:"b_cbr", role:"Manager", start_at:"2024-11-01", end_at:null, status:"ACTIVE"},
+      {id:"a5", staff_id:"s4", branch_id:"b_bdg", role:"Sales", start_at:"2025-09-01", end_at:null, status:"ACTIVE"},
+      {id:"a6", staff_id:"s5", branch_id:"b_bdg", role:"Reception / CS", start_at:"2026-01-10", end_at:null, status:"ACTIVE"},
+      {id:"a7", staff_id:"s6", branch_id:"b_jkt", role:"Sales", start_at:"2025-05-01", end_at:"2026-06-30", status:"ENDED"},
+      {id:"a8", staff_id:"s7", branch_id:"b_smg", role:"Reception / CS", start_at:"2025-08-01", end_at:null, status:"ACTIVE"}
+    ],
+    users:[
+      {id:"u1", name:"Siti Amelia", partner_id:"p_gh", branch_id:"b_cbr", staff_id:"s2", role:"Branch User", status:"ACTIVE"},
+      {id:"u2", name:"Dewi Lestari", partner_id:"p_gh", branch_id:"b_cbr", staff_id:"s3", role:"Branch User", status:"ACTIVE"},
+      {id:"u3", name:"Rina Marlina", partner_id:"p_gh", branch_id:"b_bdg", staff_id:null, role:"Branch User", status:"ACTIVE"},
+      {id:"u4", name:"Maya Putri", partner_id:"p_gh", branch_id:"b_bdg", staff_id:"s5", role:"Branch User", status:"ACTIVE"},
+      {id:"u5", name:"Lia Kartika", partner_id:"p_gh", branch_id:"b_jkt", staff_id:null, role:"Branch User", status:"ACTIVE"},
+      {id:"u6", name:"Bagus Santoso", partner_id:"p_gh", branch_id:"b_jkt", staff_id:null, role:"Branch User", status:"DISABLED"},
+      {id:"u7", name:"Sari Dewanti", partner_id:"p_mn", branch_id:"b_smg", staff_id:"s7", role:"Branch User", status:"ACTIVE"},
+      {id:"u8", name:"Joko Susilo", partner_id:"p_mn", branch_id:"b_smg", staff_id:null, role:"Branch User", status:"ACTIVE"},
+      {id:"u9", name:"Wawan Kurnia", partner_id:"p_mn", branch_id:"b_slo", staff_id:null, role:"Branch User", status:"ACTIVE"}
+    ],
+    policies:{
+      p_gh:{visibility:"PARTNER_ALL_BRANCHES", edit:"OWN_BRANCH", configured:true},
+      p_mn:{visibility:"OWN_BRANCH", edit:"OWN_BRANCH", configured:true},
+      p_ki:{visibility:"OWN_BRANCH", edit:"OWN_BRANCH", configured:false}
+    },
+    audit:[
+      {id:"g1", ts:"2026-07-02 10:14", actor:"SANCI Admin", action:"PARTNER_CREATED", entity_type:"partner", entity_id:"p_gh", partner_id:"p_gh", branch_id:null, before:null, after:{name:"Golden Home", code:"GH"}},
+      {id:"g2", ts:"2026-07-02 10:31", actor:"SANCI Admin", action:"BRANCH_CREATED", entity_type:"branch", entity_id:"b_cbr", partner_id:"p_gh", branch_id:"b_cbr", before:null, after:{name:"Cirebon", code:"CBR"}},
+      {id:"g3", ts:"2026-07-03 09:02", actor:"SANCI Admin", action:"PERMISSION_CHANGED", entity_type:"policy", entity_id:"p_gh", partner_id:"p_gh", branch_id:null, before:{visibility:"OWN_BRANCH"}, after:{visibility:"PARTNER_ALL_BRANCHES", edit:"OWN_BRANCH"}},
+      {id:"g4", ts:"2026-07-05 15:40", actor:"SANCI Admin", action:"PARTNER_STATUS_CHANGED", entity_type:"partner", entity_id:"p_gh", partner_id:"p_gh", branch_id:null, before:{status:"DRAFT"}, after:{status:"ACTIVE"}},
+      {id:"g5", ts:"2026-08-10 11:20", actor:"SANCI Admin", action:"PARTNER_CREATED", entity_type:"partner", entity_id:"p_ki", partner_id:"p_ki", branch_id:null, before:null, after:{name:"Karya Indah Furnitur", code:"KI"}}
+    ],
+    outbox:[]
+  };
+}
+
+let db = seedData();
+const state = {
+  persona:"admin",          // "admin" | user id
+  route:{v:"partners"},
+  q:"", fStatus:"ALL", fAccess:"ALL",
+  listDemo:"normal",
+  offline:false,
+  modal:null,
+  focusId:null
+};
+
+/* ── helpers ───────────────────────────────────── */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const byId = (arr,id) => arr.find(x=>x.id===id);
+const partner = id => byId(db.partners,id);
+const branch  = id => byId(db.branches,id);
+const nowTs = () => { const d=new Date(); const p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()); };
+let idc = 100; const nid = p => p+"_"+(++idc);
+
+function persona(){
+  if(state.persona==="admin") return {kind:"admin", label:"SANCI Admin"};
+  const u = byId(db.users, state.persona);
+  return {kind:"partner", user:u, partner:partner(u.partner_id), branch:branch(u.branch_id), policy:db.policies[u.partner_id]};
+}
+function canViewBranch(p, b){
+  if(p.kind==="admin") return true;
+  if(b.partner_id!==p.partner.id) return false;
+  if(p.policy.visibility==="PARTNER_ALL_BRANCHES") return true;
+  return b.id===p.branch.id;
+}
+function canEditBranch(p, b){
+  if(p.kind==="admin") return true;
+  if(!canViewBranch(p,b)) return false;
+  if(p.policy.edit==="PARTNER_ALL_BRANCHES") return true;
+  return b.id===p.branch.id;
+}
+function audit(action, entity_type, entity_id, partner_id, branch_id, before, after){
+  db.audit.unshift({id:nid("g"), ts:nowTs(), actor:persona().label||persona().user.name+" ("+persona().partner.code+" "+persona().branch.code+")", action, entity_type, entity_id, partner_id, branch_id, before, after});
+}
+function actorLabel(){ const p=persona(); return p.kind==="admin" ? "SANCI Admin" : p.user.name+" — "+p.partner.name+" · "+p.branch.name; }
+function toast(msg, bad){
+  const t=document.createElement("div"); t.className="toast"+(bad?" bad":""); t.textContent=msg;
+  $("#toasts").appendChild(t); setTimeout(()=>t.remove(), 3400);
+}
+function activeAssignment(staffId){ return db.assignments.find(a=>a.staff_id===staffId && !a.end_at); }
+function staffOfBranch(bid){ return db.staff.filter(s=> { const a=activeAssignment(s.id); return a && a.branch_id===bid; }); }
+function branchesOf(pid){ return db.branches.filter(b=>b.partner_id===pid); }
+function usersOf(pid){ return db.users.filter(u=>u.partner_id===pid); }
+function vlabel(pol){ return pol.visibility==="PARTNER_ALL_BRANCHES" ? "Same partner · "+(pol.edit==="PARTNER_ALL_BRANCHES"?"View + Edit":"View only") : "Own branch"; }
+
+/* draft storage */
+const DKEY = k => "sph_draft_"+k;
+function saveDraft(key, values){ try{ localStorage.setItem(DKEY(key), JSON.stringify({values, ts:nowTs()})); }catch(e){} }
+function loadDraft(key){ try{ const r=localStorage.getItem(DKEY(key)); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function clearDraft(key){ try{ localStorage.removeItem(DKEY(key)); }catch(e){} }
+
+/* ── render root ───────────────────────────────── */
+function render(){
+  const p = persona();
+  let html = protoBar(p);
+  if(p.kind==="admin") html += adminShell(p);
+  else html += partnerShell(p);
+  if(state.modal) html += renderModal(p);
+  $("#app").innerHTML = html;
+  if(state.focusId){
+    const el = document.getElementById(state.focusId);
+    if(el){ el.focus(); if(el.setSelectionRange && el.type!=="search"){} if(el.type==="search"||el.type==="text"){ const v=el.value; el.setSelectionRange && el.setSelectionRange(v.length,v.length);} }
+    state.focusId=null;
+  }
+}
+
+function protoBar(p){
+  const opts = [
+    '<option value="admin"'+(state.persona==="admin"?" selected":"")+'>SANCI Admin (desktop)</option>',
+    ...db.users.filter(u=>u.status==="ACTIVE").map(u=>{
+      const b=branch(u.branch_id), pa=partner(u.partner_id);
+      return '<option value="'+u.id+'"'+(state.persona===u.id?" selected":"")+'>'+esc(u.name)+" — "+esc(pa.name)+" · "+esc(b.name)+"</option>";
+    })
+  ].join("");
+  return '<div class="protobar">'
+    +'<span class="tag">UI Prototype · mock data · not connected</span>'
+    +'<label>Login as <select data-ch="persona">'+opts+'</select></label>'
+    +'<label><input type="checkbox" data-ch="offline"'+(state.offline?" checked":"")+'> Simulate offline</label>'
+    +(state.offline?'<span class="offline-note">Offline — submissions stay on this device</span>':"")
+    +(db.outbox.length&&!state.offline?'<span class="offline-note">'+db.outbox.length+' pending sync</span>':"")
+    +'<button class="reset" data-act="reset">Reset demo data</button>'
+    +'</div>';
+}
+
+/* ── admin shell ───────────────────────────────── */
+function adminShell(p){
+  const r = state.route;
+  const nav = [
+    {v:"partners", label:"Partners"},
+    {v:"loginusers", label:"Login users"}
+  ];
+  let main = "";
+  if(r.v==="partners") main = viewPartnerList(p);
+  else if(r.v==="partner") main = viewPartnerDetail(p, r.id, r.tab||"overview");
+  else if(r.v==="branch") main = viewBranchDetail(p, r.id, r.tab||"overview");
+  else if(r.v==="loginusers") main = viewLoginUsers(p);
+  else main = viewPartnerList(p);
+  return '<div class="shell">'
+    +'<nav class="side">'
+      +'<div class="brand"><span class="serif word">SANCI</span><span class="sub">Partner Hub</span></div>'
+      +nav.map(n=>'<button class="navlink'+((r.v===n.v||(n.v==="partners"&&(r.v==="partner"||r.v==="branch")))?" on":"")+'" data-act="nav" data-v="'+n.v+'">'+n.label+"</button>").join("")
+      +'<div class="foot">Phase 1 — Partner Module.<br>Future modules (Orders, Customers, Warehouse, Delivery) are not built yet and are deliberately not shown.</div>'
+    +'</nav>'
+    +'<main class="main">'+main+"</main>"
+    +"</div>";
+}
+
+/* ── P-01 partner list ─────────────────────────── */
+function partnerMatches(pa){
+  const q = state.q.trim().toLowerCase();
+  let mBranch = null;
+  if(q){
+    const hit = pa.name.toLowerCase().includes(q) || pa.code.toLowerCase().includes(q);
+    const bs = branchesOf(pa.id).filter(b=> b.name.toLowerCase().includes(q) || b.code.toLowerCase().includes(q));
+    if(!hit && !bs.length) return null;
+    if(!hit && bs.length) mBranch = bs[0];
+  }
+  if(state.fStatus!=="ALL" && pa.status!==state.fStatus) return null;
+  if(state.fAccess!=="ALL"){
+    const pol = db.policies[pa.id];
+    const acc = pol.visibility==="PARTNER_ALL_BRANCHES" ? "SAME" : "OWN";
+    if(acc!==state.fAccess) return null;
+  }
+  return {pa, mBranch};
+}
+
+function viewPartnerList(){
+  const rows = db.partners.map(partnerMatches).filter(Boolean);
+  let body="";
+  if(state.listDemo==="loading"){
+    body = '<div class="tablewrap"><table><thead>'+listHead()+'</thead><tbody>'
+      + [1,2,3].map(()=>'<tr>'+'<td><div class="skel" style="width:180px"></div></td><td><div class="skel" style="width:30px"></div></td><td><div class="skel" style="width:30px"></div></td><td><div class="skel" style="width:120px"></div></td><td><div class="skel" style="width:70px"></div></td><td></td>'+"</tr>").join("")
+      +"</tbody></table></div>";
+  } else if(state.listDemo==="error"){
+    body = '<div class="card"><div class="emptybox">Partners could not be loaded.<br><br><button class="btn" data-act="demoState" data-s="normal">Retry</button></div></div>';
+  } else if(state.listDemo==="empty" || (!rows.length && !db.partners.length)){
+    body = '<div class="card"><div class="emptybox">No partners yet.<br><br><button class="btn primary" data-act="openModal" data-m="addPartner">+ Add partner</button></div></div>';
+  } else if(!rows.length){
+    body = '<div class="card"><div class="emptybox">No partners match "'+esc(state.q)+'".</div></div>';
+  } else {
+    body = '<div class="tablewrap"><table><thead>'+listHead()+"</thead><tbody>"
+      + rows.map(r=>{
+          const pol=db.policies[r.pa.id];
+          return '<tr class="rowlink" data-act="nav" data-v="partner" data-id="'+r.pa.id+'">'
+          +'<td><div class="pname"><span class="logo '+r.pa.lc+'">'+esc(r.pa.code)+'</span><span><div class="nm">'+esc(r.pa.name)+'</div><div class="sub"><span class="code">'+esc(r.pa.code)+"</span>"
+          +(r.mBranch?' &nbsp;<span class="muted small">Matching branch: '+esc(r.mBranch.name)+"</span>":"")
+          +"</div></span></div></td>"
+          +'<td class="num">'+branchesOf(r.pa.id).filter(b=>b.status==="ACTIVE").length+"</td>"
+          +'<td class="num">'+usersOf(r.pa.id).filter(u=>u.status==="ACTIVE").length+"</td>"
+          +"<td>"+esc(vlabel(pol))+"</td>"
+          +'<td><span class="chip '+r.pa.status+'">'+r.pa.status+"</span></td>"
+          +'<td style="text-align:right"><span class="linkbtn">Open</span></td>'
+          +"</tr>";
+        }).join("")
+      +"</tbody></table></div>"
+      /* mobile cards */
+      +'<div class="mcards">'
+      + rows.map(r=>'<div class="mcard rowlink" data-act="nav" data-v="partner" data-id="'+r.pa.id+'">'
+          +'<div class="r1"><div class="pname"><span class="logo '+r.pa.lc+'">'+esc(r.pa.code)+'</span><span class="nm">'+esc(r.pa.name)+'</span></div><span class="chip '+r.pa.status+'">'+r.pa.status+"</span></div>"
+          +'<div class="meta"><span>'+branchesOf(r.pa.id).filter(b=>b.status==="ACTIVE").length+" branches</span><span>"+usersOf(r.pa.id).filter(u=>u.status==="ACTIVE").length+" users</span><span>"+esc(vlabel(db.policies[r.pa.id]))+"</span></div>"
+          +(r.mBranch?'<div class="meta" style="margin-top:4px">Matching branch: '+esc(r.mBranch.name)+"</div>":"")
+          +"</div>").join("")
+      +"</div>";
+  }
+  const pendingCards = db.outbox.filter(o=>o.type==="partner").map(o=>
+    '<div class="banner warn" style="border:1.5px dashed var(--warn)"><b>'+esc(o.values.name)+"</b> — saved on this device, not submitted yet."
+    +(state.offline?" Will submit when back online.":' <button class="linkbtn" data-act="syncOutbox">Submit now</button>')+"</div>").join("");
+  return '<div class="pagehead"><h1>Partners</h1><button class="btn primary" data-act="openModal" data-m="addPartner">+ Add partner</button></div>'
+    + pendingCards
+    +'<div class="searchrow">'
+      +'<input id="psearch" type="search" placeholder="Search partner / branch / code…" value="'+esc(state.q)+'" data-in="q" aria-label="Search partners">'
+      +'<select data-ch="fStatus" aria-label="Filter by status"><option value="ALL">Status: all</option>'+["ACTIVE","DRAFT","SUSPENDED","INACTIVE"].map(s=>'<option'+(state.fStatus===s?" selected":"")+' value="'+s+'">'+s+"</option>").join("")+"</select>"
+      +'<select data-ch="fAccess" aria-label="Filter by access"><option value="ALL">Access: all</option><option value="OWN"'+(state.fAccess==="OWN"?" selected":"")+'>Own branch</option><option value="SAME"'+(state.fAccess==="SAME"?" selected":"")+'>Same partner</option></select>'
+    +"</div>"
+    + body
+    +'<p class="small muted" style="margin-top:14px">Prototype demo — list states: '
+      +["normal","loading","empty","error"].map(s=>'<button class="linkbtn" data-act="demoState" data-s="'+s+'">'+s+"</button>").join(" · ")
+    +"</p>";
+}
+function listHead(){ return "<tr><th>Brand</th><th>Branches</th><th>Users</th><th>Access</th><th>Status</th><th></th></tr>"; }
+
+/* ── P-03 partner detail ───────────────────────── */
+function activationGate(pa){
+  const checks = [
+    {ok:!!pa.name, label:"Partner name"},
+    {ok:!!pa.code, label:"Partner code"},
+    {ok:branchesOf(pa.id).some(b=>b.status==="ACTIVE"), label:"At least 1 active branch"},
+    {ok:usersOf(pa.id).some(u=>u.status==="ACTIVE"), label:"At least 1 active login user"},
+    {ok:db.policies[pa.id].configured, label:"Permissions configured"}
+  ];
+  return {checks, pass:checks.every(c=>c.ok)};
+}
+
+function viewPartnerDetail(p, id, tab){
+  const pa = partner(id);
+  if(!pa) return '<div class="emptybox">Partner not found.</div>';
+  const bs = branchesOf(id), us = usersOf(id), pol = db.policies[id];
+  const tabs = ["overview","branches","users","permissions","history"];
+  const tabbar = '<div class="tabs">'+tabs.map(t=>'<button class="tab'+(t===tab?" on":"")+'" data-act="nav" data-v="partner" data-id="'+id+'" data-tab="'+t+'">'+t[0].toUpperCase()+t.slice(1)+"</button>").join("")+"</div>";
+  let body="";
+
+  if(tab==="overview"){
+    const gate = activationGate(pa);
+    body = '<div class="cardgrid two">'
+      +'<div class="card"><h3 style="font-size:17px;margin-bottom:14px">Partner information</h3>'
+        +'<dl class="kv">'
+        +'<dt>Code</dt><dd><span class="code">'+esc(pa.code)+"</span>"+(pa.status!=="DRAFT"?' <span class="small muted">locked while '+pa.status+"</span>":"")+"</dd>"
+        +"<dt>Status</dt><dd><span class=\"chip "+pa.status+'">'+pa.status+"</span></dd>"
+        +"<dt>Contact</dt><dd>"+esc(pa.contact_name||"—")+"</dd>"
+        +"<dt>WhatsApp</dt><dd>"+esc(pa.contact_phone||"—")+"</dd>"
+        +"<dt>Created</dt><dd>"+esc(pa.created_at)+"</dd>"
+        +"</dl>"
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'
+        +'<button class="btn sm" data-act="openModal" data-m="editPartner" data-id="'+id+'">Edit</button>'
+        +(pa.status==="ACTIVE"?'<button class="btn sm" data-act="suspendPartner" data-id="'+id+'">Suspend</button>':"")
+        +(pa.status==="SUSPENDED"?'<button class="btn sm" data-act="reactivatePartner" data-id="'+id+'">Reactivate</button>':"")
+        +((pa.status==="ACTIVE"||pa.status==="SUSPENDED")?'<button class="btn sm danger" data-act="openModal" data-m="deactivatePartner" data-id="'+id+'">End partnership</button>':"")
+        +(pa.status==="DRAFT"?'<button class="btn sm danger" data-act="openModal" data-m="deletePartner" data-id="'+id+'">Delete draft</button>':"")
+        +"</div></div>"
+      +'<div>'
+      +(pa.status==="DRAFT"
+        ? '<div class="card"><h3 style="font-size:17px;margin-bottom:12px">Activation checklist</h3>'
+          +'<ul class="gate">'+gate.checks.map(c=>'<li class="'+(c.ok?"yes":"no")+'">'+(c.ok?"✓ ":"○ ")+esc(c.label)+"</li>").join("")+"</ul>"
+          +'<div style="margin-top:16px"><button class="btn primary" data-act="activatePartner" data-id="'+id+'"'+(gate.pass?"":" disabled")+">Activate partner</button>"
+          +(gate.pass?"":'<div class="hint small muted" style="margin-top:8px">Complete every item above to activate.</div>')+"</div></div>"
+        : '<div class="card"><h3 style="font-size:17px;margin-bottom:12px">Branches</h3>'+branchMiniList(bs)+"</div>")
+      +"</div></div>";
+  }
+  if(tab==="branches"){
+    body = '<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn primary" data-act="openModal" data-m="addBranch" data-id="'+id+'">+ Add branch</button></div>'
+      +'<div class="tablewrap"><table><thead><tr><th>Branch</th><th>Address</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>'
+      + (bs.length? bs.map(b=>'<tr class="rowlink" data-act="nav" data-v="branch" data-id="'+b.id+'">'
+          +'<td><div class="nm" style="font-weight:700">'+esc(b.name)+'</div><span class="code">'+esc(pa.code)+" / "+esc(b.code)+"</span></td>"
+          +"<td>"+esc(b.address)+(b.city?", "+esc(b.city):"")+(b.province?'<div class="small muted">'+esc(b.province)+"</div>":"")+"</td>"
+          +"<td>"+esc(b.contact_name||"—")+'<div class="small muted">'+esc(b.contact_phone||"")+"</div></td>"
+          +'<td><span class="chip '+b.status+'">'+b.status+"</span></td>"
+          +'<td style="text-align:right"><span class="linkbtn">Open</span></td></tr>').join("")
+        : '<tr><td colspan="5"><div class="emptybox">No branches yet.</div></td></tr>')
+      +"</tbody></table></div>"
+      +'<div class="mcards">'+bs.map(b=>'<div class="mcard rowlink" data-act="nav" data-v="branch" data-id="'+b.id+'"><div class="r1"><span style="font-weight:700">'+esc(b.name)+'</span><span class="chip '+b.status+'">'+b.status+'</span></div><div class="meta"><span class="code">'+esc(pa.code)+" / "+esc(b.code)+"</span><span>"+esc(b.city||"")+"</span></div></div>").join("")+"</div>";
+  }
+  if(tab==="users"){
+    body = userTable(us, id);
+  }
+  if(tab==="permissions"){
+    body = '<div class="card" style="max-width:560px">'
+      +'<h3 style="font-size:17px;margin-bottom:6px">Branch visibility</h3>'
+      +'<p class="small muted" style="margin-bottom:12px">Only SANCI Admin can change these settings. They apply to every login user of '+esc(pa.name)+".</p>"
+      +'<form data-form="permissions" data-id="'+id+'">'
+      +'<div class="radioset" style="margin-bottom:18px">'
+        +'<label><input type="radio" name="visibility" value="OWN_BRANCH"'+(pol.visibility==="OWN_BRANCH"?" checked":"")+'><span>Own branch only<div class="rd">Each branch sees only itself.</div></span></label>'
+        +'<label><input type="radio" name="visibility" value="PARTNER_ALL_BRANCHES"'+(pol.visibility==="PARTNER_ALL_BRANCHES"?" checked":"")+'><span>All same-partner branches<div class="rd">Every '+esc(pa.name)+" branch can see the others. Never other partners.</div></span></label>"
+      +"</div>"
+      +'<h3 style="font-size:17px;margin-bottom:6px">Other-branch access</h3>'
+      +'<div class="radioset">'
+        +'<label><input type="radio" name="edit" value="OWN_BRANCH"'+(pol.edit==="OWN_BRANCH"?" checked":"")+'><span>View only<div class="rd">Other branches are read-only.</div></span></label>'
+        +'<label><input type="radio" name="edit" value="PARTNER_ALL_BRANCHES"'+(pol.edit==="PARTNER_ALL_BRANCHES"?" checked":"")+'><span>View + edit<div class="rd">Staff of other branches can be managed too.</div></span></label>'
+      +"</div>"
+      +'<div style="margin-top:18px"><button class="btn primary" type="submit">Save permissions</button></div>'
+      +"</form>"
+      +'<p class="small muted" style="margin-top:14px">Selected-branches rules (e.g. Jakarta A ↔ Jakarta B only) are reserved for a later phase — the schema allows them, this screen does not yet.</p>'
+      +"</div>";
+  }
+  if(tab==="history"){
+    const list = db.audit.filter(a=>a.partner_id===id);
+    body = '<div class="card">'+auditList(list)+"</div>";
+  }
+  return '<div class="crumb"><button data-act="nav" data-v="partners">Partners</button> / '+esc(pa.name)+"</div>"
+    +'<div class="pagehead"><div class="pname"><span class="logo '+pa.lc+'" style="width:52px;height:52px;font-size:19px">'+esc(pa.code)+'</span>'
+    +"<span><h1>"+esc(pa.name)+'</h1><div class="sub"><span class="code">'+esc(pa.code)+"</span> · "+bs.length+" branches · "+us.filter(u=>u.status==="ACTIVE").length+' users</div></span></div>'
+    +'<span class="chip '+pa.status+'" style="font-size:14px;padding:5px 14px">'+pa.status+"</span></div>"
+    + tabbar + body;
+}
+
+function branchMiniList(bs){
+  if(!bs.length) return '<div class="emptybox" style="padding:24px">No branches yet.</div>';
+  return bs.map(b=>'<button class="biglink" style="box-shadow:none;margin-bottom:9px" data-act="nav" data-v="branch" data-id="'+b.id+'">'
+    +"<span>"+esc(b.name)+'<div class="small muted" style="font-weight:500">'+esc(b.address)+(b.city?", "+esc(b.city):"")+"</div></span>"
+    +'<span class="chip '+b.status+'">'+b.status+"</span></button>").join("");
+}
+
+function userTable(us, pid){
+  return '<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn primary" data-act="openModal" data-m="addUser" data-id="'+(pid||"")+'">+ Create login user</button></div>'
+    +'<div class="tablewrap"><table><thead><tr><th>Name</th>'+(pid?"":"<th>Partner</th>")+'<th>Branch</th><th>Linked staff</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>'
+    +(us.length? us.map(u=>{
+        const b=branch(u.branch_id), pa=partner(u.partner_id);
+        const st=u.staff_id?byId(db.staff,u.staff_id):null;
+        return "<tr>"
+        +'<td style="font-weight:650">'+esc(u.name)+"</td>"
+        +(pid?"":"<td>"+esc(pa.name)+"</td>")
+        +"<td>"+esc(b.name)+' <span class="code">'+esc(b.code)+"</span></td>"
+        +"<td>"+(st?esc(st.full_name):'<span class="muted">—</span>')+"</td>"
+        +"<td>"+esc(u.role)+"</td>"
+        +'<td><span class="chip '+(u.status==="ACTIVE"?"ACTIVE":"INACTIVE")+'">'+u.status+"</span></td>"
+        +'<td style="text-align:right">'+(u.status==="ACTIVE"
+            ?'<button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">Disable</button>'
+            :'<button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">Reactivate</button>')+"</td></tr>";
+      }).join("") : '<tr><td colspan="7"><div class="emptybox">No login users yet.</div></td></tr>')
+    +"</tbody></table></div>"
+    +'<div class="mcards">'+us.map(u=>{const b=branch(u.branch_id);return '<div class="mcard"><div class="r1"><span style="font-weight:700">'+esc(u.name)+'</span><span class="chip '+(u.status==="ACTIVE"?"ACTIVE":"INACTIVE")+'">'+u.status+'</span></div><div class="meta"><span>'+esc(b.name)+"</span><span>"+esc(u.role)+'</span></div><div class="ops" style="margin-top:9px"><button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">'+(u.status==="ACTIVE"?"Disable":"Reactivate")+"</button></div></div>";}).join("")+"</div>";
+}
+
+function viewLoginUsers(){
+  return '<div class="pagehead"><h1>Login users</h1></div>'
+    +'<p class="small muted" style="margin-bottom:16px">All partner login accounts. In Phase 1 only SANCI Admin creates and manages accounts; branches manage their own staff records separately.</p>'
+    + userTable(db.users, null);
+}
+
+/* ── P-05 branch detail ────────────────────────── */
+function viewBranchDetail(p, id, tab){
+  const b = branch(id); if(!b) return '<div class="emptybox">Branch not found.</div>';
+  const pa = partner(b.partner_id);
+  const tabs=["overview","staff","users","activity"];
+  const isAdmin = p.kind==="admin";
+  const tabbar='<div class="tabs">'+tabs.map(t=>'<button class="tab'+(t===tab?" on":"")+'" data-act="nav" data-v="branch" data-id="'+id+'" data-tab="'+t+'">'+t[0].toUpperCase()+t.slice(1)+"</button>").join("")+"</div>";
+  let body="";
+  if(tab==="overview"){
+    body='<div class="card" style="max-width:640px"><dl class="kv">'
+      +"<dt>Partner</dt><dd>"+esc(pa.name)+"</dd>"
+      +'<dt>Branch code</dt><dd><span class="code">'+esc(pa.code)+" / "+esc(b.code)+"</span></dd>"
+      +"<dt>Full address</dt><dd>"+esc(b.address)+"</dd>"
+      +"<dt>City</dt><dd>"+esc(b.city||"—")+"</dd>"
+      +"<dt>Province</dt><dd>"+esc(b.province||"—")+"</dd>"
+      +"<dt>Contact</dt><dd>"+esc(b.contact_name||"—")+"</dd>"
+      +"<dt>WhatsApp</dt><dd>"+esc(b.contact_phone||"—")+"</dd>"
+      +"<dt>Status</dt><dd><span class=\"chip "+b.status+'">'+b.status+"</span></dd>"
+      +"</dl>"
+      +(isAdmin?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'
+        +'<button class="btn sm" data-act="openModal" data-m="editBranch" data-id="'+id+'">Edit</button>'
+        +(b.status==="ACTIVE"?'<button class="btn sm danger" data-act="suspendBranch" data-id="'+id+'">Suspend</button>':"")
+        +(b.status==="SUSPENDED"?'<button class="btn sm" data-act="reactivateBranch" data-id="'+id+'">Reactivate</button>':"")
+        +"</div>":"")
+      +"</div>";
+  }
+  if(tab==="staff") body = staffSection(p, b);
+  if(tab==="users") body = userTable(usersOf(pa.id).filter(u=>u.branch_id===id), pa.id);
+  if(tab==="activity") body = '<div class="card">'+auditList(db.audit.filter(a=>a.branch_id===id))+"</div>";
+  return '<div class="crumb"><button data-act="nav" data-v="partners">Partners</button> / <button data-act="nav" data-v="partner" data-id="'+pa.id+'">'+esc(pa.name)+"</button> / "+esc(b.name)+"</div>"
+    +'<div class="pagehead"><span><h1>'+esc(b.name)+' Branch</h1><div class="muted" style="margin-top:4px">'+esc(pa.name)+" · "+esc(b.address)+(b.city?", "+esc(b.city):"")+"</div></span>"
+    +'<span class="chip '+b.status+'" style="font-size:14px;padding:5px 14px">'+b.status+"</span></div>"
+    + tabbar + body;
+}
+
+function staffSection(p, b){
+  const canEdit = canEditBranch(p, b);
+  const list = staffOfBranch(b.id);
+  const inactive = db.staff.filter(s=> s.partner_id===b.partner_id && s.status==="INACTIVE" && db.assignments.some(a=>a.staff_id===s.id && a.branch_id===b.id));
+  const note = canEdit ? "" : '<div class="banner info">View only — your account can edit '+esc(persona().kind==="partner"?persona().branch.name:"")+" only.</div>";
+  return note
+    +'<div style="display:flex;justify-content:flex-end;margin-bottom:14px">'
+      +(canEdit?'<button class="btn primary" data-act="openModal" data-m="addStaff" data-id="'+b.id+'">+ Add staff</button>':'<button class="btn primary" data-act="denyEdit">+ Add staff</button>')
+    +"</div>"
+    +(list.length? list.map(s=>{
+        const a=activeAssignment(s.id);
+        const hist=db.assignments.filter(x=>x.staff_id===s.id).sort((x,y)=>x.start_at<y.start_at?1:-1);
+        return '<div class="staffcard">'
+          +'<div class="row1"><span class="nm">'+esc(s.full_name)+'</span><span class="chip ACTIVE">ACTIVE</span></div>'
+          +'<div class="rl">'+esc(a.role)+" · "+esc(s.phone||"no phone")+"</div>"
+          +(hist.length>1?'<div class="small muted" style="margin-top:6px">History: '+hist.map(h=>esc(branch(h.branch_id).name)+" "+h.start_at.slice(0,4)+(h.end_at?"–"+h.end_at.slice(0,4):"–now")).join(" · ")+"</div>":"")
+          +'<div class="ops">'
+          +(canEdit
+            ? '<button class="btn sm" data-act="openModal" data-m="editStaff" data-id="'+s.id+'">Edit</button>'
+              +(p.kind==="admin"?'<button class="btn sm" data-act="openModal" data-m="transferStaff" data-id="'+s.id+'">Transfer</button>':"")
+              +'<button class="btn sm danger" data-act="deactStaff" data-id="'+s.id+'">Deactivate</button>'
+            : '<button class="btn sm" data-act="denyEdit">Edit</button>')
+          +"</div></div>";
+      }).join("") : '<div class="card"><div class="emptybox">No staff registered for this branch yet.</div></div>')
+    +(inactive.length? '<h3 style="font-size:15px;color:var(--ink2);margin:18px 0 10px">Former staff</h3>'
+        + inactive.map(s=>'<div class="staffcard" style="opacity:.75"><div class="row1"><span class="nm">'+esc(s.full_name)+'</span><span class="chip INACTIVE">INACTIVE</span></div><div class="rl">History preserved — records stay attributed to this person.</div></div>').join("") : "");
+}
+
+function auditList(list){
+  if(!list.length) return '<div class="emptybox">No activity recorded yet.</div>';
+  return '<ul class="audit">'+list.map(a=>{
+    return "<li><div class=\"aha\"><span class=\"act\">"+esc(a.action)+'</span><span>'+esc(a.actor)+'</span><span class="ts">'+esc(a.ts)+" · server time</span></div>"
+      +((a.before||a.after)?'<div class="diff">'+(a.before?esc(JSON.stringify(a.before))+" → ":"")+esc(JSON.stringify(a.after||{}))+"</div>":"")
+      +"</li>";
+  }).join("")+"</ul>"
+  +'<p class="small muted" style="margin-top:12px">Audit entries are append-only. Nobody edits or deletes them from the UI — not even SANCI Admin.</p>';
+}
+
+/* ── partner persona shell (P-09) ──────────────── */
+function partnerShell(p){
+  const r = state.route;
+  const visBranches = branchesOf(p.partner.id).filter(b=>canViewBranch(p,b));
+  let inner="";
+  if(r.v==="denied"){
+    return '<div class="denied"><div class="ic">⛔</div><h2>Access denied</h2>'
+      +"<p>This account belongs to <b>"+esc(p.partner.name)+" · "+esc(p.branch.name)+"</b>. Data of other partners can never be opened — even with a direct link.</p>"
+      +'<p class="small">In the real system this is enforced by the server and database (RLS), not by the app screen. The attempt is logged.</p>'
+      +'<button class="btn" data-act="nav" data-v="home" style="margin-top:12px">Back to home</button></div>';
+  }
+  if(r.v==="pstaff"){
+    const b = branch(r.id)||p.branch;
+    if(!canViewBranch(p,b)){
+      return '<div class="denied"><div class="ic">⛔</div><h2>Access denied</h2><p>Your visibility is set to own branch only. SANCI controls this setting.</p><button class="btn" data-act="nav" data-v="home" style="margin-top:12px">Back to home</button></div>';
+    }
+    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Home</button></div>'
+      +'<h2 class="mtitle">Staff — '+esc(b.name)+"</h2>"
+      +(b.id!==p.branch.id?'<div class="banner info" style="font-size:13.5px">Another '+esc(p.partner.name)+" branch. "+(canEditBranch(p,b)?"You can edit it (View + Edit policy).":"View only.")+"</div>":"")
+      + staffSection(p, b);
+  } else if(r.v==="pbranch"){
+    const b=p.branch;
+    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Home</button></div>'
+      +'<h2 class="mtitle">Branch profile</h2>'
+      +'<div class="card"><dl class="kv">'
+      +"<dt>Partner</dt><dd>"+esc(p.partner.name)+"</dd>"
+      +'<dt>Branch</dt><dd>'+esc(b.name)+' <span class="code">'+esc(p.partner.code)+" / "+esc(b.code)+"</span></dd>"
+      +"<dt>Address</dt><dd>"+esc(b.address)+"</dd><dt>City</dt><dd>"+esc(b.city||"—")+"</dd><dt>Province</dt><dd>"+esc(b.province||"—")+"</dd>"
+      +"<dt>WhatsApp</dt><dd>"+esc(b.contact_phone||"—")+"</dd></dl>"
+      +'<p class="small muted" style="margin-top:14px">Address or contact wrong? Ask SANCI Admin to update it. (Prototype note: branch self-editing is a decision for Jenzo.)</p></div>';
+  } else if(r.v==="pacct"){
+    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Home</button></div>'
+      +'<h2 class="mtitle">My account</h2>'
+      +'<div class="card"><dl class="kv">'
+      +"<dt>Name</dt><dd>"+esc(p.user.name)+"</dd>"
+      +"<dt>Login identity</dt><dd>"+esc(p.partner.name)+" · "+esc(p.branch.name)+"</dd>"
+      +"<dt>Role</dt><dd>"+esc(p.user.role)+"</dd>"
+      +"<dt>Visibility</dt><dd>"+esc(vlabel(p.policy))+"</dd>"
+      +'</dl><p class="small muted" style="margin-top:14px">Your branch identity is fixed by SANCI — there is no branch switcher. Accounts are created and managed by SANCI Admin.</p></div>';
+  } else {
+    /* home */
+    inner = '<div class="idcard">'
+      +'<div class="logos"><span class="logo '+p.partner.lc+'">'+esc(p.partner.code)+'</span><span class="x">×</span><span class="sanci serif">SANCI</span></div>'
+      +"<h2>"+esc(p.partner.name)+'</h2><div class="br">'+esc(p.branch.name)+" Branch</div>"
+      +'<div class="addr">'+esc(p.branch.address)+(p.branch.city?", "+esc(p.branch.city):"")+"</div>"
+      +"</div>"
+      +'<button class="biglink" data-act="nav" data-v="pstaff" data-id="'+p.branch.id+'"><span>Staff</span><span class="arrow">→</span></button>'
+      +(p.policy.visibility==="PARTNER_ALL_BRANCHES" && visBranches.length>1
+        ? '<div class="small muted" style="margin:2px 0 10px 4px">Other '+esc(p.partner.name)+" branches (SANCI allows same-partner visibility):</div>"
+          + visBranches.filter(b=>b.id!==p.branch.id).map(b=>'<button class="biglink" style="padding:13px 18px;font-size:15.5px" data-act="nav" data-v="pstaff" data-id="'+b.id+'"><span>'+esc(b.name)+' <span class="small muted">'+(canEditBranch(p,b)?"view + edit":"view only")+'</span></span><span class="arrow">→</span></button>').join("")
+        : "")
+      +'<button class="biglink" data-act="nav" data-v="pbranch"><span>Branch profile</span><span class="arrow">→</span></button>'
+      +'<button class="biglink" data-act="nav" data-v="pacct"><span>My account</span><span class="arrow">→</span></button>'
+      +'<p class="small muted" style="margin-top:18px;line-height:1.55">Orders, customers, warehouse and delivery are later phases — they are deliberately not shown yet.</p>'
+      +'<p class="small" style="margin-top:14px"><button class="linkbtn" data-act="tryOtherPartner">Security demo: try to open another partner’s data</button></p>';
+  }
+  return '<div class="pwrap">'+inner+"</div>";
+}
+
+/* ── modals ────────────────────────────────────── */
+function draftBanner(key){
+  const d = loadDraft(key);
+  if(!d) return "";
+  return '<div class="banner warn">Unsaved draft found ('+esc(d.ts)+'). <button class="linkbtn" data-act="draftContinue" data-k="'+esc(key)+'">Continue draft</button> · <button class="linkbtn" data-act="draftDiscard" data-k="'+esc(key)+'">Discard</button></div>';
+}
+function fval(m,k){ return esc((m.values&&m.values[k])||""); }
+
+function renderModal(p){
+  const m = state.modal;
+  let inner="";
+  if(m.type==="addPartner"||m.type==="editPartner"){
+    const editing = m.type==="editPartner";
+    const pa = editing? partner(m.id): null;
+    const locked = editing && pa.status!=="DRAFT";
+    inner = "<h2>"+(editing?"Edit partner":"Add partner")+"</h2>"
+      +(editing?"":draftBanner("addPartner"))
+      +(m.dupWarn?'<div class="banner warn">Possible duplicate found: <b>'+esc(m.dupWarn.name)+"</b>. <button class=\"linkbtn\" data-act=\"viewExisting\" data-id=\""+m.dupWarn.id+'">View existing partner</button> or continue if this is really a different company.</div>':"")
+      +'<form data-form="'+m.type+'"'+(editing?' data-id="'+m.id+'"':"")+">"
+      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_name">Partner name *</label><input id="f_name" type="text" name="name" value="'+(editing&&!m.values?esc(pa.name):fval(m,"name"))+'" autocomplete="off">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
+      +'<div class="field'+(m.errs&&m.errs.code?" invalid":"")+'"><label for="f_code">Partner code *</label><input id="f_code" type="text" name="code" value="'+(editing&&!m.values?esc(pa.code):fval(m,"code"))+'" style="text-transform:uppercase" autocomplete="off"'+(locked?" disabled":"")+">"
+        +(locked?'<div class="hint">Code is locked while the partner is '+pa.status+". Changing it needs a SANCI Super Admin change flow with reason + audit.</div>":'<div class="hint">2–8 characters, A–Z 0–9 and hyphen. Example: GH, GOLDEN, GH-ID. Branch codes live on branches, not here.</div>')
+        +(m.errs&&m.errs.code?'<div class="err">'+esc(m.errs.code)+"</div>":"")+"</div>"
+      +'<div class="field"><label>Logo</label><div class="hint" style="margin-top:0">Not wired in this prototype. Real build: PNG/JPG/WebP, compressed before upload; a failed logo never blocks partner creation.</div></div>'
+      +'<div class="field"><label for="f_contact">Contact person</label><input id="f_contact" type="text" name="contact_name" value="'+(editing&&!m.values?esc(pa.contact_name):fval(m,"contact_name"))+'"></div>'
+      +'<div class="field"><label for="f_phone">WhatsApp</label><input id="f_phone" type="tel" inputmode="tel" name="contact_phone" value="'+(editing&&!m.values?esc(pa.contact_phone):fval(m,"contact_phone"))+'"></div>'
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary"'+(m.saving?" disabled":"")+">"+(m.saving?"Saving…":(editing?"Save changes":"Create partner"))+"</button></div>"
+      +"</form>";
+  }
+  if(m.type==="addBranch"||m.type==="editBranch"){
+    const editing=m.type==="editBranch";
+    const b=editing?branch(m.id):null;
+    const pa=partner(editing?b.partner_id:m.id);
+    const v=(k,fb)=> m.values? fval(m,k) : (editing? esc(b[k]||"") : (fb||""));
+    inner="<h2>"+(editing?"Edit branch":"Add branch — "+esc(pa.name))+"</h2>"
+      +'<form data-form="'+m.type+'" data-id="'+(editing?m.id:m.id)+'">'
+      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_bname">Branch name *</label><input id="f_bname" type="text" name="name" value="'+v("name")+'">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
+      +'<div class="field'+(m.errs&&m.errs.code?" invalid":"")+'"><label for="f_bcode">Branch code *</label><input id="f_bcode" type="text" name="code" value="'+v("code")+'" style="text-transform:uppercase"><div class="hint">Unique within '+esc(pa.name)+" ("+esc(pa.code)+" / …). Another partner may reuse the same code.</div>"+(m.errs&&m.errs.code?'<div class="err">'+esc(m.errs.code)+"</div>":"")+"</div>"
+      +'<div class="field'+(m.errs&&m.errs.address?" invalid":"")+'"><label for="f_baddr">Full address *</label><textarea id="f_baddr" name="address">'+v("address")+"</textarea>"+(m.errs&&m.errs.address?'<div class="err">'+esc(m.errs.address)+"</div>":"")+"</div>"
+      +'<div class="field"><label for="f_bcity">City</label><input id="f_bcity" type="text" name="city" value="'+v("city")+'"></div>'
+      +'<div class="field"><label for="f_bprov">Province</label><input id="f_bprov" type="text" name="province" value="'+v("province")+'"></div>'
+      +'<div class="field"><label for="f_bcontact">Contact person</label><input id="f_bcontact" type="text" name="contact_name" value="'+v("contact_name")+'"></div>'
+      +'<div class="field"><label for="f_bphone">WhatsApp</label><input id="f_bphone" type="tel" inputmode="tel" name="contact_phone" value="'+v("contact_phone")+'"></div>'
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary">'+(editing?"Save changes":"Create branch")+"</button></div></form>";
+  }
+  if(m.type==="addStaff"||m.type==="editStaff"){
+    const editing=m.type==="editStaff";
+    const st=editing?byId(db.staff,m.id):null;
+    const b=editing?branch(activeAssignment(st.id).branch_id):branch(m.id);
+    const pa=partner(b.partner_id);
+    const curRole=editing?activeAssignment(st.id).role:"";
+    const dkey="addStaff_"+b.id;
+    const v=k=> m.values? fval(m,k) : (editing? esc(st[k]||"") : "");
+    inner="<h2>"+(editing?"Edit staff":"Add staff")+"</h2>"
+      +'<div class="banner info" style="font-size:13.5px">Branch: <b>'+esc(pa.name)+" · "+esc(b.name)+"</b> — taken from your login identity, not selectable. No accidental cross-branch entry.</div>"
+      +(editing?"":draftBanner(dkey))
+      +'<form data-form="'+m.type+'" data-id="'+(editing?m.id:b.id)+'">'
+      +'<div class="field'+(m.errs&&m.errs.full_name?" invalid":"")+'"><label for="f_sname">Full name *</label><input id="f_sname" type="text" name="full_name" value="'+v("full_name")+'">'+(m.errs&&m.errs.full_name?'<div class="err">'+esc(m.errs.full_name)+"</div>":"")+"</div>"
+      +'<div class="field"><label for="f_sphone">Phone</label><input id="f_sphone" type="tel" inputmode="tel" name="phone" value="'+v("phone")+'"></div>'
+      +'<div class="field"><label for="f_srole">Role *</label><select id="f_srole" name="role">'
+        +["Sales","Reception / CS","Manager","Other"].map(r=>'<option'+((m.values?m.values.role:curRole)===r?" selected":"")+">"+r+"</option>").join("")
+      +'</select><div class="hint">Business role at the store — separate from any system login permission.</div></div>'
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary"'+(m.saving?" disabled":"")+">"+(m.saving?"Saving…":(editing?"Save changes":"Add staff"))+"</button></div></form>";
+  }
+  if(m.type==="transferStaff"){
+    const st=byId(db.staff,m.id); const cur=activeAssignment(st.id); const pa=partner(st.partner_id);
+    inner="<h2>Transfer "+esc(st.full_name)+"</h2>"
+      +'<p class="small muted" style="margin-bottom:14px">Current: '+esc(branch(cur.branch_id).name)+" since "+esc(cur.start_at)+". Transferring ends this assignment and starts a new one — history is never rewritten.</p>"
+      +'<form data-form="transferStaff" data-id="'+m.id+'">'
+      +'<div class="field"><label for="f_tbr">New branch *</label><select id="f_tbr" name="branch_id">'
+      +branchesOf(pa.id).filter(b=>b.id!==cur.branch_id&&b.status==="ACTIVE").map(b=>"<option value=\""+b.id+'">'+esc(b.name)+"</option>").join("")
+      +"</select></div>"
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary">Transfer</button></div></form>';
+  }
+  if(m.type==="addUser"){
+    const pid=m.id||db.partners[0].id;
+    const pa=partner(pid);
+    const bs=branchesOf(pid).filter(b=>b.status==="ACTIVE");
+    const selB = m.values&&m.values.branch_id || (bs[0]&&bs[0].id);
+    const cand=staffOfBranch(selB||"").filter(s=>!db.users.some(u=>u.staff_id===s.id));
+    inner="<h2>Create login user</h2>"
+      +'<form data-form="addUser" data-id="'+pid+'">'
+      +'<div class="field"><label for="f_upartner">Partner</label><select id="f_upartner" data-ch="modalPartner">'+db.partners.filter(x=>x.status!=="INACTIVE").map(x=>'<option value="'+x.id+'"'+(x.id===pid?" selected":"")+">"+esc(x.name)+"</option>").join("")+"</select></div>"
+      +'<div class="field"><label for="f_ubranch">Branch *</label><select id="f_ubranch" name="branch_id" data-ch="modalBranch">'+bs.map(b=>'<option value="'+b.id+'"'+(b.id===selB?" selected":"")+">"+esc(b.name)+"</option>").join("")+"</select>"
+      +(bs.length?"":'<div class="err">This partner has no active branch yet — add a branch first.</div>')+"</div>"
+      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_uname">Name *</label><input id="f_uname" type="text" name="name" value="'+fval(m,"name")+'">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
+      +'<div class="field"><label for="f_ustaff">Link to staff (optional)</label><select id="f_ustaff" name="staff_id"><option value="">— none —</option>'+cand.map(s=>'<option value="'+s.id+'"'+((m.values&&m.values.staff_id)===s.id?" selected":"")+">"+esc(s.full_name)+"</option>").join("")+'</select><div class="hint">A staff member may exist without a login; a login may exist without a staff record.</div></div>'
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary"'+(bs.length?"":" disabled")+">Create user</button></div></form>";
+  }
+  if(m.type==="deletePartner"){
+    const pa=partner(m.id);
+    const empty = !branchesOf(m.id).length && !usersOf(m.id).length && !db.staff.some(s=>s.partner_id===m.id);
+    inner="<h2>Delete "+esc(pa.name)+"?</h2>"
+      +(empty
+        ? '<p style="margin-bottom:12px">This partner is a DRAFT with no branches, users or staff, so permanent deletion is allowed.</p>'
+          +'<div class="field"><label for="f_del">Type <span class="code">'+esc(pa.code)+"</span> to permanently delete "+esc(pa.name)+'</label><input id="f_del" type="text" autocomplete="off" style="text-transform:uppercase"></div>'
+          +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn danger" data-act="confirmDelete" data-id="'+m.id+'">Permanently delete</button></div>'
+        : '<div class="banner bad">This partner already has branches, users or staff. Hard delete is not allowed — deactivate instead, history stays intact.</div>'
+          +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Close</button></div>');
+  }
+  if(m.type==="deactivatePartner"){
+    const pa=partner(m.id);
+    inner="<h2>End partnership with "+esc(pa.name)+"?</h2>"
+      +'<p style="margin-bottom:6px">Status becomes <b>INACTIVE</b>. All branches, staff and history are preserved. Login users lose access.</p>'
+      +'<p class="small muted">Master data is never hard-deleted once used.</p>'
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn danger" data-act="confirmDeactivate" data-id="'+m.id+'">End partnership</button></div>';
+  }
+  return '<div class="overlay" data-act="overlayClose"><div class="modal" role="dialog" aria-modal="true">'+inner+"</div></div>";
+}
+
+/* ── validation ────────────────────────────────── */
+function validatePartner(values, selfId){
+  const errs={};
+  if(!values.name.trim()) errs.name="Partner name is required.";
+  const code=values.code.trim().toUpperCase();
+  if(!code) errs.code="Partner code is required.";
+  else if(!/^[A-Z0-9-]{2,8}$/.test(code)) errs.code="2–8 characters, A–Z, 0–9 and hyphen only.";
+  else if(db.partners.some(x=>x.code===code&&x.id!==selfId)) errs.code="Partner code "+code+" is already in use.";
+  return {errs, code};
+}
+function dupPartnerName(name, selfId){
+  const n=name.trim().toLowerCase();
+  return db.partners.find(x=>x.id!==selfId && x.name.trim().toLowerCase()===n);
+}
+
+/* ── actions ───────────────────────────────────── */
+const ACTS = {
+  nav(d){ state.route={v:d.v, id:d.id, tab:d.tab}; state.modal=null; render(); },
+  reset(){ db=seedData(); state.route={v: persona().kind==="admin" ? "partners" : "home"}; state.q=""; state.modal=null; ["addPartner"].forEach(clearDraft); db.branches.forEach(b=>clearDraft("addStaff_"+b.id)); toast("Demo data reset."); render(); },
+  demoState(d){ state.listDemo=d.s; render(); },
+  openModal(d){ state.modal={type:d.m, id:d.id}; render(); },
+  closeModal(){ state.modal=null; render(); },
+  overlayClose(d, el){ /* click outside */ },
+  viewExisting(d){ state.modal=null; state.route={v:"partner", id:d.id}; render(); },
+
+  draftContinue(d){ const dr=loadDraft(d.k); if(dr){ state.modal.values=dr.values; } render(); },
+  draftDiscard(d){ clearDraft(d.k); render(); toast("Draft discarded."); },
+
+  activatePartner(d){
+    const pa=partner(d.id); const gate=activationGate(pa);
+    if(!gate.pass){ toast("Cannot activate — checklist incomplete.", true); return; }
+    audit("PARTNER_STATUS_CHANGED","partner",pa.id,pa.id,null,{status:pa.status},{status:"ACTIVE"});
+    pa.status="ACTIVE"; toast(pa.name+" is now ACTIVE."); render();
+  },
+  suspendPartner(d){ const pa=partner(d.id); audit("PARTNER_STATUS_CHANGED","partner",pa.id,pa.id,null,{status:pa.status},{status:"SUSPENDED"}); pa.status="SUSPENDED"; toast(pa.name+" suspended. Data preserved."); render(); },
+  reactivatePartner(d){ const pa=partner(d.id); audit("PARTNER_STATUS_CHANGED","partner",pa.id,pa.id,null,{status:pa.status},{status:"ACTIVE"}); pa.status="ACTIVE"; toast(pa.name+" reactivated."); render(); },
+  confirmDeactivate(d){ const pa=partner(d.id); audit("PARTNER_DEACTIVATED","partner",pa.id,pa.id,null,{status:pa.status},{status:"INACTIVE"}); pa.status="INACTIVE"; state.modal=null; toast("Partnership with "+pa.name+" ended. History preserved."); render(); },
+  confirmDelete(d){
+    const pa=partner(d.id); const typed=($("#f_del")&&$("#f_del").value||"").trim().toUpperCase();
+    if(typed!==pa.code){ toast("Type "+pa.code+" exactly to confirm.", true); return; }
+    db.partners=db.partners.filter(x=>x.id!==d.id); delete db.policies[d.id];
+    state.modal=null; state.route={v:"partners"}; toast("Draft partner deleted."); render();
+  },
+
+  suspendBranch(d){ const b=branch(d.id); audit("BRANCH_STATUS_CHANGED","branch",b.id,b.partner_id,b.id,{status:b.status},{status:"SUSPENDED"}); b.status="SUSPENDED"; toast(b.name+" branch suspended. History preserved."); render(); },
+  reactivateBranch(d){ const b=branch(d.id); audit("BRANCH_STATUS_CHANGED","branch",b.id,b.partner_id,b.id,{status:b.status},{status:"ACTIVE"}); b.status="ACTIVE"; toast(b.name+" branch reactivated."); render(); },
+
+  deactStaff(d){
+    const s=byId(db.staff,d.id); const a=activeAssignment(s.id);
+    audit("STAFF_DEACTIVATED","staff",s.id,s.partner_id,a?a.branch_id:null,{status:s.status},{status:"INACTIVE"});
+    s.status="INACTIVE"; if(a){ a.end_at=nowTs().slice(0,10); a.status="ENDED"; }
+    toast(s.full_name+" deactivated. History stays."); render();
+  },
+  toggleUser(d){
+    const u=byId(db.users,d.id); const to=u.status==="ACTIVE"?"DISABLED":"ACTIVE";
+    audit(to==="DISABLED"?"USER_DISABLED":"USER_REACTIVATED","user",u.id,u.partner_id,u.branch_id,{status:u.status},{status:to});
+    u.status=to; toast(u.name+(to==="DISABLED"?" disabled.":" reactivated.")); render();
+  },
+
+  denyEdit(){ toast("View only — your account can edit its own branch only.", true); },
+  tryOtherPartner(){ state.route={v:"denied"}; render(); },
+  syncOutbox(){ flushOutbox(); }
+};
+
+function flushOutbox(){
+  if(state.offline){ toast("Still offline — will submit when back online.", true); return; }
+  const items=db.outbox.splice(0);
+  items.forEach(o=>{
+    if(o.type==="partner") commitPartner(o.values);
+    if(o.type==="staff") commitStaff(o.branch_id, o.values);
+  });
+  if(items.length) toast(items.length+" pending item(s) submitted to server.");
+  render();
+}
+function commitPartner(values){
+  const {errs, code}=validatePartner(values,null);
+  if(Object.keys(errs).length){ toast("Pending partner could not be submitted: "+(errs.code||errs.name), true); return; }
+  const id=nid("p");
+  db.partners.push({id, name:values.name.trim(), code, status:"DRAFT", lc:"b3", contact_name:values.contact_name||"", contact_phone:values.contact_phone||"", created_at:nowTs().slice(0,10)});
+  db.policies[id]={visibility:"OWN_BRANCH", edit:"OWN_BRANCH", configured:false};
+  audit("PARTNER_CREATED","partner",id,id,null,null,{name:values.name.trim(), code});
+  clearDraft("addPartner");
+}
+function commitStaff(branch_id, values){
+  const b=branch(branch_id); const id=nid("s");
+  db.staff.push({id, partner_id:b.partner_id, full_name:values.full_name.trim(), phone:values.phone||"", status:"ACTIVE"});
+  db.assignments.push({id:nid("a"), staff_id:id, branch_id, role:values.role, start_at:nowTs().slice(0,10), end_at:null, status:"ACTIVE"});
+  audit("STAFF_CREATED","staff",id,b.partner_id,branch_id,null,{full_name:values.full_name.trim(), role:values.role});
+  clearDraft("addStaff_"+branch_id);
+}
+
+/* ── form submits ──────────────────────────────── */
+function formValues(form){
+  const v={};
+  form.querySelectorAll("input[name],select[name],textarea[name]").forEach(el=>{
+    if(el.type==="radio"){ if(el.checked) v[el.name]=el.value; }
+    else v[el.name]=el.value;
+  });
+  return v;
+}
+
+document.addEventListener("submit", e=>{
+  const form=e.target.closest("form[data-form]"); if(!form) return;
+  e.preventDefault();
+  const kind=form.dataset.form, fid=form.dataset.id;
+  const values=formValues(form);
+  const m=state.modal||{};
+
+  if(kind==="addPartner"){
+    const {errs, code}=validatePartner(values, null);
+    if(Object.keys(errs).length){ m.values=values; m.errs=errs; render(); return; }
+    const dup=dupPartnerName(values.name, null);
+    if(dup && !m.dupAck){ m.values=values; m.errs=null; m.dupWarn=dup; m.dupAck=true; render(); return; }
+    if(state.offline){
+      db.outbox.push({type:"partner", values:{...values, code}});
+      saveDraft("addPartner", values); clearDraft("addPartner");
+      state.modal=null; toast("Saved on this device — not submitted yet. Will submit when back online."); render(); return;
+    }
+    commitPartner(values);
+    const created=db.partners[db.partners.length-1];
+    state.modal=null; state.route={v:"partner", id:created.id};
+    toast("Partner created as DRAFT. Next: add the first branch."); render(); return;
+  }
+
+  if(kind==="editPartner"){
+    const pa=partner(fid);
+    const locked=pa.status!=="DRAFT";
+    const {errs, code}=validatePartner({name:values.name, code:locked?pa.code:values.code}, fid);
+    if(Object.keys(errs).length){ m.values=values; m.errs=errs; render(); return; }
+    const before={name:pa.name, code:pa.code, contact_name:pa.contact_name, contact_phone:pa.contact_phone};
+    pa.name=values.name.trim(); if(!locked) pa.code=code;
+    pa.contact_name=values.contact_name; pa.contact_phone=values.contact_phone;
+    audit("PARTNER_UPDATED","partner",pa.id,pa.id,null,before,{name:pa.name, code:pa.code, contact_name:pa.contact_name, contact_phone:pa.contact_phone});
+    state.modal=null; toast("Partner updated."); render(); return;
+  }
+
+  if(kind==="addBranch"){
+    const pa=partner(fid); const errs={};
+    const code=values.code.trim().toUpperCase();
+    if(!values.name.trim()) errs.name="Branch name is required.";
+    if(!code) errs.code="Branch code is required.";
+    else if(!/^[A-Z0-9-]{2,8}$/.test(code)) errs.code="2–8 characters, A–Z, 0–9 and hyphen only.";
+    else if(db.branches.some(b=>b.partner_id===fid&&b.code===code)) errs.code="Branch code "+pa.code+" / "+code+" already exists.";
+    if(!values.address.trim()) errs.address="Full address is required.";
+    if(Object.keys(errs).length){ m.values=values; m.errs=errs; render(); return; }
+    const id=nid("b");
+    db.branches.push({id, partner_id:fid, name:values.name.trim(), code, address:values.address.trim(), city:values.city, province:values.province, contact_name:values.contact_name, contact_phone:values.contact_phone, status:"ACTIVE"});
+    audit("BRANCH_CREATED","branch",id,fid,id,null,{name:values.name.trim(), code});
+    state.modal=null; state.route={v:"branch", id}; toast("Branch created."); render(); return;
+  }
+
+  if(kind==="editBranch"){
+    const b=branch(fid); const errs={};
+    if(!values.name.trim()) errs.name="Branch name is required.";
+    if(!values.address.trim()) errs.address="Full address is required.";
+    if(Object.keys(errs).length){ m.values=values; m.errs=errs; render(); return; }
+    const before={name:b.name, address:b.address};
+    Object.assign(b,{name:values.name.trim(), address:values.address.trim(), city:values.city, province:values.province, contact_name:values.contact_name, contact_phone:values.contact_phone});
+    audit("BRANCH_UPDATED","branch",b.id,b.partner_id,b.id,before,{name:b.name, address:b.address});
+    state.modal=null; toast("Branch updated."); render(); return;
+  }
+
+  if(kind==="addStaff"){
+    const b=branch(fid);
+    if(!canEditBranch(persona(), b)){ toast("View only — your account can edit its own branch only.", true); return; }
+    if(!values.full_name.trim()){ m.values=values; m.errs={full_name:"Full name is required."}; render(); return; }
+    if(state.offline){
+      db.outbox.push({type:"staff", branch_id:fid, values});
+      clearDraft("addStaff_"+fid);
+      state.modal=null; toast("Saved on this device — not submitted yet."); render(); return;
+    }
+    commitStaff(fid, values);
+    state.modal=null; toast("Staff added."); render(); return;
+  }
+
+  if(kind==="editStaff"){
+    const s=byId(db.staff,fid); const a=activeAssignment(s.id);
+    if(!values.full_name.trim()){ m.values=values; m.errs={full_name:"Full name is required."}; render(); return; }
+    const before={full_name:s.full_name, phone:s.phone, role:a.role};
+    s.full_name=values.full_name.trim(); s.phone=values.phone; a.role=values.role;
+    audit("STAFF_UPDATED","staff",s.id,s.partner_id,a.branch_id,before,{full_name:s.full_name, phone:s.phone, role:a.role});
+    state.modal=null; toast("Staff updated."); render(); return;
+  }
+
+  if(kind==="transferStaff"){
+    const s=byId(db.staff,fid); const cur=activeAssignment(s.id); const to=values.branch_id;
+    if(!to){ toast("No other active branch to transfer to.", true); return; }
+    cur.end_at=nowTs().slice(0,10); cur.status="ENDED";
+    db.assignments.push({id:nid("a"), staff_id:s.id, branch_id:to, role:cur.role, start_at:nowTs().slice(0,10), end_at:null, status:"ACTIVE"});
+    audit("STAFF_ASSIGNMENT_CHANGED","staff",s.id,s.partner_id,to,{branch:branch(cur.branch_id).name},{branch:branch(to).name});
+    state.modal=null; toast(s.full_name+" transferred to "+branch(to).name+". Old records keep their original branch."); render(); return;
+  }
+
+  if(kind==="addUser"){
+    const pid=fid;
+    if(!values.name.trim()){ m.values=values; m.errs={name:"Name is required."}; render(); return; }
+    const id=nid("u");
+    db.users.push({id, name:values.name.trim(), partner_id:pid, branch_id:values.branch_id, staff_id:values.staff_id||null, role:"Branch User", status:"ACTIVE"});
+    audit("USER_CREATED","user",id,pid,values.branch_id,null,{name:values.name.trim()});
+    state.modal=null; toast("Login user created."); render(); return;
+  }
+
+  if(kind==="permissions"){
+    const pol=db.policies[fid];
+    const before={visibility:pol.visibility, edit:pol.edit};
+    pol.visibility=values.visibility; pol.edit=values.edit; pol.configured=true;
+    audit("PERMISSION_CHANGED","policy",fid,fid,null,before,{visibility:pol.visibility, edit:pol.edit});
+    toast("Permissions saved. They take effect for every "+partner(fid).name+" login."); render(); return;
+  }
+});
+
+/* ── events: clicks / changes / input ──────────── */
+document.addEventListener("click", e=>{
+  const el=e.target.closest("[data-act]");
+  if(!el) return;
+  if(el.dataset.act==="overlayClose"){ if(e.target===el){ state.modal=null; render(); } return; }
+  const fn=ACTS[el.dataset.act];
+  if(fn){ e.preventDefault(); fn(el.dataset, el); }
+});
+document.addEventListener("change", e=>{
+  const el=e.target.closest("[data-ch]"); if(!el) return;
+  const k=el.dataset.ch;
+  if(k==="persona"){ state.persona=el.value; state.route={v: el.value==="admin" ? "partners" : "home"}; state.modal=null; render(); }
+  if(k==="offline"){ state.offline=el.checked; if(!state.offline) flushOutbox(); else render(); }
+  if(k==="fStatus"){ state.fStatus=el.value; render(); }
+  if(k==="fAccess"){ state.fAccess=el.value; render(); }
+  if(k==="modalPartner"){ state.modal.id=el.value; state.modal.values=null; render(); }
+  if(k==="modalBranch"){ if(state.modal){ const f=el.closest("form"); state.modal.values=Object.assign({}, f?formValues(f):state.modal.values, {branch_id:el.value}); render(); } }
+});
+document.addEventListener("input", e=>{
+  const el=e.target;
+  if(el.dataset && el.dataset.in==="q"){ state.q=el.value; state.focusId="psearch"; render(); return; }
+  /* draft autosave for add-partner / add-staff modals */
+  const form=el.closest && el.closest("form[data-form]");
+  if(!form) return;
+  if(form.dataset.form==="addPartner") saveDraft("addPartner", formValues(form));
+  if(form.dataset.form==="addStaff") saveDraft("addStaff_"+form.dataset.id, formValues(form));
+});
+
+render();
+</script>
