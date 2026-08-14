@@ -3,14 +3,13 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { CODE_RE } from "@/lib/validation";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> =
   | { data: T }
   | { error: ActionError }
   | { duplicate: { id: string; name: string } };
-
-const CODE_RE = /^[A-Z0-9-]{2,8}$/;
 
 export async function createPartner(input: {
   name: string;

@@ -110,6 +110,32 @@ tr:last-child td{border-bottom:none}
 .modal h2{font-size:19px;margin-bottom:14px}
 .btnrow{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
 
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 20px;overflow-x:auto}
+.tab{padding:9px 15px;font-size:15px;font-weight:650;color:var(--ink2);border-bottom:2.5px solid transparent;white-space:nowrap;text-decoration:none}
+.tab.on{color:var(--accent-2);border-bottom-color:var(--accent)}
+.tab:hover:not(.on){color:var(--ink)}
+
+.radioset{display:flex;flex-direction:column;gap:9px}
+.radioset label{display:flex;gap:10px;align-items:flex-start;font-weight:500;font-size:15px;cursor:pointer}
+.radioset input{margin-top:4px;accent-color:var(--accent)}
+.radioset .rd{font-size:13px;color:var(--ink2)}
+
+.field select,.field textarea{width:100%;padding:12px 13px;font-size:16px;border:1px solid var(--line2);border-radius:9px;background:var(--surface)}
+.field textarea{min-height:80px;resize:vertical;font-family:inherit}
+
+.staffcard{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:14px 15px;margin-bottom:10px}
+.staffcard .row1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.staffcard .nm{font-size:16px;font-weight:700}
+.staffcard .rl{font-size:13.5px;color:var(--ink2)}
+.staffcard .ops{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+
+.audit-list{list-style:none;display:flex;flex-direction:column}
+.audit-list li{padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.audit-list li:last-child{border-bottom:none}
+.audit-list .act{font-weight:750;font-size:12.5px;letter-spacing:.04em}
+.audit-list .ts{color:var(--faint);font-size:12.5px;margin-left:10px}
+.audit-list .diff{margin-top:4px;font-size:12.5px;color:var(--ink2);font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+
 .field.invalid input{border-color:var(--bad)}
 .err-text{font-size:13px;color:var(--bad);font-weight:600;margin-top:5px}
 .hint{font-size:13px;color:var(--ink2);margin-top:5px}
