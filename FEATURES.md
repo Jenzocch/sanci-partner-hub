@@ -43,6 +43,7 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | 20 | Responsive Desktop | `PROTOTYPE` | — | ≥1200 sidebar+滿版工作區；1920 不留巨大空白；字級規範（§50–51, 77） | 未驗證 |
 | 21 | Responsive Tablet | `PROTOTYPE` | — | 768–1199 重排，非縮小版（§55） | 未驗證 |
 | 22 | Responsive Mobile | `PROTOTYPE` | — | <768 單欄；輸入高 48–52px 字 ≥16px；360/390/430 無橫向捲動；inputmode 正確（§52–54, 76） | 未驗證 |
+| 23 | PWA Basics | `UNVERIFIED` | — | App shell cache；不做離線 master data CRUD；Permission/Delete/Activation 必須 Online（§85） | 2026-08-14 實作：`web/app/manifest.ts`（installable manifest，icons 192/512/maskable 512，用 sharp 產生的純色「S」圖示）＋ `web/app/icon.svg`（favicon）＋ `web/public/sw.js`（**只**攔截同源 GET：`_next/static`／`icons` 走 cache-first，因為是 hashed immutable 檔案；page navigation 走 network-first、離線才退到 `/offline`；其餘一律不攔截——非 GET／跨網域／RSC data fetch 全部直接放行，絕不快取 Supabase 資料，避免離線看到假成功或舊資料）＋ `web/app/offline/page.tsx`（純靜態、不呼叫 Supabase）＋ `web/app/sw-register.tsx`（註冊失敗不擋主流程）。**過程中發現並修正一個真 bug**：`middleware.ts` 原本的 matcher 沒排除 `sw.js`/`manifest.webmanifest`/`offline`，導致這三個路徑也被拉去跑 Supabase auth 檢查——本機測試沒有 Supabase env 時這三個路徑直接 500，等於離線後援機制本身依賴一個它應該要在離線時繞過的東西；已修 matcher 排除。**證據**：typecheck ✓ build ✓；`next start` 本機起服務後用 curl 逐一打 `/manifest.webmanifest`（200 application/manifest+json）、`/sw.js`（200 application/javascript）、`/offline`（200）、`/icon.svg`（200）、`/icons/icon-192.png`（200）全過；`/`（需要登入）本機無 Supabase env 仍 500，屬既有限制非本次改動造成。**未驗證**：真實瀏覽器「加到主畫面」安裝流程、Service Worker 實際離線攔截效果（navigator.onLine 場景）、Lighthouse PWA 分數——這些需要在 Vercel 上的真實 HTTPS 網址由 Jenzo 用手機/桌面瀏覽器測試，本環境的 `next start` 只能驗證路由本身有回應，無法驗證 SW 生命週期 |
 
 ## 基礎設施前置（阻塞真實作的項目）
 
@@ -69,8 +70,9 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 ## 待辦
 
 - [x] Jenzo 確認技術選型 → Next.js + Supabase（2026-08-14）
-- [ ] Jenzo 建立新 Supabase Project 並提供 URL + anon key（**阻塞真實作，唯一剩餘阻塞**）
+- [x] Jenzo 建立 Supabase Project 並提供 URL + anon key（2026-08-14；`atmlfbjbcwzsrsqibhan.supabase.co`）
 - [x] Jenzo 定 UI 主語言 → Bahasa Indonesia（2026-08-14）
 - [x] Prototype 驗收：Jenzo 確認 OK（2026-08-14；印尼文版待他再過目）
-- [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0003_partner_logo.sql`**（阻塞 Partner Logo；跑完回貼驗證結果）
-- [ ] 之後依 SPEC §90 順序實作（DB model → Auth → RLS → CRUD → … → Self audit）
+- [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0003_partner_logo.sql`**（阻塞 Partner Logo；跑完回貼驗證結果，見上方 #5 的四行期望值）
+- [ ] Jenzo 部署後用手機實際測「加到主畫面」＋離線開啟已看過的頁面，確認 PWA #23 的 Service Worker 真的生效（本環境只驗證到路由本身有回應，見上方 #23）
+- [ ] 之後依 SPEC §90 順序實作（Tests → Security test → Offline test → Self audit → Final verification）
