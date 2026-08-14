@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { updatePartner, setPartnerStatus, deleteDraftPartner } from "../../actions";
 
 type Partner = {
@@ -22,14 +23,25 @@ export default function PartnerActions({
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<null | "edit" | "deactivate" | "delete">(null);
-  const [busy, setBusy] = useState(false);
+  const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [deleteInput, setDeleteInput] = useState("");
   const locked = partner.status !== "DRAFT";
 
+  function openModal(which: "edit" | "deactivate" | "delete") {
+    reset();
+    setErrs({});
+    setModal(which);
+  }
+
+  function closeModal() {
+    reset();
+    setModal(null);
+  }
+
   async function onEdit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
+    if (!begin()) return;
     setErrs({});
     const fd = new FormData(e.currentTarget);
     const res = await updatePartner(partner.id, {
@@ -38,19 +50,20 @@ export default function PartnerActions({
       contactName: String(fd.get("contact_name") || ""),
       contactPhone: String(fd.get("contact_phone") || ""),
     });
-    setBusy(false);
     if ("error" in res) {
+      release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
       return;
     }
+    // Berhasil: tombol tetap nonaktif sampai modal tertutup dan data disegarkan.
     setModal(null);
     router.refresh();
   }
 
   async function onActivate() {
-    setBusy(true);
+    if (!begin()) return;
     const res = await setPartnerStatus(partner.id, "ACTIVE");
-    setBusy(false);
+    release();
     if ("error" in res) {
       alert(res.error.message);
       return;
@@ -59,24 +72,24 @@ export default function PartnerActions({
   }
 
   async function onSuspend() {
-    setBusy(true);
+    if (!begin()) return;
     await setPartnerStatus(partner.id, "SUSPENDED");
-    setBusy(false);
+    release();
     router.refresh();
   }
 
   async function onReactivate() {
-    setBusy(true);
+    if (!begin()) return;
     await setPartnerStatus(partner.id, "ACTIVE");
-    setBusy(false);
+    release();
     router.refresh();
   }
 
   async function onDeactivateConfirm() {
-    setBusy(true);
+    if (!begin()) return;
     const res = await setPartnerStatus(partner.id, "INACTIVE");
-    setBusy(false);
     if ("error" in res) {
+      release();
       alert(res.error.message);
       return;
     }
@@ -85,10 +98,10 @@ export default function PartnerActions({
   }
 
   async function onDeleteConfirm() {
-    setBusy(true);
+    if (!begin()) return;
     const res = await deleteDraftPartner(partner.id, deleteInput);
-    setBusy(false);
     if (res && "error" in res) {
+      release();
       setErrs({ _form: res.error.message });
       return;
     }
@@ -98,27 +111,21 @@ export default function PartnerActions({
   return (
     <>
       <div className="btnrow-inline">
-        <button
-          className="btn sm"
-          onClick={() => {
-            setErrs({});
-            setModal("edit");
-          }}
-        >
+        <button className="btn sm" onClick={() => openModal("edit")}>
           Ubah
         </button>
         {partner.status === "ACTIVE" && (
-          <button className="btn sm" onClick={onSuspend} disabled={busy}>
+          <button className="btn sm" onClick={onSuspend} disabled={submitting}>
             Tangguhkan
           </button>
         )}
         {partner.status === "SUSPENDED" && (
-          <button className="btn sm" onClick={onReactivate} disabled={busy}>
+          <button className="btn sm" onClick={onReactivate} disabled={submitting}>
             Aktifkan lagi
           </button>
         )}
         {(partner.status === "ACTIVE" || partner.status === "SUSPENDED") && (
-          <button className="btn sm danger" onClick={() => setModal("deactivate")}>
+          <button className="btn sm danger" onClick={() => openModal("deactivate")}>
             Akhiri kerja sama
           </button>
         )}
@@ -127,8 +134,7 @@ export default function PartnerActions({
             className="btn sm danger"
             onClick={() => {
               setDeleteInput("");
-              setErrs({});
-              setModal("delete");
+              openModal("delete");
             }}
           >
             Hapus draf
@@ -138,7 +144,7 @@ export default function PartnerActions({
 
       {partner.status === "DRAFT" && (
         <div style={{ marginTop: 16 }}>
-          <button className="btn primary" onClick={onActivate} disabled={!canActivate || busy}>
+          <button className="btn primary" onClick={onActivate} disabled={!canActivate || submitting}>
             Aktifkan partner
           </button>
           {!canActivate && (
@@ -150,7 +156,7 @@ export default function PartnerActions({
       )}
 
       {modal === "edit" && (
-        <div className="overlay" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+        <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
             <h2>Ubah Partner</h2>
             {errs._form && <div className="banner bad">{errs._form}</div>}
@@ -196,11 +202,11 @@ export default function PartnerActions({
                 />
               </div>
               <div className="btnrow">
-                <button type="button" className="btn" onClick={() => setModal(null)}>
+                <button type="button" className="btn" onClick={closeModal}>
                   Batal
                 </button>
-                <button type="submit" className="btn primary" disabled={busy}>
-                  {busy ? "Menyimpan…" : "Simpan"}
+                <button type="submit" className="btn primary" disabled={submitting}>
+                  {submitting ? "Menyimpan…" : "Simpan"}
                 </button>
               </div>
             </form>
@@ -209,18 +215,18 @@ export default function PartnerActions({
       )}
 
       {modal === "deactivate" && (
-        <div className="overlay" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+        <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
             <h2>Akhiri kerja sama dengan {partner.name}?</h2>
             <p style={{ marginBottom: 6 }}>
               Status menjadi <b>NONAKTIF</b>. Semua cabang, staf, dan riwayat tetap tersimpan.
             </p>
             <div className="btnrow">
-              <button type="button" className="btn" onClick={() => setModal(null)}>
+              <button type="button" className="btn" onClick={closeModal}>
                 Batal
               </button>
-              <button type="button" className="btn danger" onClick={onDeactivateConfirm} disabled={busy}>
-                Akhiri kerja sama
+              <button type="button" className="btn danger" onClick={onDeactivateConfirm} disabled={submitting}>
+                {submitting ? "Menyimpan…" : "Akhiri kerja sama"}
               </button>
             </div>
           </div>
@@ -228,7 +234,7 @@ export default function PartnerActions({
       )}
 
       {modal === "delete" && (
-        <div className="overlay" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+        <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
             <h2>Hapus {partner.name}?</h2>
             {errs._form && <div className="banner bad">{errs._form}</div>}
@@ -245,11 +251,11 @@ export default function PartnerActions({
               />
             </div>
             <div className="btnrow">
-              <button type="button" className="btn" onClick={() => setModal(null)}>
+              <button type="button" className="btn" onClick={closeModal}>
                 Batal
               </button>
-              <button type="button" className="btn danger" onClick={onDeleteConfirm} disabled={busy}>
-                Hapus permanen
+              <button type="button" className="btn danger" onClick={onDeleteConfirm} disabled={submitting}>
+                {submitting ? "Menghapus…" : "Hapus permanen"}
               </button>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { updatePolicy } from "../../actions-permissions";
 
 export default function PermissionsForm({
@@ -16,13 +17,13 @@ export default function PermissionsForm({
   editScope: string;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const { submitting, begin, release } = useSubmitGuard();
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
+    if (!begin()) return;
     setErr(null);
     setSaved(false);
     const fd = new FormData(e.currentTarget);
@@ -30,7 +31,7 @@ export default function PermissionsForm({
       visibilityScope: String(fd.get("visibility") || "OWN_BRANCH"),
       editScope: String(fd.get("edit") || "OWN_BRANCH"),
     });
-    setBusy(false);
+    release();
     if ("error" in res) {
       setErr(res.error.message);
       return;
@@ -93,8 +94,8 @@ export default function PermissionsForm({
           </label>
         </div>
         <div style={{ marginTop: 18 }}>
-          <button className="btn primary" type="submit" disabled={busy}>
-            {busy ? "Menyimpan…" : "Simpan hak akses"}
+          <button className="btn primary" type="submit" disabled={submitting}>
+            {submitting ? "Menyimpan…" : "Simpan hak akses"}
           </button>
         </div>
       </form>

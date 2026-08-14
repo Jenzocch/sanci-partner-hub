@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { updateBranch, setBranchStatus } from "../../../../actions-branches";
 
 type Branch = {
@@ -18,12 +19,23 @@ type Branch = {
 export default function BranchActions({ branch }: { branch: Branch }) {
   const router = useRouter();
   const [modal, setModal] = useState<null | "edit">(null);
-  const [busy, setBusy] = useState(false);
+  const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
+
+  function openEdit() {
+    reset();
+    setErrs({});
+    setModal("edit");
+  }
+
+  function closeModal() {
+    reset();
+    setModal(null);
+  }
 
   async function onEdit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
+    if (!begin()) return;
     setErrs({});
     const fd = new FormData(e.currentTarget);
     const res = await updateBranch(branch.id, {
@@ -34,42 +46,43 @@ export default function BranchActions({ branch }: { branch: Branch }) {
       contactName: String(fd.get("contact_name") || ""),
       contactPhone: String(fd.get("contact_phone") || ""),
     });
-    setBusy(false);
     if ("error" in res) {
+      release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
       return;
     }
+    // Berhasil: tombol tetap nonaktif sampai modal tertutup dan data disegarkan.
     setModal(null);
     router.refresh();
   }
 
   async function onToggleStatus() {
-    setBusy(true);
+    if (!begin()) return;
     await setBranchStatus(branch.id, branch.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE");
-    setBusy(false);
+    release();
     router.refresh();
   }
 
   return (
     <>
       <div className="btnrow-inline">
-        <button className="btn sm" onClick={() => { setErrs({}); setModal("edit"); }}>
+        <button className="btn sm" onClick={openEdit}>
           Ubah
         </button>
         {branch.status === "ACTIVE" && (
-          <button className="btn sm danger" onClick={onToggleStatus} disabled={busy}>
+          <button className="btn sm danger" onClick={onToggleStatus} disabled={submitting}>
             Tangguhkan
           </button>
         )}
         {branch.status === "SUSPENDED" && (
-          <button className="btn sm" onClick={onToggleStatus} disabled={busy}>
+          <button className="btn sm" onClick={onToggleStatus} disabled={submitting}>
             Aktifkan lagi
           </button>
         )}
       </div>
 
       {modal === "edit" && (
-        <div className="overlay" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+        <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
             <h2>Ubah Cabang</h2>
             {errs._form && <div className="banner bad">{errs._form}</div>}
@@ -101,11 +114,11 @@ export default function BranchActions({ branch }: { branch: Branch }) {
                 <input id="eb_phone" name="contact_phone" type="tel" defaultValue={branch.contact_phone || ""} />
               </div>
               <div className="btnrow">
-                <button type="button" className="btn" onClick={() => setModal(null)}>
+                <button type="button" className="btn" onClick={closeModal}>
                   Batal
                 </button>
-                <button type="submit" className="btn primary" disabled={busy}>
-                  {busy ? "Menyimpan…" : "Simpan"}
+                <button type="submit" className="btn primary" disabled={submitting}>
+                  {submitting ? "Menyimpan…" : "Simpan"}
                 </button>
               </div>
             </form>

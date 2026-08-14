@@ -2,18 +2,23 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { createPartner } from "./actions";
 
 export default function AddPartnerButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [dup, setDup] = useState<{ id: string; name: string } | null>(null);
   const requestId = useRef<string | null>(null);
 
   function openModal() {
-    requestId.current = crypto.randomUUID();
+    // Nomor permintaan hanya dibuat baru kalau belum ada. Kalau percobaan
+    // sebelumnya belum pasti berhasil (jaringan putus), nomor lama dipakai lagi
+    // supaya server mengenalinya dan tidak membuat baris kedua.
+    if (!requestId.current) requestId.current = crypto.randomUUID();
+    reset();
     setErrs({});
     setDup(null);
     setOpen(true);
@@ -21,8 +26,7 @@ export default function AddPartnerButton() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (busy) return;
-    setBusy(true);
+    if (!begin()) return;
     setErrs({});
     const fd = new FormData(e.currentTarget);
     const res = await createPartner({
@@ -33,15 +37,18 @@ export default function AddPartnerButton() {
       clientRequestId: requestId.current!,
       confirmDuplicate: !!dup,
     });
-    setBusy(false);
     if ("error" in res) {
+      release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
       return;
     }
     if ("duplicate" in res) {
+      release();
       setDup(res.duplicate);
       return;
     }
+    // Berhasil: tombol sengaja dibiarkan nonaktif sampai navigasi selesai.
+    requestId.current = null;
     setOpen(false);
     router.push(`/admin/partners/${res.data.id}`);
     router.refresh();
@@ -98,8 +105,8 @@ export default function AddPartnerButton() {
             <button type="button" className="btn" onClick={() => setOpen(false)}>
               Batal
             </button>
-            <button type="submit" className="btn primary" disabled={busy}>
-              {busy ? "Menyimpan…" : dup ? "Tetap Buat Partner" : "Buat Partner"}
+            <button type="submit" className="btn primary" disabled={submitting}>
+              {submitting ? "Menyimpan…" : dup ? "Tetap Buat Partner" : "Buat Partner"}
             </button>
           </div>
         </form>

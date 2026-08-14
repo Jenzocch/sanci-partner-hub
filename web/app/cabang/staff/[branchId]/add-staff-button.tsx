@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { createStaff } from "../../../admin/actions-staff";
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
@@ -15,20 +16,21 @@ export default function AddStaffButton({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const requestId = useRef<string | null>(null);
 
   function openModal() {
-    requestId.current = crypto.randomUUID();
+    // Nomor permintaan dipakai ulang bila percobaan sebelumnya belum pasti berhasil.
+    if (!requestId.current) requestId.current = crypto.randomUUID();
+    reset();
     setErrs({});
     setOpen(true);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (busy) return;
-    setBusy(true);
+    if (!begin()) return;
     setErrs({});
     const fd = new FormData(e.currentTarget);
     const res = await createStaff(branchId, {
@@ -37,11 +39,12 @@ export default function AddStaffButton({
       role: String(fd.get("role") || "Sales"),
       clientRequestId: requestId.current!,
     });
-    setBusy(false);
     if ("error" in res) {
+      release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
       return;
     }
+    requestId.current = null;
     setOpen(false);
     router.refresh();
   }
@@ -87,8 +90,8 @@ export default function AddStaffButton({
             <button type="button" className="btn" onClick={() => setOpen(false)}>
               Batal
             </button>
-            <button type="submit" className="btn primary" disabled={busy}>
-              {busy ? "Menyimpan…" : "Tambah Staf"}
+            <button type="submit" className="btn primary" disabled={submitting}>
+              {submitting ? "Menyimpan…" : "Tambah Staf"}
             </button>
           </div>
         </form>

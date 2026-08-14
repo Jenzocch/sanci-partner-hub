@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { updateStaff, deactivateStaff } from "../../../admin/actions-staff";
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
@@ -11,12 +12,23 @@ type Staff = { id: string; full_name: string; phone: string | null; role: string
 export default function StaffActions({ staff }: { staff: Staff }) {
   const router = useRouter();
   const [modal, setModal] = useState<null | "edit">(null);
-  const [busy, setBusy] = useState(false);
+  const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
+
+  function openEdit() {
+    reset();
+    setErrs({});
+    setModal("edit");
+  }
+
+  function closeModal() {
+    reset();
+    setModal(null);
+  }
 
   async function onEdit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
+    if (!begin()) return;
     setErrs({});
     const fd = new FormData(e.currentTarget);
     const res = await updateStaff(staff.id, {
@@ -24,20 +36,21 @@ export default function StaffActions({ staff }: { staff: Staff }) {
       phone: String(fd.get("phone") || ""),
       role: String(fd.get("role") || staff.role),
     });
-    setBusy(false);
     if ("error" in res) {
+      release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
       return;
     }
+    // Berhasil: tombol tetap nonaktif sampai modal tertutup dan data disegarkan.
     setModal(null);
     router.refresh();
   }
 
   async function onDeactivate() {
     if (!confirm(`Nonaktifkan ${staff.full_name}? Riwayat tetap tersimpan.`)) return;
-    setBusy(true);
+    if (!begin()) return;
     const res = await deactivateStaff(staff.id);
-    setBusy(false);
+    release();
     if ("error" in res) {
       alert(res.error.message);
       return;
@@ -48,16 +61,16 @@ export default function StaffActions({ staff }: { staff: Staff }) {
   return (
     <>
       <div className="ops">
-        <button className="btn sm" onClick={() => { setErrs({}); setModal("edit"); }}>
+        <button className="btn sm" onClick={openEdit}>
           Ubah
         </button>
-        <button className="btn sm danger" onClick={onDeactivate} disabled={busy}>
-          Nonaktifkan
+        <button className="btn sm danger" onClick={onDeactivate} disabled={submitting}>
+          {submitting ? "Menyimpan…" : "Nonaktifkan"}
         </button>
       </div>
 
       {modal === "edit" && (
-        <div className="overlay" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+        <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
             <h2>Ubah Staf</h2>
             {errs._form && <div className="banner bad">{errs._form}</div>}
@@ -82,11 +95,11 @@ export default function StaffActions({ staff }: { staff: Staff }) {
                 </select>
               </div>
               <div className="btnrow">
-                <button type="button" className="btn" onClick={() => setModal(null)}>
+                <button type="button" className="btn" onClick={closeModal}>
                   Batal
                 </button>
-                <button type="submit" className="btn primary" disabled={busy}>
-                  {busy ? "Menyimpan…" : "Simpan"}
+                <button type="submit" className="btn primary" disabled={submitting}>
+                  {submitting ? "Menyimpan…" : "Simpan"}
                 </button>
               </div>
             </form>
