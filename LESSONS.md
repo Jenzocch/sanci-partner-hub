@@ -77,6 +77,18 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **決策**：這把 key 一旦外洩等於繞過全部 RLS，是資料庫的最高權限；Jenzo 明確被告知不要貼到對話裡，這個環境也就沒有它。
 - **教訓**：這塊功能**目前技術上做不到**，UI 已誠實標示原因而非假裝有表單。要解鎖有兩條路：① Jenzo 到 Vercel 後台自己加 `SUPABASE_SERVICE_ROLE_KEY` 環境變數（不貼給我），我寫的 Server Action 從 `process.env` 讀，金鑰全程留在伺服器端不進瀏覽器；② 改用 Supabase Edge Function，金鑰整個留在 Supabase 那側。兩條路都需要 Jenzo 再做一次操作，不是程式碼問題。
 
+### 20. 防抖草稿要在「確認成功」時連 timer 一起取消，否則已排程的寫入會把剛清掉的草稿復活〔本專案 2026-08-14〕
+- **情境**：草稿自動存檔一定要防抖（每次按鍵都寫 localStorage 太吵），而清草稿的正確時機是「伺服器確認寫入成功」那一刻。兩件事湊在一起就有時間差。
+- **症狀**：使用者打完最後一個字（排程 800ms 後寫入草稿）立刻按 Simpan，伺服器 300ms 就回成功 → `clear()` 刪掉 key → 剩下的 500ms 到期，排程中的那次寫入把草稿**又寫回去**。下次打開表單會跳出「有未完成的草稿」，內容是剛剛已經成功存進 DB 的資料——使用者會以為存檔失敗。
+- **修法**：`clear()`（以及 `discard()`）第一件事就是 `clearTimeout`，不能只刪 storage key。
+- **教訓**：**任何「延後執行 + 之後清除狀態」的組合都要問一句「排程中的那一次會不會在清除之後才落地？」**這類 bug 只有在真的按下去、而且時機剛好時才會出現，靠讀 code 很容易漏掉——本輪是用假的 React/DOM/localStorage 跑「排程後立刻 clear」的斷言才釘住的。
+
+### 21. idempotency 欄位的 unique 衝突代表「上一次其實成功了」，不是「使用者填重複」〔本專案 2026-08-14〕
+- **情境**：`partners` 上同時有 `code` 和 `client_request_id` 兩個 unique constraint，兩者違反時 Postgres 都回 `23505`。
+- **症狀（原本的寫法）**：只判斷 `error.code === "23505"` 就顯示「Kode partner GH sudah dipakai.」。弱網重試時撞到的其實是 `client_request_id` 那條——資料明明已經好好存進去了，畫面卻告訴使用者代碼重複，逼他改代碼再存一次，於是真的多出一筆。
+- **修法**：`23505` 要再看 constraint 名稱（`isRequestIdConflict()` 檢查訊息裡有沒有 `client_request_id`）。是 idempotency 欄位就回頭用該 id 反查並回報**成功**，其他才是使用者的欄位錯誤。
+- **教訓**：**同一張表有多個 unique constraint 時，錯誤碼不足以判斷發生什麼事，要看是哪一條。**idempotency key 存在的意義就是讓重試安全；把它的衝突當成使用者錯誤，等於親手拆掉自己的防重複機制（呼應鐵律 3）。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
