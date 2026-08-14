@@ -31,6 +31,7 @@ export async function createStaff(
     .maybeSingle();
   if (existing) {
     revalidatePath(`/admin/partners/${branch.partner_id}/branches/${branchId}`);
+    revalidatePath(`/cabang/staff/${branchId}`);
     return { data: { id: existing.id } };
   }
 
@@ -58,6 +59,7 @@ export async function createStaff(
   }
 
   revalidatePath(`/admin/partners/${branch.partner_id}/branches/${branchId}`);
+  revalidatePath(`/cabang/staff/${branchId}`);
   return { data: { id: staff.id } };
 }
 
@@ -90,6 +92,7 @@ export async function updateStaff(
   revalidatePath(`/admin/partners/${staff.partner_id}`);
   if (assignment) {
     revalidatePath(`/admin/partners/${staff.partner_id}/branches/${assignment.branch_id}`);
+    revalidatePath(`/cabang/staff/${assignment.branch_id}`);
   }
   return { data: true };
 }
@@ -119,6 +122,7 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<tru
       .eq("staff_id", staffId)
       .is("end_at", null);
     revalidatePath(`/admin/partners/${staff.partner_id}/branches/${assignment.branch_id}`);
+    revalidatePath(`/cabang/staff/${assignment.branch_id}`);
   }
   revalidatePath(`/admin/partners/${staff.partner_id}`);
   return { data: true };

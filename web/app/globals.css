@@ -144,6 +144,26 @@ tr:last-child td{border-bottom:none}
 .banner.bad{background:var(--bad-bg);color:var(--bad)}
 .emptybox{padding:40px 16px;text-align:center;color:var(--ink2)}
 
+/* ── partner-persona (mobile-first) ────────────── */
+.pwrap{max-width:520px;margin:0 auto;padding:22px 16px 70px}
+.idcard{border-radius:15px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+.idcard .logos{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.idcard .logos .logo{width:40px;height:40px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:var(--on-accent);background:var(--accent)}
+.idcard .x{color:var(--faint);font-size:13px}
+.idcard .sanci{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line2);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;letter-spacing:.04em;color:var(--ink2)}
+.idcard h2{font-size:21px;line-height:1.25}
+.idcard .br{font-size:16px;font-weight:650;color:var(--accent-2);margin-top:2px}
+.idcard .addr{font-size:14.5px;color:var(--ink2);margin-top:8px;line-height:1.5}
+.biglink{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:17px 18px;font-size:17px;font-weight:650;margin-bottom:12px;text-align:left;text-decoration:none;color:inherit}
+.biglink .arrow{color:var(--faint)}
+.biglink:hover{background:var(--surface2)}
+.backrow{margin-bottom:14px}
+.mtitle{font-size:24px;margin-bottom:14px}
+.denied{max-width:520px;margin:8vh auto;text-align:center;padding:0 18px}
+.denied .ic{font-size:40px;margin-bottom:10px}
+.denied h2{font-size:22px;margin-bottom:10px}
+.denied p{color:var(--ink2);font-size:15.5px;margin-bottom:8px}
+
 .page{max-width:960px;margin:0 auto;padding:32px 20px}
 .page h1{font-size:26px;margin-bottom:4px}
 .page .sub{color:var(--ink2);margin-bottom:22px}
