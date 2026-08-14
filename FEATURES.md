@@ -50,8 +50,8 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 |---|---|---|
 | 技術選型 | **已定案** | Next.js + Supabase（Jenzo 2026-08-14 確認） |
 | Supabase Project | 已建立 | `atmlfbjbcwzsrsqibhan.supabase.co`，anon key 已提供（2026-08-14）。⚠️ 本開發環境網路白名單擋 supabase.co——AI 無法直連驗證，需 Jenzo 在 Claude Code 環境設定加 `*.supabase.co` |
-| DB Schema + RLS + Audit | `UNVERIFIED`(production) | `supabase/migrations/0001` 已寫成冪等 SQL；**已在本機 PG16 + auth stub 完整實測**（migration ×2、RLS 行為測試 14 項全過、抓到並修掉一個跨店名字洩漏）。**尚未套用到 production**——等 Jenzo 貼 SQL |
-| Admin 綁定 | `NOT_STARTED` | `migrations/0002`；等 Jenzo 建 auth user 後執行 |
+| DB Schema + RLS + Audit | **`VERIFIED`(production)** | `0001` 已在 production 執行成功，2026-08-14。Jenzo 回貼結果核對一致：TABLES 9 / RLS_ENABLED 9 / POLICIES 19 / TRIGGERS 12（與本機測試數字完全相符）。行為測試（14 項斷言）先前已在本機驗證過同一份 SQL |
+| Admin 綁定 | 待執行 | `migrations/0002`；等 Jenzo 建 auth user 後執行 |
 | Auth | `UNVERIFIED` | Email/password 登入流程已寫（web/），build 通過；無法連 DB 實測 |
 | App 骨架 | `UNVERIFIED` | `web/` Next.js 15：login、/admin smoke、/cabang 身份卡。typecheck ✓ build ✓；runtime 未驗證 |
 | Deployment | **NOT DEPLOYED** | SPEC §98：目前不部署 |

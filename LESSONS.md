@@ -57,6 +57,12 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：把「這個員工有沒有有效派任」的判斷搬進 security definer 函式（`fn_can_view_staff`），繞過 RLS 看真實資料。
 - **教訓**：RLS policy 引用其他受 RLS 保護的表時，先問「這個子查詢被過濾後語意還對嗎？」`NOT EXISTS` 型判斷幾乎一定要用 security definer。**這個 bug 只有行為測試抓得到——語法檢查與 schema 檢視都看不出來**；每條 RLS 規則都要配至少一個「以受限身分實測」的斷言。
 
+### 16. Supabase Dashboard 的 SQL Editor 分頁可能被歸類到 Logs Explorer（ClickHouse 引擎），不是資料庫〔本專案 2026-08-14 實測踩到〕
+- **症狀**：貼 migration SQL 按 Run，回傳 "Error: Failed to get project's logs"；畫面出現「Logs now run on a ClickHouse-backed engine」提示。Table Editor 檢查後確認資料庫裡**完全沒有建表**——不是顯示錯誤，是查詢真的沒進資料庫。
+- **根本原因**：那個查詢分頁被歸類進側欄的 LOGS 區（Supabase 的日誌查詢走獨立的 ClickHouse 引擎，語法跟 Postgres 不同），不是連到實際 Postgres 資料庫的 SQL Editor。
+- **修法**：左側窄圖示直排選正確的 SQL Editor 圖示（在 Table Editor 圖示正下方，通常像 `>_`），開全新 New query 分頁重貼。
+- **教訓**：**給非工程師跑的 SQL 貼上「怎麼確認真的執行成功」的獨立查證步驟**，不能只信任「Run 沒有紅字」——這裡連錯誤訊息本身都會誤導（看起來像日誌服務暫時故障，其實是查詢送錯地方）。之後給 Jenzo 的操作指示要先教他認出正確的 SQL Editor 入口，或請他跑完後直接去 Table Editor 核對表格是否出現，兩步都做才算數（呼應鐵律 7：成功訊息不是證據）。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
