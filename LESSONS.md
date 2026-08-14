@@ -63,6 +63,15 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：左側窄圖示直排選正確的 SQL Editor 圖示（在 Table Editor 圖示正下方，通常像 `>_`），開全新 New query 分頁重貼。
 - **教訓**：**給非工程師跑的 SQL 貼上「怎麼確認真的執行成功」的獨立查證步驟**，不能只信任「Run 沒有紅字」——這裡連錯誤訊息本身都會誤導（看起來像日誌服務暫時故障，其實是查詢送錯地方）。之後給 Jenzo 的操作指示要先教他認出正確的 SQL Editor 入口，或請他跑完後直接去 Table Editor 核對表格是否出現，兩步都做才算數（呼應鐵律 7：成功訊息不是證據）。
 
+### 17. Vercel 檔案直傳部署：無工具可設環境變數，公開值直接隨建置檔案帶入即可〔本專案 2026-08-14〕
+- **情境**：MCP 的 Vercel 工具集沒有「設定 project 環境變數」的 tool；但 Next.js 的 `NEXT_PUBLIC_*` 變數在 build time 就會被內聯進打包後的程式碼，runtime 才設定沒用。
+- **修法**：既然 Supabase anon key + URL 本來就設計成公開值（安全性靠 RLS，不靠藏 key），直接在這次部署上傳的檔案裡帶一個 `.env.production`（Next.js build 時會自動讀），不進 git 版控，只存在於這次 Vercel 上傳的檔案清單裡。
+- **教訓**：只有「本來就該公開的值」才適用這招；換成 service_role key 或任何真密鑰，這個捷徑就是洩漏，必須走真正的 secret 管理（Vercel 後台環境變數／密鑰管理服務）。
+
+### 18. 新 Vercel 專案的部署 target/alias 行為不一致，不能預設猜測〔本專案 2026-08-14〕
+- **症狀**：同一組程式碼、同樣呼叫 `deploy_to_vercel({target:"preview"})`，第一次部署被 Vercel 自動標成 `target:"production"` 並綁上正式 alias；第二次同樣呼叫卻是 `target:null`、`alias:[]`，只給了部署專屬網址。
+- **教訓**：**不要在文字裡宣稱「這是 preview / 這是 production」，除非剛查過那次部署回傳的 `target`/`alias` 欄位**——平台行為會變，猜測會變成對使用者的誤導。每次部署後都查 `get_deployment` 的實際欄位，如實轉述，而不是複誦上次的措辭。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

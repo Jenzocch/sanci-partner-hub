@@ -21,10 +21,10 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 
 | # | 功能 | 狀態 | 依賴 | 驗收標準（詳見 SPEC §） | 驗證證據 |
 |---|---|---|---|---|---|
-| 1 | Partner List (P-01) | `PROTOTYPE` | DB, Auth | 寬版表格＋搜尋＋篩選；Loading/Empty/Error 三態分明；API 失敗不顯示 "0 Partners"（§35–37） | 未驗證 |
-| 2 | Create Partner (P-02) | `PROTOTYPE` | DB | 單獨建 Partner（不連帶 Branch/User）；建立後 DRAFT；重名軟警告；Code 走 DB unique（§38–40） | 未驗證 |
-| 3 | Edit Partner | `PROTOTYPE` | #2 | ACTIVE 時 Code 鎖定；internal ID 永不可改（§10） | 未驗證 |
-| 4 | Partner Status | `PROTOTYPE` | #2 | DRAFT/ACTIVE/SUSPENDED/INACTIVE；Activate 五條件缺一不可（§11–12） | 未驗證 |
+| 1 | Partner List (P-01) | **`VERIFIED`** | DB, Auth | 寬版表格＋搜尋＋篩選；Loading/Empty/Error 三態分明；API 失敗不顯示 "0 Partners"（§35–37） | 2026-08-14 Jenzo 建立 Golden Home 後於列表看到該筆；獨立核對：Supabase Table Editor 直接查 `partners` 表確認資料真的寫入（不只信 UI），見 LESSONS 鐵律 7 |
+| 2 | Create Partner (P-02) | **`VERIFIED`** | DB | 單獨建 Partner（不連帶 Branch/User）；建立後 DRAFT；重名軟警告；Code 走 DB unique（§38–40） | 同上。idempotency（client_request_id）與重名警告邏輯已寫但未逐項點測，僅核心建立流程驗證 |
+| 3 | Edit Partner | **`VERIFIED`** | #2 | ACTIVE 時 Code 鎖定；internal ID 永不可改（§10） | 2026-08-14 Jenzo 實際點擊 Ubah 改名並存檔成功。ACTIVE 鎖定 code 的分支未實測（尚無 ACTIVE partner 可測） |
+| 4 | Partner Status | `UNVERIFIED` | #2 | DRAFT/ACTIVE/SUSPENDED/INACTIVE；Activate 五條件缺一不可（§11–12） | Server Action 已寫且本機測過查詢邏輯（見下方 LESSONS），但 Jenzo 尚未在 production 實際點過 Activate/Suspend/Delete 按鈕 |
 | 5 | Partner Logo | `NOT_STARTED` | #2, Storage | PNG/JPG/WebP；上傳前壓縮；Logo 失敗不拖垮 Partner 建立（§41） | 未驗證 |
 | 6 | Branch Management (P-04/05) | `PROTOTYPE` | #2 | CRUD；Code unique = partner_id+code；地址必填（§14–15, 43–44） | 未驗證 |
 | 7 | Branch Status | `PROTOTYPE` | #6 | 四態；Suspend/Inactive 歷史不消失（§18） | 未驗證 |
@@ -54,7 +54,7 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | Admin 綁定 | **`VERIFIED`(production)** | `0002` 執行成功，2026-08-14。SANCI Super Admin = `wahana.elite@gmail.com`（非最初假設的 a0988728823@gmail.com — repo 已同步更正）|
 | Auth | `UNVERIFIED` | Email/password 登入流程已寫（web/），build 通過；無法連 DB 實測 |
 | App 骨架 | `UNVERIFIED` | `web/` Next.js 15：login、/admin smoke、/cabang 身份卡。typecheck ✓ build ✓；runtime 未驗證 |
-| Deployment | **Preview 部署中**（2026-08-14） | SPEC §98 原則上不部署，但 Jenzo 本人明確要求要能點連結測試登入，視為對自身指示的覆寫。用 Vercel 檔案直傳（非 GitHub 串接），環境變數以 `.env.production` 隨這次上傳一併帶入（僅此次建置用，未進 git）。⚠️ 新專案首次部署 Vercel 自動把它標成 `target: production`（非我指定的 preview）——已如實告知 Jenzo，非隱瞞 |
+| Deployment | **Preview 部署中**（2026-08-14，2 次） | SPEC §98 原則上不部署，Jenzo 本人明確要求要能點連結測試，視為對自身指示的覆寫。Vercel 檔案直傳，環境變數以 `.env.production` 隨每次上傳帶入（未進 git）。第一次部署 Vercel 自動標成 `target: production`（新專案首次部署的平台行為）；第二次部署未被標為 production（`alias: []`），改用部署專屬網址。兩種情況都已如實告知 Jenzo |
 | UI 主語言 | **已定案** | Bahasa Indonesia（Jenzo 2026-08-14 定案）。prototype 已全面印尼文化並通過 CJK/英文殘留掃描 |
 
 ## 已知刻意保留的「怪東西」
