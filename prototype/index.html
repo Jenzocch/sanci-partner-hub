@@ -253,7 +253,7 @@
 
 <script>
 "use strict";
-/* SANCI Partner Hub — Phase 1 UI PROTOTYPE.
+/* SANCI Partner Hub — Phase 1 UI PROTOTYPE (Bahasa Indonesia).
    Mock data only. No database, no auth, no network.
    Permission behaviour here SIMULATES what RLS must enforce server-side in the real build. */
 
@@ -284,23 +284,23 @@ function seedData(){
     assignments:[
       {id:"a1", staff_id:"s1", branch_id:"b_bdg", role:"Sales", start_at:"2025-03-01", end_at:"2026-01-31", status:"ENDED"},
       {id:"a2", staff_id:"s1", branch_id:"b_cbr", role:"Sales", start_at:"2026-02-01", end_at:null, status:"ACTIVE"},
-      {id:"a3", staff_id:"s2", branch_id:"b_cbr", role:"Reception / CS", start_at:"2025-06-15", end_at:null, status:"ACTIVE"},
-      {id:"a4", staff_id:"s3", branch_id:"b_cbr", role:"Manager", start_at:"2024-11-01", end_at:null, status:"ACTIVE"},
+      {id:"a3", staff_id:"s2", branch_id:"b_cbr", role:"Resepsionis / CS", start_at:"2025-06-15", end_at:null, status:"ACTIVE"},
+      {id:"a4", staff_id:"s3", branch_id:"b_cbr", role:"Manajer", start_at:"2024-11-01", end_at:null, status:"ACTIVE"},
       {id:"a5", staff_id:"s4", branch_id:"b_bdg", role:"Sales", start_at:"2025-09-01", end_at:null, status:"ACTIVE"},
-      {id:"a6", staff_id:"s5", branch_id:"b_bdg", role:"Reception / CS", start_at:"2026-01-10", end_at:null, status:"ACTIVE"},
+      {id:"a6", staff_id:"s5", branch_id:"b_bdg", role:"Resepsionis / CS", start_at:"2026-01-10", end_at:null, status:"ACTIVE"},
       {id:"a7", staff_id:"s6", branch_id:"b_jkt", role:"Sales", start_at:"2025-05-01", end_at:"2026-06-30", status:"ENDED"},
-      {id:"a8", staff_id:"s7", branch_id:"b_smg", role:"Reception / CS", start_at:"2025-08-01", end_at:null, status:"ACTIVE"}
+      {id:"a8", staff_id:"s7", branch_id:"b_smg", role:"Resepsionis / CS", start_at:"2025-08-01", end_at:null, status:"ACTIVE"}
     ],
     users:[
-      {id:"u1", name:"Siti Amelia", partner_id:"p_gh", branch_id:"b_cbr", staff_id:"s2", role:"Branch User", status:"ACTIVE"},
-      {id:"u2", name:"Dewi Lestari", partner_id:"p_gh", branch_id:"b_cbr", staff_id:"s3", role:"Branch User", status:"ACTIVE"},
-      {id:"u3", name:"Rina Marlina", partner_id:"p_gh", branch_id:"b_bdg", staff_id:null, role:"Branch User", status:"ACTIVE"},
-      {id:"u4", name:"Maya Putri", partner_id:"p_gh", branch_id:"b_bdg", staff_id:"s5", role:"Branch User", status:"ACTIVE"},
-      {id:"u5", name:"Lia Kartika", partner_id:"p_gh", branch_id:"b_jkt", staff_id:null, role:"Branch User", status:"ACTIVE"},
-      {id:"u6", name:"Bagus Santoso", partner_id:"p_gh", branch_id:"b_jkt", staff_id:null, role:"Branch User", status:"DISABLED"},
-      {id:"u7", name:"Sari Dewanti", partner_id:"p_mn", branch_id:"b_smg", staff_id:"s7", role:"Branch User", status:"ACTIVE"},
-      {id:"u8", name:"Joko Susilo", partner_id:"p_mn", branch_id:"b_smg", staff_id:null, role:"Branch User", status:"ACTIVE"},
-      {id:"u9", name:"Wawan Kurnia", partner_id:"p_mn", branch_id:"b_slo", staff_id:null, role:"Branch User", status:"ACTIVE"}
+      {id:"u1", name:"Siti Amelia", partner_id:"p_gh", branch_id:"b_cbr", staff_id:"s2", role:"Akun Cabang", status:"ACTIVE"},
+      {id:"u2", name:"Dewi Lestari", partner_id:"p_gh", branch_id:"b_cbr", staff_id:"s3", role:"Akun Cabang", status:"ACTIVE"},
+      {id:"u3", name:"Rina Marlina", partner_id:"p_gh", branch_id:"b_bdg", staff_id:null, role:"Akun Cabang", status:"ACTIVE"},
+      {id:"u4", name:"Maya Putri", partner_id:"p_gh", branch_id:"b_bdg", staff_id:"s5", role:"Akun Cabang", status:"ACTIVE"},
+      {id:"u5", name:"Lia Kartika", partner_id:"p_gh", branch_id:"b_jkt", staff_id:null, role:"Akun Cabang", status:"ACTIVE"},
+      {id:"u6", name:"Bagus Santoso", partner_id:"p_gh", branch_id:"b_jkt", staff_id:null, role:"Akun Cabang", status:"DISABLED"},
+      {id:"u7", name:"Sari Dewanti", partner_id:"p_mn", branch_id:"b_smg", staff_id:"s7", role:"Akun Cabang", status:"ACTIVE"},
+      {id:"u8", name:"Joko Susilo", partner_id:"p_mn", branch_id:"b_smg", staff_id:null, role:"Akun Cabang", status:"ACTIVE"},
+      {id:"u9", name:"Wawan Kurnia", partner_id:"p_mn", branch_id:"b_slo", staff_id:null, role:"Akun Cabang", status:"ACTIVE"}
     ],
     policies:{
       p_gh:{visibility:"PARTNER_ALL_BRANCHES", edit:"OWN_BRANCH", configured:true},
@@ -329,6 +329,11 @@ const state = {
   focusId:null
 };
 
+/* status & tab display labels (UI = Bahasa Indonesia, internal codes stay English) */
+const SLBL = {ACTIVE:"AKTIF", DRAFT:"DRAF", SUSPENDED:"DITANGGUHKAN", INACTIVE:"NONAKTIF", DISABLED:"NONAKTIF", ENDED:"SELESAI"};
+const TLBL = {overview:"Ringkasan", branches:"Cabang", users:"Akun", permissions:"Hak Akses", history:"Riwayat", staff:"Staf", activity:"Aktivitas"};
+const ROLES = ["Sales","Resepsionis / CS","Manajer","Lainnya"];
+
 /* ── helpers ───────────────────────────────────── */
 const $ = s => document.querySelector(s);
 const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -337,6 +342,7 @@ const partner = id => byId(db.partners,id);
 const branch  = id => byId(db.branches,id);
 const nowTs = () => { const d=new Date(); const p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()); };
 let idc = 100; const nid = p => p+"_"+(++idc);
+const chip = (status, extra) => '<span class="chip '+(SLBL[status]!==undefined?status:"INACTIVE")+'"'+(extra||"")+">"+(SLBL[status]||status)+"</span>";
 
 function persona(){
   if(state.persona==="admin") return {kind:"admin", label:"SANCI Admin"};
@@ -358,7 +364,6 @@ function canEditBranch(p, b){
 function audit(action, entity_type, entity_id, partner_id, branch_id, before, after){
   db.audit.unshift({id:nid("g"), ts:nowTs(), actor:persona().label||persona().user.name+" ("+persona().partner.code+" "+persona().branch.code+")", action, entity_type, entity_id, partner_id, branch_id, before, after});
 }
-function actorLabel(){ const p=persona(); return p.kind==="admin" ? "SANCI Admin" : p.user.name+" — "+p.partner.name+" · "+p.branch.name; }
 function toast(msg, bad){
   const t=document.createElement("div"); t.className="toast"+(bad?" bad":""); t.textContent=msg;
   $("#toasts").appendChild(t); setTimeout(()=>t.remove(), 3400);
@@ -367,7 +372,7 @@ function activeAssignment(staffId){ return db.assignments.find(a=>a.staff_id===s
 function staffOfBranch(bid){ return db.staff.filter(s=> { const a=activeAssignment(s.id); return a && a.branch_id===bid; }); }
 function branchesOf(pid){ return db.branches.filter(b=>b.partner_id===pid); }
 function usersOf(pid){ return db.users.filter(u=>u.partner_id===pid); }
-function vlabel(pol){ return pol.visibility==="PARTNER_ALL_BRANCHES" ? "Same partner · "+(pol.edit==="PARTNER_ALL_BRANCHES"?"View + Edit":"View only") : "Own branch"; }
+function vlabel(pol){ return pol.visibility==="PARTNER_ALL_BRANCHES" ? "Sesama partner · "+(pol.edit==="PARTNER_ALL_BRANCHES"?"Lihat + Edit":"Lihat saja") : "Cabang sendiri"; }
 
 /* draft storage */
 const DKEY = k => "sph_draft_"+k;
@@ -385,7 +390,7 @@ function render(){
   $("#app").innerHTML = html;
   if(state.focusId){
     const el = document.getElementById(state.focusId);
-    if(el){ el.focus(); if(el.setSelectionRange && el.type!=="search"){} if(el.type==="search"||el.type==="text"){ const v=el.value; el.setSelectionRange && el.setSelectionRange(v.length,v.length);} }
+    if(el){ el.focus(); if(el.type==="search"||el.type==="text"){ const v=el.value; el.setSelectionRange && el.setSelectionRange(v.length,v.length);} }
     state.focusId=null;
   }
 }
@@ -399,12 +404,12 @@ function protoBar(p){
     })
   ].join("");
   return '<div class="protobar">'
-    +'<span class="tag">UI Prototype · mock data · not connected</span>'
-    +'<label>Login as <select data-ch="persona">'+opts+'</select></label>'
-    +'<label><input type="checkbox" data-ch="offline"'+(state.offline?" checked":"")+'> Simulate offline</label>'
-    +(state.offline?'<span class="offline-note">Offline — submissions stay on this device</span>':"")
-    +(db.outbox.length&&!state.offline?'<span class="offline-note">'+db.outbox.length+' pending sync</span>':"")
-    +'<button class="reset" data-act="reset">Reset demo data</button>'
+    +'<span class="tag">Prototipe UI · data contoh · belum terhubung</span>'
+    +'<label>Masuk sebagai <select data-ch="persona">'+opts+'</select></label>'
+    +'<label><input type="checkbox" data-ch="offline"'+(state.offline?" checked":"")+'> Simulasi offline</label>'
+    +(state.offline?'<span class="offline-note">Offline — data tersimpan di perangkat ini</span>':"")
+    +(db.outbox.length&&!state.offline?'<span class="offline-note">'+db.outbox.length+' menunggu sinkron</span>':"")
+    +'<button class="reset" data-act="reset">Reset data demo</button>'
     +'</div>';
 }
 
@@ -412,8 +417,8 @@ function protoBar(p){
 function adminShell(p){
   const r = state.route;
   const nav = [
-    {v:"partners", label:"Partners"},
-    {v:"loginusers", label:"Login users"}
+    {v:"partners", label:"Partner"},
+    {v:"loginusers", label:"Akun Login"}
   ];
   let main = "";
   if(r.v==="partners") main = viewPartnerList(p);
@@ -425,7 +430,7 @@ function adminShell(p){
     +'<nav class="side">'
       +'<div class="brand"><span class="serif word">SANCI</span><span class="sub">Partner Hub</span></div>'
       +nav.map(n=>'<button class="navlink'+((r.v===n.v||(n.v==="partners"&&(r.v==="partner"||r.v==="branch")))?" on":"")+'" data-act="nav" data-v="'+n.v+'">'+n.label+"</button>").join("")
-      +'<div class="foot">Phase 1 — Partner Module.<br>Future modules (Orders, Customers, Warehouse, Delivery) are not built yet and are deliberately not shown.</div>'
+      +'<div class="foot">Phase 1 — Modul Partner.<br>Modul berikutnya (Order, Customer, Gudang, Pengiriman) belum dibangun dan sengaja tidak ditampilkan.</div>'
     +'</nav>'
     +'<main class="main">'+main+"</main>"
     +"</div>";
@@ -458,156 +463,156 @@ function viewPartnerList(){
       + [1,2,3].map(()=>'<tr>'+'<td><div class="skel" style="width:180px"></div></td><td><div class="skel" style="width:30px"></div></td><td><div class="skel" style="width:30px"></div></td><td><div class="skel" style="width:120px"></div></td><td><div class="skel" style="width:70px"></div></td><td></td>'+"</tr>").join("")
       +"</tbody></table></div>";
   } else if(state.listDemo==="error"){
-    body = '<div class="card"><div class="emptybox">Partners could not be loaded.<br><br><button class="btn" data-act="demoState" data-s="normal">Retry</button></div></div>';
+    body = '<div class="card"><div class="emptybox">Daftar partner gagal dimuat.<br><br><button class="btn" data-act="demoState" data-s="normal">Coba lagi</button></div></div>';
   } else if(state.listDemo==="empty" || (!rows.length && !db.partners.length)){
-    body = '<div class="card"><div class="emptybox">No partners yet.<br><br><button class="btn primary" data-act="openModal" data-m="addPartner">+ Add partner</button></div></div>';
+    body = '<div class="card"><div class="emptybox">Belum ada partner.<br><br><button class="btn primary" data-act="openModal" data-m="addPartner">+ Tambah Partner</button></div></div>';
   } else if(!rows.length){
-    body = '<div class="card"><div class="emptybox">No partners match "'+esc(state.q)+'".</div></div>';
+    body = '<div class="card"><div class="emptybox">Tidak ada partner yang cocok dengan "'+esc(state.q)+'".</div></div>';
   } else {
     body = '<div class="tablewrap"><table><thead>'+listHead()+"</thead><tbody>"
       + rows.map(r=>{
           const pol=db.policies[r.pa.id];
           return '<tr class="rowlink" data-act="nav" data-v="partner" data-id="'+r.pa.id+'">'
           +'<td><div class="pname"><span class="logo '+r.pa.lc+'">'+esc(r.pa.code)+'</span><span><div class="nm">'+esc(r.pa.name)+'</div><div class="sub"><span class="code">'+esc(r.pa.code)+"</span>"
-          +(r.mBranch?' &nbsp;<span class="muted small">Matching branch: '+esc(r.mBranch.name)+"</span>":"")
+          +(r.mBranch?' &nbsp;<span class="muted small">Cabang cocok: '+esc(r.mBranch.name)+"</span>":"")
           +"</div></span></div></td>"
           +'<td class="num">'+branchesOf(r.pa.id).filter(b=>b.status==="ACTIVE").length+"</td>"
           +'<td class="num">'+usersOf(r.pa.id).filter(u=>u.status==="ACTIVE").length+"</td>"
           +"<td>"+esc(vlabel(pol))+"</td>"
-          +'<td><span class="chip '+r.pa.status+'">'+r.pa.status+"</span></td>"
-          +'<td style="text-align:right"><span class="linkbtn">Open</span></td>'
+          +"<td>"+chip(r.pa.status)+"</td>"
+          +'<td style="text-align:right"><span class="linkbtn">Buka</span></td>'
           +"</tr>";
         }).join("")
       +"</tbody></table></div>"
       /* mobile cards */
       +'<div class="mcards">'
       + rows.map(r=>'<div class="mcard rowlink" data-act="nav" data-v="partner" data-id="'+r.pa.id+'">'
-          +'<div class="r1"><div class="pname"><span class="logo '+r.pa.lc+'">'+esc(r.pa.code)+'</span><span class="nm">'+esc(r.pa.name)+'</span></div><span class="chip '+r.pa.status+'">'+r.pa.status+"</span></div>"
-          +'<div class="meta"><span>'+branchesOf(r.pa.id).filter(b=>b.status==="ACTIVE").length+" branches</span><span>"+usersOf(r.pa.id).filter(u=>u.status==="ACTIVE").length+" users</span><span>"+esc(vlabel(db.policies[r.pa.id]))+"</span></div>"
-          +(r.mBranch?'<div class="meta" style="margin-top:4px">Matching branch: '+esc(r.mBranch.name)+"</div>":"")
+          +'<div class="r1"><div class="pname"><span class="logo '+r.pa.lc+'">'+esc(r.pa.code)+'</span><span class="nm">'+esc(r.pa.name)+"</span></div>"+chip(r.pa.status)+"</div>"
+          +'<div class="meta"><span>'+branchesOf(r.pa.id).filter(b=>b.status==="ACTIVE").length+" cabang</span><span>"+usersOf(r.pa.id).filter(u=>u.status==="ACTIVE").length+" akun</span><span>"+esc(vlabel(db.policies[r.pa.id]))+"</span></div>"
+          +(r.mBranch?'<div class="meta" style="margin-top:4px">Cabang cocok: '+esc(r.mBranch.name)+"</div>":"")
           +"</div>").join("")
       +"</div>";
   }
   const pendingCards = db.outbox.filter(o=>o.type==="partner").map(o=>
-    '<div class="banner warn" style="border:1.5px dashed var(--warn)"><b>'+esc(o.values.name)+"</b> — saved on this device, not submitted yet."
-    +(state.offline?" Will submit when back online.":' <button class="linkbtn" data-act="syncOutbox">Submit now</button>')+"</div>").join("");
-  return '<div class="pagehead"><h1>Partners</h1><button class="btn primary" data-act="openModal" data-m="addPartner">+ Add partner</button></div>'
+    '<div class="banner warn" style="border:1.5px dashed var(--warn)"><b>'+esc(o.values.name)+"</b> — tersimpan di perangkat ini, belum terkirim."
+    +(state.offline?" Akan terkirim saat online kembali.":' <button class="linkbtn" data-act="syncOutbox">Kirim sekarang</button>')+"</div>").join("");
+  return '<div class="pagehead"><h1>Partner</h1><button class="btn primary" data-act="openModal" data-m="addPartner">+ Tambah Partner</button></div>'
     + pendingCards
     +'<div class="searchrow">'
-      +'<input id="psearch" type="search" placeholder="Search partner / branch / code…" value="'+esc(state.q)+'" data-in="q" aria-label="Search partners">'
-      +'<select data-ch="fStatus" aria-label="Filter by status"><option value="ALL">Status: all</option>'+["ACTIVE","DRAFT","SUSPENDED","INACTIVE"].map(s=>'<option'+(state.fStatus===s?" selected":"")+' value="'+s+'">'+s+"</option>").join("")+"</select>"
-      +'<select data-ch="fAccess" aria-label="Filter by access"><option value="ALL">Access: all</option><option value="OWN"'+(state.fAccess==="OWN"?" selected":"")+'>Own branch</option><option value="SAME"'+(state.fAccess==="SAME"?" selected":"")+'>Same partner</option></select>'
+      +'<input id="psearch" type="search" placeholder="Cari partner / cabang / kode…" value="'+esc(state.q)+'" data-in="q" aria-label="Cari partner">'
+      +'<select data-ch="fStatus" aria-label="Filter status"><option value="ALL">Status: semua</option>'+["ACTIVE","DRAFT","SUSPENDED","INACTIVE"].map(s=>'<option'+(state.fStatus===s?" selected":"")+' value="'+s+'">'+SLBL[s]+"</option>").join("")+"</select>"
+      +'<select data-ch="fAccess" aria-label="Filter akses"><option value="ALL">Akses: semua</option><option value="OWN"'+(state.fAccess==="OWN"?" selected":"")+'>Cabang sendiri</option><option value="SAME"'+(state.fAccess==="SAME"?" selected":"")+'>Sesama partner</option></select>'
     +"</div>"
     + body
-    +'<p class="small muted" style="margin-top:14px">Prototype demo — list states: '
-      +["normal","loading","empty","error"].map(s=>'<button class="linkbtn" data-act="demoState" data-s="'+s+'">'+s+"</button>").join(" · ")
+    +'<p class="small muted" style="margin-top:14px">Demo prototipe — kondisi daftar: '
+      +[["normal","normal"],["loading","memuat"],["empty","kosong"],["error","error"]].map(s=>'<button class="linkbtn" data-act="demoState" data-s="'+s[0]+'">'+s[1]+"</button>").join(" · ")
     +"</p>";
 }
-function listHead(){ return "<tr><th>Brand</th><th>Branches</th><th>Users</th><th>Access</th><th>Status</th><th></th></tr>"; }
+function listHead(){ return "<tr><th>Merek</th><th>Cabang</th><th>Akun</th><th>Akses</th><th>Status</th><th></th></tr>"; }
 
 /* ── P-03 partner detail ───────────────────────── */
 function activationGate(pa){
   const checks = [
-    {ok:!!pa.name, label:"Partner name"},
-    {ok:!!pa.code, label:"Partner code"},
-    {ok:branchesOf(pa.id).some(b=>b.status==="ACTIVE"), label:"At least 1 active branch"},
-    {ok:usersOf(pa.id).some(u=>u.status==="ACTIVE"), label:"At least 1 active login user"},
-    {ok:db.policies[pa.id].configured, label:"Permissions configured"}
+    {ok:!!pa.name, label:"Nama partner"},
+    {ok:!!pa.code, label:"Kode partner"},
+    {ok:branchesOf(pa.id).some(b=>b.status==="ACTIVE"), label:"Minimal 1 cabang aktif"},
+    {ok:usersOf(pa.id).some(u=>u.status==="ACTIVE"), label:"Minimal 1 akun login aktif"},
+    {ok:db.policies[pa.id].configured, label:"Hak akses sudah diatur"}
   ];
   return {checks, pass:checks.every(c=>c.ok)};
 }
 
 function viewPartnerDetail(p, id, tab){
   const pa = partner(id);
-  if(!pa) return '<div class="emptybox">Partner not found.</div>';
+  if(!pa) return '<div class="emptybox">Partner tidak ditemukan.</div>';
   const bs = branchesOf(id), us = usersOf(id), pol = db.policies[id];
   const tabs = ["overview","branches","users","permissions","history"];
-  const tabbar = '<div class="tabs">'+tabs.map(t=>'<button class="tab'+(t===tab?" on":"")+'" data-act="nav" data-v="partner" data-id="'+id+'" data-tab="'+t+'">'+t[0].toUpperCase()+t.slice(1)+"</button>").join("")+"</div>";
+  const tabbar = '<div class="tabs">'+tabs.map(t=>'<button class="tab'+(t===tab?" on":"")+'" data-act="nav" data-v="partner" data-id="'+id+'" data-tab="'+t+'">'+TLBL[t]+"</button>").join("")+"</div>";
   let body="";
 
   if(tab==="overview"){
     const gate = activationGate(pa);
     body = '<div class="cardgrid two">'
-      +'<div class="card"><h3 style="font-size:17px;margin-bottom:14px">Partner information</h3>'
+      +'<div class="card"><h3 style="font-size:17px;margin-bottom:14px">Informasi Partner</h3>'
         +'<dl class="kv">'
-        +'<dt>Code</dt><dd><span class="code">'+esc(pa.code)+"</span>"+(pa.status!=="DRAFT"?' <span class="small muted">locked while '+pa.status+"</span>":"")+"</dd>"
-        +"<dt>Status</dt><dd><span class=\"chip "+pa.status+'">'+pa.status+"</span></dd>"
-        +"<dt>Contact</dt><dd>"+esc(pa.contact_name||"—")+"</dd>"
+        +'<dt>Kode</dt><dd><span class="code">'+esc(pa.code)+"</span>"+(pa.status!=="DRAFT"?' <span class="small muted">terkunci selama '+SLBL[pa.status]+"</span>":"")+"</dd>"
+        +"<dt>Status</dt><dd>"+chip(pa.status)+"</dd>"
+        +"<dt>Kontak</dt><dd>"+esc(pa.contact_name||"—")+"</dd>"
         +"<dt>WhatsApp</dt><dd>"+esc(pa.contact_phone||"—")+"</dd>"
-        +"<dt>Created</dt><dd>"+esc(pa.created_at)+"</dd>"
+        +"<dt>Dibuat</dt><dd>"+esc(pa.created_at)+"</dd>"
         +"</dl>"
         +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'
-        +'<button class="btn sm" data-act="openModal" data-m="editPartner" data-id="'+id+'">Edit</button>'
-        +(pa.status==="ACTIVE"?'<button class="btn sm" data-act="suspendPartner" data-id="'+id+'">Suspend</button>':"")
-        +(pa.status==="SUSPENDED"?'<button class="btn sm" data-act="reactivatePartner" data-id="'+id+'">Reactivate</button>':"")
-        +((pa.status==="ACTIVE"||pa.status==="SUSPENDED")?'<button class="btn sm danger" data-act="openModal" data-m="deactivatePartner" data-id="'+id+'">End partnership</button>':"")
-        +(pa.status==="DRAFT"?'<button class="btn sm danger" data-act="openModal" data-m="deletePartner" data-id="'+id+'">Delete draft</button>':"")
+        +'<button class="btn sm" data-act="openModal" data-m="editPartner" data-id="'+id+'">Ubah</button>'
+        +(pa.status==="ACTIVE"?'<button class="btn sm" data-act="suspendPartner" data-id="'+id+'">Tangguhkan</button>':"")
+        +(pa.status==="SUSPENDED"?'<button class="btn sm" data-act="reactivatePartner" data-id="'+id+'">Aktifkan lagi</button>':"")
+        +((pa.status==="ACTIVE"||pa.status==="SUSPENDED")?'<button class="btn sm danger" data-act="openModal" data-m="deactivatePartner" data-id="'+id+'">Akhiri kerja sama</button>':"")
+        +(pa.status==="DRAFT"?'<button class="btn sm danger" data-act="openModal" data-m="deletePartner" data-id="'+id+'">Hapus draf</button>':"")
         +"</div></div>"
       +'<div>'
       +(pa.status==="DRAFT"
-        ? '<div class="card"><h3 style="font-size:17px;margin-bottom:12px">Activation checklist</h3>'
+        ? '<div class="card"><h3 style="font-size:17px;margin-bottom:12px">Syarat aktivasi</h3>'
           +'<ul class="gate">'+gate.checks.map(c=>'<li class="'+(c.ok?"yes":"no")+'">'+(c.ok?"✓ ":"○ ")+esc(c.label)+"</li>").join("")+"</ul>"
-          +'<div style="margin-top:16px"><button class="btn primary" data-act="activatePartner" data-id="'+id+'"'+(gate.pass?"":" disabled")+">Activate partner</button>"
-          +(gate.pass?"":'<div class="hint small muted" style="margin-top:8px">Complete every item above to activate.</div>')+"</div></div>"
-        : '<div class="card"><h3 style="font-size:17px;margin-bottom:12px">Branches</h3>'+branchMiniList(bs)+"</div>")
+          +'<div style="margin-top:16px"><button class="btn primary" data-act="activatePartner" data-id="'+id+'"'+(gate.pass?"":" disabled")+">Aktifkan partner</button>"
+          +(gate.pass?"":'<div class="hint small muted" style="margin-top:8px">Lengkapi semua syarat di atas untuk mengaktifkan.</div>')+"</div></div>"
+        : '<div class="card"><h3 style="font-size:17px;margin-bottom:12px">Cabang</h3>'+branchMiniList(bs)+"</div>")
       +"</div></div>";
   }
   if(tab==="branches"){
-    body = '<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn primary" data-act="openModal" data-m="addBranch" data-id="'+id+'">+ Add branch</button></div>'
-      +'<div class="tablewrap"><table><thead><tr><th>Branch</th><th>Address</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>'
+    body = '<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn primary" data-act="openModal" data-m="addBranch" data-id="'+id+'">+ Tambah Cabang</button></div>'
+      +'<div class="tablewrap"><table><thead><tr><th>Cabang</th><th>Alamat</th><th>Kontak</th><th>Status</th><th></th></tr></thead><tbody>'
       + (bs.length? bs.map(b=>'<tr class="rowlink" data-act="nav" data-v="branch" data-id="'+b.id+'">'
           +'<td><div class="nm" style="font-weight:700">'+esc(b.name)+'</div><span class="code">'+esc(pa.code)+" / "+esc(b.code)+"</span></td>"
           +"<td>"+esc(b.address)+(b.city?", "+esc(b.city):"")+(b.province?'<div class="small muted">'+esc(b.province)+"</div>":"")+"</td>"
           +"<td>"+esc(b.contact_name||"—")+'<div class="small muted">'+esc(b.contact_phone||"")+"</div></td>"
-          +'<td><span class="chip '+b.status+'">'+b.status+"</span></td>"
-          +'<td style="text-align:right"><span class="linkbtn">Open</span></td></tr>').join("")
-        : '<tr><td colspan="5"><div class="emptybox">No branches yet.</div></td></tr>')
+          +"<td>"+chip(b.status)+"</td>"
+          +'<td style="text-align:right"><span class="linkbtn">Buka</span></td></tr>').join("")
+        : '<tr><td colspan="5"><div class="emptybox">Belum ada cabang.</div></td></tr>')
       +"</tbody></table></div>"
-      +'<div class="mcards">'+bs.map(b=>'<div class="mcard rowlink" data-act="nav" data-v="branch" data-id="'+b.id+'"><div class="r1"><span style="font-weight:700">'+esc(b.name)+'</span><span class="chip '+b.status+'">'+b.status+'</span></div><div class="meta"><span class="code">'+esc(pa.code)+" / "+esc(b.code)+"</span><span>"+esc(b.city||"")+"</span></div></div>").join("")+"</div>";
+      +'<div class="mcards">'+bs.map(b=>'<div class="mcard rowlink" data-act="nav" data-v="branch" data-id="'+b.id+'"><div class="r1"><span style="font-weight:700">'+esc(b.name)+"</span>"+chip(b.status)+'</div><div class="meta"><span class="code">'+esc(pa.code)+" / "+esc(b.code)+"</span><span>"+esc(b.city||"")+"</span></div></div>").join("")+"</div>";
   }
   if(tab==="users"){
     body = userTable(us, id);
   }
   if(tab==="permissions"){
     body = '<div class="card" style="max-width:560px">'
-      +'<h3 style="font-size:17px;margin-bottom:6px">Branch visibility</h3>'
-      +'<p class="small muted" style="margin-bottom:12px">Only SANCI Admin can change these settings. They apply to every login user of '+esc(pa.name)+".</p>"
+      +'<h3 style="font-size:17px;margin-bottom:6px">Visibilitas Cabang</h3>'
+      +'<p class="small muted" style="margin-bottom:12px">Hanya SANCI Admin yang dapat mengubah pengaturan ini. Berlaku untuk semua akun login '+esc(pa.name)+".</p>"
       +'<form data-form="permissions" data-id="'+id+'">'
       +'<div class="radioset" style="margin-bottom:18px">'
-        +'<label><input type="radio" name="visibility" value="OWN_BRANCH"'+(pol.visibility==="OWN_BRANCH"?" checked":"")+'><span>Own branch only<div class="rd">Each branch sees only itself.</div></span></label>'
-        +'<label><input type="radio" name="visibility" value="PARTNER_ALL_BRANCHES"'+(pol.visibility==="PARTNER_ALL_BRANCHES"?" checked":"")+'><span>All same-partner branches<div class="rd">Every '+esc(pa.name)+" branch can see the others. Never other partners.</div></span></label>"
+        +'<label><input type="radio" name="visibility" value="OWN_BRANCH"'+(pol.visibility==="OWN_BRANCH"?" checked":"")+'><span>Hanya cabang sendiri<div class="rd">Setiap cabang hanya melihat cabangnya sendiri.</div></span></label>'
+        +'<label><input type="radio" name="visibility" value="PARTNER_ALL_BRANCHES"'+(pol.visibility==="PARTNER_ALL_BRANCHES"?" checked":"")+'><span>Semua cabang sesama partner<div class="rd">Semua cabang '+esc(pa.name)+" bisa saling melihat. Tidak pernah partner lain.</div></span></label>"
       +"</div>"
-      +'<h3 style="font-size:17px;margin-bottom:6px">Other-branch access</h3>'
+      +'<h3 style="font-size:17px;margin-bottom:6px">Akses ke cabang lain</h3>'
       +'<div class="radioset">'
-        +'<label><input type="radio" name="edit" value="OWN_BRANCH"'+(pol.edit==="OWN_BRANCH"?" checked":"")+'><span>View only<div class="rd">Other branches are read-only.</div></span></label>'
-        +'<label><input type="radio" name="edit" value="PARTNER_ALL_BRANCHES"'+(pol.edit==="PARTNER_ALL_BRANCHES"?" checked":"")+'><span>View + edit<div class="rd">Staff of other branches can be managed too.</div></span></label>'
+        +'<label><input type="radio" name="edit" value="OWN_BRANCH"'+(pol.edit==="OWN_BRANCH"?" checked":"")+'><span>Lihat saja<div class="rd">Cabang lain hanya bisa dilihat.</div></span></label>'
+        +'<label><input type="radio" name="edit" value="PARTNER_ALL_BRANCHES"'+(pol.edit==="PARTNER_ALL_BRANCHES"?" checked":"")+'><span>Lihat + edit<div class="rd">Staf cabang lain juga bisa dikelola.</div></span></label>'
       +"</div>"
-      +'<div style="margin-top:18px"><button class="btn primary" type="submit">Save permissions</button></div>'
+      +'<div style="margin-top:18px"><button class="btn primary" type="submit">Simpan hak akses</button></div>'
       +"</form>"
-      +'<p class="small muted" style="margin-top:14px">Selected-branches rules (e.g. Jakarta A ↔ Jakarta B only) are reserved for a later phase — the schema allows them, this screen does not yet.</p>'
+      +'<p class="small muted" style="margin-top:14px">Aturan cabang terpilih (misal hanya Jakarta A ↔ Jakarta B) disiapkan untuk fase berikutnya — skema data sudah mendukung, layar ini belum.</p>'
       +"</div>";
   }
   if(tab==="history"){
     const list = db.audit.filter(a=>a.partner_id===id);
     body = '<div class="card">'+auditList(list)+"</div>";
   }
-  return '<div class="crumb"><button data-act="nav" data-v="partners">Partners</button> / '+esc(pa.name)+"</div>"
+  return '<div class="crumb"><button data-act="nav" data-v="partners">Partner</button> / '+esc(pa.name)+"</div>"
     +'<div class="pagehead"><div class="pname"><span class="logo '+pa.lc+'" style="width:52px;height:52px;font-size:19px">'+esc(pa.code)+'</span>'
-    +"<span><h1>"+esc(pa.name)+'</h1><div class="sub"><span class="code">'+esc(pa.code)+"</span> · "+bs.length+" branches · "+us.filter(u=>u.status==="ACTIVE").length+' users</div></span></div>'
-    +'<span class="chip '+pa.status+'" style="font-size:14px;padding:5px 14px">'+pa.status+"</span></div>"
+    +"<span><h1>"+esc(pa.name)+'</h1><div class="sub"><span class="code">'+esc(pa.code)+"</span> · "+bs.length+" cabang · "+us.filter(u=>u.status==="ACTIVE").length+' akun</div></span></div>'
+    +chip(pa.status,' style="font-size:14px;padding:5px 14px"')+"</div>"
     + tabbar + body;
 }
 
 function branchMiniList(bs){
-  if(!bs.length) return '<div class="emptybox" style="padding:24px">No branches yet.</div>';
+  if(!bs.length) return '<div class="emptybox" style="padding:24px">Belum ada cabang.</div>';
   return bs.map(b=>'<button class="biglink" style="box-shadow:none;margin-bottom:9px" data-act="nav" data-v="branch" data-id="'+b.id+'">'
     +"<span>"+esc(b.name)+'<div class="small muted" style="font-weight:500">'+esc(b.address)+(b.city?", "+esc(b.city):"")+"</div></span>"
-    +'<span class="chip '+b.status+'">'+b.status+"</span></button>").join("");
+    +chip(b.status)+"</button>").join("");
 }
 
 function userTable(us, pid){
-  return '<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn primary" data-act="openModal" data-m="addUser" data-id="'+(pid||"")+'">+ Create login user</button></div>'
-    +'<div class="tablewrap"><table><thead><tr><th>Name</th>'+(pid?"":"<th>Partner</th>")+'<th>Branch</th><th>Linked staff</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>'
+  return '<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn primary" data-act="openModal" data-m="addUser" data-id="'+(pid||"")+'">+ Buat Akun Login</button></div>'
+    +'<div class="tablewrap"><table><thead><tr><th>Nama</th>'+(pid?"":"<th>Partner</th>")+'<th>Cabang</th><th>Staf terkait</th><th>Peran</th><th>Status</th><th></th></tr></thead><tbody>'
     +(us.length? us.map(u=>{
         const b=branch(u.branch_id), pa=partner(u.partner_id);
         const st=u.staff_id?byId(db.staff,u.staff_id):null;
@@ -617,53 +622,53 @@ function userTable(us, pid){
         +"<td>"+esc(b.name)+' <span class="code">'+esc(b.code)+"</span></td>"
         +"<td>"+(st?esc(st.full_name):'<span class="muted">—</span>')+"</td>"
         +"<td>"+esc(u.role)+"</td>"
-        +'<td><span class="chip '+(u.status==="ACTIVE"?"ACTIVE":"INACTIVE")+'">'+u.status+"</span></td>"
+        +"<td>"+chip(u.status==="ACTIVE"?"ACTIVE":"INACTIVE")+"</td>"
         +'<td style="text-align:right">'+(u.status==="ACTIVE"
-            ?'<button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">Disable</button>'
-            :'<button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">Reactivate</button>')+"</td></tr>";
-      }).join("") : '<tr><td colspan="7"><div class="emptybox">No login users yet.</div></td></tr>')
+            ?'<button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">Nonaktifkan</button>'
+            :'<button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">Aktifkan lagi</button>')+"</td></tr>";
+      }).join("") : '<tr><td colspan="7"><div class="emptybox">Belum ada akun login.</div></td></tr>')
     +"</tbody></table></div>"
-    +'<div class="mcards">'+us.map(u=>{const b=branch(u.branch_id);return '<div class="mcard"><div class="r1"><span style="font-weight:700">'+esc(u.name)+'</span><span class="chip '+(u.status==="ACTIVE"?"ACTIVE":"INACTIVE")+'">'+u.status+'</span></div><div class="meta"><span>'+esc(b.name)+"</span><span>"+esc(u.role)+'</span></div><div class="ops" style="margin-top:9px"><button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">'+(u.status==="ACTIVE"?"Disable":"Reactivate")+"</button></div></div>";}).join("")+"</div>";
+    +'<div class="mcards">'+us.map(u=>{const b=branch(u.branch_id);return '<div class="mcard"><div class="r1"><span style="font-weight:700">'+esc(u.name)+"</span>"+chip(u.status==="ACTIVE"?"ACTIVE":"INACTIVE")+'</div><div class="meta"><span>'+esc(b.name)+"</span><span>"+esc(u.role)+'</span></div><div class="ops" style="margin-top:9px"><button class="btn sm" data-act="toggleUser" data-id="'+u.id+'">'+(u.status==="ACTIVE"?"Nonaktifkan":"Aktifkan lagi")+"</button></div></div>";}).join("")+"</div>";
 }
 
 function viewLoginUsers(){
-  return '<div class="pagehead"><h1>Login users</h1></div>'
-    +'<p class="small muted" style="margin-bottom:16px">All partner login accounts. In Phase 1 only SANCI Admin creates and manages accounts; branches manage their own staff records separately.</p>'
+  return '<div class="pagehead"><h1>Akun Login</h1></div>'
+    +'<p class="small muted" style="margin-bottom:16px">Semua akun login partner. Pada Phase 1 hanya SANCI Admin yang membuat dan mengelola akun; setiap cabang mengelola data staf-nya sendiri secara terpisah.</p>'
     + userTable(db.users, null);
 }
 
 /* ── P-05 branch detail ────────────────────────── */
 function viewBranchDetail(p, id, tab){
-  const b = branch(id); if(!b) return '<div class="emptybox">Branch not found.</div>';
+  const b = branch(id); if(!b) return '<div class="emptybox">Cabang tidak ditemukan.</div>';
   const pa = partner(b.partner_id);
   const tabs=["overview","staff","users","activity"];
   const isAdmin = p.kind==="admin";
-  const tabbar='<div class="tabs">'+tabs.map(t=>'<button class="tab'+(t===tab?" on":"")+'" data-act="nav" data-v="branch" data-id="'+id+'" data-tab="'+t+'">'+t[0].toUpperCase()+t.slice(1)+"</button>").join("")+"</div>";
+  const tabbar='<div class="tabs">'+tabs.map(t=>'<button class="tab'+(t===tab?" on":"")+'" data-act="nav" data-v="branch" data-id="'+id+'" data-tab="'+t+'">'+TLBL[t]+"</button>").join("")+"</div>";
   let body="";
   if(tab==="overview"){
     body='<div class="card" style="max-width:640px"><dl class="kv">'
       +"<dt>Partner</dt><dd>"+esc(pa.name)+"</dd>"
-      +'<dt>Branch code</dt><dd><span class="code">'+esc(pa.code)+" / "+esc(b.code)+"</span></dd>"
-      +"<dt>Full address</dt><dd>"+esc(b.address)+"</dd>"
-      +"<dt>City</dt><dd>"+esc(b.city||"—")+"</dd>"
-      +"<dt>Province</dt><dd>"+esc(b.province||"—")+"</dd>"
-      +"<dt>Contact</dt><dd>"+esc(b.contact_name||"—")+"</dd>"
+      +'<dt>Kode cabang</dt><dd><span class="code">'+esc(pa.code)+" / "+esc(b.code)+"</span></dd>"
+      +"<dt>Alamat lengkap</dt><dd>"+esc(b.address)+"</dd>"
+      +"<dt>Kota</dt><dd>"+esc(b.city||"—")+"</dd>"
+      +"<dt>Provinsi</dt><dd>"+esc(b.province||"—")+"</dd>"
+      +"<dt>Kontak</dt><dd>"+esc(b.contact_name||"—")+"</dd>"
       +"<dt>WhatsApp</dt><dd>"+esc(b.contact_phone||"—")+"</dd>"
-      +"<dt>Status</dt><dd><span class=\"chip "+b.status+'">'+b.status+"</span></dd>"
+      +"<dt>Status</dt><dd>"+chip(b.status)+"</dd>"
       +"</dl>"
       +(isAdmin?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'
-        +'<button class="btn sm" data-act="openModal" data-m="editBranch" data-id="'+id+'">Edit</button>'
-        +(b.status==="ACTIVE"?'<button class="btn sm danger" data-act="suspendBranch" data-id="'+id+'">Suspend</button>':"")
-        +(b.status==="SUSPENDED"?'<button class="btn sm" data-act="reactivateBranch" data-id="'+id+'">Reactivate</button>':"")
+        +'<button class="btn sm" data-act="openModal" data-m="editBranch" data-id="'+id+'">Ubah</button>'
+        +(b.status==="ACTIVE"?'<button class="btn sm danger" data-act="suspendBranch" data-id="'+id+'">Tangguhkan</button>':"")
+        +(b.status==="SUSPENDED"?'<button class="btn sm" data-act="reactivateBranch" data-id="'+id+'">Aktifkan lagi</button>':"")
         +"</div>":"")
       +"</div>";
   }
   if(tab==="staff") body = staffSection(p, b);
   if(tab==="users") body = userTable(usersOf(pa.id).filter(u=>u.branch_id===id), pa.id);
   if(tab==="activity") body = '<div class="card">'+auditList(db.audit.filter(a=>a.branch_id===id))+"</div>";
-  return '<div class="crumb"><button data-act="nav" data-v="partners">Partners</button> / <button data-act="nav" data-v="partner" data-id="'+pa.id+'">'+esc(pa.name)+"</button> / "+esc(b.name)+"</div>"
-    +'<div class="pagehead"><span><h1>'+esc(b.name)+' Branch</h1><div class="muted" style="margin-top:4px">'+esc(pa.name)+" · "+esc(b.address)+(b.city?", "+esc(b.city):"")+"</div></span>"
-    +'<span class="chip '+b.status+'" style="font-size:14px;padding:5px 14px">'+b.status+"</span></div>"
+  return '<div class="crumb"><button data-act="nav" data-v="partners">Partner</button> / <button data-act="nav" data-v="partner" data-id="'+pa.id+'">'+esc(pa.name)+"</button> / "+esc(b.name)+"</div>"
+    +'<div class="pagehead"><span><h1>Cabang '+esc(b.name)+'</h1><div class="muted" style="margin-top:4px">'+esc(pa.name)+" · "+esc(b.address)+(b.city?", "+esc(b.city):"")+"</div></span>"
+    +chip(b.status,' style="font-size:14px;padding:5px 14px"')+"</div>"
     + tabbar + body;
 }
 
@@ -671,38 +676,38 @@ function staffSection(p, b){
   const canEdit = canEditBranch(p, b);
   const list = staffOfBranch(b.id);
   const inactive = db.staff.filter(s=> s.partner_id===b.partner_id && s.status==="INACTIVE" && db.assignments.some(a=>a.staff_id===s.id && a.branch_id===b.id));
-  const note = canEdit ? "" : '<div class="banner info">View only — your account can edit '+esc(persona().kind==="partner"?persona().branch.name:"")+" only.</div>";
+  const note = canEdit ? "" : '<div class="banner info">Lihat saja — akun Anda hanya bisa mengubah cabang '+esc(p.kind==="partner"?p.branch.name:"")+".</div>";
   return note
     +'<div style="display:flex;justify-content:flex-end;margin-bottom:14px">'
-      +(canEdit?'<button class="btn primary" data-act="openModal" data-m="addStaff" data-id="'+b.id+'">+ Add staff</button>':'<button class="btn primary" data-act="denyEdit">+ Add staff</button>')
+      +(canEdit?'<button class="btn primary" data-act="openModal" data-m="addStaff" data-id="'+b.id+'">+ Tambah Staf</button>':'<button class="btn primary" data-act="denyEdit">+ Tambah Staf</button>')
     +"</div>"
     +(list.length? list.map(s=>{
         const a=activeAssignment(s.id);
         const hist=db.assignments.filter(x=>x.staff_id===s.id).sort((x,y)=>x.start_at<y.start_at?1:-1);
         return '<div class="staffcard">'
-          +'<div class="row1"><span class="nm">'+esc(s.full_name)+'</span><span class="chip ACTIVE">ACTIVE</span></div>'
-          +'<div class="rl">'+esc(a.role)+" · "+esc(s.phone||"no phone")+"</div>"
-          +(hist.length>1?'<div class="small muted" style="margin-top:6px">History: '+hist.map(h=>esc(branch(h.branch_id).name)+" "+h.start_at.slice(0,4)+(h.end_at?"–"+h.end_at.slice(0,4):"–now")).join(" · ")+"</div>":"")
+          +'<div class="row1"><span class="nm">'+esc(s.full_name)+"</span>"+chip("ACTIVE")+"</div>"
+          +'<div class="rl">'+esc(a.role)+" · "+esc(s.phone||"tanpa telepon")+"</div>"
+          +(hist.length>1?'<div class="small muted" style="margin-top:6px">Riwayat: '+hist.map(h=>esc(branch(h.branch_id).name)+" "+h.start_at.slice(0,4)+(h.end_at?"–"+h.end_at.slice(0,4):"–sekarang")).join(" · ")+"</div>":"")
           +'<div class="ops">'
           +(canEdit
-            ? '<button class="btn sm" data-act="openModal" data-m="editStaff" data-id="'+s.id+'">Edit</button>'
-              +(p.kind==="admin"?'<button class="btn sm" data-act="openModal" data-m="transferStaff" data-id="'+s.id+'">Transfer</button>':"")
-              +'<button class="btn sm danger" data-act="deactStaff" data-id="'+s.id+'">Deactivate</button>'
-            : '<button class="btn sm" data-act="denyEdit">Edit</button>')
+            ? '<button class="btn sm" data-act="openModal" data-m="editStaff" data-id="'+s.id+'">Ubah</button>'
+              +(p.kind==="admin"?'<button class="btn sm" data-act="openModal" data-m="transferStaff" data-id="'+s.id+'">Pindahkan</button>':"")
+              +'<button class="btn sm danger" data-act="deactStaff" data-id="'+s.id+'">Nonaktifkan</button>'
+            : '<button class="btn sm" data-act="denyEdit">Ubah</button>')
           +"</div></div>";
-      }).join("") : '<div class="card"><div class="emptybox">No staff registered for this branch yet.</div></div>')
-    +(inactive.length? '<h3 style="font-size:15px;color:var(--ink2);margin:18px 0 10px">Former staff</h3>'
-        + inactive.map(s=>'<div class="staffcard" style="opacity:.75"><div class="row1"><span class="nm">'+esc(s.full_name)+'</span><span class="chip INACTIVE">INACTIVE</span></div><div class="rl">History preserved — records stay attributed to this person.</div></div>').join("") : "");
+      }).join("") : '<div class="card"><div class="emptybox">Belum ada staf terdaftar di cabang ini.</div></div>')
+    +(inactive.length? '<h3 style="font-size:15px;color:var(--ink2);margin:18px 0 10px">Mantan staf</h3>'
+        + inactive.map(s=>'<div class="staffcard" style="opacity:.75"><div class="row1"><span class="nm">'+esc(s.full_name)+"</span>"+chip("INACTIVE")+'</div><div class="rl">Riwayat tetap tersimpan atas nama orang ini.</div></div>').join("") : "");
 }
 
 function auditList(list){
-  if(!list.length) return '<div class="emptybox">No activity recorded yet.</div>';
+  if(!list.length) return '<div class="emptybox">Belum ada aktivitas tercatat.</div>';
   return '<ul class="audit">'+list.map(a=>{
-    return "<li><div class=\"aha\"><span class=\"act\">"+esc(a.action)+'</span><span>'+esc(a.actor)+'</span><span class="ts">'+esc(a.ts)+" · server time</span></div>"
+    return "<li><div class=\"aha\"><span class=\"act\">"+esc(a.action)+'</span><span>'+esc(a.actor)+'</span><span class="ts">'+esc(a.ts)+" · waktu server</span></div>"
       +((a.before||a.after)?'<div class="diff">'+(a.before?esc(JSON.stringify(a.before))+" → ":"")+esc(JSON.stringify(a.after||{}))+"</div>":"")
       +"</li>";
   }).join("")+"</ul>"
-  +'<p class="small muted" style="margin-top:12px">Audit entries are append-only. Nobody edits or deletes them from the UI — not even SANCI Admin.</p>';
+  +'<p class="small muted" style="margin-top:12px">Catatan audit hanya bertambah. Tidak ada yang bisa mengubah atau menghapusnya dari aplikasi — termasuk SANCI Admin.</p>';
 }
 
 /* ── partner persona shell (P-09) ──────────────── */
@@ -711,55 +716,55 @@ function partnerShell(p){
   const visBranches = branchesOf(p.partner.id).filter(b=>canViewBranch(p,b));
   let inner="";
   if(r.v==="denied"){
-    return '<div class="denied"><div class="ic">⛔</div><h2>Access denied</h2>'
-      +"<p>This account belongs to <b>"+esc(p.partner.name)+" · "+esc(p.branch.name)+"</b>. Data of other partners can never be opened — even with a direct link.</p>"
-      +'<p class="small">In the real system this is enforced by the server and database (RLS), not by the app screen. The attempt is logged.</p>'
-      +'<button class="btn" data-act="nav" data-v="home" style="margin-top:12px">Back to home</button></div>';
+    return '<div class="denied"><div class="ic">⛔</div><h2>Akses ditolak</h2>'
+      +"<p>Akun ini milik <b>"+esc(p.partner.name)+" · "+esc(p.branch.name)+"</b>. Data partner lain tidak pernah bisa dibuka — bahkan lewat tautan langsung.</p>"
+      +'<p class="small">Pada sistem sebenarnya hal ini dipaksakan oleh server dan database (RLS), bukan oleh tampilan aplikasi. Percobaan ini tercatat.</p>'
+      +'<button class="btn" data-act="nav" data-v="home" style="margin-top:12px">Kembali ke beranda</button></div>';
   }
   if(r.v==="pstaff"){
     const b = branch(r.id)||p.branch;
     if(!canViewBranch(p,b)){
-      return '<div class="denied"><div class="ic">⛔</div><h2>Access denied</h2><p>Your visibility is set to own branch only. SANCI controls this setting.</p><button class="btn" data-act="nav" data-v="home" style="margin-top:12px">Back to home</button></div>';
+      return '<div class="denied"><div class="ic">⛔</div><h2>Akses ditolak</h2><p>Visibilitas akun Anda diatur hanya cabang sendiri. Pengaturan ini dikendalikan oleh SANCI.</p><button class="btn" data-act="nav" data-v="home" style="margin-top:12px">Kembali ke beranda</button></div>';
     }
-    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Home</button></div>'
-      +'<h2 class="mtitle">Staff — '+esc(b.name)+"</h2>"
-      +(b.id!==p.branch.id?'<div class="banner info" style="font-size:13.5px">Another '+esc(p.partner.name)+" branch. "+(canEditBranch(p,b)?"You can edit it (View + Edit policy).":"View only.")+"</div>":"")
+    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Beranda</button></div>'
+      +'<h2 class="mtitle">Staf — '+esc(b.name)+"</h2>"
+      +(b.id!==p.branch.id?'<div class="banner info" style="font-size:13.5px">Cabang '+esc(p.partner.name)+" lainnya. "+(canEditBranch(p,b)?"Anda bisa mengubahnya (kebijakan Lihat + Edit).":"Lihat saja.")+"</div>":"")
       + staffSection(p, b);
   } else if(r.v==="pbranch"){
     const b=p.branch;
-    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Home</button></div>'
-      +'<h2 class="mtitle">Branch profile</h2>'
+    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Beranda</button></div>'
+      +'<h2 class="mtitle">Profil Cabang</h2>'
       +'<div class="card"><dl class="kv">'
       +"<dt>Partner</dt><dd>"+esc(p.partner.name)+"</dd>"
-      +'<dt>Branch</dt><dd>'+esc(b.name)+' <span class="code">'+esc(p.partner.code)+" / "+esc(b.code)+"</span></dd>"
-      +"<dt>Address</dt><dd>"+esc(b.address)+"</dd><dt>City</dt><dd>"+esc(b.city||"—")+"</dd><dt>Province</dt><dd>"+esc(b.province||"—")+"</dd>"
+      +'<dt>Cabang</dt><dd>'+esc(b.name)+' <span class="code">'+esc(p.partner.code)+" / "+esc(b.code)+"</span></dd>"
+      +"<dt>Alamat</dt><dd>"+esc(b.address)+"</dd><dt>Kota</dt><dd>"+esc(b.city||"—")+"</dd><dt>Provinsi</dt><dd>"+esc(b.province||"—")+"</dd>"
       +"<dt>WhatsApp</dt><dd>"+esc(b.contact_phone||"—")+"</dd></dl>"
-      +'<p class="small muted" style="margin-top:14px">Address or contact wrong? Ask SANCI Admin to update it. (Prototype note: branch self-editing is a decision for Jenzo.)</p></div>';
+      +'<p class="small muted" style="margin-top:14px">Alamat atau kontak salah? Hubungi SANCI Admin untuk memperbarui. (Catatan prototipe: apakah cabang boleh mengubah profilnya sendiri masih menunggu keputusan.)</p></div>';
   } else if(r.v==="pacct"){
-    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Home</button></div>'
-      +'<h2 class="mtitle">My account</h2>'
+    inner = '<div class="backrow"><button class="linkbtn" data-act="nav" data-v="home">← Beranda</button></div>'
+      +'<h2 class="mtitle">Akun Saya</h2>'
       +'<div class="card"><dl class="kv">'
-      +"<dt>Name</dt><dd>"+esc(p.user.name)+"</dd>"
-      +"<dt>Login identity</dt><dd>"+esc(p.partner.name)+" · "+esc(p.branch.name)+"</dd>"
-      +"<dt>Role</dt><dd>"+esc(p.user.role)+"</dd>"
-      +"<dt>Visibility</dt><dd>"+esc(vlabel(p.policy))+"</dd>"
-      +'</dl><p class="small muted" style="margin-top:14px">Your branch identity is fixed by SANCI — there is no branch switcher. Accounts are created and managed by SANCI Admin.</p></div>';
+      +"<dt>Nama</dt><dd>"+esc(p.user.name)+"</dd>"
+      +"<dt>Identitas login</dt><dd>"+esc(p.partner.name)+" · "+esc(p.branch.name)+"</dd>"
+      +"<dt>Peran</dt><dd>"+esc(p.user.role)+"</dd>"
+      +"<dt>Visibilitas</dt><dd>"+esc(vlabel(p.policy))+"</dd>"
+      +'</dl><p class="small muted" style="margin-top:14px">Identitas cabang Anda ditetapkan oleh SANCI — tidak ada pilihan ganti cabang. Akun dibuat dan dikelola oleh SANCI Admin.</p></div>';
   } else {
     /* home */
     inner = '<div class="idcard">'
       +'<div class="logos"><span class="logo '+p.partner.lc+'">'+esc(p.partner.code)+'</span><span class="x">×</span><span class="sanci serif">SANCI</span></div>'
-      +"<h2>"+esc(p.partner.name)+'</h2><div class="br">'+esc(p.branch.name)+" Branch</div>"
+      +"<h2>"+esc(p.partner.name)+'</h2><div class="br">Cabang '+esc(p.branch.name)+"</div>"
       +'<div class="addr">'+esc(p.branch.address)+(p.branch.city?", "+esc(p.branch.city):"")+"</div>"
       +"</div>"
-      +'<button class="biglink" data-act="nav" data-v="pstaff" data-id="'+p.branch.id+'"><span>Staff</span><span class="arrow">→</span></button>'
+      +'<button class="biglink" data-act="nav" data-v="pstaff" data-id="'+p.branch.id+'"><span>Staf</span><span class="arrow">→</span></button>'
       +(p.policy.visibility==="PARTNER_ALL_BRANCHES" && visBranches.length>1
-        ? '<div class="small muted" style="margin:2px 0 10px 4px">Other '+esc(p.partner.name)+" branches (SANCI allows same-partner visibility):</div>"
-          + visBranches.filter(b=>b.id!==p.branch.id).map(b=>'<button class="biglink" style="padding:13px 18px;font-size:15.5px" data-act="nav" data-v="pstaff" data-id="'+b.id+'"><span>'+esc(b.name)+' <span class="small muted">'+(canEditBranch(p,b)?"view + edit":"view only")+'</span></span><span class="arrow">→</span></button>').join("")
+        ? '<div class="small muted" style="margin:2px 0 10px 4px">Cabang '+esc(p.partner.name)+" lainnya (SANCI mengizinkan visibilitas sesama partner):</div>"
+          + visBranches.filter(b=>b.id!==p.branch.id).map(b=>'<button class="biglink" style="padding:13px 18px;font-size:15.5px" data-act="nav" data-v="pstaff" data-id="'+b.id+'"><span>'+esc(b.name)+' <span class="small muted">'+(canEditBranch(p,b)?"lihat + edit":"lihat saja")+'</span></span><span class="arrow">→</span></button>').join("")
         : "")
-      +'<button class="biglink" data-act="nav" data-v="pbranch"><span>Branch profile</span><span class="arrow">→</span></button>'
-      +'<button class="biglink" data-act="nav" data-v="pacct"><span>My account</span><span class="arrow">→</span></button>'
-      +'<p class="small muted" style="margin-top:18px;line-height:1.55">Orders, customers, warehouse and delivery are later phases — they are deliberately not shown yet.</p>'
-      +'<p class="small" style="margin-top:14px"><button class="linkbtn" data-act="tryOtherPartner">Security demo: try to open another partner’s data</button></p>';
+      +'<button class="biglink" data-act="nav" data-v="pbranch"><span>Profil Cabang</span><span class="arrow">→</span></button>'
+      +'<button class="biglink" data-act="nav" data-v="pacct"><span>Akun Saya</span><span class="arrow">→</span></button>'
+      +'<p class="small muted" style="margin-top:18px;line-height:1.55">Order, customer, gudang, dan pengiriman adalah fase berikutnya — sengaja belum ditampilkan.</p>'
+      +'<p class="small" style="margin-top:14px"><button class="linkbtn" data-act="tryOtherPartner">Demo keamanan: coba buka data partner lain</button></p>';
   }
   return '<div class="pwrap">'+inner+"</div>";
 }
@@ -768,7 +773,7 @@ function partnerShell(p){
 function draftBanner(key){
   const d = loadDraft(key);
   if(!d) return "";
-  return '<div class="banner warn">Unsaved draft found ('+esc(d.ts)+'). <button class="linkbtn" data-act="draftContinue" data-k="'+esc(key)+'">Continue draft</button> · <button class="linkbtn" data-act="draftDiscard" data-k="'+esc(key)+'">Discard</button></div>';
+  return '<div class="banner warn">Ada draf yang belum tersimpan ('+esc(d.ts)+'). <button class="linkbtn" data-act="draftContinue" data-k="'+esc(key)+'">Lanjutkan draf</button> · <button class="linkbtn" data-act="draftDiscard" data-k="'+esc(key)+'">Buang</button></div>';
 }
 function fval(m,k){ return esc((m.values&&m.values[k])||""); }
 
@@ -779,18 +784,18 @@ function renderModal(p){
     const editing = m.type==="editPartner";
     const pa = editing? partner(m.id): null;
     const locked = editing && pa.status!=="DRAFT";
-    inner = "<h2>"+(editing?"Edit partner":"Add partner")+"</h2>"
+    inner = "<h2>"+(editing?"Ubah Partner":"Tambah Partner")+"</h2>"
       +(editing?"":draftBanner("addPartner"))
-      +(m.dupWarn?'<div class="banner warn">Possible duplicate found: <b>'+esc(m.dupWarn.name)+"</b>. <button class=\"linkbtn\" data-act=\"viewExisting\" data-id=\""+m.dupWarn.id+'">View existing partner</button> or continue if this is really a different company.</div>':"")
+      +(m.dupWarn?'<div class="banner warn">Kemungkinan duplikat: <b>'+esc(m.dupWarn.name)+"</b>. <button class=\"linkbtn\" data-act=\"viewExisting\" data-id=\""+m.dupWarn.id+'">Lihat partner yang sudah ada</button> atau lanjutkan jika memang perusahaan berbeda.</div>':"")
       +'<form data-form="'+m.type+'"'+(editing?' data-id="'+m.id+'"':"")+">"
-      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_name">Partner name *</label><input id="f_name" type="text" name="name" value="'+(editing&&!m.values?esc(pa.name):fval(m,"name"))+'" autocomplete="off">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
-      +'<div class="field'+(m.errs&&m.errs.code?" invalid":"")+'"><label for="f_code">Partner code *</label><input id="f_code" type="text" name="code" value="'+(editing&&!m.values?esc(pa.code):fval(m,"code"))+'" style="text-transform:uppercase" autocomplete="off"'+(locked?" disabled":"")+">"
-        +(locked?'<div class="hint">Code is locked while the partner is '+pa.status+". Changing it needs a SANCI Super Admin change flow with reason + audit.</div>":'<div class="hint">2–8 characters, A–Z 0–9 and hyphen. Example: GH, GOLDEN, GH-ID. Branch codes live on branches, not here.</div>')
+      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_name">Nama partner *</label><input id="f_name" type="text" name="name" value="'+(editing&&!m.values?esc(pa.name):fval(m,"name"))+'" autocomplete="off">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
+      +'<div class="field'+(m.errs&&m.errs.code?" invalid":"")+'"><label for="f_code">Kode partner *</label><input id="f_code" type="text" name="code" value="'+(editing&&!m.values?esc(pa.code):fval(m,"code"))+'" style="text-transform:uppercase" autocomplete="off"'+(locked?" disabled":"")+">"
+        +(locked?'<div class="hint">Kode terkunci selama partner '+SLBL[pa.status]+". Perubahan butuh alur khusus SANCI Super Admin dengan alasan + audit.</div>":'<div class="hint">2–8 karakter, A–Z 0–9 dan tanda hubung. Contoh: GH, GOLDEN, GH-ID. Kode cabang diatur di cabang, bukan di sini.</div>')
         +(m.errs&&m.errs.code?'<div class="err">'+esc(m.errs.code)+"</div>":"")+"</div>"
-      +'<div class="field"><label>Logo</label><div class="hint" style="margin-top:0">Not wired in this prototype. Real build: PNG/JPG/WebP, compressed before upload; a failed logo never blocks partner creation.</div></div>'
-      +'<div class="field"><label for="f_contact">Contact person</label><input id="f_contact" type="text" name="contact_name" value="'+(editing&&!m.values?esc(pa.contact_name):fval(m,"contact_name"))+'"></div>'
+      +'<div class="field"><label>Logo</label><div class="hint" style="margin-top:0">Belum aktif di prototipe ini. Versi sebenarnya: PNG/JPG/WebP, dikompres sebelum unggah; kegagalan logo tidak pernah menghalangi pembuatan partner.</div></div>'
+      +'<div class="field"><label for="f_contact">Narahubung</label><input id="f_contact" type="text" name="contact_name" value="'+(editing&&!m.values?esc(pa.contact_name):fval(m,"contact_name"))+'"></div>'
       +'<div class="field"><label for="f_phone">WhatsApp</label><input id="f_phone" type="tel" inputmode="tel" name="contact_phone" value="'+(editing&&!m.values?esc(pa.contact_phone):fval(m,"contact_phone"))+'"></div>'
-      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary"'+(m.saving?" disabled":"")+">"+(m.saving?"Saving…":(editing?"Save changes":"Create partner"))+"</button></div>"
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Batal</button><button type="submit" class="btn primary"'+(m.saving?" disabled":"")+">"+(m.saving?"Menyimpan…":(editing?"Simpan":"Buat Partner"))+"</button></div>"
       +"</form>";
   }
   if(m.type==="addBranch"||m.type==="editBranch"){
@@ -798,16 +803,16 @@ function renderModal(p){
     const b=editing?branch(m.id):null;
     const pa=partner(editing?b.partner_id:m.id);
     const v=(k,fb)=> m.values? fval(m,k) : (editing? esc(b[k]||"") : (fb||""));
-    inner="<h2>"+(editing?"Edit branch":"Add branch — "+esc(pa.name))+"</h2>"
+    inner="<h2>"+(editing?"Ubah Cabang":"Tambah Cabang — "+esc(pa.name))+"</h2>"
       +'<form data-form="'+m.type+'" data-id="'+(editing?m.id:m.id)+'">'
-      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_bname">Branch name *</label><input id="f_bname" type="text" name="name" value="'+v("name")+'">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
-      +'<div class="field'+(m.errs&&m.errs.code?" invalid":"")+'"><label for="f_bcode">Branch code *</label><input id="f_bcode" type="text" name="code" value="'+v("code")+'" style="text-transform:uppercase"><div class="hint">Unique within '+esc(pa.name)+" ("+esc(pa.code)+" / …). Another partner may reuse the same code.</div>"+(m.errs&&m.errs.code?'<div class="err">'+esc(m.errs.code)+"</div>":"")+"</div>"
-      +'<div class="field'+(m.errs&&m.errs.address?" invalid":"")+'"><label for="f_baddr">Full address *</label><textarea id="f_baddr" name="address">'+v("address")+"</textarea>"+(m.errs&&m.errs.address?'<div class="err">'+esc(m.errs.address)+"</div>":"")+"</div>"
-      +'<div class="field"><label for="f_bcity">City</label><input id="f_bcity" type="text" name="city" value="'+v("city")+'"></div>'
-      +'<div class="field"><label for="f_bprov">Province</label><input id="f_bprov" type="text" name="province" value="'+v("province")+'"></div>'
-      +'<div class="field"><label for="f_bcontact">Contact person</label><input id="f_bcontact" type="text" name="contact_name" value="'+v("contact_name")+'"></div>'
+      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_bname">Nama cabang *</label><input id="f_bname" type="text" name="name" value="'+v("name")+'">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
+      +'<div class="field'+(m.errs&&m.errs.code?" invalid":"")+'"><label for="f_bcode">Kode cabang *</label><input id="f_bcode" type="text" name="code" value="'+v("code")+'" style="text-transform:uppercase"><div class="hint">Unik di dalam '+esc(pa.name)+" ("+esc(pa.code)+" / …). Partner lain boleh memakai kode yang sama.</div>"+(m.errs&&m.errs.code?'<div class="err">'+esc(m.errs.code)+"</div>":"")+"</div>"
+      +'<div class="field'+(m.errs&&m.errs.address?" invalid":"")+'"><label for="f_baddr">Alamat lengkap *</label><textarea id="f_baddr" name="address">'+v("address")+"</textarea>"+(m.errs&&m.errs.address?'<div class="err">'+esc(m.errs.address)+"</div>":"")+"</div>"
+      +'<div class="field"><label for="f_bcity">Kota</label><input id="f_bcity" type="text" name="city" value="'+v("city")+'"></div>'
+      +'<div class="field"><label for="f_bprov">Provinsi</label><input id="f_bprov" type="text" name="province" value="'+v("province")+'"></div>'
+      +'<div class="field"><label for="f_bcontact">Narahubung</label><input id="f_bcontact" type="text" name="contact_name" value="'+v("contact_name")+'"></div>'
       +'<div class="field"><label for="f_bphone">WhatsApp</label><input id="f_bphone" type="tel" inputmode="tel" name="contact_phone" value="'+v("contact_phone")+'"></div>'
-      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary">'+(editing?"Save changes":"Create branch")+"</button></div></form>";
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Batal</button><button type="submit" class="btn primary">'+(editing?"Simpan":"Buat Cabang")+"</button></div></form>";
   }
   if(m.type==="addStaff"||m.type==="editStaff"){
     const editing=m.type==="editStaff";
@@ -817,26 +822,26 @@ function renderModal(p){
     const curRole=editing?activeAssignment(st.id).role:"";
     const dkey="addStaff_"+b.id;
     const v=k=> m.values? fval(m,k) : (editing? esc(st[k]||"") : "");
-    inner="<h2>"+(editing?"Edit staff":"Add staff")+"</h2>"
-      +'<div class="banner info" style="font-size:13.5px">Branch: <b>'+esc(pa.name)+" · "+esc(b.name)+"</b> — taken from your login identity, not selectable. No accidental cross-branch entry.</div>"
+    inner="<h2>"+(editing?"Ubah Staf":"Tambah Staf")+"</h2>"
+      +'<div class="banner info" style="font-size:13.5px">Cabang: <b>'+esc(pa.name)+" · "+esc(b.name)+"</b> — otomatis dari identitas login, tidak bisa dipilih. Tidak ada salah masuk cabang.</div>"
       +(editing?"":draftBanner(dkey))
       +'<form data-form="'+m.type+'" data-id="'+(editing?m.id:b.id)+'">'
-      +'<div class="field'+(m.errs&&m.errs.full_name?" invalid":"")+'"><label for="f_sname">Full name *</label><input id="f_sname" type="text" name="full_name" value="'+v("full_name")+'">'+(m.errs&&m.errs.full_name?'<div class="err">'+esc(m.errs.full_name)+"</div>":"")+"</div>"
-      +'<div class="field"><label for="f_sphone">Phone</label><input id="f_sphone" type="tel" inputmode="tel" name="phone" value="'+v("phone")+'"></div>'
-      +'<div class="field"><label for="f_srole">Role *</label><select id="f_srole" name="role">'
-        +["Sales","Reception / CS","Manager","Other"].map(r=>'<option'+((m.values?m.values.role:curRole)===r?" selected":"")+">"+r+"</option>").join("")
-      +'</select><div class="hint">Business role at the store — separate from any system login permission.</div></div>'
-      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary"'+(m.saving?" disabled":"")+">"+(m.saving?"Saving…":(editing?"Save changes":"Add staff"))+"</button></div></form>";
+      +'<div class="field'+(m.errs&&m.errs.full_name?" invalid":"")+'"><label for="f_sname">Nama lengkap *</label><input id="f_sname" type="text" name="full_name" value="'+v("full_name")+'">'+(m.errs&&m.errs.full_name?'<div class="err">'+esc(m.errs.full_name)+"</div>":"")+"</div>"
+      +'<div class="field"><label for="f_sphone">Telepon</label><input id="f_sphone" type="tel" inputmode="tel" name="phone" value="'+v("phone")+'"></div>'
+      +'<div class="field"><label for="f_srole">Peran *</label><select id="f_srole" name="role">'
+        +ROLES.map(r=>'<option'+((m.values?m.values.role:curRole)===r?" selected":"")+">"+r+"</option>").join("")
+      +'</select><div class="hint">Peran bisnis di toko — terpisah dari hak akses login sistem.</div></div>'
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Batal</button><button type="submit" class="btn primary"'+(m.saving?" disabled":"")+">"+(m.saving?"Menyimpan…":(editing?"Simpan":"Tambah Staf"))+"</button></div></form>";
   }
   if(m.type==="transferStaff"){
     const st=byId(db.staff,m.id); const cur=activeAssignment(st.id); const pa=partner(st.partner_id);
-    inner="<h2>Transfer "+esc(st.full_name)+"</h2>"
-      +'<p class="small muted" style="margin-bottom:14px">Current: '+esc(branch(cur.branch_id).name)+" since "+esc(cur.start_at)+". Transferring ends this assignment and starts a new one — history is never rewritten.</p>"
+    inner="<h2>Pindahkan "+esc(st.full_name)+"</h2>"
+      +'<p class="small muted" style="margin-bottom:14px">Saat ini: '+esc(branch(cur.branch_id).name)+" sejak "+esc(cur.start_at)+". Pemindahan mengakhiri penugasan lama dan memulai yang baru — riwayat tidak pernah ditulis ulang.</p>"
       +'<form data-form="transferStaff" data-id="'+m.id+'">'
-      +'<div class="field"><label for="f_tbr">New branch *</label><select id="f_tbr" name="branch_id">'
+      +'<div class="field"><label for="f_tbr">Cabang tujuan *</label><select id="f_tbr" name="branch_id">'
       +branchesOf(pa.id).filter(b=>b.id!==cur.branch_id&&b.status==="ACTIVE").map(b=>"<option value=\""+b.id+'">'+esc(b.name)+"</option>").join("")
       +"</select></div>"
-      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary">Transfer</button></div></form>';
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Batal</button><button type="submit" class="btn primary">Pindahkan</button></div></form>';
   }
   if(m.type==="addUser"){
     const pid=m.id||db.partners[0].id;
@@ -844,32 +849,32 @@ function renderModal(p){
     const bs=branchesOf(pid).filter(b=>b.status==="ACTIVE");
     const selB = m.values&&m.values.branch_id || (bs[0]&&bs[0].id);
     const cand=staffOfBranch(selB||"").filter(s=>!db.users.some(u=>u.staff_id===s.id));
-    inner="<h2>Create login user</h2>"
+    inner="<h2>Buat Akun Login</h2>"
       +'<form data-form="addUser" data-id="'+pid+'">'
       +'<div class="field"><label for="f_upartner">Partner</label><select id="f_upartner" data-ch="modalPartner">'+db.partners.filter(x=>x.status!=="INACTIVE").map(x=>'<option value="'+x.id+'"'+(x.id===pid?" selected":"")+">"+esc(x.name)+"</option>").join("")+"</select></div>"
-      +'<div class="field"><label for="f_ubranch">Branch *</label><select id="f_ubranch" name="branch_id" data-ch="modalBranch">'+bs.map(b=>'<option value="'+b.id+'"'+(b.id===selB?" selected":"")+">"+esc(b.name)+"</option>").join("")+"</select>"
-      +(bs.length?"":'<div class="err">This partner has no active branch yet — add a branch first.</div>')+"</div>"
-      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_uname">Name *</label><input id="f_uname" type="text" name="name" value="'+fval(m,"name")+'">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
-      +'<div class="field"><label for="f_ustaff">Link to staff (optional)</label><select id="f_ustaff" name="staff_id"><option value="">— none —</option>'+cand.map(s=>'<option value="'+s.id+'"'+((m.values&&m.values.staff_id)===s.id?" selected":"")+">"+esc(s.full_name)+"</option>").join("")+'</select><div class="hint">A staff member may exist without a login; a login may exist without a staff record.</div></div>'
-      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button type="submit" class="btn primary"'+(bs.length?"":" disabled")+">Create user</button></div></form>";
+      +'<div class="field"><label for="f_ubranch">Cabang *</label><select id="f_ubranch" name="branch_id" data-ch="modalBranch">'+bs.map(b=>'<option value="'+b.id+'"'+(b.id===selB?" selected":"")+">"+esc(b.name)+"</option>").join("")+"</select>"
+      +(bs.length?"":'<div class="err">Partner ini belum punya cabang aktif — tambahkan cabang dulu.</div>')+"</div>"
+      +'<div class="field'+(m.errs&&m.errs.name?" invalid":"")+'"><label for="f_uname">Nama *</label><input id="f_uname" type="text" name="name" value="'+fval(m,"name")+'">'+(m.errs&&m.errs.name?'<div class="err">'+esc(m.errs.name)+"</div>":"")+"</div>"
+      +'<div class="field"><label for="f_ustaff">Kaitkan ke staf (opsional)</label><select id="f_ustaff" name="staff_id"><option value="">— tidak ada —</option>'+cand.map(s=>'<option value="'+s.id+'"'+((m.values&&m.values.staff_id)===s.id?" selected":"")+">"+esc(s.full_name)+"</option>").join("")+'</select><div class="hint">Staf boleh ada tanpa akun login; akun login boleh ada tanpa data staf.</div></div>'
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Batal</button><button type="submit" class="btn primary"'+(bs.length?"":" disabled")+">Buat Akun</button></div></form>";
   }
   if(m.type==="deletePartner"){
     const pa=partner(m.id);
     const empty = !branchesOf(m.id).length && !usersOf(m.id).length && !db.staff.some(s=>s.partner_id===m.id);
-    inner="<h2>Delete "+esc(pa.name)+"?</h2>"
+    inner="<h2>Hapus "+esc(pa.name)+"?</h2>"
       +(empty
-        ? '<p style="margin-bottom:12px">This partner is a DRAFT with no branches, users or staff, so permanent deletion is allowed.</p>'
-          +'<div class="field"><label for="f_del">Type <span class="code">'+esc(pa.code)+"</span> to permanently delete "+esc(pa.name)+'</label><input id="f_del" type="text" autocomplete="off" style="text-transform:uppercase"></div>'
-          +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn danger" data-act="confirmDelete" data-id="'+m.id+'">Permanently delete</button></div>'
-        : '<div class="banner bad">This partner already has branches, users or staff. Hard delete is not allowed — deactivate instead, history stays intact.</div>'
-          +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Close</button></div>');
+        ? '<p style="margin-bottom:12px">Partner ini masih DRAF tanpa cabang, akun, atau staf, jadi penghapusan permanen diizinkan.</p>'
+          +'<div class="field"><label for="f_del">Ketik <span class="code">'+esc(pa.code)+"</span> untuk menghapus "+esc(pa.name)+' secara permanen</label><input id="f_del" type="text" autocomplete="off" style="text-transform:uppercase"></div>'
+          +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Batal</button><button class="btn danger" data-act="confirmDelete" data-id="'+m.id+'">Hapus permanen</button></div>'
+        : '<div class="banner bad">Partner ini sudah punya cabang, akun, atau staf. Hapus permanen tidak diizinkan — nonaktifkan saja, riwayat tetap utuh.</div>'
+          +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Tutup</button></div>');
   }
   if(m.type==="deactivatePartner"){
     const pa=partner(m.id);
-    inner="<h2>End partnership with "+esc(pa.name)+"?</h2>"
-      +'<p style="margin-bottom:6px">Status becomes <b>INACTIVE</b>. All branches, staff and history are preserved. Login users lose access.</p>'
-      +'<p class="small muted">Master data is never hard-deleted once used.</p>'
-      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Cancel</button><button class="btn danger" data-act="confirmDeactivate" data-id="'+m.id+'">End partnership</button></div>';
+    inner="<h2>Akhiri kerja sama dengan "+esc(pa.name)+"?</h2>"
+      +'<p style="margin-bottom:6px">Status menjadi <b>NONAKTIF</b>. Semua cabang, staf, dan riwayat tetap tersimpan. Akun login kehilangan akses.</p>'
+      +'<p class="small muted">Master data tidak pernah dihapus permanen setelah terpakai.</p>'
+      +'<div class="btnrow"><button type="button" class="btn" data-act="closeModal">Batal</button><button class="btn danger" data-act="confirmDeactivate" data-id="'+m.id+'">Akhiri kerja sama</button></div>';
   }
   return '<div class="overlay" data-act="overlayClose"><div class="modal" role="dialog" aria-modal="true">'+inner+"</div></div>";
 }
@@ -877,11 +882,11 @@ function renderModal(p){
 /* ── validation ────────────────────────────────── */
 function validatePartner(values, selfId){
   const errs={};
-  if(!values.name.trim()) errs.name="Partner name is required.";
+  if(!values.name.trim()) errs.name="Nama partner wajib diisi.";
   const code=values.code.trim().toUpperCase();
-  if(!code) errs.code="Partner code is required.";
-  else if(!/^[A-Z0-9-]{2,8}$/.test(code)) errs.code="2–8 characters, A–Z, 0–9 and hyphen only.";
-  else if(db.partners.some(x=>x.code===code&&x.id!==selfId)) errs.code="Partner code "+code+" is already in use.";
+  if(!code) errs.code="Kode partner wajib diisi.";
+  else if(!/^[A-Z0-9-]{2,8}$/.test(code)) errs.code="2–8 karakter, hanya A–Z, 0–9, dan tanda hubung.";
+  else if(db.partners.some(x=>x.code===code&&x.id!==selfId)) errs.code="Kode partner "+code+" sudah dipakai.";
   return {errs, code};
 }
 function dupPartnerName(name, selfId){
@@ -892,7 +897,7 @@ function dupPartnerName(name, selfId){
 /* ── actions ───────────────────────────────────── */
 const ACTS = {
   nav(d){ state.route={v:d.v, id:d.id, tab:d.tab}; state.modal=null; render(); },
-  reset(){ db=seedData(); state.route={v: persona().kind==="admin" ? "partners" : "home"}; state.q=""; state.modal=null; ["addPartner"].forEach(clearDraft); db.branches.forEach(b=>clearDraft("addStaff_"+b.id)); toast("Demo data reset."); render(); },
+  reset(){ db=seedData(); state.route={v: persona().kind==="admin" ? "partners" : "home"}; state.q=""; state.modal=null; ["addPartner"].forEach(clearDraft); db.branches.forEach(b=>clearDraft("addStaff_"+b.id)); toast("Data demo direset."); render(); },
   demoState(d){ state.listDemo=d.s; render(); },
   openModal(d){ state.modal={type:d.m, id:d.id}; render(); },
   closeModal(){ state.modal=null; render(); },
@@ -900,57 +905,57 @@ const ACTS = {
   viewExisting(d){ state.modal=null; state.route={v:"partner", id:d.id}; render(); },
 
   draftContinue(d){ const dr=loadDraft(d.k); if(dr){ state.modal.values=dr.values; } render(); },
-  draftDiscard(d){ clearDraft(d.k); render(); toast("Draft discarded."); },
+  draftDiscard(d){ clearDraft(d.k); render(); toast("Draf dibuang."); },
 
   activatePartner(d){
     const pa=partner(d.id); const gate=activationGate(pa);
-    if(!gate.pass){ toast("Cannot activate — checklist incomplete.", true); return; }
+    if(!gate.pass){ toast("Tidak bisa diaktifkan — syarat belum lengkap.", true); return; }
     audit("PARTNER_STATUS_CHANGED","partner",pa.id,pa.id,null,{status:pa.status},{status:"ACTIVE"});
-    pa.status="ACTIVE"; toast(pa.name+" is now ACTIVE."); render();
+    pa.status="ACTIVE"; toast(pa.name+" sekarang AKTIF."); render();
   },
-  suspendPartner(d){ const pa=partner(d.id); audit("PARTNER_STATUS_CHANGED","partner",pa.id,pa.id,null,{status:pa.status},{status:"SUSPENDED"}); pa.status="SUSPENDED"; toast(pa.name+" suspended. Data preserved."); render(); },
-  reactivatePartner(d){ const pa=partner(d.id); audit("PARTNER_STATUS_CHANGED","partner",pa.id,pa.id,null,{status:pa.status},{status:"ACTIVE"}); pa.status="ACTIVE"; toast(pa.name+" reactivated."); render(); },
-  confirmDeactivate(d){ const pa=partner(d.id); audit("PARTNER_DEACTIVATED","partner",pa.id,pa.id,null,{status:pa.status},{status:"INACTIVE"}); pa.status="INACTIVE"; state.modal=null; toast("Partnership with "+pa.name+" ended. History preserved."); render(); },
+  suspendPartner(d){ const pa=partner(d.id); audit("PARTNER_STATUS_CHANGED","partner",pa.id,pa.id,null,{status:pa.status},{status:"SUSPENDED"}); pa.status="SUSPENDED"; toast(pa.name+" ditangguhkan. Data tetap tersimpan."); render(); },
+  reactivatePartner(d){ const pa=partner(d.id); audit("PARTNER_STATUS_CHANGED","partner",pa.id,pa.id,null,{status:pa.status},{status:"ACTIVE"}); pa.status="ACTIVE"; toast(pa.name+" diaktifkan lagi."); render(); },
+  confirmDeactivate(d){ const pa=partner(d.id); audit("PARTNER_DEACTIVATED","partner",pa.id,pa.id,null,{status:pa.status},{status:"INACTIVE"}); pa.status="INACTIVE"; state.modal=null; toast("Kerja sama dengan "+pa.name+" diakhiri. Riwayat tetap tersimpan."); render(); },
   confirmDelete(d){
     const pa=partner(d.id); const typed=($("#f_del")&&$("#f_del").value||"").trim().toUpperCase();
-    if(typed!==pa.code){ toast("Type "+pa.code+" exactly to confirm.", true); return; }
+    if(typed!==pa.code){ toast("Ketik "+pa.code+" persis untuk konfirmasi.", true); return; }
     db.partners=db.partners.filter(x=>x.id!==d.id); delete db.policies[d.id];
-    state.modal=null; state.route={v:"partners"}; toast("Draft partner deleted."); render();
+    state.modal=null; state.route={v:"partners"}; toast("Partner draf dihapus."); render();
   },
 
-  suspendBranch(d){ const b=branch(d.id); audit("BRANCH_STATUS_CHANGED","branch",b.id,b.partner_id,b.id,{status:b.status},{status:"SUSPENDED"}); b.status="SUSPENDED"; toast(b.name+" branch suspended. History preserved."); render(); },
-  reactivateBranch(d){ const b=branch(d.id); audit("BRANCH_STATUS_CHANGED","branch",b.id,b.partner_id,b.id,{status:b.status},{status:"ACTIVE"}); b.status="ACTIVE"; toast(b.name+" branch reactivated."); render(); },
+  suspendBranch(d){ const b=branch(d.id); audit("BRANCH_STATUS_CHANGED","branch",b.id,b.partner_id,b.id,{status:b.status},{status:"SUSPENDED"}); b.status="SUSPENDED"; toast("Cabang "+b.name+" ditangguhkan. Riwayat tetap."); render(); },
+  reactivateBranch(d){ const b=branch(d.id); audit("BRANCH_STATUS_CHANGED","branch",b.id,b.partner_id,b.id,{status:b.status},{status:"ACTIVE"}); b.status="ACTIVE"; toast("Cabang "+b.name+" diaktifkan lagi."); render(); },
 
   deactStaff(d){
     const s=byId(db.staff,d.id); const a=activeAssignment(s.id);
     audit("STAFF_DEACTIVATED","staff",s.id,s.partner_id,a?a.branch_id:null,{status:s.status},{status:"INACTIVE"});
     s.status="INACTIVE"; if(a){ a.end_at=nowTs().slice(0,10); a.status="ENDED"; }
-    toast(s.full_name+" deactivated. History stays."); render();
+    toast(s.full_name+" dinonaktifkan. Riwayat tetap tersimpan."); render();
   },
   toggleUser(d){
     const u=byId(db.users,d.id); const to=u.status==="ACTIVE"?"DISABLED":"ACTIVE";
     audit(to==="DISABLED"?"USER_DISABLED":"USER_REACTIVATED","user",u.id,u.partner_id,u.branch_id,{status:u.status},{status:to});
-    u.status=to; toast(u.name+(to==="DISABLED"?" disabled.":" reactivated.")); render();
+    u.status=to; toast(u.name+(to==="DISABLED"?" dinonaktifkan.":" diaktifkan lagi.")); render();
   },
 
-  denyEdit(){ toast("View only — your account can edit its own branch only.", true); },
+  denyEdit(){ toast("Lihat saja — akun Anda hanya bisa mengubah cabang sendiri.", true); },
   tryOtherPartner(){ state.route={v:"denied"}; render(); },
   syncOutbox(){ flushOutbox(); }
 };
 
 function flushOutbox(){
-  if(state.offline){ toast("Still offline — will submit when back online.", true); return; }
+  if(state.offline){ toast("Masih offline — akan terkirim saat online kembali.", true); return; }
   const items=db.outbox.splice(0);
   items.forEach(o=>{
     if(o.type==="partner") commitPartner(o.values);
     if(o.type==="staff") commitStaff(o.branch_id, o.values);
   });
-  if(items.length) toast(items.length+" pending item(s) submitted to server.");
+  if(items.length) toast(items.length+" item tertunda terkirim ke server.");
   render();
 }
 function commitPartner(values){
   const {errs, code}=validatePartner(values,null);
-  if(Object.keys(errs).length){ toast("Pending partner could not be submitted: "+(errs.code||errs.name), true); return; }
+  if(Object.keys(errs).length){ toast("Partner tertunda gagal dikirim: "+(errs.code||errs.name), true); return; }
   const id=nid("p");
   db.partners.push({id, name:values.name.trim(), code, status:"DRAFT", lc:"b3", contact_name:values.contact_name||"", contact_phone:values.contact_phone||"", created_at:nowTs().slice(0,10)});
   db.policies[id]={visibility:"OWN_BRANCH", edit:"OWN_BRANCH", configured:false};
@@ -990,12 +995,12 @@ document.addEventListener("submit", e=>{
     if(state.offline){
       db.outbox.push({type:"partner", values:{...values, code}});
       saveDraft("addPartner", values); clearDraft("addPartner");
-      state.modal=null; toast("Saved on this device — not submitted yet. Will submit when back online."); render(); return;
+      state.modal=null; toast("Tersimpan di perangkat ini — belum terkirim. Akan dikirim saat online kembali."); render(); return;
     }
     commitPartner(values);
     const created=db.partners[db.partners.length-1];
     state.modal=null; state.route={v:"partner", id:created.id};
-    toast("Partner created as DRAFT. Next: add the first branch."); render(); return;
+    toast("Partner dibuat sebagai DRAF. Selanjutnya: tambah cabang pertama."); render(); return;
   }
 
   if(kind==="editPartner"){
@@ -1007,73 +1012,73 @@ document.addEventListener("submit", e=>{
     pa.name=values.name.trim(); if(!locked) pa.code=code;
     pa.contact_name=values.contact_name; pa.contact_phone=values.contact_phone;
     audit("PARTNER_UPDATED","partner",pa.id,pa.id,null,before,{name:pa.name, code:pa.code, contact_name:pa.contact_name, contact_phone:pa.contact_phone});
-    state.modal=null; toast("Partner updated."); render(); return;
+    state.modal=null; toast("Partner diperbarui."); render(); return;
   }
 
   if(kind==="addBranch"){
     const pa=partner(fid); const errs={};
     const code=values.code.trim().toUpperCase();
-    if(!values.name.trim()) errs.name="Branch name is required.";
-    if(!code) errs.code="Branch code is required.";
-    else if(!/^[A-Z0-9-]{2,8}$/.test(code)) errs.code="2–8 characters, A–Z, 0–9 and hyphen only.";
-    else if(db.branches.some(b=>b.partner_id===fid&&b.code===code)) errs.code="Branch code "+pa.code+" / "+code+" already exists.";
-    if(!values.address.trim()) errs.address="Full address is required.";
+    if(!values.name.trim()) errs.name="Nama cabang wajib diisi.";
+    if(!code) errs.code="Kode cabang wajib diisi.";
+    else if(!/^[A-Z0-9-]{2,8}$/.test(code)) errs.code="2–8 karakter, hanya A–Z, 0–9, dan tanda hubung.";
+    else if(db.branches.some(b=>b.partner_id===fid&&b.code===code)) errs.code="Kode cabang "+pa.code+" / "+code+" sudah ada.";
+    if(!values.address.trim()) errs.address="Alamat lengkap wajib diisi.";
     if(Object.keys(errs).length){ m.values=values; m.errs=errs; render(); return; }
     const id=nid("b");
     db.branches.push({id, partner_id:fid, name:values.name.trim(), code, address:values.address.trim(), city:values.city, province:values.province, contact_name:values.contact_name, contact_phone:values.contact_phone, status:"ACTIVE"});
     audit("BRANCH_CREATED","branch",id,fid,id,null,{name:values.name.trim(), code});
-    state.modal=null; state.route={v:"branch", id}; toast("Branch created."); render(); return;
+    state.modal=null; state.route={v:"branch", id}; toast("Cabang dibuat."); render(); return;
   }
 
   if(kind==="editBranch"){
     const b=branch(fid); const errs={};
-    if(!values.name.trim()) errs.name="Branch name is required.";
-    if(!values.address.trim()) errs.address="Full address is required.";
+    if(!values.name.trim()) errs.name="Nama cabang wajib diisi.";
+    if(!values.address.trim()) errs.address="Alamat lengkap wajib diisi.";
     if(Object.keys(errs).length){ m.values=values; m.errs=errs; render(); return; }
     const before={name:b.name, address:b.address};
     Object.assign(b,{name:values.name.trim(), address:values.address.trim(), city:values.city, province:values.province, contact_name:values.contact_name, contact_phone:values.contact_phone});
     audit("BRANCH_UPDATED","branch",b.id,b.partner_id,b.id,before,{name:b.name, address:b.address});
-    state.modal=null; toast("Branch updated."); render(); return;
+    state.modal=null; toast("Cabang diperbarui."); render(); return;
   }
 
   if(kind==="addStaff"){
     const b=branch(fid);
-    if(!canEditBranch(persona(), b)){ toast("View only — your account can edit its own branch only.", true); return; }
-    if(!values.full_name.trim()){ m.values=values; m.errs={full_name:"Full name is required."}; render(); return; }
+    if(!canEditBranch(persona(), b)){ toast("Lihat saja — akun Anda hanya bisa mengubah cabang sendiri.", true); return; }
+    if(!values.full_name.trim()){ m.values=values; m.errs={full_name:"Nama lengkap wajib diisi."}; render(); return; }
     if(state.offline){
       db.outbox.push({type:"staff", branch_id:fid, values});
       clearDraft("addStaff_"+fid);
-      state.modal=null; toast("Saved on this device — not submitted yet."); render(); return;
+      state.modal=null; toast("Tersimpan di perangkat ini — belum terkirim."); render(); return;
     }
     commitStaff(fid, values);
-    state.modal=null; toast("Staff added."); render(); return;
+    state.modal=null; toast("Staf ditambahkan."); render(); return;
   }
 
   if(kind==="editStaff"){
     const s=byId(db.staff,fid); const a=activeAssignment(s.id);
-    if(!values.full_name.trim()){ m.values=values; m.errs={full_name:"Full name is required."}; render(); return; }
+    if(!values.full_name.trim()){ m.values=values; m.errs={full_name:"Nama lengkap wajib diisi."}; render(); return; }
     const before={full_name:s.full_name, phone:s.phone, role:a.role};
     s.full_name=values.full_name.trim(); s.phone=values.phone; a.role=values.role;
     audit("STAFF_UPDATED","staff",s.id,s.partner_id,a.branch_id,before,{full_name:s.full_name, phone:s.phone, role:a.role});
-    state.modal=null; toast("Staff updated."); render(); return;
+    state.modal=null; toast("Staf diperbarui."); render(); return;
   }
 
   if(kind==="transferStaff"){
     const s=byId(db.staff,fid); const cur=activeAssignment(s.id); const to=values.branch_id;
-    if(!to){ toast("No other active branch to transfer to.", true); return; }
+    if(!to){ toast("Tidak ada cabang aktif lain untuk tujuan pemindahan.", true); return; }
     cur.end_at=nowTs().slice(0,10); cur.status="ENDED";
     db.assignments.push({id:nid("a"), staff_id:s.id, branch_id:to, role:cur.role, start_at:nowTs().slice(0,10), end_at:null, status:"ACTIVE"});
     audit("STAFF_ASSIGNMENT_CHANGED","staff",s.id,s.partner_id,to,{branch:branch(cur.branch_id).name},{branch:branch(to).name});
-    state.modal=null; toast(s.full_name+" transferred to "+branch(to).name+". Old records keep their original branch."); render(); return;
+    state.modal=null; toast(s.full_name+" dipindahkan ke "+branch(to).name+". Catatan lama tetap di cabang asal."); render(); return;
   }
 
   if(kind==="addUser"){
     const pid=fid;
-    if(!values.name.trim()){ m.values=values; m.errs={name:"Name is required."}; render(); return; }
+    if(!values.name.trim()){ m.values=values; m.errs={name:"Nama wajib diisi."}; render(); return; }
     const id=nid("u");
-    db.users.push({id, name:values.name.trim(), partner_id:pid, branch_id:values.branch_id, staff_id:values.staff_id||null, role:"Branch User", status:"ACTIVE"});
+    db.users.push({id, name:values.name.trim(), partner_id:pid, branch_id:values.branch_id, staff_id:values.staff_id||null, role:"Akun Cabang", status:"ACTIVE"});
     audit("USER_CREATED","user",id,pid,values.branch_id,null,{name:values.name.trim()});
-    state.modal=null; toast("Login user created."); render(); return;
+    state.modal=null; toast("Akun login dibuat."); render(); return;
   }
 
   if(kind==="permissions"){
@@ -1081,7 +1086,7 @@ document.addEventListener("submit", e=>{
     const before={visibility:pol.visibility, edit:pol.edit};
     pol.visibility=values.visibility; pol.edit=values.edit; pol.configured=true;
     audit("PERMISSION_CHANGED","policy",fid,fid,null,before,{visibility:pol.visibility, edit:pol.edit});
-    toast("Permissions saved. They take effect for every "+partner(fid).name+" login."); render(); return;
+    toast("Hak akses disimpan. Berlaku untuk semua login "+partner(fid).name+"."); render(); return;
   }
 });
 
