@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useLocalDraft } from "@/lib/use-local-draft";
+import DraftBanner from "@/lib/draft-banner";
 import { updateStaff, deactivateStaff, transferStaff } from "../../../../actions-staff";
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
@@ -23,6 +25,7 @@ export default function StaffActions({
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);
+  const draft = useLocalDraft("staff", staff.id, modal === "edit");
 
   function openModal(which: "edit" | "transfer") {
     reset();
@@ -63,6 +66,8 @@ export default function StaffActions({
       return;
     }
     // Berhasil: tombol tetap nonaktif sampai modal tertutup dan data disegarkan.
+    // Draf baru dihapus di sini — sesudah server memastikan tersimpan.
+    draft.clear();
     setModal(null);
     router.refresh();
   }
@@ -122,7 +127,8 @@ export default function StaffActions({
             <h2>Ubah Staf</h2>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
-            <form onSubmit={onEdit}>
+            <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
+            <form onSubmit={onEdit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
               <div className={`field${errs.full_name ? " invalid" : ""}`}>
                 <label htmlFor="es_name">Nama lengkap *</label>
                 <input id="es_name" name="full_name" type="text" defaultValue={staff.full_name} />

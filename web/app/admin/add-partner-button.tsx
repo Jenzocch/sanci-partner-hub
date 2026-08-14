@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useLocalDraft } from "@/lib/use-local-draft";
+import DraftBanner from "@/lib/draft-banner";
 import { createPartner } from "./actions";
 import { lookupByRequestId } from "./actions-lookup";
 
@@ -15,6 +17,7 @@ export default function AddPartnerButton() {
   const [dup, setDup] = useState<{ id: string; name: string } | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const requestId = useRef<string | null>(null);
+  const draft = useLocalDraft("partner", null, open);
 
   function openModal() {
     // Nomor permintaan hanya dibuat baru kalau belum ada. Kalau percobaan
@@ -49,6 +52,7 @@ export default function AddPartnerButton() {
     });
     if (out.status === "confirmed") {
       // Respons hilang, tapi pengecekan ke server membuktikan datanya sudah masuk.
+      draft.clear();
       requestId.current = null;
       setOpen(false);
       router.push(`/admin/partners/${out.id}`);
@@ -73,6 +77,8 @@ export default function AddPartnerButton() {
       return;
     }
     // Berhasil: tombol sengaja dibiarkan nonaktif sampai navigasi selesai.
+    // Draf baru dihapus di sini — sesudah server memastikan tersimpan.
+    draft.clear();
     requestId.current = null;
     setOpen(false);
     router.push(`/admin/partners/${res.data.id}`);
@@ -99,7 +105,8 @@ export default function AddPartnerButton() {
         )}
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
-        <form onSubmit={onSubmit}>
+        <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
+        <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.name ? " invalid" : ""}`}>
             <label htmlFor="ap_name">Nama partner *</label>
             <input id="ap_name" name="name" type="text" autoComplete="off" />

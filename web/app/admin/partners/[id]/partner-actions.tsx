@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useLocalDraft } from "@/lib/use-local-draft";
+import DraftBanner from "@/lib/draft-banner";
 import { updatePartner, setPartnerStatus, deleteDraftPartner } from "../../actions";
 
 type Partner = {
@@ -28,6 +30,7 @@ export default function PartnerActions({
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [deleteInput, setDeleteInput] = useState("");
   const [netMsg, setNetMsg] = useState<string | null>(null);
+  const draft = useLocalDraft("partner", partner.id, modal === "edit");
   const locked = partner.status !== "DRAFT";
 
   function openModal(which: "edit" | "deactivate" | "delete") {
@@ -71,6 +74,8 @@ export default function PartnerActions({
       return;
     }
     // Berhasil: tombol tetap nonaktif sampai modal tertutup dan data disegarkan.
+    // Draf baru dihapus di sini — sesudah server memastikan tersimpan.
+    draft.clear();
     setModal(null);
     router.refresh();
   }
@@ -176,7 +181,8 @@ export default function PartnerActions({
             <h2>Ubah Partner</h2>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
-            <form onSubmit={onEdit}>
+            <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
+            <form onSubmit={onEdit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
               <div className={`field${errs.name ? " invalid" : ""}`}>
                 <label htmlFor="ep_name">Nama partner *</label>
                 <input id="ep_name" name="name" type="text" defaultValue={partner.name} />

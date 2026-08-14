@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useLocalDraft } from "@/lib/use-local-draft";
+import DraftBanner from "@/lib/draft-banner";
 import { createStaff } from "../../../../actions-staff";
 import { lookupByRequestId } from "../../../../actions-lookup";
 
@@ -24,6 +26,7 @@ export default function AddStaffButton({
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const requestId = useRef<string | null>(null);
+  const draft = useLocalDraft("staff", `new@${branchId}`, open);
 
   function openModal() {
     // Nomor permintaan dipakai ulang bila percobaan sebelumnya belum pasti berhasil.
@@ -53,6 +56,7 @@ export default function AddStaffButton({
     });
     if (out.status === "confirmed") {
       // Respons hilang, tapi pengecekan ke server membuktikan datanya sudah masuk.
+      draft.clear();
       requestId.current = null;
       setOpen(false);
       router.refresh();
@@ -69,6 +73,8 @@ export default function AddStaffButton({
       setErrs({ [res.error.field || "_form"]: res.error.message });
       return;
     }
+    // Draf baru dihapus di sini — sesudah server memastikan tersimpan.
+    draft.clear();
     requestId.current = null;
     setOpen(false);
     router.refresh();
@@ -91,7 +97,8 @@ export default function AddStaffButton({
         </div>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
-        <form onSubmit={onSubmit}>
+        <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
+        <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.full_name ? " invalid" : ""}`}>
             <label htmlFor="as_name">Nama lengkap *</label>
             <input id="as_name" name="full_name" type="text" />
