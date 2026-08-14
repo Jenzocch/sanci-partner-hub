@@ -48,11 +48,11 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 
 | 項目 | 狀態 | 說明 |
 |---|---|---|
-| 技術選型 | 提案中 | 建議 Next.js + Supabase（多角色+RLS+PWA，同 FAMMS/FQMS/Denikin 模式）；待 Jenzo 確認 |
-| Supabase Project | **BLOCKED** | 尚未配置。SPEC §92：不得偷用其他既有 project，需要新 project/credentials |
+| 技術選型 | **已定案** | Next.js + Supabase（Jenzo 2026-08-14 確認） |
+| Supabase Project | **BLOCKED** | Jenzo 已同意建立，等他提供 Project URL + anon key。SPEC §92：不得偷用其他既有 project |
 | Auth | `NOT_STARTED` | 依賴 Supabase |
 | Deployment | **NOT DEPLOYED** | SPEC §98：目前不部署 |
-| UI 主語言 | 待定 | SPEC §86 單一主語言先行；prototype 暫用英文（SPEC 畫面範例語言），待 Jenzo 定案 |
+| UI 主語言 | **已定案** | Bahasa Indonesia（Jenzo 2026-08-14 定案）。prototype 已全面印尼文化並通過 CJK/英文殘留掃描 |
 
 ## 已知刻意保留的「怪東西」
 
@@ -64,8 +64,8 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 
 ## 待辦
 
-- [ ] Jenzo 確認技術選型（Next.js + Supabase？）
-- [ ] Jenzo 建立新 Supabase Project 並提供 URL + anon key（**阻塞真實作**）
-- [ ] Jenzo 定 UI 主語言（英文／Bahasa Indonesia）
-- [ ] Prototype 驗收：Jenzo 點過一遍說 OK 不 OK
+- [x] Jenzo 確認技術選型 → Next.js + Supabase（2026-08-14）
+- [ ] Jenzo 建立新 Supabase Project 並提供 URL + anon key（**阻塞真實作，唯一剩餘阻塞**）
+- [x] Jenzo 定 UI 主語言 → Bahasa Indonesia（2026-08-14）
+- [x] Prototype 驗收：Jenzo 確認 OK（2026-08-14；印尼文版待他再過目）
 - [ ] 之後依 SPEC §90 順序實作（DB model → Auth → RLS → CRUD → … → Self audit）
