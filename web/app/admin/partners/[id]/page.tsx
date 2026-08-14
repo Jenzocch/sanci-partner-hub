@@ -6,6 +6,7 @@ import AddBranchButton from "./add-branch-button";
 import PermissionsForm from "./permissions-form";
 import UserToggleButton from "./user-toggle-button";
 import { formatAuditDiff } from "@/lib/audit-format";
+import PartnerLogo from "@/lib/partner-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function PartnerDetailPage({
 
   const { data: partner } = await supabase
     .from("partners")
-    .select("id, name, code, status, contact_name, contact_phone, created_at")
+    .select("id, name, code, status, contact_name, contact_phone, logo_url, created_at")
     .eq("id", id)
     .maybeSingle();
   if (!partner) notFound();
@@ -77,7 +78,10 @@ export default async function PartnerDetailPage({
     body = (
       <div className="cardgrid-two">
         <div className="card">
-          <h3 style={{ fontSize: 17, marginBottom: 14 }}>Informasi Partner</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+            <PartnerLogo url={partner.logo_url} name={partner.name} size={56} />
+            <h3 style={{ fontSize: 17 }}>Informasi Partner</h3>
+          </div>
           <dl className="kv">
             <dt>Kode</dt>
             <dd>

@@ -6,7 +6,16 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { updatePartner, setPartnerStatus, deleteDraftPartner } from "../../actions";
+import { compressImage } from "@/lib/compress-image";
+import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+import { updatePartner, setPartnerStatus, deleteDraftPartner, setPartnerLogo } from "../../actions";
+
+/**
+ * Aturan logo (SPEC §41): kegagalan logo TIDAK PERNAH menggagalkan penyimpanan
+ * data partner. Urutannya selalu: simpan data partner dulu → baru unggah logo.
+ * Kalau logo gagal, pengguna diberi peringatan, bukan pesan gagal simpan.
+ */
+const LOGO_GAGAL = "Logo gagal diunggah — data partner tetap tersimpan.";
 
 type Partner = {
   id: string;
@@ -30,6 +39,7 @@ export default function PartnerActions({
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [deleteInput, setDeleteInput] = useState("");
   const [netMsg, setNetMsg] = useState<string | null>(null);
+  const [logoMsg, setLogoMsg] = useState<string | null>(null);
   const draft = useLocalDraft("partner", partner.id, modal === "edit");
   const locked = partner.status !== "DRAFT";
 
@@ -37,6 +47,7 @@ export default function PartnerActions({
     reset();
     setErrs({});
     setNetMsg(null);
+    setLogoMsg(null);
     setModal(which);
   }
 
@@ -45,11 +56,50 @@ export default function PartnerActions({
     setModal(null);
   }
 
+  /**
+   * Mengunggah logo dari BROWSER langsung ke storage, lalu mencatat alamatnya.
+   * Mengembalikan null kalau berhasil, atau teks peringatan kalau gagal.
+   * Tidak pernah melempar error — pemanggil tidak boleh ikut gagal karenanya.
+   */
+  async function unggahLogo(file: File): Promise<string | null> {
+    const kecil = await compressImage(file);
+    if (!kecil.ok) return `${LOGO_GAGAL} ${kecil.message}`;
+
+    const path = `${partner.id}/logo.webp`;
+    const out = await submitSafely({
+      kind: "update",
+      timeoutMs: 30_000,
+      run: async () => {
+        const supabase = createBrowserSupabase();
+        // upsert: satu partner satu logo. Mengulang unggahan yang sama aman.
+        const { error } = await supabase.storage.from("partner-logos").upload(path, kecil.blob, {
+          upsert: true,
+          contentType: kecil.blob.type || "image/webp",
+          cacheControl: "3600",
+        });
+        if (error) return false;
+
+        const { data } = supabase.storage.from("partner-logos").getPublicUrl(path);
+        if (!data?.publicUrl) return false;
+
+        // Alamat publik disimpan di cache. Karena path-nya selalu sama, tanpa
+        // penanda versi pengguna akan terus melihat logo LAMA setelah ganti
+        // logo — dan mengira unggahannya gagal.
+        const res = await setPartnerLogo(partner.id, `${data.publicUrl}?v=${Date.now()}`);
+        return !("error" in res);
+      },
+    });
+
+    if (out.status !== "ok" || out.result === false) return LOGO_GAGAL;
+    return null;
+  }
+
   async function onEdit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!begin()) return;
     setErrs({});
     setNetMsg(null);
+    setLogoMsg(null);
     const fd = new FormData(e.currentTarget);
     const out = await submitSafely({
       kind: "update",
@@ -76,6 +126,20 @@ export default function PartnerActions({
     // Berhasil: tombol tetap nonaktif sampai modal tertutup dan data disegarkan.
     // Draf baru dihapus di sini — sesudah server memastikan tersimpan.
     draft.clear();
+
+    // Logo diurus PALING AKHIR, sesudah data partner dipastikan tersimpan.
+    // Apa pun hasilnya, penyimpanan tetap dihitung berhasil (SPEC §41).
+    const berkas = fd.get("logo");
+    if (berkas instanceof File && berkas.size > 0) {
+      let peringatan: string | null = LOGO_GAGAL;
+      try {
+        peringatan = await unggahLogo(berkas);
+      } catch {
+        // sudah ditangani sebagai peringatan di bawah
+      }
+      setLogoMsg(peringatan);
+    }
+
     setModal(null);
     router.refresh();
   }
@@ -130,6 +194,15 @@ export default function PartnerActions({
 
   return (
     <>
+      {logoMsg && (
+        <div className="banner warn">
+          {logoMsg}{" "}
+          <button type="button" className="linkbtn" onClick={() => setLogoMsg(null)}>
+            Tutup
+          </button>
+        </div>
+      )}
+
       <div className="btnrow-inline">
         <button className="btn sm" onClick={() => openModal("edit")}>
           Ubah
@@ -222,6 +295,19 @@ export default function PartnerActions({
                   type="tel"
                   defaultValue={partner.contact_phone || ""}
                 />
+              </div>
+              <div className="field">
+                <label htmlFor="ep_logo">Logo (opsional)</label>
+                <input
+                  id="ep_logo"
+                  name="logo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                />
+                <div className="hint">
+                  PNG, JPG, atau WebP. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim.
+                  Biarkan kosong kalau tidak ingin mengubah logo.
+                </div>
               </div>
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>

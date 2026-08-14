@@ -163,6 +163,40 @@ export async function updatePartner(
   return { data: true };
 }
 
+/**
+ * Menyimpan alamat logo yang baru diunggah (SPEC §41).
+ *
+ * Dipanggil SESUDAH berkas berhasil masuk ke storage dari browser. Kegagalan di
+ * sini tidak boleh menggagalkan penyimpanan data partner — pemanggil hanya
+ * menampilkan peringatan, bukan error penyimpanan.
+ */
+export async function setPartnerLogo(
+  id: string,
+  logoUrl: string
+): Promise<ActionResult<true>> {
+  // Nilai dari browser tidak dipercaya (LESSONS #6): hanya alamat publik di
+  // bucket logo milik partner ini yang boleh masuk ke kolom logo_url.
+  // Garis miring di akhir alamat proyek dibuang dulu — kalau tidak, pencocokan
+  // di bawah gagal diam-diam dan logo tidak pernah tersimpan.
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
+  const prefix = `${base}/storage/v1/object/public/partner-logos/${id}/`;
+  if (!logoUrl.startsWith(prefix)) {
+    return { error: { message: "Alamat logo tidak dikenali." } };
+  }
+
+  const supabase = await createClient();
+  const saved = await safeWrite(
+    supabase.from("partners").update({ logo_url: logoUrl }).eq("id", id).select("id").single()
+  );
+  if (!saved.ok) {
+    return { error: { message: PESAN.serverSibuk } };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath(`/admin/partners/${id}`);
+  return { data: true };
+}
+
 export async function setPartnerStatus(
   id: string,
   status: "ACTIVE" | "SUSPENDED" | "INACTIVE"

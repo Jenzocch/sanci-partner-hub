@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AddPartnerButton from "./add-partner-button";
+import PartnerLogo from "@/lib/partner-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,13 @@ const SLBL: Record<string, string> = {
   INACTIVE: "NONAKTIF",
 };
 
-type PartnerRow = { id: string; name: string; code: string; status: string };
+type PartnerRow = {
+  id: string;
+  name: string;
+  code: string;
+  status: string;
+  logo_url: string | null;
+};
 type BranchRow = { id: string; partner_id: string; name: string; code: string; status: string };
 type PolicyRow = { partner_id: string; visibility_scope: string; edit_scope: string };
 type UserRow = { partner_id: string; status: string };
@@ -29,7 +36,7 @@ export default async function AdminPartnersPage({
   const supabase = await createClient();
   const [{ data: partners, error: pErr }, { data: branches }, { data: policies }, { data: users }] =
     await Promise.all([
-      supabase.from("partners").select("id, name, code, status").order("name"),
+      supabase.from("partners").select("id, name, code, status, logo_url").order("name"),
       supabase.from("partner_branches").select("id, partner_id, name, code, status"),
       supabase.from("partner_access_policies").select("partner_id, visibility_scope, edit_scope"),
       supabase.from("partner_users").select("partner_id, status"),
@@ -139,12 +146,16 @@ export default async function AdminPartnersPage({
               {rows.map((r) => (
                 <tr key={r.partner.id}>
                   <td>
-                    <Link href={`/admin/partners/${r.partner.id}`} className="rowname">
-                      <strong>{r.partner.name}</strong> <span className="code">{r.partner.code}</span>
-                      {r.matchBranch && (
-                        <div className="small muted">Cabang cocok: {r.matchBranch.name}</div>
-                      )}
-                    </Link>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <PartnerLogo url={r.partner.logo_url} name={r.partner.name} size={28} />
+                      <Link href={`/admin/partners/${r.partner.id}`} className="rowname">
+                        <strong>{r.partner.name}</strong>{" "}
+                        <span className="code">{r.partner.code}</span>
+                        {r.matchBranch && (
+                          <div className="small muted">Cabang cocok: {r.matchBranch.name}</div>
+                        )}
+                      </Link>
+                    </div>
                   </td>
                   <td className="num">{r.branchCount}</td>
                   <td className="num">{r.userCount}</td>
