@@ -3,7 +3,9 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
+import { submitSafely } from "@/lib/safe-write";
 import { createPartner } from "./actions";
+import { lookupByRequestId } from "./actions-lookup";
 
 export default function AddPartnerButton() {
   const router = useRouter();
@@ -11,6 +13,7 @@ export default function AddPartnerButton() {
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [dup, setDup] = useState<{ id: string; name: string } | null>(null);
+  const [netMsg, setNetMsg] = useState<string | null>(null);
   const requestId = useRef<string | null>(null);
 
   function openModal() {
@@ -21,6 +24,7 @@ export default function AddPartnerButton() {
     reset();
     setErrs({});
     setDup(null);
+    setNetMsg(null);
     setOpen(true);
   }
 
@@ -28,15 +32,36 @@ export default function AddPartnerButton() {
     e.preventDefault();
     if (!begin()) return;
     setErrs({});
+    setNetMsg(null);
     const fd = new FormData(e.currentTarget);
-    const res = await createPartner({
-      name: String(fd.get("name") || ""),
-      code: String(fd.get("code") || ""),
-      contactName: String(fd.get("contact_name") || ""),
-      contactPhone: String(fd.get("contact_phone") || ""),
-      clientRequestId: requestId.current!,
-      confirmDuplicate: !!dup,
+    const rid = requestId.current!;
+    const out = await submitSafely({
+      run: () =>
+        createPartner({
+          name: String(fd.get("name") || ""),
+          code: String(fd.get("code") || ""),
+          contactName: String(fd.get("contact_name") || ""),
+          contactPhone: String(fd.get("contact_phone") || ""),
+          clientRequestId: rid,
+          confirmDuplicate: !!dup,
+        }),
+      lookup: () => lookupByRequestId("partner", rid),
     });
+    if (out.status === "confirmed") {
+      // Respons hilang, tapi pengecekan ke server membuktikan datanya sudah masuk.
+      requestId.current = null;
+      setOpen(false);
+      router.push(`/admin/partners/${out.id}`);
+      router.refresh();
+      return;
+    }
+    if (out.status !== "ok") {
+      // Belum tentu/atau belum tersimpan — jangan sekali pun disebut berhasil.
+      release();
+      setNetMsg(out.message);
+      return;
+    }
+    const res = out.result;
     if ("error" in res) {
       release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
@@ -72,6 +97,7 @@ export default function AddPartnerButton() {
             melanjutkan, atau batal.
           </div>
         )}
+        {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <form onSubmit={onSubmit}>
           <div className={`field${errs.name ? " invalid" : ""}`}>

@@ -3,13 +3,16 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
+import { submitSafely } from "@/lib/safe-write";
 import { createBranch } from "../../actions-branches";
+import { lookupByRequestId } from "../../actions-lookup";
 
 export default function AddBranchButton({ partnerId }: { partnerId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
+  const [netMsg, setNetMsg] = useState<string | null>(null);
   const requestId = useRef<string | null>(null);
 
   function openModal() {
@@ -17,6 +20,7 @@ export default function AddBranchButton({ partnerId }: { partnerId: string }) {
     if (!requestId.current) requestId.current = crypto.randomUUID();
     reset();
     setErrs({});
+    setNetMsg(null);
     setOpen(true);
   }
 
@@ -24,17 +28,36 @@ export default function AddBranchButton({ partnerId }: { partnerId: string }) {
     e.preventDefault();
     if (!begin()) return;
     setErrs({});
+    setNetMsg(null);
     const fd = new FormData(e.currentTarget);
-    const res = await createBranch(partnerId, {
-      name: String(fd.get("name") || ""),
-      code: String(fd.get("code") || ""),
-      address: String(fd.get("address") || ""),
-      city: String(fd.get("city") || ""),
-      province: String(fd.get("province") || ""),
-      contactName: String(fd.get("contact_name") || ""),
-      contactPhone: String(fd.get("contact_phone") || ""),
-      clientRequestId: requestId.current!,
+    const rid = requestId.current!;
+    const out = await submitSafely({
+      run: () =>
+        createBranch(partnerId, {
+          name: String(fd.get("name") || ""),
+          code: String(fd.get("code") || ""),
+          address: String(fd.get("address") || ""),
+          city: String(fd.get("city") || ""),
+          province: String(fd.get("province") || ""),
+          contactName: String(fd.get("contact_name") || ""),
+          contactPhone: String(fd.get("contact_phone") || ""),
+          clientRequestId: rid,
+        }),
+      lookup: () => lookupByRequestId("branch", rid),
     });
+    if (out.status === "confirmed") {
+      requestId.current = null;
+      setOpen(false);
+      router.push(`/admin/partners/${partnerId}/branches/${out.id}`);
+      router.refresh();
+      return;
+    }
+    if (out.status !== "ok") {
+      release();
+      setNetMsg(out.message);
+      return;
+    }
+    const res = out.result;
     if ("error" in res) {
       release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
@@ -58,6 +81,7 @@ export default function AddBranchButton({ partnerId }: { partnerId: string }) {
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
       <div className="modal" role="dialog" aria-modal="true">
         <h2>Tambah Cabang</h2>
+        {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <form onSubmit={onSubmit}>
           <div className={`field${errs.name ? " invalid" : ""}`}>

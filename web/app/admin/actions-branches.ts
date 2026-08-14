@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CODE_RE, normalizeCode } from "@/lib/validation";
+import {
+  PESAN,
+  confirmByRequestId,
+  isRequestIdConflict,
+  safeWrite,
+} from "@/lib/safe-write";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -41,31 +47,64 @@ export async function createBranch(
     return { data: { id: existing.id } };
   }
 
-  const { data, error } = await supabase
-    .from("partner_branches")
-    .insert({
-      partner_id: partnerId,
-      name,
-      code,
-      address,
-      city: input.city?.trim() || null,
-      province: input.province?.trim() || null,
-      contact_name: input.contactName?.trim() || null,
-      contact_phone: input.contactPhone?.trim() || null,
-      client_request_id: input.clientRequestId,
-    })
-    .select("id")
-    .single();
+  const written = await safeWrite(
+    supabase
+      .from("partner_branches")
+      .insert({
+        partner_id: partnerId,
+        name,
+        code,
+        address,
+        city: input.city?.trim() || null,
+        province: input.province?.trim() || null,
+        contact_name: input.contactName?.trim() || null,
+        contact_phone: input.contactPhone?.trim() || null,
+        client_request_id: input.clientRequestId,
+      })
+      .select("id")
+      .single()
+  );
 
-  if (error || !data) {
-    if (error?.code === "23505") {
-      return { error: { field: "code", message: `Kode cabang ${code} sudah ada di partner ini.` } };
+  const recheck = () =>
+    confirmByRequestId(
+      supabase
+        .from("partner_branches")
+        .select("id")
+        .eq("client_request_id", input.clientRequestId)
+        .maybeSingle()
+    );
+
+  if (!written.ok) {
+    if (written.reason === "db") {
+      // Bentrok nomor permintaan = percobaan sebelumnya sudah mendarat.
+      if (isRequestIdConflict(written)) {
+        const again = await recheck();
+        if (again.status === "found") {
+          revalidatePath(`/admin/partners/${partnerId}`);
+          return { data: { id: again.data.id } };
+        }
+        return { error: { message: PESAN.belumPastiBaru } };
+      }
+      if (written.code === "23505") {
+        return { error: { field: "code", message: `Kode cabang ${code} sudah ada di partner ini.` } };
+      }
+      return { error: { message: PESAN.serverSibuk } };
     }
-    return { error: { message: "Tidak bisa menyimpan sekarang. Coba lagi sebentar lagi." } };
+    // Jawaban tidak sampai: pastikan dulu, jangan INSERT ulang (SPEC §61).
+    const check = await recheck();
+    if (check.status === "found") {
+      revalidatePath(`/admin/partners/${partnerId}`);
+      return { data: { id: check.data.id } };
+    }
+    return {
+      error: {
+        message: check.status === "absent" ? PESAN.belumTersimpan : PESAN.belumPastiBaru,
+      },
+    };
   }
 
   revalidatePath(`/admin/partners/${partnerId}`);
-  return { data: { id: data.id } };
+  return { data: { id: written.data.id } };
 }
 
 export async function updateBranch(
@@ -85,24 +124,32 @@ export async function updateBranch(
   if (!name) return { error: { field: "name", message: "Nama cabang wajib diisi." } };
   if (!address) return { error: { field: "address", message: "Alamat lengkap wajib diisi." } };
 
-  const { data: branch, error } = await supabase
-    .from("partner_branches")
-    .update({
-      name,
-      address,
-      city: input.city?.trim() || null,
-      province: input.province?.trim() || null,
-      contact_name: input.contactName?.trim() || null,
-      contact_phone: input.contactPhone?.trim() || null,
-    })
-    .eq("id", id)
-    .select("partner_id")
-    .single();
+  const saved = await safeWrite(
+    supabase
+      .from("partner_branches")
+      .update({
+        name,
+        address,
+        city: input.city?.trim() || null,
+        province: input.province?.trim() || null,
+        contact_name: input.contactName?.trim() || null,
+        contact_phone: input.contactPhone?.trim() || null,
+      })
+      .eq("id", id)
+      .select("partner_id")
+      .single()
+  );
 
-  if (error || !branch) return { error: { message: "Tidak bisa menyimpan sekarang." } };
+  if (!saved.ok) {
+    return {
+      error: {
+        message: saved.reason === "unconfirmed" ? PESAN.belumPastiUbah : PESAN.serverSibuk,
+      },
+    };
+  }
 
-  revalidatePath(`/admin/partners/${branch.partner_id}`);
-  revalidatePath(`/admin/partners/${branch.partner_id}/branches/${id}`);
+  revalidatePath(`/admin/partners/${saved.data.partner_id}`);
+  revalidatePath(`/admin/partners/${saved.data.partner_id}/branches/${id}`);
   return { data: true };
 }
 

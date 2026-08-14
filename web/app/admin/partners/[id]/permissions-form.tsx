@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
+import { submitSafely } from "@/lib/safe-write";
 import { updatePolicy } from "../../actions-permissions";
 
 export default function PermissionsForm({
@@ -19,19 +20,31 @@ export default function PermissionsForm({
   const router = useRouter();
   const { submitting, begin, release } = useSubmitGuard();
   const [err, setErr] = useState<string | null>(null);
+  const [netMsg, setNetMsg] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!begin()) return;
     setErr(null);
+    setNetMsg(null);
     setSaved(false);
     const fd = new FormData(e.currentTarget);
-    const res = await updatePolicy(partnerId, {
-      visibilityScope: String(fd.get("visibility") || "OWN_BRANCH"),
-      editScope: String(fd.get("edit") || "OWN_BRANCH"),
+    const out = await submitSafely({
+      kind: "update",
+      run: () =>
+        updatePolicy(partnerId, {
+          visibilityScope: String(fd.get("visibility") || "OWN_BRANCH"),
+          editScope: String(fd.get("edit") || "OWN_BRANCH"),
+        }),
     });
     release();
+    if (out.status !== "ok") {
+      // Tidak ada konfirmasi server → jangan tampilkan "Tersimpan".
+      setNetMsg(out.message);
+      return;
+    }
+    const res = out.result;
     if ("error" in res) {
       setErr(res.error.message);
       return;
@@ -47,6 +60,7 @@ export default function PermissionsForm({
         Hanya SANCI Admin yang dapat mengubah pengaturan ini. Berlaku untuk semua akun login{" "}
         {partnerName}.
       </p>
+      {netMsg && <div className="banner warn">{netMsg}</div>}
       {err && <div className="banner bad">{err}</div>}
       {saved && <div className="banner ok" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>Tersimpan.</div>}
       <form onSubmit={onSubmit}>

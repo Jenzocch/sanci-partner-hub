@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
+import { submitSafely } from "@/lib/safe-write";
 import { updatePartner, setPartnerStatus, deleteDraftPartner } from "../../actions";
 
 type Partner = {
@@ -26,11 +27,13 @@ export default function PartnerActions({
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [deleteInput, setDeleteInput] = useState("");
+  const [netMsg, setNetMsg] = useState<string | null>(null);
   const locked = partner.status !== "DRAFT";
 
   function openModal(which: "edit" | "deactivate" | "delete") {
     reset();
     setErrs({});
+    setNetMsg(null);
     setModal(which);
   }
 
@@ -43,13 +46,25 @@ export default function PartnerActions({
     e.preventDefault();
     if (!begin()) return;
     setErrs({});
+    setNetMsg(null);
     const fd = new FormData(e.currentTarget);
-    const res = await updatePartner(partner.id, {
-      name: String(fd.get("name") || ""),
-      code: locked ? undefined : String(fd.get("code") || ""),
-      contactName: String(fd.get("contact_name") || ""),
-      contactPhone: String(fd.get("contact_phone") || ""),
+    const out = await submitSafely({
+      kind: "update",
+      run: () =>
+        updatePartner(partner.id, {
+          name: String(fd.get("name") || ""),
+          code: locked ? undefined : String(fd.get("code") || ""),
+          contactName: String(fd.get("contact_name") || ""),
+          contactPhone: String(fd.get("contact_phone") || ""),
+        }),
     });
+    if (out.status !== "ok") {
+      // Jawaban server tidak sampai — perubahan TIDAK boleh disebut tersimpan.
+      release();
+      setNetMsg(out.message);
+      return;
+    }
+    const res = out.result;
     if ("error" in res) {
       release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
@@ -159,6 +174,7 @@ export default function PartnerActions({
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
             <h2>Ubah Partner</h2>
+            {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <form onSubmit={onEdit}>
               <div className={`field${errs.name ? " invalid" : ""}`}>

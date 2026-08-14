@@ -3,7 +3,9 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
+import { submitSafely } from "@/lib/safe-write";
 import { createStaff } from "../../../admin/actions-staff";
+import { lookupByRequestId } from "../../../admin/actions-lookup";
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
 
@@ -18,6 +20,7 @@ export default function AddStaffButton({
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
+  const [netMsg, setNetMsg] = useState<string | null>(null);
   const requestId = useRef<string | null>(null);
 
   function openModal() {
@@ -25,6 +28,7 @@ export default function AddStaffButton({
     if (!requestId.current) requestId.current = crypto.randomUUID();
     reset();
     setErrs({});
+    setNetMsg(null);
     setOpen(true);
   }
 
@@ -32,13 +36,32 @@ export default function AddStaffButton({
     e.preventDefault();
     if (!begin()) return;
     setErrs({});
+    setNetMsg(null);
     const fd = new FormData(e.currentTarget);
-    const res = await createStaff(branchId, {
-      fullName: String(fd.get("full_name") || ""),
-      phone: String(fd.get("phone") || ""),
-      role: String(fd.get("role") || "Sales"),
-      clientRequestId: requestId.current!,
+    const rid = requestId.current!;
+    const out = await submitSafely({
+      run: () =>
+        createStaff(branchId, {
+          fullName: String(fd.get("full_name") || ""),
+          phone: String(fd.get("phone") || ""),
+          role: String(fd.get("role") || "Sales"),
+          clientRequestId: rid,
+        }),
+      lookup: () => lookupByRequestId("staff", rid),
     });
+    if (out.status === "confirmed") {
+      // Respons hilang, tapi pengecekan ke server membuktikan datanya sudah masuk.
+      requestId.current = null;
+      setOpen(false);
+      router.refresh();
+      return;
+    }
+    if (out.status !== "ok") {
+      release();
+      setNetMsg(out.message);
+      return;
+    }
+    const res = out.result;
     if ("error" in res) {
       release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
@@ -64,6 +87,7 @@ export default function AddStaffButton({
         <div className="banner" style={{ background: "var(--accent-soft)", color: "var(--accent-2)", fontSize: 13.5 }}>
           Cabang: <b>{branchName}</b> — otomatis dari halaman ini, tidak bisa dipilih.
         </div>
+        {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <form onSubmit={onSubmit}>
           <div className={`field${errs.full_name ? " invalid" : ""}`}>

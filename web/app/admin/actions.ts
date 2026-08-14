@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CODE_RE } from "@/lib/validation";
+import {
+  PESAN,
+  confirmByRequestId,
+  isRequestIdConflict,
+  safeWrite,
+} from "@/lib/safe-write";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> =
@@ -48,28 +54,64 @@ export async function createPartner(input: {
     if (dup) return { duplicate: { id: dup.id, name: dup.name } };
   }
 
-  const { data, error } = await supabase
-    .from("partners")
-    .insert({
-      name,
-      code,
-      contact_name: input.contactName?.trim() || null,
-      contact_phone: input.contactPhone?.trim() || null,
-      client_request_id: input.clientRequestId,
-    })
-    .select("id")
-    .single();
+  const written = await safeWrite(
+    supabase
+      .from("partners")
+      .insert({
+        name,
+        code,
+        contact_name: input.contactName?.trim() || null,
+        contact_phone: input.contactPhone?.trim() || null,
+        client_request_id: input.clientRequestId,
+      })
+      .select("id")
+      .single()
+  );
 
-  if (error || !data) {
-    // Jangan bocorkan error DB mentah ke pengguna (SPEC §69).
-    if (error?.code === "23505") {
-      return { error: { field: "code", message: `Kode partner ${code} sudah dipakai.` } };
+  if (!written.ok) {
+    if (written.reason === "db") {
+      // Bentrok pada nomor permintaan = percobaan sebelumnya SUDAH masuk.
+      if (isRequestIdConflict(written)) {
+        const again = await confirmByRequestId(
+          supabase
+            .from("partners")
+            .select("id")
+            .eq("client_request_id", input.clientRequestId)
+            .maybeSingle()
+        );
+        if (again.status === "found") {
+          revalidatePath("/admin");
+          return { data: { id: again.data.id } };
+        }
+        return { error: { message: PESAN.belumPastiBaru } };
+      }
+      // Jangan bocorkan error DB mentah ke pengguna (SPEC §69).
+      if (written.code === "23505") {
+        return { error: { field: "code", message: `Kode partner ${code} sudah dipakai.` } };
+      }
+      return { error: { message: PESAN.serverSibuk } };
     }
-    return { error: { message: "Tidak bisa menyimpan sekarang. Coba lagi sebentar lagi." } };
+    // Jawaban tidak sampai: tanyakan status sebenarnya, jangan INSERT lagi (SPEC §61).
+    const check = await confirmByRequestId(
+      supabase
+        .from("partners")
+        .select("id")
+        .eq("client_request_id", input.clientRequestId)
+        .maybeSingle()
+    );
+    if (check.status === "found") {
+      revalidatePath("/admin");
+      return { data: { id: check.data.id } };
+    }
+    return {
+      error: {
+        message: check.status === "absent" ? PESAN.belumTersimpan : PESAN.belumPastiBaru,
+      },
+    };
   }
 
   revalidatePath("/admin");
-  return { data: { id: data.id } };
+  return { data: { id: written.data.id } };
 }
 
 export async function updatePartner(
@@ -103,12 +145,17 @@ export async function updatePartner(
     update.code = code;
   }
 
-  const { error } = await supabase.from("partners").update(update).eq("id", id);
-  if (error) {
-    if (error.code === "23505") {
+  const saved = await safeWrite(
+    supabase.from("partners").update(update).eq("id", id).select("id").single()
+  );
+  if (!saved.ok) {
+    if (saved.reason === "unconfirmed") {
+      return { error: { message: PESAN.belumPastiUbah } };
+    }
+    if (saved.code === "23505") {
       return { error: { field: "code", message: `Kode partner ${code} sudah dipakai.` } };
     }
-    return { error: { message: "Tidak bisa menyimpan sekarang." } };
+    return { error: { message: PESAN.serverSibuk } };
   }
 
   revalidatePath("/admin");

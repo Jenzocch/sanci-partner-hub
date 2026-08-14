@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
+import { submitSafely } from "@/lib/safe-write";
 import { updateStaff, deactivateStaff } from "../../../admin/actions-staff";
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
@@ -14,10 +15,12 @@ export default function StaffActions({ staff }: { staff: Staff }) {
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
+  const [netMsg, setNetMsg] = useState<string | null>(null);
 
   function openEdit() {
     reset();
     setErrs({});
+    setNetMsg(null);
     setModal("edit");
   }
 
@@ -30,12 +33,23 @@ export default function StaffActions({ staff }: { staff: Staff }) {
     e.preventDefault();
     if (!begin()) return;
     setErrs({});
+    setNetMsg(null);
     const fd = new FormData(e.currentTarget);
-    const res = await updateStaff(staff.id, {
-      fullName: String(fd.get("full_name") || ""),
-      phone: String(fd.get("phone") || ""),
-      role: String(fd.get("role") || staff.role),
+    const out = await submitSafely({
+      kind: "update",
+      run: () =>
+        updateStaff(staff.id, {
+          fullName: String(fd.get("full_name") || ""),
+          phone: String(fd.get("phone") || ""),
+          role: String(fd.get("role") || staff.role),
+        }),
     });
+    if (out.status !== "ok") {
+      release();
+      setNetMsg(out.message);
+      return;
+    }
+    const res = out.result;
     if ("error" in res) {
       release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
@@ -73,6 +87,7 @@ export default function StaffActions({ staff }: { staff: Staff }) {
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
             <h2>Ubah Staf</h2>
+            {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <form onSubmit={onEdit}>
               <div className={`field${errs.full_name ? " invalid" : ""}`}>

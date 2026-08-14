@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
+import { submitSafely } from "@/lib/safe-write";
 import { updateBranch, setBranchStatus } from "../../../../actions-branches";
 
 type Branch = {
@@ -21,10 +22,12 @@ export default function BranchActions({ branch }: { branch: Branch }) {
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
+  const [netMsg, setNetMsg] = useState<string | null>(null);
 
   function openEdit() {
     reset();
     setErrs({});
+    setNetMsg(null);
     setModal("edit");
   }
 
@@ -37,15 +40,26 @@ export default function BranchActions({ branch }: { branch: Branch }) {
     e.preventDefault();
     if (!begin()) return;
     setErrs({});
+    setNetMsg(null);
     const fd = new FormData(e.currentTarget);
-    const res = await updateBranch(branch.id, {
-      name: String(fd.get("name") || ""),
-      address: String(fd.get("address") || ""),
-      city: String(fd.get("city") || ""),
-      province: String(fd.get("province") || ""),
-      contactName: String(fd.get("contact_name") || ""),
-      contactPhone: String(fd.get("contact_phone") || ""),
+    const out = await submitSafely({
+      kind: "update",
+      run: () =>
+        updateBranch(branch.id, {
+          name: String(fd.get("name") || ""),
+          address: String(fd.get("address") || ""),
+          city: String(fd.get("city") || ""),
+          province: String(fd.get("province") || ""),
+          contactName: String(fd.get("contact_name") || ""),
+          contactPhone: String(fd.get("contact_phone") || ""),
+        }),
     });
+    if (out.status !== "ok") {
+      release();
+      setNetMsg(out.message);
+      return;
+    }
+    const res = out.result;
     if ("error" in res) {
       release();
       setErrs({ [res.error.field || "_form"]: res.error.message });
@@ -85,6 +99,7 @@ export default function BranchActions({ branch }: { branch: Branch }) {
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
             <h2>Ubah Cabang</h2>
+            {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <form onSubmit={onEdit}>
               <div className={`field${errs.name ? " invalid" : ""}`}>
