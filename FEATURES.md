@@ -54,7 +54,7 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | Admin 綁定 | **`VERIFIED`(production)** | `0002` 執行成功，2026-08-14。SANCI Super Admin = `wahana.elite@gmail.com`（非最初假設的 a0988728823@gmail.com — repo 已同步更正）|
 | Auth | `UNVERIFIED` | Email/password 登入流程已寫（web/），build 通過；無法連 DB 實測 |
 | App 骨架 | `UNVERIFIED` | `web/` Next.js 15：login、/admin smoke、/cabang 身份卡。typecheck ✓ build ✓；runtime 未驗證 |
-| Deployment | **NOT DEPLOYED** | SPEC §98：目前不部署 |
+| Deployment | **Preview 部署中**（2026-08-14） | SPEC §98 原則上不部署，但 Jenzo 本人明確要求要能點連結測試登入，視為對自身指示的覆寫。用 Vercel 檔案直傳（非 GitHub 串接），環境變數以 `.env.production` 隨這次上傳一併帶入（僅此次建置用，未進 git）。⚠️ 新專案首次部署 Vercel 自動把它標成 `target: production`（非我指定的 preview）——已如實告知 Jenzo，非隱瞞 |
 | UI 主語言 | **已定案** | Bahasa Indonesia（Jenzo 2026-08-14 定案）。prototype 已全面印尼文化並通過 CJK/英文殘留掃描 |
 
 ## 已知刻意保留的「怪東西」
