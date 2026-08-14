@@ -72,6 +72,11 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **症狀**：同一組程式碼、同樣呼叫 `deploy_to_vercel({target:"preview"})`，第一次部署被 Vercel 自動標成 `target:"production"` 並綁上正式 alias；第二次同樣呼叫卻是 `target:null`、`alias:[]`，只給了部署專屬網址。
 - **教訓**：**不要在文字裡宣稱「這是 preview / 這是 production」，除非剛查過那次部署回傳的 `target`/`alias` 欄位**——平台行為會變，猜測會變成對使用者的誤導。每次部署後都查 `get_deployment` 的實際欄位，如實轉述，而不是複誦上次的措辭。
 
+### 19. 建立 Auth 帳號需要 service_role key，anon key 做不到〔本專案 2026-08-14〕
+- **情境**：SPEC §27/§46 要 SANCI Admin 能在畫面上建立 Partner 的登入帳號（P-07）。但 `auth.users` schema 不透過一般 PostgREST 暴露，建立使用者要呼叫 `auth.admin.createUser`，這個 API 只認 `service_role` key。
+- **決策**：這把 key 一旦外洩等於繞過全部 RLS，是資料庫的最高權限；Jenzo 明確被告知不要貼到對話裡，這個環境也就沒有它。
+- **教訓**：這塊功能**目前技術上做不到**，UI 已誠實標示原因而非假裝有表單。要解鎖有兩條路：① Jenzo 到 Vercel 後台自己加 `SUPABASE_SERVICE_ROLE_KEY` 環境變數（不貼給我），我寫的 Server Action 從 `process.env` 讀，金鑰全程留在伺服器端不進瀏覽器；② 改用 Supabase Edge Function，金鑰整個留在 Supabase 那側。兩條路都需要 Jenzo 再做一次操作，不是程式碼問題。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
