@@ -51,6 +51,12 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 ### 13. 開發語言 ≠ 使用者語言：AI 寫的 UI 字串會漏進開發語言〔Gudang One〕
 跟 Jenzo 用中文開發、UI 是別的語言時，子代理寫的字串特別容易混入中文。機制化：加自動守門測試「渲染輸出出現開發語言字元＝失敗」；委派子代理時把「UI 一律用○○文」明寫進任務提示。（本專案 UI 主語言待定，定案後立刻套用。）
 
+### 15. RLS policy 裡的子查詢也受 RLS 過濾——「查不到」會被誤讀成「不存在」〔本專案 2026-08-14 實測抓到〕
+- **症狀**：partner_staff 的可見性規則寫「有派任在可見分店，**或沒有任何有效派任**」；OWN_BRANCH 模式下 Cirebon 使用者竟看得到 Bandung 員工的名字。
+- **根本原因**：policy 子查詢讀 partner_staff_assignments 時同樣被該表的 RLS 過濾——Bandung 派任「查不到」，員工被誤判為無派任孤兒而放行。
+- **修法**：把「這個員工有沒有有效派任」的判斷搬進 security definer 函式（`fn_can_view_staff`），繞過 RLS 看真實資料。
+- **教訓**：RLS policy 引用其他受 RLS 保護的表時，先問「這個子查詢被過濾後語意還對嗎？」`NOT EXISTS` 型判斷幾乎一定要用 security definer。**這個 bug 只有行為測試抓得到——語法檢查與 schema 檢視都看不出來**；每條 RLS 規則都要配至少一個「以受限身分實測」的斷言。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

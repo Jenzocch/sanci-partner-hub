@@ -49,8 +49,11 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | 項目 | 狀態 | 說明 |
 |---|---|---|
 | 技術選型 | **已定案** | Next.js + Supabase（Jenzo 2026-08-14 確認） |
-| Supabase Project | **BLOCKED** | Jenzo 已同意建立，等他提供 Project URL + anon key。SPEC §92：不得偷用其他既有 project |
-| Auth | `NOT_STARTED` | 依賴 Supabase |
+| Supabase Project | 已建立 | `atmlfbjbcwzsrsqibhan.supabase.co`，anon key 已提供（2026-08-14）。⚠️ 本開發環境網路白名單擋 supabase.co——AI 無法直連驗證，需 Jenzo 在 Claude Code 環境設定加 `*.supabase.co` |
+| DB Schema + RLS + Audit | `UNVERIFIED`(production) | `supabase/migrations/0001` 已寫成冪等 SQL；**已在本機 PG16 + auth stub 完整實測**（migration ×2、RLS 行為測試 14 項全過、抓到並修掉一個跨店名字洩漏）。**尚未套用到 production**——等 Jenzo 貼 SQL |
+| Admin 綁定 | `NOT_STARTED` | `migrations/0002`；等 Jenzo 建 auth user 後執行 |
+| Auth | `UNVERIFIED` | Email/password 登入流程已寫（web/），build 通過；無法連 DB 實測 |
+| App 骨架 | `UNVERIFIED` | `web/` Next.js 15：login、/admin smoke、/cabang 身份卡。typecheck ✓ build ✓；runtime 未驗證 |
 | Deployment | **NOT DEPLOYED** | SPEC §98：目前不部署 |
 | UI 主語言 | **已定案** | Bahasa Indonesia（Jenzo 2026-08-14 定案）。prototype 已全面印尼文化並通過 CJK/英文殘留掃描 |
 
