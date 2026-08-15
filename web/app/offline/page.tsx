@@ -12,6 +12,9 @@ export default function OfflinePage() {
           Halaman ini belum pernah dibuka sebelumnya, jadi tidak tersedia
           secara offline. Sambungkan kembali ke internet lalu coba lagi.
         </p>
+        {/* Hard reload on purpose: this must force a real network re-check,
+            not a client-side transition that a stale cache could satisfy. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a className="btn primary" href="/">
           Coba lagi
         </a>

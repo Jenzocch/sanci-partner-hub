@@ -17,6 +17,11 @@
 
 Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ Duplicate test ✓ Weak network test ✓ Responsive verification ✓ Audit verification ✓ — 每項要有實際證據。
 
+- Build：✓（`npm run build`，本機實跑）
+- Type Check：✓（`npm run typecheck`，本機實跑）
+- Lint：✓ 2026-08-15 補上（專案原本沒有 `eslint.config.mjs` 也沒有 `lint` script，SPEC §95 要求但一直缺）。裝 `eslint` + `eslint-config-next@^15.5`（版本對齊 `next@^15.5`，不是 npm 預設裝的 16.x）＋ `next/core-web-vitals`、`next/typescript` 規則集。跑出兩個真錯誤：`app/offline/page.tsx` 用 `<a>` 沒用 `<Link>`（**刻意保留**，離線頁「再試一次」需要真的整頁重新整理去重新確認網路，不要客戶端轉場——已加 eslint-disable 並附理由註解）；`next-env.d.ts` 的 triple-slash reference（Next.js 自動產生、不可手動改的檔案，加進 ignores）。修完 `npm run lint` 乾淨過。**其餘功能程式碼本身沒有 lint 錯誤**——這輪只有 2 個問題，都在剛加的 PWA 檔案裡
+- 其餘（Tests/Permission/RLS/Duplicate/Weak network/Responsive/Audit）：狀態詳見下方逐項功能表，多數已本機邏輯測過但**未經 Jenzo 在 production 真人驗證**，不能算全綠
+
 ## Phase 1 功能
 
 | # | 功能 | 狀態 | 依賴 | 驗收標準（詳見 SPEC §） | 驗證證據 |
@@ -58,6 +63,7 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | App 骨架 | `UNVERIFIED` | `web/` Next.js 15：login、/admin smoke、/cabang 身份卡。typecheck ✓ build ✓；runtime 未驗證 |
 | Deployment | **Preview 部署中**（2026-08-14，2 次） | SPEC §98 原則上不部署，Jenzo 本人明確要求要能點連結測試，視為對自身指示的覆寫。Vercel 檔案直傳，環境變數以 `.env.production` 隨每次上傳帶入（未進 git）。第一次部署 Vercel 自動標成 `target: production`（新專案首次部署的平台行為）；第二次部署未被標為 production（`alias: []`），改用部署專屬網址。兩種情況都已如實告知 Jenzo |
 | UI 主語言 | **已定案** | Bahasa Indonesia（Jenzo 2026-08-14 定案）。prototype 已全面印尼文化並通過 CJK/英文殘留掃描 |
+| Dependency 弱點（`npm audit`） | **已知風險，未修** | 裝 ESLint 相依套件時發現 3 個 high severity（`postcss`、`sharp`，都是 `next@15.5` 內部依賴的舊版本）。修法是升級到 `next@16.3.1`，但那是 major version、有 breaking change，超出本輪「補 Lint」範圍，也不該不問就升。Sharp 只在 build time／`next/image` 最佳化用到，不會被瀏覽器直接載入執行，短期風險有限。**待 Jenzo 決定**：要不要排時間測 Next 16 升級 |
 
 ## 已知刻意保留的「怪東西」
 
