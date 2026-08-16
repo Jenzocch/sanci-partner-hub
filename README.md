@@ -22,7 +22,7 @@ SANCI 家具與合作家具店（Golden Home 等）之間的協作平台（PWA�
 | 技術選型 | 提案：Next.js + Supabase（待 Jenzo 確認） |
 | Supabase Project | ❌ **未配置**（阻塞真實作；不得偷用其他既有 project） |
 | Auth / RLS / DB | NOT STARTED |
-| Deployment | **NOT DEPLOYED**（SPEC §98：現階段不部署） |
+| Deployment | **已上線** `https://sanci-partner-hub.vercel.app`（GitHub main 持續部署，2026-08-16 核對更正——本表原寫 NOT DEPLOYED 已過期，詳見 FEATURES.md Deployment 列） |
 
 ## Phase 1 範圍（嚴格）
 

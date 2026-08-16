@@ -61,9 +61,30 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | Admin 綁定 | **`VERIFIED`(production)** | `0002` 執行成功，2026-08-14。SANCI Super Admin = `wahana.elite@gmail.com`（非最初假設的 a0988728823@gmail.com — repo 已同步更正）|
 | Auth | `UNVERIFIED` | Email/password 登入流程已寫（web/），build 通過；無法連 DB 實測 |
 | App 骨架 | `UNVERIFIED` | `web/` Next.js 15：login、/admin smoke、/cabang 身份卡。typecheck ✓ build ✓；runtime 未驗證 |
-| Deployment | **Preview 部署中**（2026-08-14，2 次） | SPEC §98 原則上不部署，Jenzo 本人明確要求要能點連結測試，視為對自身指示的覆寫。Vercel 檔案直傳，環境變數以 `.env.production` 隨每次上傳帶入（未進 git）。第一次部署 Vercel 自動標成 `target: production`（新專案首次部署的平台行為）；第二次部署未被標為 production（`alias: []`），改用部署專屬網址。兩種情況都已如實告知 Jenzo |
+| Deployment | **已上線（production，持續部署）** | SPEC §98 原則上不部署，Jenzo 本人明確要求要能點連結測試，視為對自身指示的覆寫。**2026-08-16 核對更正**：不是零星 preview，是接了 GitHub → Vercel 持續部署，main 每次 push 都自動變成新的 production deployment。正式網址：`https://sanci-partner-hub.vercel.app`。最新 production deployment 對應 commit `d971216`，狀態 READY（用 Vercel MCP `list_deployments` 查證，不只信文件）。**含意**：往後任何 push 到 main 都是真的上線動作，不是內部測試——包含 Phase 2 的每一次 commit |
 | UI 主語言 | **已定案** | Bahasa Indonesia（Jenzo 2026-08-14 定案）。prototype 已全面印尼文化並通過 CJK/英文殘留掃描 |
 | Dependency 弱點（`npm audit`） | **已知風險，未修** | 裝 ESLint 相依套件時發現 3 個 high severity（`postcss`、`sharp`，都是 `next@15.5` 內部依賴的舊版本）。修法是升級到 `next@16.3.1`，但那是 major version、有 breaking change，超出本輪「補 Lint」範圍，也不該不問就升。Sharp 只在 build time／`next/image` 最佳化用到，不會被瀏覽器直接載入執行，短期風險有限。**待 Jenzo 決定**：要不要排時間測 Next 16 升級 |
+
+## Phase 2（Customer & Partner Order Module）— 範圍已開放
+
+> 2026-08-16 Jenzo 明確要求開始開發，正式跨出 SPEC-PHASE1.md §0/§9 原本「嚴禁擴張」的邊界。完整願景規格見 `docs/SPEC-PHASE2.md`（122 節，Jenzo 提供）。**本表只列第一個開發切片（MVP）**——範圍由 Jenzo 三個決定定案：① 最小版（Customer + 簡單 Order，不連 SANCI 真實商品/庫存資料庫）；② 分店端可建立＋唯讀看狀態（不可編輯/取消）；③ 完成標準＝分店建單＋SANCI看得到＋Partner/Branch 隔離驗證通過。SPEC-PHASE2.md 其餘章節（Edit／Cancel／Attribution Correction／Package 主檔管理／Duplicate Merge 等）留待下一切片，不在本輪範圍。
+
+| # | 功能 | 狀態 | 依賴 | 對應 SPEC-PHASE2 章節 | 備註 |
+|---|---|---|---|---|---|
+| P2-1 | Customer Quick Create | `NOT_STARTED` | DB, Auth | §4–5, 7–9 | 手機優先快速建檔；電話正規化（phone_normalized） |
+| P2-2 | Duplicate Customer Detection | `NOT_STARTED` | P2-1 | §10–11 | 只提醒不自動 Merge；跨 Partner 查詢不得洩漏其他 Partner 的客戶關係（§92，P0） |
+| P2-3 | Customer Search | `NOT_STARTED` | P2-1 | §45–46, 75 | 依 Permission Scope 過濾，Search API 不得繞過 RLS |
+| P2-4 | Partner Order Create | `NOT_STARTED` | P2-1, Phase1 Branch/Staff | §13–14, 17–19, 24 | partner_id/branch_id 一律從登入身份查表帶入，不信前端傳值（沿用 look-up-don't-trust） |
+| P2-5 | Order 唯讀檢視（分店端／cabang） | `NOT_STARTED` | P2-4 | §44, 54–55 | 分店本輪**只能看自己＋依 access_policy 可見的訂單**，不可編輯/取消（Edit/Cancel 留待下一切片） |
+| P2-6 | SANCI Order 總覽（admin） | `NOT_STARTED` | P2-4 | §44 | Admin 可看全部 Partner 的訂單列表 |
+| P2-7 | Partner/Branch Attribution 隔離 | `NOT_STARTED` | P2-4 | §14–15, 47, 89–91 | 沿用 Phase 1 `fn_can_view_branch`/`fn_can_edit_branch`；P0 驗收：Partner A 永不可見 Partner B |
+| P2-8 | Customer/Order Audit | `NOT_STARTED` | P2-1, P2-4 | §61–63 | 延伸既有 `fn_audit_row` trigger（加 CUSTOMER/ORDER 前綴），不另建第二套 audit 機制 |
+| P2-9 | Local Draft / Weak Network / Duplicate Submission | `NOT_STARTED` | P2-1, P2-4 | §21(spec22), 65–70 | 直接沿用 Phase 1 已驗證過的 `use-local-draft.ts` / `safe-write.ts` / `use-submit-guard.ts`，不重寫一套 |
+| P2-10 | Responsive（沿用 Phase 1 CSS 慣例） | `NOT_STARTED` | 上述全部 | §77–80 | 沿用 `.shell`/`.cardgrid-two` 等既有樣式，不另立規則 |
+
+**本輪刻意簡化、偏離 SPEC-PHASE2.md 字面建議之處**（已知，非遺漏）：
+- Package 本輪用 `partner_orders.package_name`（自由文字）呈現，**不建立** `partner_packages` 主檔表（SPEC §21）。理由：先讓分店填得出訂單，Package 主檔管理 UI 留到下一切片，避免第一刀範圍過大；`package_name` 之後要接管理表不會動到既有資料（改天加 `package_id` nullable 欄位即可）。
+- Cancel Order（§41–43）、Order/Customer Edit（§33–37）、Attribution Correction（§16）**全部留到下一切片**——本輪分店端唯讀，降低第一次上線的權限面。
 
 ## 已知刻意保留的「怪東西」
 
