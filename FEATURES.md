@@ -96,9 +96,9 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 - 列表 Terdaftar/Dibatalkan 篩選 chip（§97）未做（已取消訂單本就不會從列表消失；0005 已預建 `(branch_id, status)` index，chip 下輪補）
 - SQL Editor（無 session）手動改已取消訂單會被 trigger 擋——刻意設計，正規繞道寫在 0005 檔頭註解
 
-**Migration `0005_order_edit_cancel.sql` 狀態**：已寫好＋本機行為測試 65/65 PASS（冪等重跑 5 次不變；只有 0001 的庫會以印尼文擋下）。**必須在 0004 之後執行**。期望驗證數字：CANCEL_COLUMNS 3 / ORDER_POLICIES 4 / ORDER_UPDATE_POLICY 1 / CUSTOMER_UPDATE_POLICY 0 / ORDER_DELETE_POLICY 0 / ORDER_TRIGGERS 7 / GUARD_FUNCTIONS 2 / REFS_ON_UPDATE 1 / AUDIT_CANCEL 1 / AUDIT_KEEP_0004 1 / AUDIT_REASON 1。⚠️ 跑完 0005 後，0004 檔尾數字變為：POLICIES 7、TRIGGERS 10、INDEXES 11（其餘不變）——重跑 0004 驗證段時以此為準。
+**Migration `0005_order_edit_cancel.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-16 Jenzo 執行成功並回貼驗證結果，11 項數字與期望值完全相符：CANCEL_COLUMNS 3 / ORDER_POLICIES 4 / ORDER_UPDATE_POLICY 1 / CUSTOMER_UPDATE_POLICY 0 / ORDER_DELETE_POLICY 0 / ORDER_TRIGGERS 7 / GUARD_FUNCTIONS 2 / REFS_ON_UPDATE 1 / AUDIT_CANCEL 1 / AUDIT_KEEP_0004 1 / AUDIT_REASON 1（含兩項「刻意為 0」的負面斷言：customers 無 UPDATE、orders 無 DELETE）。本機行為測試 65/65 PASS、冪等重跑 5 次不變。⚠️ 0005 之後 0004 檔尾數字為 POLICIES 7 / TRIGGERS 10 / INDEXES 11——重跑 0004 驗證段時以此為準。**DB 層已就緒；功能表各項仍為 UNVERIFIED，待 Jenzo 真人跑過 UI 流程才升級。**
 
-**Migration `0004_customer_order.sql` 狀態**：已寫好＋本機 Postgres 16 行為測試全過（冪等重跑 3 次數字不變；無 0001 的庫會以印尼文訊息擋下）。**尚未在 production 執行**——需 Jenzo 貼進 Supabase SQL Editor，期望驗證數字：TABLES 3 / RLS_ENABLED 3 / POLICIES 6 / TRIGGERS 8 / INDEXES 10 / FUNCTIONS 5 / AUDIT_MAP 1。migration 未跑之前，已部署的頁面會顯示「Modul Pesanan belum aktif」而不炸頁（部署順序解耦）。
+**Migration `0004_customer_order.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-16 Jenzo 在 Supabase SQL Editor 執行成功並回貼驗證結果，七項數字與期望值完全相符：TABLES 3 / RLS_ENABLED 3 / POLICIES 6 / TRIGGERS 8 / INDEXES 10 / FUNCTIONS 5 / AUDIT_MAP 1（本機 Postgres 16 行為測試先前已全過；冪等重跑 3 次不變）。注意：0005 跑完後這些數字會變為 POLICIES 7 / TRIGGERS 10 / INDEXES 11。
 
 **本輪刻意簡化、偏離 SPEC-PHASE2.md 字面建議之處**（已知，非遺漏）：
 - Package 本輪用 `partner_orders.package_name`（自由文字）呈現，**不建立** `partner_packages` 主檔表（SPEC §21）。理由：先讓分店填得出訂單，Package 主檔管理 UI 留到下一切片，避免第一刀範圍過大；`package_name` 之後要接管理表不會動到既有資料（改天加 `package_id` nullable 欄位即可）。
