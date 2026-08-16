@@ -6,7 +6,6 @@ import OrderListClient, { type OrderListItem } from "./order-list-client";
 
 export const dynamic = "force-dynamic";
 
-type PolicyRow = { visibility_scope: string };
 
 type OrderRow = {
   id: string;
@@ -32,9 +31,11 @@ export default async function PesananListPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
+  // Kebijakan akses diambil terpisah — tidak ada FK partner_users →
+  // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
   const { data: pu, error: puError } = await supabase
     .from("partner_users")
-    .select("branch_id, partner_access_policies:partner_id(visibility_scope)")
+    .select("branch_id, partner_id")
     .maybeSingle();
   if (puError) {
     return (
@@ -47,8 +48,11 @@ export default async function PesananListPage() {
   }
   if (!pu) redirect("/");
 
-  const policy = pu.partner_access_policies as unknown as PolicyRow | PolicyRow[] | null;
-  const pol = Array.isArray(policy) ? policy[0] : policy;
+  const { data: pol } = await supabase
+    .from("partner_access_policies")
+    .select("visibility_scope")
+    .eq("partner_id", pu.partner_id)
+    .maybeSingle();
   const crossBranchVisible = pol?.visibility_scope === "PARTNER_ALL_BRANCHES";
 
   // RLS pada partner_orders sudah membatasi baris sesuai kebijakan visibilitas —

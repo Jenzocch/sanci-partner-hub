@@ -14,11 +14,12 @@ export default async function CabangHome() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
+  // partner_access_policies TIDAK bisa di-embed langsung dari partner_users —
+  // keduanya tidak punya FK satu sama lain (sama-sama menunjuk partners), jadi
+  // PostgREST menolak querynya saat runtime. Ambil lewat query terpisah.
   const { data: pu, error } = await supabase
     .from("partner_users")
-    .select(
-      "id, name, branch_id, partners:partner_id(id, name, code), partner_access_policies:partner_id(visibility_scope, edit_scope)"
-    )
+    .select("id, name, branch_id, partner_id, partners:partner_id(id, name, code)")
     .maybeSingle();
 
   if (error) {
@@ -33,11 +34,11 @@ export default async function CabangHome() {
   if (!pu) redirect("/");
 
   const partner = pu.partners as unknown as { id: string; name: string; code: string };
-  const policy = pu.partner_access_policies as unknown as
-    | { visibility_scope: string; edit_scope: string }
-    | { visibility_scope: string; edit_scope: string }[]
-    | null;
-  const pol = Array.isArray(policy) ? policy[0] : policy;
+  const { data: pol } = await supabase
+    .from("partner_access_policies")
+    .select("visibility_scope, edit_scope")
+    .eq("partner_id", pu.partner_id)
+    .maybeSingle();
 
   // RLS pada partner_branches sudah otomatis membatasi baris yang kembali —
   // tidak perlu logika tambahan untuk boundary partner/branch di sini.

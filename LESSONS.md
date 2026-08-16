@@ -101,6 +101,12 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：matcher 明確排除 `sw\.js`、`manifest\.webmanifest`、`offline`。
 - **教訓**：**任何「系統壞掉/離線時的後援機制」都要問一句：這個後援本身有沒有偷偷依賴它要繞過的那個東西？**這類 bug 平常測不出來（開發時通常已登入、也有網路），只有在真的斷網或 auth 掛掉時才會發現後援也一起掛了——所以要主動測，不能等它發生才發現。
 
+### 24. PostgREST 的關聯查詢（embed）只認外鍵，「兩張表指向同一個父表」不能直接互相 embed——而且 typecheck 完全抓不到〔本專案 2026-08-16，第一個真帳號登入當場踩中〕
+- **情境**：`partner_users` 和 `partner_access_policies` 都各自 FK 指向 `partners`，彼此之間沒有外鍵。Phase 1 寫了 `partner_access_policies:partner_id(...)` 想從 partner_users 直接 embed 過去，複製到五個頁面（含 Phase 2 兩頁——**抄既有慣例時把 bug 一起抄走**）。
+- **症狀**：對 supabase-js 來說關聯字串只是字串，typecheck ✓ build ✓ 全綠；**執行時** PostgREST 找不到兩表之間的關聯，整個查詢報錯。而且潛伏了整個 Phase 1——因為從來沒有真的 partner 帳號登入過這些頁；Jenzo 建立第一個測試帳號登入的那一刻才爆（「Data akun gagal dimuat」）。
+- **修法**：拆成兩段查詢（先拿 partner_id，再 `.from("partner_access_policies").eq("partner_id", ...)`），或走真外鍵的巢狀路徑 `partners:partner_id(..., partner_access_policies(...))`。本專案選前者（與 admin 端已驗證的分開查詢慣例一致）。
+- **教訓**：①embed 字串的正確性是**執行期**的事，唯一的驗證方法是真的跑一次該頁——「沒有真帳號可測」的頁面等於一行都沒驗過；②修掉一處立刻 grep 全庫同 pattern（這次一抓抓到五處）；③新頁面抄舊頁面慣例前，先確認那個慣例真的在 production 跑過。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

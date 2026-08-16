@@ -31,7 +31,6 @@ type OrderDetailRow = {
   pic: One<{ full_name: string; status: string }>;
 };
 
-type PolicyRow = { edit_scope: string };
 type Assignment = { staff_id: string; role: string };
 
 /**
@@ -68,11 +67,19 @@ export default async function PesananDetailPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
+  // edit_scope diambil terpisah — tidak ada FK partner_users →
+  // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
   const { data: pu } = await supabase
     .from("partner_users")
-    .select("branch_id, partner_access_policies:partner_id(edit_scope)")
+    .select("branch_id, partner_id")
     .maybeSingle();
   if (!pu) redirect("/");
+
+  const { data: puPolicy } = await supabase
+    .from("partner_access_policies")
+    .select("edit_scope")
+    .eq("partner_id", pu.partner_id)
+    .maybeSingle();
 
   // RLS pada partner_orders membatasi baris: order di cabang yang tidak boleh
   // dilihat pengguna ini tidak akan pernah muncul di sini.
@@ -123,9 +130,7 @@ export default async function PesananDetailPage({
 
   // Pola sama seperti /cabang/staff/[branchId]: edit_scope menentukan boleh/
   // tidaknya mengubah cabang LAIN. Cabang sendiri selalu boleh.
-  const policy = pu.partner_access_policies as unknown as PolicyRow | PolicyRow[] | null;
-  const pol = Array.isArray(policy) ? policy[0] : policy;
-  const canEditBranch = !isOtherBranch || pol?.edit_scope === "PARTNER_ALL_BRANCHES";
+  const canEditBranch = !isOtherBranch || puPolicy?.edit_scope === "PARTNER_ALL_BRANCHES";
   // Tombol Ubah/Batalkan hanya untuk order yang masih REGISTERED — order yang
   // sudah dibatalkan seluruhnya read-only (dipaksa DB juga, tapi jangan
   // menggambar tombol yang tidak akan berhasil dipakai).

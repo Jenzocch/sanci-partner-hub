@@ -10,21 +10,21 @@ export default async function AkunSayaPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
+  // Kebijakan akses diambil terpisah — tidak ada FK partner_users →
+  // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
   const { data: pu } = await supabase
     .from("partner_users")
-    .select(
-      "name, role, partners:partner_id(name), partner_branches:branch_id(name), partner_access_policies:partner_id(visibility_scope, edit_scope)"
-    )
+    .select("name, role, partner_id, partners:partner_id(name), partner_branches:branch_id(name)")
     .maybeSingle();
   if (!pu) redirect("/");
 
   const partner = pu.partners as unknown as { name: string };
   const branch = pu.partner_branches as unknown as { name: string };
-  const policy = pu.partner_access_policies as unknown as
-    | { visibility_scope: string; edit_scope: string }
-    | { visibility_scope: string; edit_scope: string }[]
-    | null;
-  const pol = Array.isArray(policy) ? policy[0] : policy;
+  const { data: pol } = await supabase
+    .from("partner_access_policies")
+    .select("visibility_scope, edit_scope")
+    .eq("partner_id", pu.partner_id)
+    .maybeSingle();
   const visLabel =
     pol?.visibility_scope === "PARTNER_ALL_BRANCHES"
       ? `Sesama partner · ${pol.edit_scope === "PARTNER_ALL_BRANCHES" ? "Lihat + Edit" : "Lihat saja"}`

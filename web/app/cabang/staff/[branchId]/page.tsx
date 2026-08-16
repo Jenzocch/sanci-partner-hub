@@ -19,9 +19,11 @@ export default async function CabangStaffPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
+  // edit_scope diambil terpisah — tidak ada FK partner_users →
+  // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
   const { data: pu } = await supabase
     .from("partner_users")
-    .select("branch_id, partner_id, partners:partner_id(name), partner_access_policies:partner_id(edit_scope)")
+    .select("branch_id, partner_id, partners:partner_id(name)")
     .maybeSingle();
   if (!pu) redirect("/");
 
@@ -34,11 +36,11 @@ export default async function CabangStaffPage({
   if (!branch) notFound();
 
   const partner = pu.partners as unknown as { name: string };
-  const policy = pu.partner_access_policies as unknown as
-    | { edit_scope: string }
-    | { edit_scope: string }[]
-    | null;
-  const pol = Array.isArray(policy) ? policy[0] : policy;
+  const { data: pol } = await supabase
+    .from("partner_access_policies")
+    .select("edit_scope")
+    .eq("partner_id", pu.partner_id)
+    .maybeSingle();
   const isOwnBranch = branchId === pu.branch_id;
   const canEdit = isOwnBranch || pol?.edit_scope === "PARTNER_ALL_BRANCHES";
 
