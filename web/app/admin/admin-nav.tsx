@@ -15,6 +15,7 @@ export default function AdminNav() {
   }
 
   const isPartners = pathname === "/admin" || pathname.startsWith("/admin/partners");
+  const isOrders = pathname.startsWith("/admin/orders");
 
   return (
     <nav className="side">
@@ -24,6 +25,9 @@ export default function AdminNav() {
       </div>
       <Link href="/admin" className={`navlink${isPartners ? " on" : ""}`}>
         Partner
+      </Link>
+      <Link href="/admin/orders" className={`navlink${isOrders ? " on" : ""}`}>
+        Pesanan Partner
       </Link>
       <button className="navlink" onClick={signOut} style={{ marginTop: "auto" }}>
         Keluar

@@ -98,6 +98,15 @@ export default async function CabangHome() {
         </>
       )}
 
+      <Link href="/cabang/pesanan/baru" className="biglink">
+        <span>+ Pesanan Baru</span>
+        <span className="arrow">→</span>
+      </Link>
+      <Link href="/cabang/pesanan" className="biglink">
+        <span>Daftar Pesanan</span>
+        <span className="arrow">→</span>
+      </Link>
+
       <Link href="/cabang/profil" className="biglink">
         <span>Profil Cabang</span>
         <span className="arrow">→</span>
@@ -108,7 +117,7 @@ export default async function CabangHome() {
       </Link>
 
       <p className="small muted" style={{ marginTop: 18, lineHeight: 1.55 }}>
-        Order, customer, gudang, dan pengiriman adalah fase berikutnya — sengaja belum ditampilkan.
+        Gudang dan pengiriman adalah fase berikutnya — sengaja belum ditampilkan.
       </p>
 
       <div style={{ marginTop: 14 }}>
