@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { displayPhoneID, isMissingTableError } from "@/lib/orders-shared";
 import StatusBadge from "../status-badge";
+import OrderDetailActions, { type StaffOption } from "./order-detail-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,40 @@ type OrderDetailRow = {
   notes: string | null;
   created_at: string;
   branch_id: string;
+  partner_id: string;
+  partner_sales_staff_id: string | null;
+  partner_pic_staff_id: string | null;
   customers: One<{ full_name: string; phone_normalized: string; whatsapp: string | null }>;
   partner_branches: One<{ name: string }>;
   partners: One<{ name: string; code: string }>;
   sales: One<{ full_name: string; status: string }>;
   pic: One<{ full_name: string; status: string }>;
 };
+
+type PolicyRow = { edit_scope: string };
+type Assignment = { staff_id: string; role: string };
+
+/**
+ * cancelled_at/cancellation_reason (migration 0005) dibaca TERPISAH dari query
+ * utama: kalau kolomnya belum ada (42703 — kode belum diikuti migrasi, LESSONS
+ * #12), halaman detail tetap harus bisa dibuka, bukan malah ikut gagal total
+ * hanya karena info pembatalan belum tersedia.
+ */
+type CancelInfo = { cancelled_at: string | null; cancellation_reason: string | null };
+async function fetchCancelInfo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ info: CancelInfo | null; unavailable: boolean }> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("cancelled_at, cancellation_reason")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) {
+    return { info: null, unavailable: error.code === "42703" };
+  }
+  return { info: (data as CancelInfo | null) ?? null, unavailable: false };
+}
 
 export default async function PesananDetailPage({
   params,
@@ -39,7 +68,10 @@ export default async function PesananDetailPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const { data: pu } = await supabase.from("partner_users").select("branch_id").maybeSingle();
+  const { data: pu } = await supabase
+    .from("partner_users")
+    .select("branch_id, partner_access_policies:partner_id(edit_scope)")
+    .maybeSingle();
   if (!pu) redirect("/");
 
   // RLS pada partner_orders membatasi baris: order di cabang yang tidak boleh
@@ -47,7 +79,8 @@ export default async function PesananDetailPage({
   const { data, error } = await supabase
     .from("partner_orders")
     .select(
-      "id, order_number, package_name, status, notes, created_at, branch_id, " +
+      "id, order_number, package_name, status, notes, created_at, branch_id, partner_id, " +
+        "partner_sales_staff_id, partner_pic_staff_id, " +
         "customers:customer_id(full_name, phone_normalized, whatsapp), " +
         "partner_branches:branch_id(name), partners:partner_id(name, code), " +
         "sales:partner_sales_staff_id(full_name, status), pic:partner_pic_staff_id(full_name, status)"
@@ -87,6 +120,43 @@ export default async function PesananDetailPage({
   const sales = one(order.sales);
   const pic = one(order.pic);
   const isOtherBranch = order.branch_id !== pu.branch_id;
+
+  // Pola sama seperti /cabang/staff/[branchId]: edit_scope menentukan boleh/
+  // tidaknya mengubah cabang LAIN. Cabang sendiri selalu boleh.
+  const policy = pu.partner_access_policies as unknown as PolicyRow | PolicyRow[] | null;
+  const pol = Array.isArray(policy) ? policy[0] : policy;
+  const canEditBranch = !isOtherBranch || pol?.edit_scope === "PARTNER_ALL_BRANCHES";
+  // Tombol Ubah/Batalkan hanya untuk order yang masih REGISTERED — order yang
+  // sudah dibatalkan seluruhnya read-only (dipaksa DB juga, tapi jangan
+  // menggambar tombol yang tidak akan berhasil dipakai).
+  const canManage = canEditBranch && order.status === "REGISTERED";
+
+  // Staf untuk dropdown Sales/PIC diambil dari CABANG PESANAN (bisa beda dari
+  // cabang login saat PARTNER_ALL_BRANCHES mengubah order cabang lain) — bukan
+  // cabang pengguna sendiri (SPEC menuntut ini secara eksplisit).
+  let staffOptions: StaffOption[] = [];
+  let cancelInfo: CancelInfo | null = null;
+  let cancelInfoUnavailable = false;
+  if (canManage) {
+    const [{ data: staffList }, { data: assignments }] = await Promise.all([
+      supabase.from("partner_staff").select("id, full_name, status").eq("partner_id", order.partner_id),
+      supabase
+        .from("partner_staff_assignments")
+        .select("staff_id, role")
+        .eq("branch_id", order.branch_id)
+        .is("end_at", null),
+    ]);
+    const roleByStaff = new Map<string, string>();
+    (assignments ?? []).forEach((a: Assignment) => roleByStaff.set(a.staff_id, a.role));
+    staffOptions = (staffList ?? [])
+      .filter((s) => s.status === "ACTIVE" && roleByStaff.has(s.id))
+      .map((s) => ({ id: s.id, fullName: s.full_name, role: roleByStaff.get(s.id)! }));
+  }
+  if (order.status === "CANCELLED") {
+    const res = await fetchCancelInfo(supabase, order.id);
+    cancelInfo = res.info;
+    cancelInfoUnavailable = res.unavailable;
+  }
 
   return (
     <main className="pwrap">
@@ -146,9 +216,50 @@ export default async function PesananDetailPage({
             })}
           </dd>
         </dl>
-        <p className="small muted" style={{ marginTop: 14 }}>
-          Pesanan ini hanya bisa dilihat dari sisi cabang. Perubahan status atau pembatalan dilakukan oleh SANCI.
-        </p>
+
+        {order.status === "CANCELLED" && (
+          <div className="banner" style={{ background: "var(--off-bg)", color: "var(--off)", marginTop: 14 }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Pesanan dibatalkan</div>
+            {cancelInfoUnavailable ? (
+              <div>Info pembatalan belum tersedia (migrasi database belum dijalankan).</div>
+            ) : (
+              <>
+                <div>Alasan: {cancelInfo?.cancellation_reason || "—"}</div>
+                <div>
+                  Waktu:{" "}
+                  {cancelInfo?.cancelled_at
+                    ? new Date(cancelInfo.cancelled_at).toLocaleString("id-ID", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {canManage ? (
+          <OrderDetailActions
+            orderId={order.id}
+            orderNumber={order.order_number}
+            customerName={customer?.full_name ?? "Pelanggan tidak diketahui"}
+            packageName={order.package_name}
+            salesStaffId={order.partner_sales_staff_id}
+            picStaffId={order.partner_pic_staff_id}
+            notes={order.notes}
+            staffOptions={staffOptions}
+          />
+        ) : (
+          <p className="small muted" style={{ marginTop: 14 }}>
+            {order.status === "CANCELLED"
+              ? "Pesanan yang sudah dibatalkan tidak bisa diubah lagi."
+              : "Pesanan ini hanya bisa dilihat dari sisi cabang ini. Perubahan atau pembatalan dilakukan oleh cabang pemilik pesanan."}
+          </p>
+        )}
       </div>
     </main>
   );

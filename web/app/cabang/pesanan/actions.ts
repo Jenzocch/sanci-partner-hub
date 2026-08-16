@@ -41,6 +41,19 @@ type ActionResult<T> = { data: T } | { error: ActionError };
 const MISSING_TABLE_MSG =
   "Modul Pesanan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.";
 
+/**
+ * Kolom cancelled_at/cancelled_by/cancellation_reason ditambahkan migration
+ * 0005 (Fase ini). Kode boleh naik duluan sebelum SQL dijalankan (LESSONS
+ * #12) — kalau kolomnya belum ada, Postgres menjawab 42703 (undefined_column),
+ * BUKAN 42P01 (tabel hilang). Jangan disamarkan jadi "no permission".
+ */
+function isMissingColumnError(err: { code?: string } | null): boolean {
+  return !!err && err.code === "42703";
+}
+
+const MIGRATION_0005_MSG =
+  "Fitur ini belum aktif — migrasi database belum dijalankan. Hubungi SANCI Admin.";
+
 type Identity = { partnerId: string; branchId: string; userId: string };
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -462,4 +475,180 @@ export async function createCustomerAndOrder(input: {
   }
 
   return { data: { ...summary, customerId: customer.id } };
+}
+
+/* ------------------------------------------------------------------ *
+ * Ubah Pesanan (SPEC §36–37) — hanya Package/Sales/PIC/Notes.
+ * Atribusi (partner_id/branch_id/customer_id/order_number) TIDAK PERNAH
+ * dikirim di sini: DB trigger menolaknya kalau berubah, dan kolom itu memang
+ * tidak boleh diubah lewat Edit biasa (SPEC §37).
+ * ------------------------------------------------------------------ */
+
+type MutableOrderRef = { id: string; partner_id: string; branch_id: string; status: OrderStatus };
+
+/**
+ * Ambil baris minimal untuk validasi sebelum UPDATE. RLS SELECT (o_partner_read)
+ * memakai fn_can_view_branch — lebih longgar dari izin edit — jadi baris bisa
+ * saja "kelihatan" walau tidak boleh diubah; itu SENGAJA: keputusan izin edit
+ * yang sebenarnya diserahkan ke UPDATE (fn_can_edit_branch) di bawah, bukan
+ * ditebak di sini.
+ */
+async function fetchOrderForMutation(
+  supabase: SupabaseServerClient,
+  orderId: string
+): Promise<{ ok: true; order: MutableOrderRef } | { ok: false; error: ActionError }> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("id, partner_id, branch_id, status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) {
+    if (isMissingTableError(error)) return { ok: false, error: { message: MISSING_TABLE_MSG } };
+    return { ok: false, error: { message: PESAN.serverSibuk } };
+  }
+  if (!data) {
+    return { ok: false, error: { message: "Pesanan tidak ditemukan atau Anda tidak punya akses." } };
+  }
+  return { ok: true, order: data as MutableOrderRef };
+}
+
+/**
+ * Menerjemahkan hasil UPDATE (safeWrite) jadi pesan untuk pengguna. Dipakai
+ * updateOrder & cancelOrder — urutan pemeriksaan penting (LESSONS #21 sepupu):
+ * kolom hilang (42703) diperiksa DULU supaya tidak disalahartikan jadi
+ * "tidak punya akses", baru "no row returned" (0 baris — RLS menolak DIAM-DIAM,
+ * bukan error) yang jadi pesan akses/berubah (bukan sukses palsu, LESSONS #7).
+ */
+function updateFailureMessage(written: { reason: "db"; code?: string; detail: string } | { reason: "unconfirmed" }, noRowMsg: string): string {
+  if (written.reason === "unconfirmed") return PESAN.belumPastiUbah;
+  if (isMissingColumnError({ code: written.code })) return MIGRATION_0005_MSG;
+  if (isMissingTableError({ code: written.code })) return MISSING_TABLE_MSG;
+  if (written.detail === "no row returned") return noRowMsg;
+  return PESAN.serverSibuk;
+}
+
+export type UpdateOrderResult = { data: { updated: true } } | { error: ActionError };
+
+export async function updateOrder(input: {
+  orderId: string;
+  packageName: string;
+  salesStaffId: string;
+  picStaffId?: string;
+  notes?: string;
+}): Promise<UpdateOrderResult> {
+  const supabase = await createClient();
+  const identity = await getIdentity(supabase);
+  if (!identity) return { error: { message: "Sesi tidak valid. Muat ulang halaman." } };
+
+  const found = await fetchOrderForMutation(supabase, input.orderId);
+  if (!found.ok) return { error: found.error };
+  const order = found.order;
+
+  if (order.status !== "REGISTERED") {
+    return { error: { message: "Pesanan ini sudah dibatalkan dan tidak bisa diubah lagi." } };
+  }
+
+  const packageName = input.packageName.trim();
+  if (!packageName) return { error: { field: "package_name", message: "Nama package wajib diisi." } };
+  if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: "Sales wajib dipilih." } };
+
+  // Staf diverifikasi terhadap cabang PESANAN (bisa beda dari cabang login saat
+  // PARTNER_ALL_BRANCHES mengubah pesanan cabang lain) — bukan cabang pengguna.
+  const salesOk = await verifyActiveStaffInBranch(supabase, input.salesStaffId, order.branch_id, order.partner_id);
+  if (!salesOk) {
+    return { error: { field: "sales_staff_id", message: "Sales harus dipilih dari daftar staf aktif cabang ini." } };
+  }
+  let picStaffId: string | null = null;
+  if (input.picStaffId) {
+    const picOk = await verifyActiveStaffInBranch(supabase, input.picStaffId, order.branch_id, order.partner_id);
+    if (!picOk) {
+      return { error: { field: "pic_staff_id", message: "PIC harus dipilih dari daftar staf aktif cabang ini." } };
+    }
+    picStaffId = input.picStaffId;
+  }
+
+  // UPDATE hanya empat kolom yang diizinkan (SPEC §37) + .select() supaya bisa
+  // dipastikan ada baris yang benar-benar berubah — bukan cuma percaya respons
+  // "tidak ada error" (LESSONS #7). RLS menolak dengan 0 baris, bukan error.
+  const written = await safeWrite(
+    supabase
+      .from("partner_orders")
+      .update({
+        package_name: packageName,
+        partner_sales_staff_id: input.salesStaffId,
+        partner_pic_staff_id: picStaffId,
+        notes: input.notes?.trim() || null,
+      })
+      .eq("id", input.orderId)
+      .select("id")
+      .maybeSingle()
+  );
+
+  if (!written.ok) {
+    return {
+      error: {
+        message: updateFailureMessage(
+          written,
+          "Pesanan tidak bisa diubah — Anda mungkin tidak punya akses ke cabang ini, atau pesanan sudah berubah/dibatalkan. Muat ulang halaman."
+        ),
+      },
+    };
+  }
+
+  revalidatePath("/cabang/pesanan");
+  revalidatePath(`/cabang/pesanan/${input.orderId}`);
+  return { data: { updated: true } };
+}
+
+/* ------------------------------------------------------------------ *
+ * Batalkan Pesanan (SPEC §41–42, §96) — status + alasan saja.
+ * cancelled_at/cancelled_by SENGAJA tidak dikirim: diisi DB (trigger
+ * migration 0005), bukan client (LESSONS #6, #11).
+ * ------------------------------------------------------------------ */
+
+export type CancelOrderResult = { data: { cancelled: true } } | { error: ActionError };
+
+export async function cancelOrder(input: {
+  orderId: string;
+  reason: string;
+}): Promise<CancelOrderResult> {
+  const supabase = await createClient();
+  const identity = await getIdentity(supabase);
+  if (!identity) return { error: { message: "Sesi tidak valid. Muat ulang halaman." } };
+
+  const reason = input.reason.trim();
+  if (!reason) return { error: { field: "reason", message: "Alasan pembatalan wajib diisi." } };
+  if (reason.length > 500) {
+    return { error: { field: "reason", message: "Alasan pembatalan terlalu panjang (maksimal 500 karakter)." } };
+  }
+
+  const found = await fetchOrderForMutation(supabase, input.orderId);
+  if (!found.ok) return { error: found.error };
+  if (found.order.status === "CANCELLED") {
+    return { error: { message: "Pesanan ini sudah dibatalkan sebelumnya." } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("partner_orders")
+      .update({ status: "CANCELLED", cancellation_reason: reason })
+      .eq("id", input.orderId)
+      .select("id")
+      .maybeSingle()
+  );
+
+  if (!written.ok) {
+    return {
+      error: {
+        message: updateFailureMessage(
+          written,
+          "Pesanan tidak bisa dibatalkan — Anda mungkin tidak punya akses ke cabang ini, atau pesanan sudah berubah. Muat ulang halaman."
+        ),
+      },
+    };
+  }
+
+  revalidatePath("/cabang/pesanan");
+  revalidatePath(`/cabang/pesanan/${input.orderId}`);
+  return { data: { cancelled: true } };
 }

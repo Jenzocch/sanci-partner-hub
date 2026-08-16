@@ -82,6 +82,22 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | P2-9 | Local Draft / Weak Network / Duplicate Submission | `UNVERIFIED` | P2-1, P2-4 | §21(spec22), 65–70 | 全部重用 Phase 1 基建：`use-local-draft`（key 含 branch 隔離）、`safe-write`（含 request id 反查）、`use-submit-guard`。customer/order 各自帶 `:customer`/`:order` 後綴的 idempotency key，retry 沿用同組 |
 | P2-10 | Responsive（沿用 Phase 1 CSS 慣例） | `UNVERIFIED` | 上述全部 | §77–80 | 沿用既有 class（.shell/.chip/.searchrow 等），零新樣式系統。未截圖驗證（本環境無法登入） |
 
+### Phase 2 第二切片（Order Edit + Cancel，2026-08-16）
+
+| # | 功能 | 狀態 | 對應 SPEC-PHASE2 章節 | 備註 |
+|---|---|---|---|---|
+| P2-11 | Order Edit（分店端） | `UNVERIFIED` | §36–37, 47–49 | 編輯 modal：Package/Sales/PIC/備註；attribution 欄位不出現在表單且 **DB trigger 拒改**（含把別店訂單搬到自己店的路徑，本機測試 C3）；Sales/PIC 名單取自**訂單所屬分店**的 active staff（跨店編輯情境）；草稿隔離（key 含 orderId）；UPDATE 後驗 rowcount，RLS 擋下（0 rows）不顯示成功。typecheck/lint/build ✓ |
+| P2-12 | Cancel Order（分店端） | `UNVERIFIED` | §41–43, 96–97 | 確認對話框＋理由必填（4 選項，Lainnya 附文字欄）；`cancelled_at/by` 由 DB trigger 強制填（client 傳值被覆蓋，本機測試 A12）；取消後全面唯讀（DB 強制）；audit 記 `ORDER_CANCELLED` 且理由入 reason 欄；已取消訂單列表不消失、詳情顯示取消資訊 |
+| P2-13 | Edit 權限（DB 層） | `UNVERIFIED`（本機 65 項斷言全過） | §47–49 | UPDATE policy 只走 `fn_can_edit_branch`；不可變欄位 8 欄 trigger 守護（policy 看不到 OLD 值，必須用 trigger——見 0005 註解）；customers 無 UPDATE、orders 無 DELETE（刻意負面斷言）；un-cancel 僅 admin |
+
+**第二切片已知限制**（刻意接受，非遺漏）：
+- 訂單原 Sales 已停用時，編輯任何欄位都要先重選在職 Sales 才能存檔（dropdown 只列 active staff）——體驗有刺但不違規，下輪再議
+- 兩人同時操作、一人剛取消的窄競態：另一人收到通用錯誤訊息而非「訂單剛被取消」——不會假成功，可接受
+- 列表 Terdaftar/Dibatalkan 篩選 chip（§97）未做（已取消訂單本就不會從列表消失；0005 已預建 `(branch_id, status)` index，chip 下輪補）
+- SQL Editor（無 session）手動改已取消訂單會被 trigger 擋——刻意設計，正規繞道寫在 0005 檔頭註解
+
+**Migration `0005_order_edit_cancel.sql` 狀態**：已寫好＋本機行為測試 65/65 PASS（冪等重跑 5 次不變；只有 0001 的庫會以印尼文擋下）。**必須在 0004 之後執行**。期望驗證數字：CANCEL_COLUMNS 3 / ORDER_POLICIES 4 / ORDER_UPDATE_POLICY 1 / CUSTOMER_UPDATE_POLICY 0 / ORDER_DELETE_POLICY 0 / ORDER_TRIGGERS 7 / GUARD_FUNCTIONS 2 / REFS_ON_UPDATE 1 / AUDIT_CANCEL 1 / AUDIT_KEEP_0004 1 / AUDIT_REASON 1。⚠️ 跑完 0005 後，0004 檔尾數字變為：POLICIES 7、TRIGGERS 10、INDEXES 11（其餘不變）——重跑 0004 驗證段時以此為準。
+
 **Migration `0004_customer_order.sql` 狀態**：已寫好＋本機 Postgres 16 行為測試全過（冪等重跑 3 次數字不變；無 0001 的庫會以印尼文訊息擋下）。**尚未在 production 執行**——需 Jenzo 貼進 Supabase SQL Editor，期望驗證數字：TABLES 3 / RLS_ENABLED 3 / POLICIES 6 / TRIGGERS 8 / INDEXES 10 / FUNCTIONS 5 / AUDIT_MAP 1。migration 未跑之前，已部署的頁面會顯示「Modul Pesanan belum aktif」而不炸頁（部署順序解耦）。
 
 **本輪刻意簡化、偏離 SPEC-PHASE2.md 字面建議之處**（已知，非遺漏）：
