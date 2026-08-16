@@ -33,7 +33,21 @@ export default async function CabangHome() {
   }
   if (!pu) redirect("/");
 
-  const partner = pu.partners as unknown as { id: string; name: string; code: string };
+  // Embed bisa null bila RLS menyembunyikan baris partner (mis. partner_user
+  // berstatus DISABLED membuat fn_pu_partner() null) — jangan crash.
+  const partner = pu.partners as unknown as { id: string; name: string; code: string } | null;
+  if (!partner) {
+    return (
+      <main className="pwrap">
+        <div className="card">
+          <div className="err">
+            Data partner Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa pengaturan akun.
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const { data: pol } = await supabase
     .from("partner_access_policies")
     .select("visibility_scope, edit_scope")

@@ -34,13 +34,21 @@ export default async function AdminPartnersPage({
   const accessFilter = sp.access || "ALL";
 
   const supabase = await createClient();
-  const [{ data: partners, error: pErr }, { data: branches }, { data: policies }, { data: users }] =
-    await Promise.all([
-      supabase.from("partners").select("id, name, code, status, logo_url").order("name"),
-      supabase.from("partner_branches").select("id, partner_id, name, code, status"),
-      supabase.from("partner_access_policies").select("partner_id, visibility_scope, edit_scope"),
-      supabase.from("partner_users").select("partner_id, status"),
-    ]);
+  const [
+    { data: partners, error: pErr },
+    { data: branches, error: bErr },
+    { data: policies, error: polErr },
+    { data: users, error: uErr },
+  ] = await Promise.all([
+    supabase.from("partners").select("id, name, code, status, logo_url").order("name"),
+    supabase.from("partner_branches").select("id, partner_id, name, code, status"),
+    supabase.from("partner_access_policies").select("partner_id, visibility_scope, edit_scope"),
+    supabase.from("partner_users").select("partner_id, status"),
+  ]);
+  // Kegagalan salah satu query pelengkap (cabang/kebijakan/akun) tidak boleh
+  // muncul sebagai "0 cabang" / "Belum diatur" yang menyesatkan — itu bukan
+  // kesimpulan bisnis, itu query yang gagal (LESSONS #10).
+  const listErr = pErr || bErr || polErr || uErr;
 
   const branchesByPartner = new Map<string, BranchRow[]>();
   (branches ?? []).forEach((b: BranchRow) => {
@@ -119,7 +127,7 @@ export default async function AdminPartnersPage({
         </button>
       </form>
 
-      {pErr ? (
+      {listErr ? (
         <div className="card" style={{ margin: 0 }}>
           <div className="err">Daftar partner gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
         </div>

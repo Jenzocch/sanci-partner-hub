@@ -21,10 +21,22 @@ export default async function CabangStaffPage({
 
   // edit_scope diambil terpisah — tidak ada FK partner_users →
   // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
-  const { data: pu } = await supabase
+  const { data: pu, error: puError } = await supabase
     .from("partner_users")
     .select("branch_id, partner_id, partners:partner_id(name)")
     .maybeSingle();
+  // maybeSingle() error di sini biasanya berarti lebih dari satu baris cocok —
+  // terjadi kalau akun SANCI Admin (RLS-nya melihat SEMUA partner_users) membuka
+  // URL /cabang/* langsung tanpa lewat halaman login (LESSONS #24 sepupu).
+  if (puError) {
+    return (
+      <main className="pwrap">
+        <div className="card">
+          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+        </div>
+      </main>
+    );
+  }
   if (!pu) redirect("/");
 
   // RLS pada partner_branches membatasi baris: kalau branch ini tidak boleh dilihat, hasilnya kosong.
@@ -35,7 +47,21 @@ export default async function CabangStaffPage({
     .maybeSingle();
   if (!branch) notFound();
 
-  const partner = pu.partners as unknown as { name: string };
+  // Embed bisa null bila RLS menyembunyikan baris partner (mis. partner_user
+  // berstatus DISABLED membuat fn_pu_partner() null) — jangan crash.
+  const partner = pu.partners as unknown as { name: string } | null;
+  if (!partner) {
+    return (
+      <main className="pwrap">
+        <div className="card">
+          <div className="err">
+            Data partner Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa pengaturan akun.
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const { data: pol } = await supabase
     .from("partner_access_policies")
     .select("edit_scope")

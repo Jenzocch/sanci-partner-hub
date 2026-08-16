@@ -30,8 +30,22 @@ export default async function PesananBaruPage() {
   }
   if (!pu) redirect("/");
 
-  const partner = pu.partners as unknown as { name: string };
-  const branch = pu.partner_branches as unknown as { name: string };
+  // Embed bisa null bila RLS menyembunyikan baris partner/cabang (mis. partner
+  // belum punya baris kebijakan sebelum migration 0006) — jangan crash.
+  const partner = pu.partners as unknown as { name: string } | null;
+  const branch = pu.partner_branches as unknown as { name: string } | null;
+  if (!partner || !branch) {
+    return (
+      <main className="pwrap">
+        <div className="card">
+          <div className="err">
+            Data partner/cabang Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa
+            pengaturan akun dan izin cabang.
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   // Staf aktif cabang ini — pola sama seperti /cabang/staff/[branchId].
   const [{ data: staffList }, { data: assignments }] = await Promise.all([

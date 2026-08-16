@@ -69,10 +69,22 @@ export default async function PesananDetailPage({
 
   // edit_scope diambil terpisah — tidak ada FK partner_users →
   // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
-  const { data: pu } = await supabase
+  const { data: pu, error: puError } = await supabase
     .from("partner_users")
     .select("branch_id, partner_id")
     .maybeSingle();
+  // maybeSingle() error di sini biasanya berarti lebih dari satu baris cocok —
+  // terjadi kalau akun SANCI Admin (RLS-nya melihat SEMUA partner_users) membuka
+  // URL /cabang/* langsung tanpa lewat halaman login (LESSONS #24 sepupu).
+  if (puError) {
+    return (
+      <main className="pwrap">
+        <div className="card">
+          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+        </div>
+      </main>
+    );
+  }
   if (!pu) redirect("/");
 
   const { data: puPolicy } = await supabase
