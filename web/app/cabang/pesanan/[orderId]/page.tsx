@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { displayPhoneID, isMissingTableError } from "@/lib/orders-shared";
 import StatusBadge from "../status-badge";
-import OrderDetailActions, { type StaffOption } from "./order-detail-actions";
+import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +53,24 @@ async function fetchCancelInfo(
     return { info: null, unavailable: error.code === "42703" };
   }
   return { info: (data as CancelInfo | null) ?? null, unavailable: false };
+}
+
+/**
+ * package_id (migration 0008) dibaca TERPISAH dari query utama untuk alasan
+ * yang sama dengan fetchCancelInfo di atas: kalau kolomnya belum ada, halaman
+ * detail tetap harus bisa dibuka (LESSONS #12).
+ */
+async function fetchOrderPackageId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("package_id")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { package_id: string | null } | null)?.package_id ?? null;
 }
 
 export default async function PesananDetailPage({
@@ -152,22 +170,30 @@ export default async function PesananDetailPage({
   // cabang login saat PARTNER_ALL_BRANCHES mengubah order cabang lain) — bukan
   // cabang pengguna sendiri (SPEC menuntut ini secara eksplisit).
   let staffOptions: StaffOption[] = [];
+  let packages: PackageOption[] = [];
+  let currentPackageId: string | null = null;
   let cancelInfo: CancelInfo | null = null;
   let cancelInfoUnavailable = false;
   if (canManage) {
-    const [{ data: staffList }, { data: assignments }] = await Promise.all([
+    const [{ data: staffList }, { data: assignments }, { data: packageRows }, fetchedPackageId] = await Promise.all([
       supabase.from("partner_staff").select("id, full_name, status").eq("partner_id", order.partner_id),
       supabase
         .from("partner_staff_assignments")
         .select("staff_id, role")
         .eq("branch_id", order.branch_id)
         .is("end_at", null),
+      // Package (migration 0008) — tabel belum ada (42P01) atau kosong dianggap
+      // sama: turun ke input teks bebas, tanpa error (LESSONS #12).
+      supabase.from("partner_packages").select("id, name").eq("partner_id", order.partner_id).eq("status", "ACTIVE").order("name"),
+      fetchOrderPackageId(supabase, order.id),
     ]);
     const roleByStaff = new Map<string, string>();
     (assignments ?? []).forEach((a: Assignment) => roleByStaff.set(a.staff_id, a.role));
     staffOptions = (staffList ?? [])
       .filter((s) => s.status === "ACTIVE" && roleByStaff.has(s.id))
       .map((s) => ({ id: s.id, fullName: s.full_name, role: roleByStaff.get(s.id)! }));
+    packages = (packageRows ?? []).map((p) => ({ id: p.id, name: p.name }));
+    currentPackageId = fetchedPackageId;
   }
   if (order.status === "CANCELLED") {
     const res = await fetchCancelInfo(supabase, order.id);
@@ -265,6 +291,8 @@ export default async function PesananDetailPage({
             orderNumber={order.order_number}
             customerName={customer?.full_name ?? "Pelanggan tidak diketahui"}
             packageName={order.package_name}
+            packageId={currentPackageId}
+            packages={packages}
             salesStaffId={order.partner_sales_staff_id}
             picStaffId={order.partner_pic_staff_id}
             notes={order.notes}

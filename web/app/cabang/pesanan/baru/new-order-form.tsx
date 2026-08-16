@@ -19,17 +19,22 @@ import {
 import StatusBadge from "../status-badge";
 
 type StaffOption = { id: string; fullName: string; role: string };
+export type PackageOption = { id: string; name: string };
 type FoundCustomer = { id: string; full_name: string; phone: string };
 type LookupState = "idle" | "checking" | "found" | "not_found" | "invalid" | "error";
 
 const SEARCH_DEBOUNCE_MS = 600;
+/** Value <option> khusus untuk "Lainnya (ketik manual)" — bukan id package sungguhan. */
+const PACKAGE_MANUAL = "__manual__";
 
 export default function NewOrderForm({
   branchId,
   staffOptions,
+  packages,
 }: {
   branchId: string;
   staffOptions: StaffOption[];
+  packages: PackageOption[];
 }) {
   const { submitting, begin, release, reset } = useSubmitGuard();
   const draft = useLocalDraft("pesanan-baru", `new@${branchId}`, true);
@@ -46,6 +51,12 @@ export default function NewOrderForm({
   const [phase, setPhase] = useState<"form" | "order_success" | "customer_success">("form");
   const [orderResult, setOrderResult] = useState<OrderCreated | null>(null);
   const [customerResult, setCustomerResult] = useState<FoundCustomer | null>(null);
+
+  const hasPackages = packages.length > 0;
+  // Select TIDAK dikontrol React (defaultValue, bukan value) — sama seperti pola
+  // `phone` di bawah — supaya draft.restore() (yang menulis langsung ke DOM) tidak
+  // ditimpa balik oleh state React di render berikutnya (LESSONS #1).
+  const [packageChoice, setPackageChoice] = useState<string>("");
 
   const requestIdRef = useRef<string | null>(null);
   if (!requestIdRef.current) requestIdRef.current = crypto.randomUUID();
@@ -132,6 +143,7 @@ export default function NewOrderForm({
     setFoundCustomer(null);
     setLookupState("idle");
     setPhone("");
+    setPackageChoice("");
     setErrs({});
     setNetMsg(null);
     setPartialMsg(null);
@@ -145,6 +157,8 @@ export default function NewOrderForm({
     draft.restore();
     const el = draft.formRef.current?.elements.namedItem("phone") as HTMLInputElement | null;
     if (el && el.value) setPhone(el.value);
+    const pkgEl = draft.formRef.current?.elements.namedItem("package_id") as HTMLSelectElement | null;
+    if (pkgEl && pkgEl.value) setPackageChoice(pkgEl.value);
   }
 
   const customerReady = selectedExisting || lookupState === "not_found" || lookupState === "invalid";
@@ -209,6 +223,12 @@ export default function NewOrderForm({
     const fd = new FormData(form);
     const rid = requestIdRef.current!;
     const picRaw = String(fd.get("pic_staff_id") || "");
+    // Package terpilih dari dropdown (id ASLI, bukan PACKAGE_MANUAL) → kirim
+    // packageId + nama sebagai snapshot; server tetap menimpanya dari DB
+    // (LESSONS #6, tidak percaya snapshot client).
+    const selectedPackage = hasPackages && packageChoice && packageChoice !== PACKAGE_MANUAL
+      ? packages.find((p) => p.id === packageChoice)
+      : undefined;
 
     const out = await submitSafely({
       run: () =>
@@ -216,7 +236,9 @@ export default function NewOrderForm({
           customerId: selectedExisting && foundCustomer ? foundCustomer.id : undefined,
           fullName: selectedExisting ? undefined : String(fd.get("full_name") || ""),
           phone: selectedExisting ? undefined : phone,
-          packageName: String(fd.get("package_name") || ""),
+          packageId: selectedPackage?.id,
+          packageName: selectedPackage ? selectedPackage.name : String(fd.get("package_name") || ""),
+          packagesAvailable: hasPackages,
           salesStaffId: String(fd.get("sales_staff_id") || ""),
           picStaffId: picRaw || undefined,
           notes: String(fd.get("notes") || ""),
@@ -406,11 +428,33 @@ export default function NewOrderForm({
               Isi atau pastikan dulu data pelanggan di atas untuk mengisi bagian ini.
             </p>
           )}
-          <div className={`field${errs.package_name ? " invalid" : ""}`}>
-            <label htmlFor="po_package">Nama Package *</label>
-            <input id="po_package" name="package_name" type="text" defaultValue="" />
-            {errs.package_name && <div className="err-text">{errs.package_name}</div>}
-          </div>
+          {hasPackages ? (
+            <div className={`field${errs.package_name ? " invalid" : ""}`}>
+              <label htmlFor="po_package_id">Package *</label>
+              <select
+                id="po_package_id"
+                name="package_id"
+                defaultValue=""
+                onChange={(e) => setPackageChoice(e.target.value)}
+              >
+                <option value="">— Pilih Package —</option>
+                {packages.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+                <option value={PACKAGE_MANUAL}>Lainnya (ketik manual)</option>
+              </select>
+              {errs.package_name && <div className="err-text">{errs.package_name}</div>}
+            </div>
+          ) : null}
+          {(!hasPackages || packageChoice === PACKAGE_MANUAL) && (
+            <div className={`field${!hasPackages && errs.package_name ? " invalid" : ""}`}>
+              <label htmlFor="po_package">Nama Package *</label>
+              <input id="po_package" name="package_name" type="text" defaultValue="" />
+              {!hasPackages && errs.package_name && <div className="err-text">{errs.package_name}</div>}
+            </div>
+          )}
           <div className={`field${errs.sales_staff_id ? " invalid" : ""}`}>
             <label htmlFor="po_sales">Sales *</label>
             <select id="po_sales" name="sales_staff_id" defaultValue="">

@@ -9,6 +9,9 @@ import DraftBanner from "@/lib/draft-banner";
 import { updateOrder, cancelOrder } from "../actions";
 
 export type StaffOption = { id: string; fullName: string; role: string };
+export type PackageOption = { id: string; name: string };
+/** Value <option> khusus untuk "Lainnya (ketik manual)" — bukan id package sungguhan. */
+const PACKAGE_MANUAL = "__manual__";
 
 const CANCEL_REASONS = [
   "Pelanggan membatalkan pembelian",
@@ -22,6 +25,8 @@ export default function OrderDetailActions({
   orderNumber,
   customerName,
   packageName,
+  packageId,
+  packages,
   salesStaffId,
   picStaffId,
   notes,
@@ -31,6 +36,8 @@ export default function OrderDetailActions({
   orderNumber: string;
   customerName: string;
   packageName: string;
+  packageId: string | null;
+  packages: PackageOption[];
   salesStaffId: string | null;
   picStaffId: string | null;
   notes: string | null;
@@ -54,6 +61,8 @@ export default function OrderDetailActions({
         <EditOrderModal
           orderId={orderId}
           packageName={packageName}
+          packageId={packageId}
+          packages={packages}
           salesStaffId={salesStaffId}
           picStaffId={picStaffId}
           notes={notes}
@@ -89,6 +98,8 @@ export default function OrderDetailActions({
 function EditOrderModal({
   orderId,
   packageName,
+  packageId,
+  packages,
   salesStaffId,
   picStaffId,
   notes,
@@ -98,6 +109,8 @@ function EditOrderModal({
 }: {
   orderId: string;
   packageName: string;
+  packageId: string | null;
+  packages: PackageOption[];
   salesStaffId: string | null;
   picStaffId: string | null;
   notes: string | null;
@@ -117,6 +130,21 @@ function EditOrderModal({
     return rank(a.role) - rank(b.role);
   });
 
+  const hasPackages = packages.length > 0;
+  const packageMatchesOption = hasPackages && !!packageId && packages.some((p) => p.id === packageId);
+  // Select TIDAK dikontrol React (defaultValue) — sama seperti pola new-order-form,
+  // supaya draft.restore() (menulis langsung ke DOM) tidak ditimpa balik state (LESSONS #1).
+  const [packageChoice, setPackageChoice] = useState<string>(
+    hasPackages ? (packageMatchesOption ? (packageId as string) : PACKAGE_MANUAL) : ""
+  );
+
+  /** Lanjutkan pengisian dari draf lokal — nilai draf perlu disinkronkan ke state React juga. */
+  function handleRestoreDraft() {
+    draft.restore();
+    const pkgEl = draft.formRef.current?.elements.namedItem("package_id") as HTMLSelectElement | null;
+    if (pkgEl && pkgEl.value) setPackageChoice(pkgEl.value);
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!begin()) return;
@@ -124,13 +152,18 @@ function EditOrderModal({
     setNetMsg(null);
     const fd = new FormData(e.currentTarget);
     const picRaw = String(fd.get("pic_staff_id") || "");
+    const selectedPackage = hasPackages && packageChoice && packageChoice !== PACKAGE_MANUAL
+      ? packages.find((p) => p.id === packageChoice)
+      : undefined;
 
     const out = await submitSafely({
       kind: "update",
       run: () =>
         updateOrder({
           orderId,
-          packageName: String(fd.get("package_name") || ""),
+          packageId: selectedPackage?.id,
+          packageName: selectedPackage ? selectedPackage.name : String(fd.get("package_name") || ""),
+          packagesAvailable: hasPackages,
           salesStaffId: String(fd.get("sales_staff_id") || ""),
           picStaffId: picRaw || undefined,
           notes: String(fd.get("notes") || ""),
@@ -161,13 +194,35 @@ function EditOrderModal({
         <h2>Ubah Pesanan</h2>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
-        <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
+        <DraftBanner draft={draft.draft} onRestore={handleRestoreDraft} onDiscard={draft.discard} />
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
-          <div className={`field${errs.package_name ? " invalid" : ""}`}>
-            <label htmlFor="eo_package">Nama Package *</label>
-            <input id="eo_package" name="package_name" type="text" defaultValue={packageName} />
-            {errs.package_name && <div className="err-text">{errs.package_name}</div>}
-          </div>
+          {hasPackages ? (
+            <div className={`field${errs.package_name ? " invalid" : ""}`}>
+              <label htmlFor="eo_package_id">Package *</label>
+              <select
+                id="eo_package_id"
+                name="package_id"
+                defaultValue={packageChoice}
+                onChange={(e) => setPackageChoice(e.target.value)}
+              >
+                <option value="">— Pilih Package —</option>
+                {packages.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+                <option value={PACKAGE_MANUAL}>Lainnya (ketik manual)</option>
+              </select>
+              {errs.package_name && <div className="err-text">{errs.package_name}</div>}
+            </div>
+          ) : null}
+          {(!hasPackages || packageChoice === PACKAGE_MANUAL) && (
+            <div className={`field${!hasPackages && errs.package_name ? " invalid" : ""}`}>
+              <label htmlFor="eo_package">Nama Package *</label>
+              <input id="eo_package" name="package_name" type="text" defaultValue={packageName} />
+              {!hasPackages && errs.package_name && <div className="err-text">{errs.package_name}</div>}
+            </div>
+          )}
           <div className={`field${errs.sales_staff_id ? " invalid" : ""}`}>
             <label htmlFor="eo_sales">Sales *</label>
             <select id="eo_sales" name="sales_staff_id" defaultValue={salesStaffId || ""}>

@@ -90,6 +90,20 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | P2-12 | Cancel Order（分店端） | `UNVERIFIED` | §41–43, 96–97 | 確認對話框＋理由必填（4 選項，Lainnya 附文字欄）；`cancelled_at/by` 由 DB trigger 強制填（client 傳值被覆蓋，本機測試 A12）；取消後全面唯讀（DB 強制）；audit 記 `ORDER_CANCELLED` 且理由入 reason 欄；已取消訂單列表不消失、詳情顯示取消資訊 |
 | P2-13 | Edit 權限（DB 層） | `UNVERIFIED`（本機 65 項斷言全過） | §47–49 | UPDATE policy 只走 `fn_can_edit_branch`；不可變欄位 8 欄 trigger 守護（policy 看不到 OLD 值，必須用 trigger——見 0005 註解）；customers 無 UPDATE、orders 無 DELETE（刻意負面斷言）；un-cancel 僅 admin |
 
+### Phase 2 第三切片（Package 主檔 + Customer Edit + Attribution Correction，2026-08-16）
+
+| # | 功能 | 狀態 | 對應 SPEC-PHASE2 章節 | 備註 |
+|---|---|---|---|---|
+| P2-14 | Partner Packages 主檔（admin 管理） | `UNVERIFIED` | §21–23 | partner 詳情頁新增 Package 分頁（列表/Tambah/Ubah/停用）；unique(partner_id,code)；分店唯讀；audit 前綴 PACKAGE |
+| P2-15 | 建單/編輯的 Package 下拉 | `UNVERIFIED` | §21 | 有 ACTIVE package → dropdown（送 package_id＋server 端以 DB name 覆寫快照）；零 package 或表未建 → 無縫退回自由文字；「Lainnya」選項退回手動輸入 |
+| P2-16 | Customer 列表/詳情/編輯（cabang） | `UNVERIFIED` | §31, 33–35, 52–53 | `/cabang/pelanggan`：卡片列表＋電話/名字搜尋；詳情含訂單歷史；編輯僅限自己分店建檔的客戶（DB `c_partner_update` 強制）；改電話 server 重算 phone_normalized，audit 記 CUSTOMER_PHONE_CHANGED |
+| P2-17 | Attribution Correction（admin） | `UNVERIFIED` | §16, 64 | `/admin/orders/[orderId]` 詳情頁＋Koreksi Cabang modal（同 partner 分店、理由必填）；走 security definer RPC，audit 記 ORDER_ATTRIBUTION_CORRECTED 含 reason；重試冪等（已在目標分店＝no-op 成功不重複記 audit） |
+| P2-18 | 訂單列表狀態篩選 chip | `UNVERIFIED` | §97 | Semua/Terdaftar/Dibatalkan，client 端過濾 |
+
+**Migration `0007_audit_fixes.sql` 狀態**：已寫好＋本機行為測試全過（P0 14/14、P1 7/7、468 行矩陣零回歸、冪等×4）。**修復內容**：①P0——customers/partner_staff 的 SELECT policy 不再回查自己那張表（真正機制：Postgres 同指令插入列對指令內查詢不可見，與 STABLE 無關——分店 INSERT…RETURNING 因此全滅），改為直接吃列上欄位＋security definer 輔助函式，語意零變動；②P1——`fn_next_order_seq` 對 public/anon/authenticated 全 revoke（原本未登入都能亂灌別家流水號），另 9 個 trigger 函式一併鎖上，10 個 policy 輔助函式明確 grant（revoke 它們會讓查詢直接報權限錯誤而非 0 列——實測過）；③0001 回填 LEFT JOIN（重跑不再復活 0006 修的 bug）；④0003 補前置守衛；⑤新增 `migrations/README.md`（重跑鐵則＋各檔期望值）。**未在 production 執行。**
+
+**Migration `0008_packages_customer_edit_attribution.sql` 狀態**：已寫好＋本機行為測試全過（K/C/R 三組 38 項、矩陣零回歸、冪等×4）。內容：partner_packages 表＋orders.package_id（含 fn_check_order_refs 驗 package 歸屬——RLS 管不到欄位內容，防 POST 別家 package id）＋customers 分店 UPDATE policy 與不可變欄位守衛＋`fn_correct_order_attribution` RPC。**已知缺口（記錄於檔內）**：phone_normalized 守衛只擋空值、擋不了「過期值」——鐵則：任何動 phone 的 Server Action 必須同時送重算好的 phone_normalized（現有 action 已遵守）。**未在 production 執行；必須在 0007 之後跑。**
+
 **第二切片已知限制**（刻意接受，非遺漏）：
 - 訂單原 Sales 已停用時，編輯任何欄位都要先重選在職 Sales 才能存檔（dropdown 只列 active staff）——體驗有刺但不違規，下輪再議
 - 兩人同時操作、一人剛取消的窄競態：另一人收到通用錯誤訊息而非「訂單剛被取消」——不會假成功，可接受

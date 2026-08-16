@@ -2,8 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { displayPhoneID, type OrderStatus } from "@/lib/orders-shared";
+import { ORDER_STATUS_LABEL, displayPhoneID, type OrderStatus } from "@/lib/orders-shared";
 import StatusBadge from "./status-badge";
+
+/** Filter status (SPEC §97) — "Semua" tetap menampilkan Dibatalkan, tidak boleh hilang dari pencarian. */
+type StatusFilter = "ALL" | OrderStatus;
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: "ALL", label: "Semua" },
+  { value: "REGISTERED", label: ORDER_STATUS_LABEL.REGISTERED },
+  { value: "CANCELLED", label: ORDER_STATUS_LABEL.CANCELLED },
+];
 
 export type OrderListItem = {
   id: string;
@@ -38,18 +46,20 @@ export default function OrderListClient({
   crossBranchVisible: boolean;
 }) {
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   const filtered = useMemo(() => {
+    const byStatus = statusFilter === "ALL" ? items : items.filter((it) => it.status === statusFilter);
     const needle = q.trim().toLowerCase();
     const needleDigits = needle.replace(/[^0-9]/g, "");
-    if (!needle) return items;
-    return items.filter((it) => {
+    if (!needle) return byStatus;
+    return byStatus.filter((it) => {
       if (it.orderNumber.toLowerCase().includes(needle)) return true;
       if (it.customerName.toLowerCase().includes(needle)) return true;
       if (needleDigits && it.customerPhone.includes(needleDigits)) return true;
       return false;
     });
-  }, [items, q]);
+  }, [items, q, statusFilter]);
 
   // Error state — jangan disamarkan sebagai daftar kosong (LESSONS #10).
   if (errorKind === "missing_table") {
@@ -84,10 +94,25 @@ export default function OrderListClient({
         />
       </div>
 
+      <div className="btnrow-inline" style={{ marginTop: -6 }}>
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            className={`btn sm${statusFilter === f.value ? " primary" : ""}`}
+            onClick={() => setStatusFilter(f.value)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {items.length === 0 ? (
         <div className="card emptybox">Belum ada pesanan tercatat di cabang ini.</div>
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && q ? (
         <div className="card emptybox">Tidak ada pesanan yang cocok dengan pencarian &quot;{q}&quot;.</div>
+      ) : filtered.length === 0 ? (
+        <div className="card emptybox">Tidak ada pesanan dengan status ini.</div>
       ) : (
         filtered.map((it) => (
           <Link key={it.id} href={`/cabang/pesanan/${it.id}`} className="staffcard" style={{ display: "block", textDecoration: "none", color: "inherit" }}>

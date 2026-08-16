@@ -11,11 +11,14 @@ export default function PermissionsForm({
   partnerName,
   visibilityScope,
   editScope,
+  configured,
 }: {
   partnerId: string;
   partnerName: string;
   visibilityScope: string;
   editScope: string;
+  /** false = belum pernah disimpan sama sekali (tidak ada baris di partner_access_policies). */
+  configured: boolean;
 }) {
   const router = useRouter();
   const { submitting, begin, release } = useSubmitGuard();
@@ -60,6 +63,11 @@ export default function PermissionsForm({
         Hanya SANCI Admin yang dapat mengubah pengaturan ini. Berlaku untuk semua akun login{" "}
         {partnerName}.
       </p>
+      {!configured && !saved && (
+        <div className="banner warn">
+          Belum diatur — saat ini berlaku: Hanya cabang sendiri (bawaan).
+        </div>
+      )}
       {netMsg && <div className="banner warn">{netMsg}</div>}
       {err && <div className="banner bad">{err}</div>}
       {saved && <div className="banner ok" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>Tersimpan.</div>}

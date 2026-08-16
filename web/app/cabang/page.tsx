@@ -121,6 +121,10 @@ export default async function CabangHome() {
         <span>Daftar Pesanan</span>
         <span className="arrow">→</span>
       </Link>
+      <Link href="/cabang/pelanggan" className="biglink">
+        <span>Pelanggan</span>
+        <span className="arrow">→</span>
+      </Link>
 
       <Link href="/cabang/profil" className="biglink">
         <span>Profil Cabang</span>

@@ -58,20 +58,143 @@ type Identity = { partnerId: string; branchId: string; userId: string };
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
+/**
+ * Hasil getIdentity dipecah tiga supaya pesan ke pengguna tidak menyesatkan:
+ * "no-user" = memang belum login (redirect wajar); "load-error" = query
+ * partner_users GAGAL (error field diperiksa, bukan diabaikan) — beda sebab,
+ * beda pesan. Sebelumnya kedua kasus dipetakan ke null yang sama, sehingga
+ * error DB/RLS ditampilkan sebagai "Sesi tidak valid" (P2-1 audit).
+ */
+type IdentityOutcome =
+  | { status: "ok"; identity: Identity }
+  | { status: "no-user" }
+  | { status: "load-error" };
+
 /** Look-up-don't-trust: identitas partner/branch selalu diambil dari sesi. */
-async function getIdentity(supabase: SupabaseServerClient): Promise<Identity | null> {
+async function getIdentity(supabase: SupabaseServerClient): Promise<IdentityOutcome> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) return { status: "no-user" };
 
-  const { data: pu } = await supabase
+  const { data: pu, error } = await supabase
     .from("partner_users")
     .select("partner_id, branch_id")
     .maybeSingle();
-  if (!pu) return null;
+  if (error) return { status: "load-error" };
+  if (!pu) return { status: "no-user" };
 
-  return { partnerId: pu.partner_id, branchId: pu.branch_id, userId: user.id };
+  return { status: "ok", identity: { partnerId: pu.partner_id, branchId: pu.branch_id, userId: user.id } };
+}
+
+/** Pesan seragam untuk hasil getIdentity yang bukan "ok" (dipakai tiap Server Action). */
+function identityErrorMessage(outcome: Extract<IdentityOutcome, { status: "no-user" | "load-error" }>): string {
+  return outcome.status === "load-error"
+    ? "Data akun gagal dimuat — coba lagi."
+    : "Sesi tidak valid. Muat ulang halaman.";
+}
+
+/* ------------------------------------------------------------------ *
+ * Package (partner_packages, migration 0008) — look-up-don't-trust +
+ * degradasi mulus kalau tabel/kolom belum ada (LESSONS #12).
+ * ------------------------------------------------------------------ */
+
+type PackageResolution =
+  | { ok: true; packageName: string; packageId: string | null | undefined }
+  | { ok: false; error: ActionError };
+
+/**
+ * Menentukan package_name (dan package_id bila ada) yang benar-benar dipakai
+ * untuk ditulis. TIDAK PERNAH percaya package_name snapshot dari client saat
+ * package_id dikirim — nama selalu diambil ulang dari DB (LESSONS #6).
+ *
+ * `packageId` hasil:
+ *   - string  → kolom package_id ditulis dengan id ini.
+ *   - null    → kolom package_id ditulis null (mode manual, TAPI dropdown
+ *                package memang tersedia — jadi kolomnya aman ditulis).
+ *   - undefined → kolom package_id TIDAK disertakan sama sekali (fitur
+ *                package belum tersedia di sesi client ini — jangan kirim
+ *                kolom yang bahkan tidak pernah "diisi").
+ */
+async function resolvePackage(
+  supabase: SupabaseServerClient,
+  partnerId: string,
+  input: { packageId?: string; packageName: string; packagesAvailable?: boolean }
+): Promise<PackageResolution> {
+  if (input.packageId) {
+    const { data, error } = await supabase
+      .from("partner_packages")
+      .select("id, name, status")
+      .eq("id", input.packageId)
+      .eq("partner_id", partnerId)
+      .maybeSingle();
+    if (error) {
+      // Tabel hilang / error lain — jangan crash, tapi juga jangan percaya
+      // package_id dari client begitu saja. Turunkan jadi pesan generik.
+      return { ok: false, error: { field: "package_name", message: PESAN.serverSibuk } };
+    }
+    if (!data || data.status !== "ACTIVE") {
+      return {
+        ok: false,
+        error: { field: "package_name", message: "Package tidak ditemukan atau sudah tidak aktif. Pilih ulang." },
+      };
+    }
+    return { ok: true, packageName: data.name, packageId: data.id };
+  }
+
+  const packageName = input.packageName.trim();
+  if (!packageName) {
+    return {
+      ok: false,
+      error: {
+        field: "package_name",
+        message: input.packagesAvailable ? "Package wajib dipilih." : "Nama package wajib diisi.",
+      },
+    };
+  }
+  return { ok: true, packageName, packageId: input.packagesAvailable ? null : undefined };
+}
+
+/**
+ * Insert partner_orders dengan kolom package_id opsional. Kolom itu baru ada
+ * mulai migration 0008 — kalau belum dijalankan, Postgres menjawab 42703;
+ * coba ulang TANPA kolom itu supaya order tetap tersimpan pakai package_name
+ * saja (kode boleh naik duluan sebelum SQL, LESSONS #12).
+ */
+async function insertOrderWithPackageFallback(
+  supabase: SupabaseServerClient,
+  base: Record<string, unknown>,
+  packageId: string | null | undefined
+) {
+  if (packageId === undefined) {
+    return safeWrite(supabase.from("partner_orders").insert(base).select("id").single());
+  }
+  const withPackage = { ...base, package_id: packageId };
+  const first = await safeWrite(supabase.from("partner_orders").insert(withPackage).select("id").single());
+  if (!first.ok && first.reason === "db" && isMissingColumnError({ code: first.code })) {
+    return safeWrite(supabase.from("partner_orders").insert(base).select("id").single());
+  }
+  return first;
+}
+
+/** Sepupu insertOrderWithPackageFallback, untuk UPDATE (dipakai updateOrder). */
+async function updateOrderWithPackageFallback(
+  supabase: SupabaseServerClient,
+  orderId: string,
+  base: Record<string, unknown>,
+  packageId: string | null | undefined
+) {
+  if (packageId === undefined) {
+    return safeWrite(supabase.from("partner_orders").update(base).eq("id", orderId).select("id").maybeSingle());
+  }
+  const withPackage = { ...base, package_id: packageId };
+  const first = await safeWrite(
+    supabase.from("partner_orders").update(withPackage).eq("id", orderId).select("id").maybeSingle()
+  );
+  if (!first.ok && first.reason === "db" && isMissingColumnError({ code: first.code })) {
+    return safeWrite(supabase.from("partner_orders").update(base).eq("id", orderId).select("id").maybeSingle());
+  }
+  return first;
 }
 
 type CustomerLite = { id: string; full_name: string; phone: string };
@@ -238,8 +361,9 @@ export async function createCustomerOnly(input: {
   clientRequestId: string;
 }): Promise<ActionResult<{ customerId: string; fullName: string; phone: string }>> {
   const supabase = await createClient();
-  const identity = await getIdentity(supabase);
-  if (!identity) return { error: { message: "Sesi tidak valid. Muat ulang halaman." } };
+  const idOutcome = await getIdentity(supabase);
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+  const identity = idOutcome.identity;
 
   const resolved = await resolveOrCreateCustomer(
     supabase,
@@ -354,15 +478,18 @@ export async function createCustomerAndOrder(input: {
   customerId?: string;
   fullName?: string;
   phone?: string;
+  packageId?: string;
   packageName: string;
+  packagesAvailable?: boolean;
   salesStaffId: string;
   picStaffId?: string;
   notes?: string;
   clientRequestId: string;
 }): Promise<CreateOrderResult> {
   const supabase = await createClient();
-  const identity = await getIdentity(supabase);
-  if (!identity) return { error: { message: "Sesi tidak valid. Muat ulang halaman." } };
+  const idOutcome = await getIdentity(supabase);
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+  const identity = idOutcome.identity;
 
   const custReqId = `${input.clientRequestId}:customer`;
   const resolveInput: ResolveCustomerInput = input.customerId
@@ -373,8 +500,12 @@ export async function createCustomerAndOrder(input: {
   if (!resolved.ok) return { error: resolved.error };
   const customer = resolved.customer;
 
-  const packageName = input.packageName.trim();
-  if (!packageName) return { error: { field: "package_name", message: "Nama package wajib diisi." } };
+  const pkg = await resolvePackage(supabase, identity.partnerId, {
+    packageId: input.packageId,
+    packageName: input.packageName,
+    packagesAvailable: input.packagesAvailable,
+  });
+  if (!pkg.ok) return { error: pkg.error };
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: "Sales wajib dipilih." } };
 
   const salesOk = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
@@ -413,22 +544,20 @@ export async function createCustomerAndOrder(input: {
   if (preExistingOrder) {
     orderId = preExistingOrder.id;
   } else {
-    const written = await safeWrite(
-      supabase
-        .from("partner_orders")
-        .insert({
-          customer_id: customer.id,
-          partner_id: identity.partnerId,
-          branch_id: identity.branchId,
-          partner_sales_staff_id: input.salesStaffId,
-          partner_pic_staff_id: picStaffId,
-          package_name: packageName,
-          notes: input.notes?.trim() || null,
-          created_by: identity.userId,
-          client_request_id: orderReqId,
-        })
-        .select("id")
-        .single()
+    const written = await insertOrderWithPackageFallback(
+      supabase,
+      {
+        customer_id: customer.id,
+        partner_id: identity.partnerId,
+        branch_id: identity.branchId,
+        partner_sales_staff_id: input.salesStaffId,
+        partner_pic_staff_id: picStaffId,
+        package_name: pkg.packageName,
+        notes: input.notes?.trim() || null,
+        created_by: identity.userId,
+        client_request_id: orderReqId,
+      },
+      pkg.packageId
     );
 
     if (written.ok) {
@@ -531,14 +660,16 @@ export type UpdateOrderResult = { data: { updated: true } } | { error: ActionErr
 
 export async function updateOrder(input: {
   orderId: string;
+  packageId?: string;
   packageName: string;
+  packagesAvailable?: boolean;
   salesStaffId: string;
   picStaffId?: string;
   notes?: string;
 }): Promise<UpdateOrderResult> {
   const supabase = await createClient();
-  const identity = await getIdentity(supabase);
-  if (!identity) return { error: { message: "Sesi tidak valid. Muat ulang halaman." } };
+  const idOutcome = await getIdentity(supabase);
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
 
   const found = await fetchOrderForMutation(supabase, input.orderId);
   if (!found.ok) return { error: found.error };
@@ -548,8 +679,14 @@ export async function updateOrder(input: {
     return { error: { message: "Pesanan ini sudah dibatalkan dan tidak bisa diubah lagi." } };
   }
 
-  const packageName = input.packageName.trim();
-  if (!packageName) return { error: { field: "package_name", message: "Nama package wajib diisi." } };
+  // Package divalidasi terhadap partner PESANAN (bisa beda dari partner sesi
+  // kalau suatu hari lintas-partner — hari ini selalu sama, tapi ini yang benar).
+  const pkg = await resolvePackage(supabase, order.partner_id, {
+    packageId: input.packageId,
+    packageName: input.packageName,
+    packagesAvailable: input.packagesAvailable,
+  });
+  if (!pkg.ok) return { error: pkg.error };
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: "Sales wajib dipilih." } };
 
   // Staf diverifikasi terhadap cabang PESANAN (bisa beda dari cabang login saat
@@ -567,21 +704,19 @@ export async function updateOrder(input: {
     picStaffId = input.picStaffId;
   }
 
-  // UPDATE hanya empat kolom yang diizinkan (SPEC §37) + .select() supaya bisa
+  // UPDATE hanya kolom yang diizinkan (SPEC §37) + .select() supaya bisa
   // dipastikan ada baris yang benar-benar berubah — bukan cuma percaya respons
   // "tidak ada error" (LESSONS #7). RLS menolak dengan 0 baris, bukan error.
-  const written = await safeWrite(
-    supabase
-      .from("partner_orders")
-      .update({
-        package_name: packageName,
-        partner_sales_staff_id: input.salesStaffId,
-        partner_pic_staff_id: picStaffId,
-        notes: input.notes?.trim() || null,
-      })
-      .eq("id", input.orderId)
-      .select("id")
-      .maybeSingle()
+  const written = await updateOrderWithPackageFallback(
+    supabase,
+    input.orderId,
+    {
+      package_name: pkg.packageName,
+      partner_sales_staff_id: input.salesStaffId,
+      partner_pic_staff_id: picStaffId,
+      notes: input.notes?.trim() || null,
+    },
+    pkg.packageId
   );
 
   if (!written.ok) {
@@ -613,8 +748,8 @@ export async function cancelOrder(input: {
   reason: string;
 }): Promise<CancelOrderResult> {
   const supabase = await createClient();
-  const identity = await getIdentity(supabase);
-  if (!identity) return { error: { message: "Sesi tidak valid. Muat ulang halaman." } };
+  const idOutcome = await getIdentity(supabase);
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
 
   const reason = input.reason.trim();
   if (!reason) return { error: { field: "reason", message: "Alasan pembatalan wajib diisi." } };

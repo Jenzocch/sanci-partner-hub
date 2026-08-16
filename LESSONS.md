@@ -107,6 +107,17 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：拆成兩段查詢（先拿 partner_id，再 `.from("partner_access_policies").eq("partner_id", ...)`），或走真外鍵的巢狀路徑 `partners:partner_id(..., partner_access_policies(...))`。本專案選前者（與 admin 端已驗證的分開查詢慣例一致）。
 - **教訓**：①embed 字串的正確性是**執行期**的事，唯一的驗證方法是真的跑一次該頁——「沒有真帳號可測」的頁面等於一行都沒驗過；②修掉一處立刻 grep 全庫同 pattern（這次一抓抓到五處）；③新頁面抄舊頁面慣例前，先確認那個慣例真的在 production 跑過。
 
+### 25. RLS 讀取 policy 絕不可回查自己那張表——INSERT…RETURNING 會被「同指令不可見」規則整句擊殺〔本專案 2026-08-16，production 分店建客戶全滅後定案〕
+- **情境**：`customers`/`partner_staff` 的 SELECT policy 呼叫 security definer 函式，函式內 `select … from customers where id = cid` 回查自己那張表。supabase-js 的 `.insert().select()` 編成 `INSERT…RETURNING`，RETURNING 的列要過 SELECT policy——而 **Postgres 規定：同一條指令插入的列，對該指令內部發出的任何查詢都不可見**（與函式標 STABLE/VOLATILE 無關，實驗證明過）。於是 policy 判 false，整筆以 42501 回滾。
+- **陰險之處**：admin 完全測不到（`fn_is_admin()` 短路、不回查表），只有分店身分會中；而且失敗訊息長得跟「伺服器忙」一模一樣。production 第一個分店帳號按下 Buat Pesanan 才現形。
+- **修法**：policy 的「自己這半」直接吃列上就有的欄位（`fn_can_view_branch(created_via_branch_id)`），只有「別張表那半」（例：有訂單在可見分店）才進 security definer 函式（那裡 LESSONS #15 仍適用）。
+- **教訓**：①寫任何 SELECT policy 前問一句：「這條規則需不需要查我自己這張表？」需要＝設計錯了，改成用列上欄位表達；②RLS 類修改的驗收必測「**最低權限身分的 insert+RETURNING**」，admin 測過不算數；③audit 報告的機制解釋也要驗證——這次原假設（STABLE 快照）是錯的，照它修可能修不乾淨。
+
+### 26. security definer 函式的 EXECUTE 面要主動管理：入口函式全鎖、policy 輔助函式必須開〔本專案 2026-08-16〕
+- PostgREST 會把 public schema 裡可執行的函式全部暴露成 `/rpc/`。`fn_next_order_seq`（取號）忘了 revoke → 未登入都能亂灌任何分店的流水號（跳號＋儲存 DoS）。
+- 反向的坑：policy 表達式是以**查詢者**身分執行的，把 policy 用到的輔助函式（fn_can_view_branch 等）也 revoke 掉，查表會直接炸 `permission denied for function`——不是安靜的 0 列（實測過）。
+- **規則**：每個新 security definer 函式誕生時就決定 EXECUTE 面——「只給 trigger/RPC 內部用」→ revoke public/anon/authenticated；「被 RLS policy 引用」→ 明確 grant anon+authenticated。寫在 migration 裡，不靠預設值。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

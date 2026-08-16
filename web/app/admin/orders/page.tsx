@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
   ORDER_STATUS_LABEL,
@@ -219,6 +220,7 @@ export default async function AdminOrdersPage({
                   <th>Sales</th>
                   <th>Status</th>
                   <th>Dibuat</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -227,7 +229,9 @@ export default async function AdminOrdersPage({
                   return (
                     <tr key={r.id}>
                       <td>
-                        <span className="code">{r.order_number}</span>
+                        <Link href={`/admin/orders/${r.id}`} className="rowname">
+                          <span className="code">{r.order_number}</span>
+                        </Link>
                       </td>
                       <td>
                         <div>
@@ -250,6 +254,11 @@ export default async function AdminOrdersPage({
                       </td>
                       <td className="small muted">
                         {new Date(r.created_at).toLocaleString("id-ID")}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <Link href={`/admin/orders/${r.id}`} className="linkbtn">
+                          Buka
+                        </Link>
                       </td>
                     </tr>
                   );

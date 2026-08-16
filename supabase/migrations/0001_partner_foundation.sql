@@ -140,6 +140,17 @@ language sql stable security definer set search_path = public as $$
   where auth_user_id = auth.uid() and status = 'ACTIVE';
 $$;
 
+-- ⚠ LEFT JOIN, bukan JOIN — perbaikan dari 0006_own_branch_without_policy.sql,
+-- disalin balik ke sini pada 0007 supaya menjalankan ulang 0001 TIDAK
+-- menghidupkan kembali bug-nya. Duduk perkaranya (baca lengkapnya di 0006):
+-- baris partner_access_policies baru lahir saat SANCI Admin pertama kali
+-- MENYIMPAN pengaturan izin; membuat Partner saja tidak membuatnya. Dengan
+-- INNER JOIN, partner tanpa baris kebijakan menghasilkan join kosong → semua
+-- kondisi false → pengguna cabang tidak bisa melihat CABANGNYA SENDIRI, tanpa
+-- satu pun pesan error. Dengan LEFT JOIN, pol.* bernilai null sehingga cabang
+-- OR kedua menghasilkan null (bukan true): cabang sendiri selalu terlihat,
+-- sedangkan pelonggaran lintas cabang tetap WAJIB baris kebijakan eksplisit.
+-- Kalau file ini diedit lagi, jaga agar 0001 dan 0006 tetap identik.
 create or replace function public.fn_can_view_branch(b uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select case
@@ -147,7 +158,7 @@ language sql stable security definer set search_path = public as $$
     when public.fn_pu_partner() is null then false
     else exists (
       select 1 from partner_branches br
-      join partner_access_policies pol on pol.partner_id = br.partner_id
+      left join partner_access_policies pol on pol.partner_id = br.partner_id
       where br.id = b
         and br.partner_id = public.fn_pu_partner()
         and (br.id = public.fn_pu_branch()
@@ -156,6 +167,8 @@ language sql stable security definer set search_path = public as $$
   end;
 $$;
 
+-- ⚠ LEFT JOIN — alasannya sama persis dengan fn_can_view_branch di atas; lihat
+-- 0006_own_branch_without_policy.sql. Jangan dikembalikan menjadi JOIN.
 create or replace function public.fn_can_edit_branch(b uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select case
@@ -163,7 +176,7 @@ language sql stable security definer set search_path = public as $$
     when public.fn_pu_partner() is null then false
     else exists (
       select 1 from partner_branches br
-      join partner_access_policies pol on pol.partner_id = br.partner_id
+      left join partner_access_policies pol on pol.partner_id = br.partner_id
       where br.id = b
         and br.partner_id = public.fn_pu_partner()
         and (br.id = public.fn_pu_branch()

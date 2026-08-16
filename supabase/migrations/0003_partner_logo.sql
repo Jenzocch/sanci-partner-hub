@@ -8,6 +8,33 @@
 -- memastikan kolom itu benar-benar ada.
 -- ============================================================
 
+-- ── 0. Pengaman prasyarat ───────────────────────────────────
+-- Pola yang sama dengan 0004/0005/0006/0007: berhenti dengan kalimat yang bisa
+-- ditindaklanjuti, bukan membiarkan Postgres memuntahkan "function
+-- public.fn_is_admin() does not exist" di tengah CREATE POLICY. Tanpa blok ini
+-- 0003 yang dijalankan lebih dulu akan MEMBUAT bucket-nya, lalu gagal saat
+-- policy — meninggalkan bucket publik TANPA satu pun policy tulis. Itu keadaan
+-- setengah jadi yang paling berbahaya: unggah gagal untuk semua orang, dan
+-- tidak ada pesan yang menjelaskan kenapa.
+
+do $$
+begin
+  if to_regprocedure('public.fn_is_admin()') is null
+     or to_regclass('public.partners') is null then
+    raise exception
+      'Migration 0001_partner_foundation.sql belum dijalankan di database ini. Jalankan 0001 dulu, baru 0003.';
+  end if;
+
+  -- storage.buckets selalu ada di proyek Supabase. Kalau tidak ada, berarti
+  -- file ini sedang dijalankan di Postgres biasa (mis. salinan lokal) — lebih
+  -- baik dikatakan terus terang daripada gagal di baris INSERT.
+  if to_regclass('storage.buckets') is null then
+    raise exception
+      'Schema storage tidak ditemukan. File ini khusus untuk database Supabase (storage bucket partner-logos).';
+  end if;
+end;
+$$;
+
 -- ── 1. Bucket ───────────────────────────────────────────────
 -- public = true: logo harus bisa dilihat siapa saja yang membuka aplikasi,
 -- termasuk pengguna cabang (/cabang) — logo bukan data rahasia.

@@ -63,6 +63,17 @@ export default async function PesananBaruPage() {
     .filter((s) => s.status === "ACTIVE" && roleByStaff.has(s.id))
     .map((s) => ({ id: s.id, fullName: s.full_name, role: roleByStaff.get(s.id)! }));
 
+  // Package (migration 0008) — kalau tabelnya belum ada (42P01) atau memang
+  // belum ada package aktif, form turun ke input teks bebas seperti sekarang;
+  // jangan tampilkan error, ini keadaan transisi yang wajar (LESSONS #12).
+  const { data: packageRows } = await supabase
+    .from("partner_packages")
+    .select("id, name")
+    .eq("partner_id", pu.partner_id)
+    .eq("status", "ACTIVE")
+    .order("name");
+  const packages = (packageRows ?? []).map((p) => ({ id: p.id, name: p.name }));
+
   return (
     <main className="pwrap">
       <div className="backrow">
@@ -74,7 +85,7 @@ export default async function PesananBaruPage() {
       <p className="small muted" style={{ marginTop: -8, marginBottom: 16 }}>
         {partner.name} · Cabang {branch.name}
       </p>
-      <NewOrderForm branchId={pu.branch_id} staffOptions={staffOptions} />
+      <NewOrderForm branchId={pu.branch_id} staffOptions={staffOptions} packages={packages} />
     </main>
   );
 }
