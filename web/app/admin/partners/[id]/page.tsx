@@ -8,8 +8,12 @@ import PackageActions from "./package-actions";
 import PermissionsForm from "./permissions-form";
 import CatalogAccessForm from "./catalog-access-form";
 import UserToggleButton from "./user-toggle-button";
+import AddUserButton from "./add-user-button";
 import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
 import PartnerLogo from "@/lib/partner-logo";
+// Hanya fungsi pembaca boolean — nilai kuncinya tidak pernah keluar dari modul
+// itu, dan modul itu tidak boleh diimpor komponen "use client" mana pun.
+import { isServiceRoleConfigured } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +24,12 @@ const PACKAGE_MIGRATION_MSG = "Fitur package belum aktif — migrasi belum dijal
 // Sama persis dengan pesan di actions-products.ts dan app/admin/produk/page.tsx.
 const CATALOG_MIGRATION_MSG = "Fitur katalog produk belum aktif — migrasi belum dijalankan.";
 
+// Nilai enum internal tetap Inggris di DB, tampilannya wajib Indonesia
+// (LESSONS #13). Sama persis dengan VALUE_LABELS di lib/audit-format.ts.
+const RLBL: Record<string, string> = {
+  BRANCH_USER: "Pengguna Cabang",
+};
+
 const SLBL: Record<string, string> = {
   ACTIVE: "AKTIF",
   DRAFT: "DRAF",
@@ -27,7 +37,14 @@ const SLBL: Record<string, string> = {
   INACTIVE: "NONAKTIF",
 };
 
-type Branch = { id: string; name: string; address: string; city: string | null; status: string };
+type Branch = {
+  id: string;
+  name: string;
+  code: string;
+  address: string;
+  city: string | null;
+  status: string;
+};
 type PolicyRow = { visibility_scope: string; edit_scope: string; configured: boolean };
 type PackageRow = { id: string; name: string; code: string; description: string | null; status: string };
 type QueryErr = { code?: string; message?: string } | null;
@@ -64,7 +81,8 @@ export default async function PartnerDetailPage({
   ] = await Promise.all([
     supabase
       .from("partner_branches")
-      .select("id, name, address, city, status")
+      // `code` dipakai untuk mengusulkan alamat email akun login (<partner>-<cabang>@sanci.com).
+      .select("id, name, code, address, city, status")
       .eq("partner_id", id)
       .order("name"),
     supabase.from("partner_users").select("id, name, role, status, branch_id").eq("partner_id", id),
@@ -291,8 +309,37 @@ export default async function PartnerDetailPage({
 
   if (tab === "users") {
     const branchNameById = new Map((branches ?? []).map((b: Branch) => [b.id, b.name]));
+    // Kunci service_role hanya ada di server (Vercel → Environment Variables).
+    // Yang menyeberang ke browser hanya boolean ini — tidak pernah nilainya.
+    const bisaBuatAkun = isServiceRoleConfigured();
     body = (
       <div>
+        {bisaBuatAkun && activeBranches.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+            <AddUserButton
+              partnerId={id}
+              partnerCode={partner.code}
+              branches={activeBranches.map((b) => ({ id: b.id, name: b.name, code: b.code }))}
+            />
+          </div>
+        )}
+        {!bisaBuatAkun && (
+          // Kunci belum diisi: jelaskan keadaannya, jangan tampilkan form yang
+          // pasti gagal. Kode ini boleh naik lebih dulu — begitu kuncinya diisi,
+          // tombolnya muncul sendiri tanpa deploy ulang (LESSONS #12).
+          <div className="card emptybox" style={{ marginBottom: 14 }}>
+            Pembuatan akun login belum aktif di server ini. Minta petugas teknis mengisi variabel
+            lingkungan SUPABASE_SERVICE_ROLE_KEY di Vercel; sesudah itu tombol Tambah Akun muncul
+            sendiri di halaman ini. Menonaktifkan dan mengaktifkan kembali akun yang sudah ada tetap
+            bisa dilakukan sekarang.
+          </div>
+        )}
+        {bisaBuatAkun && activeBranches.length === 0 && (
+          <div className="card emptybox" style={{ marginBottom: 14 }}>
+            Belum ada cabang aktif. Buat dan aktifkan cabangnya dulu di tab Cabang — setiap akun
+            login harus terikat ke satu cabang.
+          </div>
+        )}
         {(users ?? []).length === 0 ? (
           <div className="card emptybox">Belum ada akun login.</div>
         ) : (
@@ -312,7 +359,7 @@ export default async function PartnerDetailPage({
                   <tr key={u.id}>
                     <td style={{ fontWeight: 650 }}>{u.name}</td>
                     <td>{branchNameById.get(u.branch_id) || "—"}</td>
-                    <td>{u.role}</td>
+                    <td>{RLBL[u.role] || u.role}</td>
                     <td>
                       <span className={`chip ${u.status === "ACTIVE" ? "ACTIVE" : "INACTIVE"}`}>
                         {u.status === "ACTIVE" ? "AKTIF" : "NONAKTIF"}
@@ -328,8 +375,10 @@ export default async function PartnerDetailPage({
           </div>
         )}
         <p className="footnote">
-          Membuat akun login baru butuh konfigurasi tambahan di server (service_role key) yang belum
-          tersedia di lingkungan ini — belum bisa dilakukan lewat layar ini.
+          Satu cabang memakai satu akun bersama; nama penjual dan PIC tetap dipilih dari daftar staf
+          saat membuat pesanan. Email untuk masuk tidak ditampilkan di daftar ini — catat saat akun
+          dibuat. Kata sandi awal hanya tampil satu kali, tepat setelah akun dibuat, dan tidak bisa
+          dilihat lagi sesudahnya.
         </p>
       </div>
     );

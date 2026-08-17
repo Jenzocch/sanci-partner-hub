@@ -75,7 +75,14 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 ### 19. 建立 Auth 帳號需要 service_role key，anon key 做不到〔本專案 2026-08-14〕
 - **情境**：SPEC §27/§46 要 SANCI Admin 能在畫面上建立 Partner 的登入帳號（P-07）。但 `auth.users` schema 不透過一般 PostgREST 暴露，建立使用者要呼叫 `auth.admin.createUser`，這個 API 只認 `service_role` key。
 - **決策**：這把 key 一旦外洩等於繞過全部 RLS，是資料庫的最高權限；Jenzo 明確被告知不要貼到對話裡，這個環境也就沒有它。
-- **教訓**：這塊功能**目前技術上做不到**，UI 已誠實標示原因而非假裝有表單。要解鎖有兩條路：① Jenzo 到 Vercel 後台自己加 `SUPABASE_SERVICE_ROLE_KEY` 環境變數（不貼給我），我寫的 Server Action 從 `process.env` 讀，金鑰全程留在伺服器端不進瀏覽器；② 改用 Supabase Edge Function，金鑰整個留在 Supabase 那側。兩條路都需要 Jenzo 再做一次操作，不是程式碼問題。
+- **教訓**：要解鎖有兩條路：① Jenzo 到 Vercel 後台自己加 `SUPABASE_SERVICE_ROLE_KEY` 環境變數（不貼給我），Server Action 從 `process.env` 讀，金鑰全程留在伺服器端不進瀏覽器；② 改用 Supabase Edge Function，金鑰整個留在 Supabase 那側。兩條路都需要 Jenzo 再做一次操作，不是程式碼問題。
+- **✅ 2026-08-17 已解除（走路線 ①）**：功能做完了，這條保留是因為**用 service_role 的紀律比功能本身重要**。四條硬規矩：①**admin 檢查一定在前**——先用使用者自己的 session client 查 `platform_admins`，通過才建 service_role client（順序顛倒＝那段程式碼後面全裸奔）；②**service_role 只用於它唯一做不到的事**（`auth.admin.createUser/deleteUser`），其餘寫入照常走一般 client 讓 RLS 再擋一次；③檔案內 `assertServerOnly()` 硬失敗＋變數名**不加 `NEXT_PUBLIC_`**（Next.js 結構上就不可能把它內聯進瀏覽器）；④驗收要跑 **bundle 掃描**確認 client chunk 零命中——而且要**反向驗證掃描本身有效**（在同一批檔案裡找得到某個已知的 UI 字串），否則「零命中」可能只是 grep 找錯地方（LESSONS 驗證類的假陰性）。
+
+### 29. 兩段寫入的補償刪除，前提是「證明這是我剛建的」——查不出狀態時寧可留孤兒，也不能刪〔本專案 2026-08-17〕
+- **情境**：建立登入帳號＝先建 auth 帳號、再寫 `partner_users` 連結列。第二段失敗會留下孤兒 auth 帳號（app 裡完全看不見，但那個 email 從此不能再用）。直覺解法是「失敗就把剛建的 auth 帳號刪掉」。
+- **危險在哪**：`createUser` 本身逾時的情況下，我們**手上沒有 user id**。若改用 email 去搜尋然後刪除，命中的可能是一個**既有帳號**——包括 SANCI Admin 自己的（admin 本來就沒有 `partner_users` 列，長得跟「孤兒」一模一樣）。補償動作反而變成刪掉正常帳號。
+- **規則**：補償刪除只能針對**本次呼叫證明是自己建立的** id。狀態查不出來時三種結局要分清楚：查到列＝其實成功（回報成功）、查無列＝證實是孤兒（刪）、**查詢本身失敗＝不確定（不刪，誠實回報部分狀態並附上 email，叫使用者別重建）**。
+- **教訓**：**補償（compensating action）本身也是破壞性操作，一樣要先確認再動手。**「回滾」聽起來安全，但在不確定的狀態下回滾，跟在不確定的狀態下宣稱成功一樣糟——只是壞的方向不同。DB 層再加一道保險：`auth_user_id` 的外鍵設 `on delete restrict`，連結列真的存在時 Postgres 會直接拒絕這個刪除。
 
 ### 20. 防抖草稿要在「確認成功」時連 timer 一起取消，否則已排程的寫入會把剛清掉的草稿復活〔本專案 2026-08-14〕
 - **情境**：草稿自動存檔一定要防抖（每次按鍵都寫 localStorage 太吵），而清草稿的正確時機是「伺服器確認寫入成功」那一刻。兩件事湊在一起就有時間差。
