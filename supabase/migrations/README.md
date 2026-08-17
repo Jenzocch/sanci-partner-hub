@@ -17,12 +17,13 @@ tanpa perlu membaca SQL-nya.
 | 0008 | `0008_packages_customer_edit_attribution.sql` | Irisan ketiga: master `partner_packages`, kolom `partner_orders.package_id`, Customer Edit untuk cabang, RPC koreksi atribusi khusus admin. |
 | 0009 | `0009_fulfillment_invoice_arrival.sql` | Irisan keempat: 5 kolom baru di `partner_orders` (jalur pesanan, total belanja, invoice, penanda pelanggan tiba), tabel `order_internal_notes` khusus admin & append-only, bucket **privat** `order-invoices` + RLS-nya. |
 | 0010 | `0010_sanci_product_catalog.sql` | Irisan kelima: Katalog Produk SANCI — tabel `sanci_products` (tanpa harga, stok hanya STATUS), saklar visibilitas per partner `sanci_catalog_access` (**fail-closed**: tanpa baris = tertutup), gerbang `fn_catalog_enabled()`, bucket **publik** `product-photos` + RLS-nya. |
+| 0011 | `0011_audit_hardening.sql` | Pengerasan audit round 3, seluruhnya di lapisan database: **P2** `fn_check_order_refs` akhirnya ikut memeriksa `customer_id` (pelanggan partner lain tidak lagi bisa ditautkan lewat API), **P3** `sanci_catalog_access.enabled` DEFAULT `true` → `false`, **P3** `invoice_url` wajib menunjuk folder pesanannya sendiri (trigger `trg_order_invoice_path`). |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -35,11 +36,18 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 | Yang dijalankan ulang | Yang rusak diam-diam |
 |---|---|
 | 0001 | `s_partner_read` kembali ke versi lama → **setiap "Simpan staf" dari cabang gagal**; `fn_audit_row` kehilangan awalan `PACKAGE`, `CUSTOMER_PHONE_CHANGED`, `ORDER_ATTRIBUTION_CORRECTED`, `ORDER_CANCELLED`, `ORDER_CUSTOMER_ARRIVED`, awalan `ORDER_INTERNAL_NOTE`, serta awalan `PRODUCT` & `CATALOG_ACCESS`. |
-| 0004 | `c_partner_read` kembali ke versi lama → **setiap "Simpan pelanggan" dari cabang gagal**; `fn_check_order_refs` berhenti memeriksa pemilik paket; `fn_audit_row` seperti di atas. |
+| 0004 | `c_partner_read` kembali ke versi lama → **setiap "Simpan pelanggan" dari cabang gagal**; `fn_check_order_refs` berhenti memeriksa pemilik paket **dan pemilik pelanggan (lubang P2 milik 0011 terbuka lagi)**; `fn_audit_row` seperti di atas. |
 | 0005 | `fn_audit_row` kehilangan tambahan 0008 (PACKAGE / PHONE_CHANGED / ATTRIBUTION), 0009 (ARRIVED / INTERNAL_NOTE) dan 0010 (PRODUCT / CATALOG_ACCESS). |
 | 0006 | tidak ada — 0006 hanya menulis dua helper, dan sejak 0007 isi 0001 sudah sama. |
-| 0008 | `fn_audit_row` kehilangan tambahan 0009 (ARRIVED / INTERNAL_NOTE) dan 0010 (PRODUCT / CATALOG_ACCESS). |
+| 0008 | `fn_check_order_refs` **berhenti memeriksa pemilik pelanggan** (lubang P2 milik 0011 terbuka lagi — pemeriksaan paket sendiri selamat karena 0008 memang memuatnya); `fn_audit_row` kehilangan tambahan 0009 (ARRIVED / INTERNAL_NOTE) dan 0010 (PRODUCT / CATALOG_ACCESS). |
 | 0009 | `fn_audit_row` kehilangan tambahan 0010 saja (PRODUCT / CATALOG_ACCESS). |
+| 0010 | tidak ada — 0010 tidak mendefinisikan ulang apa pun milik 0011. DEFAULT `enabled` **tidak** kembali ke `true`: `create table if not exists` tidak dijalankan lagi pada tabel yang sudah ada. |
+
+Khusus lubang P2 (`fn_check_order_refs` tanpa pemeriksaan pelanggan): ia TIDAK
+menghasilkan satu pun pesan error atau gejala di layar. Yang terjadi hanyalah
+sebuah pintu terbuka kembali. Karena itu untuk berkas ini "sudah dijalankan
+ulang sampai yang terakhir" bukan formalitas — cocokkan `REFS_CHECK_CUSTOMER`
+di blok verifikasi 0011, itu satu-satunya bukti bahwa pintunya masih tertutup.
 
 Khusus 0009 dan 0010, kerusakannya sudah diukur satu per satu — yang hilang
 HANYA isi `fn_audit_row`. Trigger `trg_order_arrival`, kedua policy
@@ -61,10 +69,11 @@ kerusakannya persis begini:
 
 Kode mentah itu akan tampil apa adanya kepada pembacanya karena
 `web/lib/audit-format.ts` tidak punya labelnya. Perbaikannya satu langkah:
-jalankan ulang berkas TERAKHIR (0010). Sebaliknya — dan ini sengaja — versi
+jalankan ulang berkas TERAKHIR. Sebaliknya — dan ini sengaja — versi
 `fn_audit_row` di 0010 memuat SELURUH perilaku 0004+0005+0008+0009, jadi
 menjalankan 0010 paling akhir juga **memulihkan** pemetaan yang sempat tertimpa
-berkas lama.
+berkas lama. Untuk `fn_check_order_refs` yang memulihkan adalah 0011, jadi
+langkah pemulihannya tetap: **0010 lalu 0011.**
 
 Dua hal yang **tidak** ikut rusak, supaya tidak ditakuti tanpa perlu:
 
@@ -74,31 +83,32 @@ Dua hal yang **tidak** ikut rusak, supaya tidak ditakuti tanpa perlu:
 * Hak EXECUTE yang dicabut 0007 — `CREATE OR REPLACE` mempertahankan hak akses,
   jadi `fn_next_order_seq` tetap tertutup.
 
-Tetap saja: **jalankan ulang berurutan sampai 0010.** Setelah dijalankan ulang,
+Tetap saja: **jalankan ulang berurutan sampai 0011.** Setelah dijalankan ulang,
 cocokkan lagi angka di tabel bawah — itu satu-satunya bukti (LESSONS #7 & #16;
 "Run tanpa tulisan merah" bukan bukti).
 
 ## Angka verifikasi yang diharapkan
 
 Kolom **fresh** = nilai saat berkas itu dijalankan pertama kali dalam rantai.
-Kolom **setelah 0010** = nilai kalau blok verifikasi berkas itu dijalankan ulang
+Kolom **setelah 0011** = nilai kalau blok verifikasi berkas itu dijalankan ulang
 pada database yang sudah lengkap. Nilai yang **berubah** ditandai `→`.
 
 ### 0001
-| Cek | fresh | setelah 0010 |
+| Cek | fresh | setelah 0011 |
 |---|---|---|
 | TABLES | 9 | 9 |
 | RLS_ENABLED | 9 | 9 → **16** (+customers, partner_orders, partner_order_counters, partner_packages, order_internal_notes, sanci_products, sanci_catalog_access) |
 | POLICIES | 19 | 19 → **35** (+6 dari 0004, +1 dari 0005, +3 dari 0008, +2 dari 0009, +4 dari 0010) |
-| TRIGGERS | 12 | 12 → **23** (+5 dari 0004, +2 dari 0005, +3 dari 0008, +1 dari 0009, +0 dari 0010) |
+| TRIGGERS | 12 | 12 → **24** (+5 dari 0004, +2 dari 0005, +3 dari 0008, +1 dari 0009, +0 dari 0010, +1 dari 0011) |
 
 `TRIGGERS` di 0001 hanya menghitung tabel berawalan `partner%`, jadi kedua
 trigger `order_internal_notes` dan kelima trigger kedua tabel katalog TIDAK ikut
 terhitung di sini — yang bertambah dari 0009 hanya `trg_order_arrival` pada
-`partner_orders`, dan 0010 tidak menambah apa pun ke angka ini.
+`partner_orders`, 0010 tidak menambah apa pun ke angka ini, dan 0011 menambah
+`trg_order_invoice_path` (juga pada `partner_orders`).
 
 ### 0003
-| Cek | fresh | setelah 0010 |
+| Cek | fresh | setelah 0011 |
 |---|---|---|
 | BUCKET | 1 | 1 |
 | BUCKET_PUBLIC | true | true |
@@ -111,33 +121,33 @@ memang tidak boleh muncul di angka ini. Kalau `STORAGE_POLICIES` menjadi 8 atau
 12, berarti penyaringnya ikut terubah — laporkan.
 
 ### 0004
-| Cek | fresh | setelah 0010 |
+| Cek | fresh | setelah 0011 |
 |---|---|---|
 | TABLES | 3 | 3 |
 | RLS_ENABLED | 3 | 3 |
 | POLICIES | 6 | 6 → **8** (+`o_partner_update` 0005, +`c_partner_update` 0008) |
-| TRIGGERS | 8 | 8 → **12** (+2 penjaga order 0005, +1 penjaga pelanggan 0008, +1 penjaga kedatangan 0009) |
+| TRIGGERS | 8 | 8 → **13** (+2 penjaga order 0005, +1 penjaga pelanggan 0008, +1 penjaga kedatangan 0009, +1 penjaga invoice 0011) |
 | INDEXES | 10 | 10 → **12** (+`idx_partner_orders_status` 0005, +`idx_partner_orders_package` 0008) |
 | FUNCTIONS | 5 | 5 |
 | AUDIT_MAP | 1 | 1 |
 
 ### 0005
-| Cek | fresh | setelah 0010 |
+| Cek | fresh | setelah 0011 |
 |---|---|---|
 | CANCEL_COLUMNS | 3 | 3 |
 | ORDER_POLICIES | 4 | 4 |
 | ORDER_UPDATE_POLICY | 1 | 1 |
 | CUSTOMER_UPDATE_POLICY | 0 | 0 → **1** ⚠ |
 | ORDER_DELETE_POLICY | 0 | 0 |
-| ORDER_TRIGGERS | 7 | 7 → **8** (+`trg_order_arrival` 0009) |
+| ORDER_TRIGGERS | 7 | 7 → **9** (+`trg_order_arrival` 0009, +`trg_order_invoice_path` 0011) |
 | GUARD_FUNCTIONS | 2 | 2 |
 | REFS_ON_UPDATE | 1 | 1 |
 | AUDIT_CANCEL / AUDIT_KEEP_0004 / AUDIT_REASON | 1 / 1 / 1 | 1 / 1 / 1 |
 
-0009 TIDAK menambah policy apa pun ke `partner_orders`: cabang mengisi jalur
-pesanan, total belanja, dan invoice lewat celah UPDATE yang sudah dibuka 0005
-(`o_partner_update`). Jadi `ORDER_POLICIES` tetap 4, dan `ORDER_DELETE_POLICY`
-tetap **WAJIB 0**.
+0009 dan 0011 TIDAK menambah policy apa pun ke `partner_orders`: cabang mengisi
+jalur pesanan, total belanja, dan invoice lewat celah UPDATE yang sudah dibuka
+0005 (`o_partner_update`), dan 0011 hanya menambah trigger. Jadi
+`ORDER_POLICIES` tetap 4, dan `ORDER_DELETE_POLICY` tetap **WAJIB 0**.
 
 ⚠ `CUSTOMER_UPDATE_POLICY` adalah **satu-satunya** angka bertanda "WAJIB 0" yang
 memang berubah menjadi 1, dan itu disengaja: Customer Edit untuk cabang adalah
@@ -145,7 +155,7 @@ isi 0008 (SPEC §33–34). Kalau nilainya 1 padahal 0008 **belum** dijalankan,
 itu masalah — laporkan.
 
 ### 0006
-| Cek | fresh | setelah 0010 |
+| Cek | fresh | setelah 0011 |
 |---|---|---|
 | VIEW_LEFT_JOIN / EDIT_LEFT_JOIN | 1 / 1 | 1 / 1 |
 | VIEW_INNER_JOIN / EDIT_INNER_JOIN | 0 / 0 | 0 / 0 |
@@ -194,7 +204,7 @@ langsung mati, bukan sekadar salah tampil.
 | ORDER_NEW_CHECKS | 2 |
 | ORDER_NEW_COLS_NOT_FROZEN | **1** |
 | ARRIVAL_GUARD_FN / ARRIVAL_TRIGGER / ARRIVAL_TRIGGER_ON_INSERT | 1 / 1 / **1** |
-| ORDER_TRIGGERS | 8 |
+| ORDER_TRIGGERS | 8 → **9** setelah 0011 (+`trg_order_invoice_path`) |
 | NOTES_TABLE / NOTES_FK_RESTRICT / NOTES_RLS | 1 / 1 / 1 |
 | NOTES_POLICIES | 2 |
 | NOTES_UPDATE_DELETE_POLICIES | **0** |
@@ -283,6 +293,51 @@ Lima angka yang paling menentukan, dan kenapa:
   setiap SELECT ke `sanci_products` melempar *error* "permission denied for
   function", bukan sekadar mengembalikan 0 baris.
 
+### 0011
+| Cek | nilai |
+|---|---|
+| REFS_CHECK_CUSTOMER | **1** |
+| REFS_CUSTOMER_ADMIN_EXEMPT / REFS_SECDEF | 1 / 1 |
+| REFS_ON_INSERT / REFS_ON_UPDATE | 1 / 1 |
+| REFS_KEEP_BRANCH / REFS_KEEP_SALES / REFS_KEEP_PIC / REFS_KEEP_PACKAGE | 1 / 1 / 1 / 1 |
+| REFS_EXEC_PUBLIC | **0** |
+| ACCESS_DEFAULT_FALSE / ACCESS_DEFAULT_TRUE | **1** / **0** |
+| ACCESS_NO_ROW_MEANS_CLOSED | 1 |
+| INVOICE_GUARD_FN / INVOICE_GUARD_FN_INVOKER | 1 / 1 |
+| INVOICE_GUARD_TRIGGER / INVOICE_GUARD_ON_INSERT / INVOICE_GUARD_ON_UPDATE | 1 / 1 / 1 |
+| INVOICE_GUARD_EXEC_PUBLIC | **0** |
+| INVOICE_URL_STILL_NOT_FROZEN | **1** |
+| ORDER_TRIGGERS | **9** |
+| ORDER_POLICIES / ORDER_DELETE_POLICY | 4 / **0** |
+| ARRIVAL_TRIGGER / ARRIVAL_GUARD_EXEC_PUBLIC | 1 / **0** |
+| FROZEN_COLS_KEEP_CUSTOMER | 1 |
+| CATALOG_FN_EXEC_ANON / CATALOG_FN_EXEC_AUTHENTICATED | 1 / 1 |
+| INVOICE_BUCKET_PUBLIC / INVOICE_POLICIES | false / 4 |
+| PHOTO_BUCKET_PUBLIC / LOGO_BUCKET_PUBLIC | true / true |
+| AUDIT_KEEP_0009_ARRIVED / AUDIT_KEEP_0010_PRODUCT | 1 / 1 |
+
+Empat angka yang paling menentukan, dan kenapa:
+
+* `REFS_CHECK_CUSTOMER` **wajib 1**. Inilah satu-satunya bukti bahwa lubang P2
+  tertutup, dan ia adalah lubang yang **tidak punya gejala**: kalau 0004 atau
+  0008 dijalankan ulang sesudah 0011, angka ini kembali 0 dan tidak ada satu pun
+  pesan error, layar aneh, atau data yang terlihat salah. Yang berubah cuma:
+  pengguna cabang Partner A kembali bisa menautkan pelanggan Partner B ke
+  pesanannya lewat API, dan sejak itu seluruh baris pelanggan tersebut (nama,
+  telepon, alamat, catatan) terbuka untuknya lewat `c_partner_read`.
+* `INVOICE_URL_STILL_NOT_FROZEN` **wajib 1**. 0011 mengikat ISI `invoice_url`,
+  bukan hak menulisnya. Kalau seseorang "memperbaiki" temuan ini dengan
+  memasukkan `invoice_url` ke daftar kolom beku 0005, angka ini menjadi 0 dan
+  cabang tidak bisa mengunggah invoice sama sekali — gejalanya "Simpan berhasil
+  tapi invoice-nya tidak ada", persis yang dilarang LESSONS #2/#7.
+* `ACCESS_DEFAULT_FALSE` **wajib 1** dan `ACCESS_DEFAULT_TRUE` **wajib 0**.
+  Keduanya diperiksa terpisah dengan sengaja: kalau kolomnya suatu hari
+  didefinisikan ulang lewat `create table` baru di database kosong, hanya
+  pasangan angka ini yang akan memperlihatkannya.
+* `REFS_EXEC_PUBLIC` / `INVOICE_GUARD_EXEC_PUBLIC` **wajib 0** (LESSONS #26).
+  `fn_check_order_refs` sudah dicabut 0007 dan `CREATE OR REPLACE` di 0011
+  mempertahankannya — angka ini membuktikannya, bukan mengandaikannya.
+
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 
 `phone_normalized` dihitung Server Action (`normalizePhoneID()`), bukan SQL —
@@ -343,3 +398,38 @@ Empat batas milik 0010, semuanya sudah diukur, bukan dugaan:
    `CATALOG_ACCESS_UPDATED` (dan `CATALOG_ACCESS_DELETED` kalau baris saklar
    pernah dihapus). Sampai label itu ditambahkan, layar Aktivitas menampilkan
    kodenya apa adanya. Berkas 0010 sengaja tidak menyentuh `web/**`.
+
+Empat batas milik 0011, semuanya sudah diukur, bukan dugaan:
+
+1. **Tautan pelanggan lintas Partner yang PERTAMA hanya bisa dibuat admin.**
+   Setelah 0011, pengguna cabang hanya boleh memakai pelanggan yang dibuat
+   partner-nya sendiri ATAU yang sudah pernah punya pesanan di partner itu.
+   Alur normal tidak terpengaruh sama sekali — pelanggan Partner B memang TIDAK
+   TERLIHAT oleh cabang Partner A (`c_partner_read`), jadi UI-nya akan membuat
+   baris pelanggan baru, bukan memakai yang lama. Kalau suatu hari SANCI benar
+   ingin menyatukan dua baris pelanggan yang sebenarnya satu orang, itu
+   pekerjaan admin (dan idealnya fitur "gabungkan pelanggan" tersendiri), bukan
+   pekerjaan cabang.
+2. **Penjaga 0011 ikut menolak perbaikan manual tanpa sesi login** — SQL Editor,
+   skrip pemeliharaan, dan Edge Function ber-`service_role` sama-sama ditolak,
+   karena keduanya memakai `fn_is_admin()` dan di sana `auth.uid()` kosong. Ini
+   DISENGAJA dan sama persis dengan penjaga 0005/0008/0009. Jalan keluarnya
+   sudah diuji dan berhasil — bungkus dalam SATU transaksi:
+   `alter table public.partner_orders disable trigger trg_check_order_refs;` …
+   perbaikan … `… enable trigger trg_check_order_refs;` (ganti nama trigger
+   menjadi `trg_order_invoice_path` untuk kasus invoice).
+3. **Nilai `invoice_url` LAMA yang terlanjur menyimpang tidak ikut dibersihkan.**
+   0011 mengubah aturan penulisan, bukan data. Penjaga hanya menyala saat
+   nilainya BERUBAH — supaya satu baris warisan yang aneh tidak mengunci seluruh
+   Edit pesanan itu (sudah diuji: Edit kolom lain tetap jalan, menulis ulang
+   nilai silangnya ditolak, menggantinya ke folder sendiri diterima). Kalau
+   ingin tahu apakah ada warisan seperti itu, hitung sendiri:
+   `select count(*) from partner_orders where invoice_url is not null and split_part(invoice_url,'/',1) <> id::text;`
+   — pada database yang sehat jawabannya 0.
+4. **DEFAULT baru `enabled = false` tidak menyentuh baris yang sudah ada.**
+   Partner yang katalognya sudah dibuka tetap terbuka (sudah diuji dengan
+   memasang 0011 di atas database 0010 yang sudah berisi data). Yang berubah
+   hanya baris yang LAHIR sesudahnya tanpa menyebut kolom itu. Konsekuensi yang
+   perlu diketahui pembaca skrip lama: perintah seperti
+   `insert into sanci_catalog_access (partner_id) select id from partners`
+   sekarang menghasilkan saklar TERTUTUP untuk semua, bukan terbuka.
