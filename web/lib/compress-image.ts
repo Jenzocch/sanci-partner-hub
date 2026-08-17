@@ -1,25 +1,34 @@
 /**
- * Pengecilan gambar logo di browser (SPEC §41).
+ * Pengecilan gambar di browser sebelum diunggah (SPEC §41).
  *
- * Tujuannya: pemilik toko sering memotret/menyimpan logo dalam ukuran besar.
- * Mengunggah berkas 4 MB lewat jaringan lemah hampir pasti gagal, jadi gambar
- * dikecilkan dulu di perangkat sebelum dikirim.
+ * Tujuannya: orang sering memotret/menyimpan gambar dalam ukuran besar
+ * (4–8 MB dari kamera HP). Mengunggahnya lewat jaringan lemah hampir pasti
+ * gagal, jadi gambar dikecilkan dulu di perangkat sebelum dikirim.
+ *
+ * SATU ukuran TIDAK cocok untuk semua (pelajaran audit 2026-08-17):
+ *   - Logo hanya ikon kecil → 512 px sudah lebih dari cukup.
+ *   - Foto INVOICE dipakai untuk MEMBACA angka nominal → kalau dikecilkan ke
+ *     512 px teksnya jadi buram dan nominalnya tak terbaca. Butuh sisi ~2000 px
+ *     dan mutu lebih tinggi. Ini bukan sekadar preferensi — 512 px membuat
+ *     fitur invoice-nya gagal pada tujuannya.
+ *   - Foto PRODUK dipakai di grid katalog DAN foto besar halaman detail →
+ *     512 px kelihatan pecah di foto besar. 1280 px cukup tajam tanpa jadi
+ *     berkas raksasa.
+ * Karena itu compressImage menerima PRESET; pemanggil WAJIB memilih yang sesuai.
  *
  * Aturan yang tidak boleh dilanggar:
  *   - Ini HANYA kenyamanan. Pengaman sebenarnya ada di server: bucket punya
- *     batas ukuran + daftar tipe berkas, dan RLS storage hanya mengizinkan
- *     admin menulis (migrasi 0003). Jangan pernah menganggap pemeriksaan di
- *     berkas ini sebagai pengamanan.
- *   - Kegagalan di sini TIDAK BOLEH menggagalkan penyimpanan data partner.
- *     Pemanggil wajib memperlakukan hasil `ok: false` sebagai peringatan saja.
+ *     batas ukuran + daftar tipe berkas, dan RLS storage mengatur siapa yang
+ *     boleh menulis (migrasi 0003 logo, 0009 invoice, 0010 produk). Jangan
+ *     pernah menganggap pemeriksaan di berkas ini sebagai pengamanan.
+ *   - Kegagalan di sini TIDAK BOLEH menggagalkan penyimpanan data. Pemanggil
+ *     wajib memperlakukan hasil `ok: false` sebagai peringatan saja.
  *   - Semua pesan Bahasa Indonesia sederhana, tanpa istilah teknis.
  */
 
-export const MAKS_UKURAN_BYTE = 5 * 1024 * 1024; // 5 MB sebelum dikecilkan
-export const MAKS_SISI_PX = 512; // sisi terpanjang setelah dikecilkan
-export const MUTU_WEBP = 0.8;
+export const MAKS_UKURAN_BYTE = 5 * 1024 * 1024; // 5 MB sebelum dikecilkan, SAMA untuk semua preset
 
-/** Kalau canvas gagal, berkas asli masih boleh dipakai selama tidak lebih dari ini. */
+/** Kalau canvas gagal, berkas asli masih boleh dipakai selama tidak lebih dari ini (preset logo). */
 export const BATAS_ASLI_BYTE = 1024 * 1024; // 1 MB
 
 const TIPE_DIIZINKAN = [
@@ -29,13 +38,74 @@ const TIPE_DIIZINKAN = [
   "image/jpg", // beberapa perangkat lama menuliskannya begini
 ];
 
-export const PESAN_LOGO = {
-  tipeSalah: "Format logo harus PNG, JPG, atau WebP.",
-  terlaluBesar: "Ukuran logo maksimal 5 MB. Pilih gambar yang lebih kecil.",
-  tidakTerbaca: "Gambar itu tidak bisa dibaca. Coba pilih berkas gambar lain.",
-  tidakBisaDiproses:
-    "Logo tidak bisa diproses di perangkat ini. Coba pakai gambar yang lebih kecil (di bawah 1 MB).",
-} as const;
+/** Konfigurasi pengecilan per jenis pemakaian. */
+export type PresetKompres = {
+  /** Sisi terpanjang (px) setelah dikecilkan. Gambar kecil tidak diperbesar. */
+  maksSisiPx: number;
+  /** Mutu WebP/JPEG (0–1). */
+  mutu: number;
+  /** Kata benda untuk pesan kesalahan, mis. "Logo" / "Foto invoice". */
+  label: string;
+  /**
+   * Kalau canvas gagal total ATAU hasil kompresi tidak lebih kecil dari
+   * aslinya, berkas asli boleh dipakai apa adanya selama tidak lebih besar
+   * dari ini. SENGAJA berbeda per preset — untuk invoice, keterbacaan teks
+   * menang dari ukuran berkas, jadi ambangnya = batas unggah itu sendiri
+   * (5 MB), bukan dipangkas ke 1 MB seperti logo.
+   */
+  batasAsliByte: number;
+  /**
+   * Khusus invoice: kalau hasil kompresi pertama (di `maksSisiPx`) masih
+   * lebih besar dari `batasUlangByte`, coba SEKALI LAGI di sisi yang lebih
+   * pendek ini — bukan langsung menyerah. Kalau percobaan ulang pun gagal,
+   * hasil percobaan pertama tetap dipakai (keterbacaan > gagal total).
+   */
+  sisiUlang?: number;
+  batasUlangByte?: number;
+};
+
+export const PRESET_LOGO: PresetKompres = {
+  maksSisiPx: 512,
+  mutu: 0.8,
+  label: "Logo",
+  batasAsliByte: BATAS_ASLI_BYTE, // 1 MB — logo kecil, tidak perlu toleransi besar
+};
+export const PRESET_INVOICE: PresetKompres = {
+  maksSisiPx: 2000,
+  mutu: 0.85,
+  label: "Foto invoice",
+  batasAsliByte: MAKS_UKURAN_BYTE, // 5 MB — keterbacaan teks > ukuran berkas
+  sisiUlang: 1600,
+  batasUlangByte: MAKS_UKURAN_BYTE, // masih >5 MB di 2000px → coba 1600px sekali
+};
+export const PRESET_PRODUK: PresetKompres = {
+  maksSisiPx: 1280,
+  mutu: 0.82,
+  label: "Foto produk",
+  batasAsliByte: 2 * 1024 * 1024, // 2 MB — sedikit lebih lega dari logo, foto lebih besar
+};
+
+// Kompatibilitas mundur: nilai lama tetap diekspor sebagai preset logo.
+export const MAKS_SISI_PX = PRESET_LOGO.maksSisiPx;
+export const MUTU_WEBP = PRESET_LOGO.mutu;
+
+function formatMB(byte: number): string {
+  return (Math.round((byte / (1024 * 1024)) * 10) / 10).toString();
+}
+
+/** Pesan kesalahan disusun dari label + ambang preset supaya sesuai jenis gambarnya. */
+export function pesanKompres(label: string, batasAsliByte: number = BATAS_ASLI_BYTE) {
+  const l = label.toLowerCase();
+  return {
+    tipeSalah: `Format ${l} harus PNG, JPG, atau WebP.`,
+    terlaluBesar: `Ukuran ${l} maksimal ${formatMB(MAKS_UKURAN_BYTE)} MB. Pilih gambar yang lebih kecil.`,
+    tidakTerbaca: "Gambar itu tidak bisa dibaca. Coba pilih berkas gambar lain.",
+    tidakBisaDiproses: `${label} tidak bisa diproses di perangkat ini. Coba pakai gambar yang lebih kecil (di bawah ${formatMB(batasAsliByte)} MB).`,
+  };
+}
+
+/** Pesan default (logo) — dipertahankan untuk pemanggil lama. */
+export const PESAN_LOGO = pesanKompres(PRESET_LOGO.label, PRESET_LOGO.batasAsliByte);
 
 export type HasilKompres =
   | { ok: true; blob: Blob }
@@ -99,50 +169,79 @@ function keBlob(canvas: HTMLCanvasElement, tipe: string, mutu: number): Promise<
 }
 
 /**
- * Memeriksa dan mengecilkan satu berkas logo.
+ * Menggambar `sumber` ke canvas pada sisi terpanjang `sisiMaks` (gambar
+ * kecil tidak diperbesar) dan mengembalikan blob terkompresi (WebP; kalau
+ * perangkat tidak mendukung WebP, JPEG). `null` kalau canvas gagal total
+ * atau kedua tipe blob gagal dihasilkan.
+ */
+async function kompresKe(sumber: Sumber, sisiMaks: number, mutu: number): Promise<Blob | null> {
+  const skala = Math.min(1, sisiMaks / Math.max(sumber.lebar, sumber.tinggi));
+  const lebar = Math.max(1, Math.round(sumber.lebar * skala));
+  const tinggi = Math.max(1, Math.round(sumber.tinggi * skala));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = lebar;
+  canvas.height = tinggi;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(sumber.gambar, 0, 0, lebar, tinggi);
+
+  // WebP dulu (paling kecil). toBlob mengembalikan null kalau tipe tidak didukung.
+  let blob = await keBlob(canvas, "image/webp", mutu);
+  if (!blob || blob.size === 0) blob = await keBlob(canvas, "image/jpeg", mutu);
+  return blob && blob.size > 0 ? blob : null;
+}
+
+/**
+ * Memeriksa dan mengecilkan satu berkas gambar sesuai `preset` (default
+ * `PRESET_LOGO` — pemanggil lama yang tidak memberi preset eksplisit tetap
+ * mendapat perilaku persis seperti sebelumnya).
  *
  * Berhasil → Blob siap unggah (WebP; kalau perangkat tidak mendukung WebP,
- * JPEG; kalau canvas gagal total, berkas asli selama masih kecil).
+ * JPEG; kalau canvas gagal total, berkas asli selama masih di bawah batas
+ * preset tersebut).
  */
-export async function compressImage(file: File): Promise<HasilKompres> {
+export async function compressImage(
+  file: File,
+  preset: PresetKompres = PRESET_LOGO
+): Promise<HasilKompres> {
+  const pesan = pesanKompres(preset.label, preset.batasAsliByte);
   // Pemeriksaan yang pasti bisa dilakukan tanpa canvas — dilakukan lebih dulu.
   const tipe = (file.type || "").toLowerCase();
-  if (!TIPE_DIIZINKAN.includes(tipe)) return { ok: false, message: PESAN_LOGO.tipeSalah };
-  if (file.size > MAKS_UKURAN_BYTE) return { ok: false, message: PESAN_LOGO.terlaluBesar };
+  if (!TIPE_DIIZINKAN.includes(tipe)) return { ok: false, message: pesan.tipeSalah };
+  if (file.size > MAKS_UKURAN_BYTE) return { ok: false, message: pesan.terlaluBesar };
 
   /** Cadangan terakhir: pakai berkas asli, tapi hanya kalau memang sudah kecil. */
   const cadangan = (): HasilKompres =>
-    file.size <= BATAS_ASLI_BYTE
+    file.size <= preset.batasAsliByte
       ? { ok: true, blob: file }
-      : { ok: false, message: PESAN_LOGO.tidakBisaDiproses };
+      : { ok: false, message: pesan.tidakBisaDiproses };
 
   let sumber: Sumber | null = null;
   try {
     sumber = await muatGambar(file);
     if (!sumber) {
       // Berkas mengaku gambar tapi tidak bisa dibaca — jangan diunggah begitu saja.
-      return { ok: false, message: PESAN_LOGO.tidakTerbaca };
+      return { ok: false, message: pesan.tidakTerbaca };
     }
 
-    const skala = Math.min(1, MAKS_SISI_PX / Math.max(sumber.lebar, sumber.tinggi));
-    const lebar = Math.max(1, Math.round(sumber.lebar * skala));
-    const tinggi = Math.max(1, Math.round(sumber.tinggi * skala));
+    let blob = await kompresKe(sumber, preset.maksSisiPx, preset.mutu);
+    if (!blob) return cadangan();
 
-    const canvas = document.createElement("canvas");
-    canvas.width = lebar;
-    canvas.height = tinggi;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return cadangan();
-    ctx.drawImage(sumber.gambar, 0, 0, lebar, tinggi);
+    // Preset invoice: teks harus tetap terbaca, tapi berkas jangan sampai
+    // raksasa untuk jaringan lemah. Kalau versi pertama masih lebih besar
+    // dari ambang, coba SEKALI LAGI di sisi yang lebih pendek — bukan
+    // langsung gagal. Kalau percobaan ulang pun gagal (mis. canvas error di
+    // tengah jalan), tetap pakai hasil percobaan pertama: keterbacaan lebih
+    // penting daripada menggagalkan unggahan.
+    if (preset.sisiUlang && preset.batasUlangByte && blob.size > preset.batasUlangByte) {
+      const ulang = await kompresKe(sumber, preset.sisiUlang, preset.mutu);
+      if (ulang) blob = ulang;
+    }
 
-    // WebP dulu (paling kecil). toBlob mengembalikan null kalau tipe tidak didukung.
-    let blob = await keBlob(canvas, "image/webp", MUTU_WEBP);
-    if (!blob || blob.size === 0) blob = await keBlob(canvas, "image/jpeg", MUTU_WEBP);
-    if (!blob || blob.size === 0) return cadangan();
-
-    // Kalau hasil "pengecilan" malah lebih besar dari aslinya (logo mungil, PNG
-    // datar), kirim yang asli saja — selama masih kecil.
-    if (blob.size >= file.size && file.size <= BATAS_ASLI_BYTE) return { ok: true, blob: file };
+    // Kalau hasil "pengecilan" malah lebih besar dari aslinya (gambar mungil,
+    // PNG datar), kirim yang asli saja — selama masih di bawah batas preset ini.
+    if (blob.size >= file.size && file.size <= preset.batasAsliByte) return { ok: true, blob: file };
     return { ok: true, blob };
   } catch {
     // Canvas bisa gagal total (mis. gambar dari sumber lain / memori habis).

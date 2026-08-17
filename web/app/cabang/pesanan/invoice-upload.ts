@@ -16,7 +16,7 @@
  *      pernah percaya path dari client tanpa diperiksa — lihat actions.ts).
  */
 
-import { compressImage, MAKS_UKURAN_BYTE } from "@/lib/compress-image";
+import { compressImage, MAKS_UKURAN_BYTE, PRESET_INVOICE } from "@/lib/compress-image";
 import { submitSafely } from "@/lib/safe-write";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import { setOrderInvoicePath } from "./actions";
@@ -44,7 +44,10 @@ async function siapkanInvoice(file: File): Promise<{ ok: true; data: SiapUnggah 
     return { ok: false, message: PESAN_INVOICE.tipeSalah };
   }
 
-  const kecil = await compressImage(file);
+  // Invoice: sisi 2000 px + mutu tinggi supaya nominal tetap terbaca (bukan
+  // 512 px logo). Kalau hasilnya masih >5 MB, compressImage otomatis coba
+  // ulang di 1600 px sekali sebelum menyerah — keterbacaan didahulukan.
+  const kecil = await compressImage(file, PRESET_INVOICE);
   if (!kecil.ok) return { ok: false, message: kecil.message };
   const ext = kecil.blob.type === "image/webp" ? "webp" : kecil.blob.type === "image/png" ? "png" : "jpg";
   return { ok: true, data: { blob: kecil.blob, ext, contentType: kecil.blob.type || "image/jpeg" } };

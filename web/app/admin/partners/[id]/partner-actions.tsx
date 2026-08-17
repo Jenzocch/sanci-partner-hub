@@ -6,7 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { compressImage } from "@/lib/compress-image";
+import { compressImage, PRESET_LOGO } from "@/lib/compress-image";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import { updatePartner, setPartnerStatus, deleteDraftPartner, setPartnerLogo } from "../../actions";
 
@@ -62,7 +62,9 @@ export default function PartnerActions({
    * Tidak pernah melempar error — pemanggil tidak boleh ikut gagal karenanya.
    */
   async function unggahLogo(file: File): Promise<string | null> {
-    const kecil = await compressImage(file);
+    // Preset logo dipilih eksplisit (walau ini default compressImage) supaya
+    // niatnya jelas dibaca di lokasi pemanggilan — perilakunya tidak berubah.
+    const kecil = await compressImage(file, PRESET_LOGO);
     if (!kecil.ok) return `${LOGO_GAGAL} ${kecil.message}`;
 
     const path = `${partner.id}/logo.webp`;

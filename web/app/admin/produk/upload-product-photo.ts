@@ -1,6 +1,6 @@
 "use client";
 
-import { compressImage } from "@/lib/compress-image";
+import { compressImage, PRESET_PRODUK } from "@/lib/compress-image";
 import { submitSafely } from "@/lib/safe-write";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import { setProductPhoto } from "../actions-products";
@@ -29,7 +29,8 @@ export const FOTO_PRODUK_GAGAL = "Foto gagal diunggah — data produk tetap ters
  * partner: foto adalah langkah terakhir, kegagalannya cuma peringatan).
  */
 export async function unggahFotoProduk(productId: string, file: File): Promise<string | null> {
-  const kecil = await compressImage(file);
+  // Foto produk: sisi 1280 px supaya tajam di grid katalog + foto besar detail, bukan 512 px logo.
+  const kecil = await compressImage(file, PRESET_PRODUK);
   if (!kecil.ok) return `${FOTO_PRODUK_GAGAL} ${kecil.message}`;
 
   const tipe = kecil.blob.type || "image/webp";
