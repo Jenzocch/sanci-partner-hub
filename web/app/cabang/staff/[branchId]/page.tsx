@@ -92,13 +92,13 @@ export default async function CabangStaffPage({
       </div>
       <h2 className="mtitle">Staf — {branch.name}</h2>
       {!isOwnBranch && (
-        <div className="banner" style={{ background: "var(--accent-soft)", color: "var(--accent-2)", fontSize: 13.5 }}>
+        <div className="banner info">
           Cabang {partner.name} lainnya. {canEdit ? "Anda bisa mengubahnya (kebijakan Lihat + Edit)." : "Lihat saja."}
         </div>
       )}
 
       {canEdit && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+        <div className="row" style={{ justifyContent: "flex-end", marginBottom: 14 }}>
           <AddStaffButton branchId={branchId} branchName={branch.name} />
         </div>
       )}

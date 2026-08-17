@@ -70,7 +70,7 @@ export default function PermissionsForm({
       )}
       {netMsg && <div className="banner warn">{netMsg}</div>}
       {err && <div className="banner bad">{err}</div>}
-      {saved && <div className="banner ok" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>Tersimpan.</div>}
+      {saved && <div className="banner ok">Tersimpan.</div>}
       <form onSubmit={onSubmit}>
         <div className="radioset" style={{ marginBottom: 18 }}>
           <label>
@@ -121,7 +121,7 @@ export default function PermissionsForm({
           </button>
         </div>
       </form>
-      <p className="small muted" style={{ marginTop: 14 }}>
+      <p className="footnote">
         Aturan cabang terpilih (misal hanya Jakarta A ↔ Jakarta B) disiapkan untuk fase berikutnya —
         skema data sudah mendukung, layar ini belum.
       </p>

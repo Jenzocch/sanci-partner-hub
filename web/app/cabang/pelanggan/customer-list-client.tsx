@@ -71,20 +71,16 @@ export default function CustomerListClient({
       ) : filtered.length === 0 ? (
         <div className="card emptybox">Tidak ada pelanggan yang cocok dengan pencarian &quot;{q}&quot;.</div>
       ) : (
-        filtered.map((it) => (
-          <Link
-            key={it.id}
-            href={`/cabang/pelanggan/${it.id}`}
-            className="staffcard"
-            style={{ display: "block", textDecoration: "none", color: "inherit" }}
-          >
-            <div className="row1">
-              <span className="nm">{it.fullName}</span>
-            </div>
-            <div className="rl">{it.phoneNormalized ? displayPhoneID(it.phoneNormalized) : "tanpa telepon"}</div>
-            <div className="rl">{it.orderCount} Pesanan</div>
-          </Link>
-        ))
+        <div className="cardlist">
+          {filtered.map((it) => (
+            <Link key={it.id} href={`/cabang/pelanggan/${it.id}`} className="reccard">
+              <div className="rc-title">{it.fullName}</div>
+              <div className="rc-sub">{it.phoneNormalized ? displayPhoneID(it.phoneNormalized) : "tanpa telepon"}</div>
+              <div className="rc-meta">{it.orderCount} Pesanan</div>
+              <span className="rc-arrow" aria-hidden="true">&rsaquo;</span>
+            </Link>
+          ))}
+        </div>
       )}
     </>
   );

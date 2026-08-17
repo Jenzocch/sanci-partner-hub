@@ -119,7 +119,7 @@ export default function StaffActions({ staff }: { staff: Staff }) {
                 <button type="button" className="btn" onClick={closeModal}>
                   Batal
                 </button>
-                <button type="submit" className="btn primary" disabled={submitting}>
+                <button type="submit" className="btn primary lg block" disabled={submitting}>
                   {submitting ? "Menyimpan…" : "Simpan"}
                 </button>
               </div>

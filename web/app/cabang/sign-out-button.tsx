@@ -16,7 +16,7 @@ export default function SignOutButton() {
   }
 
   return (
-    <button className="btn" onClick={onClick} disabled={busy}>
+    <button className="btn danger block" onClick={onClick} disabled={busy}>
       {busy ? "Keluar…" : "Keluar"}
     </button>
   );

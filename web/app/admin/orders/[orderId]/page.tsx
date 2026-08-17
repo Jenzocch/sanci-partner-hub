@@ -196,10 +196,8 @@ export default async function AdminOrderDetailPage({
       </div>
 
       {/* Attribution — harus sangat menonjol, bukan tersembunyi di bawah (SPEC §50). */}
-      <div className="card" style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}>
-        <div className="small muted" style={{ fontWeight: 700, letterSpacing: ".04em", marginBottom: 6 }}>
-          PARTNER ORDER
-        </div>
+      <div className="card accent">
+        <div className="overline">PARTNER ORDER</div>
         <h2 style={{ fontSize: 21 }}>{partner?.name ?? "Partner tidak ditemukan"}</h2>
         <div style={{ fontSize: 16, fontWeight: 650, color: "var(--accent-2)", marginTop: 2 }}>
           Cabang {branch?.name ?? "tidak ditemukan"}
@@ -265,7 +263,7 @@ export default async function AdminOrderDetailPage({
           </dl>
 
           {order.status === "CANCELLED" && (
-            <div className="banner" style={{ background: "var(--off-bg)", color: "var(--off)", marginTop: 14 }}>
+            <div className="banner" style={{ marginTop: 14 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Pesanan dibatalkan</div>
               {cancelResult.unavailable ? (
                 <div>Info pembatalan belum tersedia (migrasi database belum dijalankan).</div>
@@ -330,7 +328,7 @@ export default async function AdminOrderDetailPage({
             })}
           </ul>
         )}
-        <p className="small muted" style={{ marginTop: 12 }}>
+        <p className="footnote">
           Catatan audit hanya bertambah. Tidak ada yang bisa mengubah atau menghapusnya dari aplikasi.
         </p>
       </div>

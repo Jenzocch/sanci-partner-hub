@@ -3,10 +3,8 @@ export const dynamic = "force-static";
 export default function OfflinePage() {
   return (
     <main className="authwrap">
-      <div className="authcard" style={{ textAlign: "center" }}>
-        <div className="serif" style={{ fontSize: 15, letterSpacing: ".06em" }}>
-          SANCI
-        </div>
+      <div className="authcard center">
+        <div className="wordmark serif">SANCI</div>
         <h1>Tidak ada koneksi</h1>
         <p className="sub">
           Halaman ini belum pernah dibuka sebelumnya, jadi tidak tersedia

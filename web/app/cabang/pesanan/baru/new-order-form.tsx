@@ -290,9 +290,7 @@ export default function NewOrderForm({
   if (phase === "order_success" && orderResult) {
     return (
       <div className="card">
-        <div className="banner" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>
-          Pesanan berhasil dibuat.
-        </div>
+        <div className="banner ok">Pesanan berhasil dibuat.</div>
         <dl className="kv">
           <dt>Nomor Order</dt>
           <dd className="code">{orderResult.orderNumber}</dd>
@@ -322,9 +320,7 @@ export default function NewOrderForm({
   if (phase === "customer_success" && customerResult) {
     return (
       <div className="card">
-        <div className="banner" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>
-          Pelanggan berhasil disimpan.
-        </div>
+        <div className="banner ok">Pelanggan berhasil disimpan.</div>
         <dl className="kv">
           <dt>Nama</dt>
           <dd>{customerResult.full_name}</dd>
@@ -363,7 +359,7 @@ export default function NewOrderForm({
       <DraftBanner draft={draft.draft} onRestore={handleRestoreDraft} onDiscard={draft.discard} />
 
       <form ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
-        <h3 style={{ fontSize: 16, marginBottom: 10 }}>Pelanggan</h3>
+        <h3 style={{ fontSize: "var(--fs-h3)", marginBottom: 10 }}>Pelanggan</h3>
         <div className={`field${errs.phone ? " invalid" : ""}`}>
           <label htmlFor="po_phone">Nomor HP / WhatsApp *</label>
           <input
@@ -380,7 +376,7 @@ export default function NewOrderForm({
           {lookupState === "error" && (
             <div className="banner bad" style={{ marginTop: 8, marginBottom: 0 }}>
               Tidak dapat memeriksa pelanggan — coba lagi.
-              <div className="btnrow-inline" style={{ marginTop: 8 }}>
+              <div className="btnrow-inline">
                 <button type="button" className="btn sm" onClick={() => runSearch(phone)}>
                   Coba Lagi
                 </button>
@@ -391,9 +387,9 @@ export default function NewOrderForm({
         </div>
 
         {lookupState === "found" && !selectedExisting && foundCustomer && (
-          <div className="banner" style={{ background: "var(--accent-soft)", color: "var(--accent-2)" }}>
+          <div className="banner info">
             Pelanggan ditemukan: <b>{foundCustomer.full_name}</b> · {foundCustomer.phone}
-            <div className="btnrow-inline" style={{ marginTop: 8 }}>
+            <div className="btnrow-inline">
               <button type="button" className="btn sm primary" onClick={handleUseExisting}>
                 Gunakan Pelanggan Ini
               </button>
@@ -402,9 +398,9 @@ export default function NewOrderForm({
         )}
 
         {selectedExisting && foundCustomer && (
-          <div className="banner" style={{ background: "var(--accent-soft)", color: "var(--accent-2)" }}>
+          <div className="banner info">
             Pelanggan dipilih: <b>{foundCustomer.full_name}</b> · {foundCustomer.phone}
-            <div className="btnrow-inline" style={{ marginTop: 8 }}>
+            <div className="btnrow-inline">
               <button type="button" className="btn sm" onClick={handleChangeCustomer}>
                 Ganti Pelanggan
               </button>
@@ -422,9 +418,9 @@ export default function NewOrderForm({
         </div>
 
         <fieldset disabled={!customerReady} style={{ border: "none", padding: 0, margin: "18px 0 0", opacity: customerReady ? 1 : 0.5 }}>
-          <legend style={{ fontSize: 16, fontWeight: 650, marginBottom: 10, padding: 0 }}>Pesanan</legend>
+          <legend style={{ fontSize: "var(--fs-h3)", fontWeight: 650, marginBottom: 10, padding: 0 }}>Pesanan</legend>
           {!customerReady && (
-            <p className="hint" style={{ marginTop: -4, marginBottom: 12 }}>
+            <p className="hint" style={{ marginBottom: 12 }}>
               Isi atau pastikan dulu data pelanggan di atas untuk mengisi bagian ini.
             </p>
           )}
@@ -497,7 +493,7 @@ export default function NewOrderForm({
               {submitting ? "Menyimpan…" : "Simpan Pelanggan Saja"}
             </button>
           )}
-          <button type="button" className="btn primary" disabled={submitting || !customerReady} onClick={onSubmitOrder}>
+          <button type="button" className="btn primary lg block" disabled={submitting || !customerReady} onClick={onSubmitOrder}>
             {submitting ? "Menyimpan…" : "Buat Pesanan"}
           </button>
         </div>

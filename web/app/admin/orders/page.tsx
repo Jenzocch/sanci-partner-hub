@@ -162,7 +162,7 @@ export default async function AdminOrdersPage({
   if (isMissingTableError(queryErr)) {
     return (
       <div>
-        <div className="pagehead">
+        <div className="worktop">
           <h1>Pesanan Partner</h1>
         </div>
         <div className="card emptybox">
@@ -174,11 +174,11 @@ export default async function AdminOrdersPage({
 
   return (
     <div>
-      <div className="pagehead">
+      <div className="worktop">
         <h1>Pesanan Partner</h1>
       </div>
 
-      <form className="searchrow" action="/admin/orders" method="GET">
+      <form className="searchrow wide" action="/admin/orders" method="GET">
         <input
           type="search"
           name="q"
@@ -255,7 +255,7 @@ export default async function AdminOrdersPage({
                       <td className="small muted">
                         {new Date(r.created_at).toLocaleString("id-ID")}
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="ta-right">
                         <Link href={`/admin/orders/${r.id}`} className="linkbtn">
                           Buka
                         </Link>
@@ -266,7 +266,7 @@ export default async function AdminOrdersPage({
               </tbody>
             </table>
           </div>
-          <div className="small muted" style={{ marginTop: 10 }}>
+          <div className="footnote">
             Menampilkan {orderRows.length} terbaru{orderRows.length === LIST_LIMIT ? " (maks. 50)" : ""}.
           </div>
         </div>

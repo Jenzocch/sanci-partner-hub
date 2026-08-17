@@ -67,7 +67,7 @@ export default async function PelangganListPage() {
           ← Beranda
         </Link>
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 14 }}>
+      <div className="worktop">
         <h2 className="mtitle" style={{ marginBottom: 0 }}>
           Pelanggan
         </h2>

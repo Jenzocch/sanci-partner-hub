@@ -104,7 +104,7 @@ export default async function PartnerDetailPage({
     body = (
       <div className="cardgrid-two">
         <div className="card">
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+          <div className="row" style={{ marginBottom: 14 }}>
             <PartnerLogo url={partner.logo_url} name={partner.name} size={56} />
             <h3 style={{ fontSize: 17 }}>Informasi Partner</h3>
           </div>
@@ -205,7 +205,7 @@ export default async function PartnerDetailPage({
                     <td>
                       <span className={`chip ${b.status}`}>{SLBL[b.status]}</span>
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="ta-right">
                       <Link href={`/admin/partners/${id}/branches/${b.id}`} className="linkbtn">
                         Buka
                       </Link>
@@ -260,7 +260,7 @@ export default async function PartnerDetailPage({
                       <td>
                         <span className={`chip ${p.status}`}>{SLBL[p.status]}</span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="ta-right">
                         <PackageActions pkg={p} />
                       </td>
                     </tr>
@@ -303,7 +303,7 @@ export default async function PartnerDetailPage({
                         {u.status === "ACTIVE" ? "AKTIF" : "NONAKTIF"}
                       </span>
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="ta-right">
                       <UserToggleButton userId={u.id} active={u.status === "ACTIVE"} />
                     </td>
                   </tr>
@@ -312,7 +312,7 @@ export default async function PartnerDetailPage({
             </table>
           </div>
         )}
-        <p className="small muted" style={{ marginTop: 14 }}>
+        <p className="footnote">
           Membuat akun login baru butuh konfigurasi tambahan di server (service_role key) yang belum
           tersedia di lingkungan ini — belum bisa dilakukan lewat layar ini.
         </p>
@@ -369,7 +369,7 @@ export default async function PartnerDetailPage({
             })}
           </ul>
         )}
-        <p className="small muted" style={{ marginTop: 12 }}>
+        <p className="footnote">
           Catatan audit hanya bertambah. Tidak ada yang bisa mengubah atau menghapusnya dari aplikasi.
         </p>
       </div>

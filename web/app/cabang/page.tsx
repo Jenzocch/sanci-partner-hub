@@ -85,63 +85,63 @@ export default async function CabangHome() {
         )}
       </div>
 
-      {myBranch && (
-        <Link href={`/cabang/staff/${myBranch.id}`} className="biglink">
-          <span>Staf</span>
-          <span className="arrow">→</span>
+      {/* Urutan menu mengikuti logika kerja toko: buat pesanan dulu (aksi
+          utama), lalu daftar pesanan, pelanggan, staf, baru pengaturan. */}
+      <Link href="/cabang/pesanan/baru" className="biglink cta">
+        <span className="lbl">+ Pesanan Baru</span>
+        <span className="arrow" aria-hidden="true">&rsaquo;</span>
+      </Link>
+
+      <div className="ilist">
+        <Link href="/cabang/pesanan" className="biglink">
+          <span className="lbl">Daftar Pesanan</span>
+          <span className="arrow" aria-hidden="true">&rsaquo;</span>
         </Link>
-      )}
+        <Link href="/cabang/pelanggan" className="biglink">
+          <span className="lbl">Pelanggan</span>
+          <span className="arrow" aria-hidden="true">&rsaquo;</span>
+        </Link>
+        {myBranch && (
+          <Link href={`/cabang/staff/${myBranch.id}`} className="biglink">
+            <span className="lbl">Staf</span>
+            <span className="arrow" aria-hidden="true">&rsaquo;</span>
+          </Link>
+        )}
+      </div>
 
       {otherBranches.length > 0 && (
         <>
-          <div className="small muted" style={{ margin: "2px 0 10px 4px" }}>
-            Cabang {partner.name} lainnya (SANCI mengizinkan visibilitas sesama partner):
+          <div className="overline">Cabang {partner.name} lainnya</div>
+          <div className="ilist">
+            {otherBranches.map((b: Branch) => (
+              <Link key={b.id} href={`/cabang/staff/${b.id}`} className="biglink">
+                <span className="lbl">
+                  {b.name}
+                  <span className="sublabel">{editAll ? "Lihat + edit" : "Lihat saja"}</span>
+                </span>
+                <span className="arrow" aria-hidden="true">&rsaquo;</span>
+              </Link>
+            ))}
           </div>
-          {otherBranches.map((b: Branch) => (
-            <Link
-              key={b.id}
-              href={`/cabang/staff/${b.id}`}
-              className="biglink"
-              style={{ padding: "13px 18px", fontSize: 15.5 }}
-            >
-              <span>
-                {b.name} <span className="small muted">{editAll ? "lihat + edit" : "lihat saja"}</span>
-              </span>
-              <span className="arrow">→</span>
-            </Link>
-          ))}
         </>
       )}
 
-      <Link href="/cabang/pesanan/baru" className="biglink">
-        <span>+ Pesanan Baru</span>
-        <span className="arrow">→</span>
-      </Link>
-      <Link href="/cabang/pesanan" className="biglink">
-        <span>Daftar Pesanan</span>
-        <span className="arrow">→</span>
-      </Link>
-      <Link href="/cabang/pelanggan" className="biglink">
-        <span>Pelanggan</span>
-        <span className="arrow">→</span>
-      </Link>
+      <div className="ilist">
+        <Link href="/cabang/profil" className="biglink">
+          <span className="lbl">Profil Cabang</span>
+          <span className="arrow" aria-hidden="true">&rsaquo;</span>
+        </Link>
+        <Link href="/cabang/akun" className="biglink">
+          <span className="lbl">Akun Saya</span>
+          <span className="arrow" aria-hidden="true">&rsaquo;</span>
+        </Link>
+      </div>
 
-      <Link href="/cabang/profil" className="biglink">
-        <span>Profil Cabang</span>
-        <span className="arrow">→</span>
-      </Link>
-      <Link href="/cabang/akun" className="biglink">
-        <span>Akun Saya</span>
-        <span className="arrow">→</span>
-      </Link>
+      <SignOutButton />
 
-      <p className="small muted" style={{ marginTop: 18, lineHeight: 1.55 }}>
+      <p className="footnote">
         Gudang dan pengiriman adalah fase berikutnya — sengaja belum ditampilkan.
       </p>
-
-      <div style={{ marginTop: 14 }}>
-        <SignOutButton />
-      </div>
     </main>
   );
 }

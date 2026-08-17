@@ -236,12 +236,12 @@ export default function PartnerActions({
       </div>
 
       {partner.status === "DRAFT" && (
-        <div style={{ marginTop: 16 }}>
+        <div className="stack" style={{ marginTop: 16 }}>
           <button className="btn primary" onClick={onActivate} disabled={!canActivate || submitting}>
             Aktifkan partner
           </button>
           {!canActivate && (
-            <div className="hint small muted" style={{ marginTop: 8 }}>
+            <div className="hint small muted">
               Lengkapi semua syarat aktivasi untuk mengaktifkan.
             </div>
           )}

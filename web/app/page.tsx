@@ -28,6 +28,7 @@ export default async function Home() {
     return (
       <main className="authwrap">
         <div className="authcard">
+          <div className="wordmark serif">SANCI</div>
           <h1>Akun belum terdaftar</h1>
           <p className="sub">
             Akun Anda berhasil masuk tetapi belum dihubungkan ke partner mana
@@ -42,9 +43,7 @@ export default async function Home() {
   return (
     <main className="authwrap">
       <div className="authcard">
-        <div className="serif" style={{ fontSize: 15, letterSpacing: ".06em" }}>
-          SANCI
-        </div>
+        <div className="wordmark serif">SANCI</div>
         <h1>Partner Hub</h1>
         <p className="sub">Masuk dengan akun yang dibuat oleh SANCI Admin.</p>
         <LoginForm />

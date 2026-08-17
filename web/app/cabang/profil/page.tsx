@@ -75,9 +75,7 @@ export default async function ProfilCabangPage() {
           <dt>WhatsApp</dt>
           <dd>{branch.contact_phone || "—"}</dd>
         </dl>
-        <p className="small muted" style={{ marginTop: 14 }}>
-          Alamat atau kontak salah? Hubungi SANCI Admin untuk memperbarui.
-        </p>
+        <p className="footnote">Alamat atau kontak salah? Hubungi SANCI Admin untuk memperbarui.</p>
       </div>
     </main>
   );

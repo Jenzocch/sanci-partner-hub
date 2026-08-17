@@ -16,9 +16,17 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#15655d",
+  // Warna bilah browser mengikuti kanvas halaman, bukan warna merek — supaya
+  // batas antara aplikasi dan sistem tidak terlihat.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
   width: "device-width",
   initialScale: 1,
+  // Halaman menggambar sampai tepi layar; padding aman diatur lewat
+  // env(safe-area-inset-*) di globals.css.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

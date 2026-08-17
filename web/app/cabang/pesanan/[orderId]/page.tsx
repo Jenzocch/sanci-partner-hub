@@ -210,58 +210,58 @@ export default async function PesananDetailPage({
       </div>
 
       <div className="idcard">
-        <div className="small muted" style={{ fontWeight: 700, letterSpacing: ".04em", marginBottom: 6 }}>
-          PARTNER ORDER
-        </div>
+        <div className="overline">Partner Order</div>
         <h2>{partner?.name ?? "—"}</h2>
         <div className="br">Cabang {branch?.name ?? "—"}</div>
         {isOtherBranch && (
-          <div className="banner" style={{ background: "var(--accent-soft)", color: "var(--accent-2)", marginTop: 10, marginBottom: 0 }}>
+          <div className="banner info" style={{ marginTop: 10 }}>
             Cabang lain — hanya lihat.
           </div>
         )}
       </div>
 
       <div className="card">
-        <div className="row1" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span className="code" style={{ fontSize: 15 }}>
-            {order.order_number}
-          </span>
-          <StatusBadge status={order.status} />
+        <div className="stack">
+          <div className="spread">
+            <span className="code" style={{ fontSize: "var(--fs-sec)" }}>
+              {order.order_number}
+            </span>
+            <StatusBadge status={order.status} />
+          </div>
+          <dl className="kv">
+            <dt>Pelanggan</dt>
+            <dd>{customer?.full_name ?? "Pelanggan tidak diketahui"}</dd>
+            <dt>WhatsApp</dt>
+            <dd>{customer?.phone_normalized ? displayPhoneID(customer.phone_normalized) : "—"}</dd>
+            <dt>Package</dt>
+            <dd>{order.package_name}</dd>
+            <dt>Sales</dt>
+            <dd>
+              {sales?.full_name ?? "—"}
+              {sales && sales.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
+            </dd>
+            <dt>PIC</dt>
+            <dd>
+              {pic?.full_name ?? "—"}
+              {pic && pic.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
+            </dd>
+            <dt>Catatan</dt>
+            <dd>{order.notes || "—"}</dd>
+            <dt>Dibuat</dt>
+            <dd>
+              {new Date(order.created_at).toLocaleString("id-ID", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </dd>
+          </dl>
         </div>
-        <dl className="kv">
-          <dt>Pelanggan</dt>
-          <dd>{customer?.full_name ?? "Pelanggan tidak diketahui"}</dd>
-          <dt>WhatsApp</dt>
-          <dd>{customer?.phone_normalized ? displayPhoneID(customer.phone_normalized) : "—"}</dd>
-          <dt>Package</dt>
-          <dd>{order.package_name}</dd>
-          <dt>Sales</dt>
-          <dd>
-            {sales?.full_name ?? "—"}
-            {sales && sales.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
-          </dd>
-          <dt>PIC</dt>
-          <dd>
-            {pic?.full_name ?? "—"}
-            {pic && pic.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
-          </dd>
-          <dt>Catatan</dt>
-          <dd>{order.notes || "—"}</dd>
-          <dt>Dibuat</dt>
-          <dd>
-            {new Date(order.created_at).toLocaleString("id-ID", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </dd>
-        </dl>
 
         {order.status === "CANCELLED" && (
-          <div className="banner" style={{ background: "var(--off-bg)", color: "var(--off)", marginTop: 14 }}>
+          <div className="banner" style={{ marginTop: 14 }}>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Pesanan dibatalkan</div>
             {cancelInfoUnavailable ? (
               <div>Info pembatalan belum tersedia (migrasi database belum dijalankan).</div>
@@ -299,7 +299,7 @@ export default async function PesananDetailPage({
             staffOptions={staffOptions}
           />
         ) : (
-          <p className="small muted" style={{ marginTop: 14 }}>
+          <p className="footnote">
             {order.status === "CANCELLED"
               ? "Pesanan yang sudah dibatalkan tidak bisa diubah lagi."
               : "Pesanan ini hanya bisa dilihat dari sisi cabang ini. Perubahan atau pembatalan dilakukan oleh cabang pemilik pesanan."}

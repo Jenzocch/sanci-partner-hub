@@ -97,12 +97,12 @@ export default async function AdminPartnersPage({
 
   return (
     <div>
-      <div className="pagehead">
+      <div className="worktop">
         <h1>Partner</h1>
         <AddPartnerButton />
       </div>
 
-      <form className="searchrow" action="/admin" method="GET">
+      <form className="searchrow wide" action="/admin" method="GET">
         <input
           type="search"
           name="q"
@@ -154,7 +154,7 @@ export default async function AdminPartnersPage({
               {rows.map((r) => (
                 <tr key={r.partner.id}>
                   <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className="row">
                       <PartnerLogo url={r.partner.logo_url} name={r.partner.name} size={28} />
                       <Link href={`/admin/partners/${r.partner.id}`} className="rowname">
                         <strong>{r.partner.name}</strong>{" "}
@@ -171,7 +171,7 @@ export default async function AdminPartnersPage({
                   <td>
                     <span className={`chip ${r.partner.status}`}>{SLBL[r.partner.status]}</span>
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td className="ta-right">
                     <Link href={`/admin/partners/${r.partner.id}`} className="linkbtn">
                       Buka
                     </Link>

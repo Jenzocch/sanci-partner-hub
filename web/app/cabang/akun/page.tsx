@@ -79,7 +79,7 @@ export default async function AkunSayaPage() {
           <dt>Visibilitas</dt>
           <dd>{visLabel}</dd>
         </dl>
-        <p className="small muted" style={{ marginTop: 14 }}>
+        <p className="footnote">
           Identitas cabang Anda ditetapkan oleh SANCI — tidak ada pilihan ganti cabang. Akun dibuat
           dan dikelola oleh SANCI Admin.
         </p>

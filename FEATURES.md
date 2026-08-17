@@ -104,6 +104,17 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 
 **Migration `0008_packages_customer_edit_attribution.sql` 狀態**：已寫好＋本機行為測試全過（K/C/R 三組 38 項、矩陣零回歸、冪等×4）。內容：partner_packages 表＋orders.package_id（含 fn_check_order_refs 驗 package 歸屬——RLS 管不到欄位內容，防 POST 別家 package id）＋customers 分店 UPDATE policy 與不可變欄位守衛＋`fn_correct_order_attribution` RPC。**已知缺口（記錄於檔內）**：phone_normalized 守衛只擋空值、擋不了「過期值」——鐵則：任何動 phone 的 Server Action 必須同時送重算好的 phone_normalized（現有 action 已遵守）。**未在 production 執行；必須在 0007 之後跑。**
 
+### UI 全面改版（Apple 風設計系統 v2，2026-08-17，Jenzo 指示）
+
+| 項目 | 狀態 | 說明 |
+|---|---|---|
+| 設計系統（globals.css v2） | `UNVERIFIED` | 全面重寫：token 化字級表（正文手機 17px/桌面 16px，全系統最小 13px，輸入 ≥16px 防 iOS 縮放）、Apple 風配色（#f5f5f7 底/白卡/#1d1d1f 墨）、圓角/陰影/動效、深色模式、reduced-motion。檔頭含 STYLE CONTRACT（後續開發的樣式依據——**新頁面照合約用 class，不寫 inline style**） |
+| 空間利用 | `UNVERIFIED` | 桌面 240px sidebar＋工作區吃滿（1920→1680px 實用寬、表格 1582px、列高 57px）；表單 720px 靠左；768–899px 改頂部橫向 nav（240 rail 會擠死平板工作區）；手機單欄大按鈕。Playwright 28 組截圖驗證：全寬度零橫向捲動、零 <13px 文字、觸控目標全 ≥44px |
+| 標籤排序（使用邏輯） | `UNVERIFIED` | cabang 首頁：+Pesanan Baru（填色 CTA 最重）→ Daftar Pesanan → Pelanggan → Staf → 其他分店 → Profil/Akun → Keluar；admin 側欄：Pesanan Partner（日常）→ Partner（設定） |
+| 全頁面套用 | `UNVERIFIED` | admin 7 檔＋cabang 21 檔逐頁清理：~54 處 inline style 換合約 class、列表改 .reccard 卡片式、篩選改 segmented、loading 改 skeleton。文案逐一檢查已是日常印尼語（零改動需要）。**純外觀零邏輯變動**（diff 掃描確認無查詢/action 改動） |
+
+以上待 Jenzo 用真帳號在手機＋桌面實看後升級 VERIFIED。
+
 **第二切片已知限制**（刻意接受，非遺漏）：
 - 訂單原 Sales 已停用時，編輯任何欄位都要先重選在職 Sales 才能存檔（dropdown 只列 active staff）——體驗有刺但不違規，下輪再議
 - 兩人同時操作、一人剛取消的窄競態：另一人收到通用錯誤訊息而非「訂單剛被取消」——不會假成功，可接受

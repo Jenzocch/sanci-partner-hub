@@ -1,15 +1,14 @@
 import { ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders-shared";
 
-const STYLE: Record<OrderStatus, { background: string; color: string }> = {
-  REGISTERED: { background: "var(--ok-bg)", color: "var(--ok)" },
-  CANCELLED: { background: "var(--off-bg)", color: "var(--off)" },
+const CLASS: Record<OrderStatus, string> = {
+  REGISTERED: "chip ok",
+  CANCELLED: "chip neutral",
 };
 
 /** Lencana status order, label selalu dari ORDER_STATUS_LABEL (satu sumber kebenaran). */
 export default function StatusBadge({ status }: { status: OrderStatus }) {
-  const style = STYLE[status] ?? STYLE.REGISTERED;
   return (
-    <span className="chip" style={style}>
+    <span className={CLASS[status] ?? "chip ok"}>
       {ORDER_STATUS_LABEL[status] ?? status}
     </span>
   );

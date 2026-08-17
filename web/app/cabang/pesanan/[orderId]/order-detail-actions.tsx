@@ -48,7 +48,7 @@ export default function OrderDetailActions({
 
   return (
     <>
-      <div className="btnrow" style={{ marginTop: 16 }}>
+      <div className="btnrow">
         <button type="button" className="btn" onClick={() => setModal("edit")}>
           Ubah Pesanan
         </button>
@@ -256,7 +256,7 @@ function EditOrderModal({
             <button type="button" className="btn" onClick={onClose} disabled={submitting}>
               Batal
             </button>
-            <button type="submit" className="btn primary" disabled={submitting}>
+            <button type="submit" className="btn primary lg block" disabled={submitting}>
               {submitting ? "Menyimpan…" : "Simpan"}
             </button>
           </div>
@@ -331,7 +331,7 @@ function CancelOrderModal({
         <h2>Batalkan Pesanan?</h2>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {err && <div className="banner bad">{err}</div>}
-        <dl className="kv" style={{ marginBottom: 14 }}>
+        <dl className="kv">
           <dt>Order</dt>
           <dd className="code">{orderNumber}</dd>
           <dt>Pelanggan</dt>
@@ -367,7 +367,7 @@ function CancelOrderModal({
           <button type="button" className="btn" onClick={onClose} disabled={submitting}>
             Kembali
           </button>
-          <button type="button" className="btn danger" onClick={onConfirm} disabled={submitting}>
+          <button type="button" className="btn danger lg block" onClick={onConfirm} disabled={submitting}>
             {submitting ? "Membatalkan…" : "Batalkan Pesanan"}
           </button>
         </div>

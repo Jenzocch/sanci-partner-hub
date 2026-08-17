@@ -94,12 +94,12 @@ export default function OrderListClient({
         />
       </div>
 
-      <div className="btnrow-inline" style={{ marginTop: -6 }}>
+      <div className="segmented">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.value}
             type="button"
-            className={`btn sm${statusFilter === f.value ? " primary" : ""}`}
+            className={`seg${statusFilter === f.value ? " on" : ""}`}
             onClick={() => setStatusFilter(f.value)}
           >
             {f.label}
@@ -114,26 +114,25 @@ export default function OrderListClient({
       ) : filtered.length === 0 ? (
         <div className="card emptybox">Tidak ada pesanan dengan status ini.</div>
       ) : (
-        filtered.map((it) => (
-          <Link key={it.id} href={`/cabang/pesanan/${it.id}`} className="staffcard" style={{ display: "block", textDecoration: "none", color: "inherit" }}>
-            <div className="row1">
-              <span className="code">{it.orderNumber}</span>
-              <StatusBadge status={it.status} />
-            </div>
-            <div className="nm" style={{ marginTop: 6 }}>
-              {it.customerName}
-            </div>
-            <div className="rl">
-              {it.customerPhone ? displayPhoneID(it.customerPhone) : "tanpa telepon"} · {it.packageName}
-            </div>
-            <div className="rl">
-              Sales {it.salesName || "—"} · {formatDate(it.createdAt)}
-              {crossBranchVisible && it.branchId !== ownBranchId && (
-                <span className="small muted"> · Cabang lain — hanya lihat</span>
-              )}
-            </div>
-          </Link>
-        ))
+        <div className="cardlist">
+          {filtered.map((it) => (
+            <Link key={it.id} href={`/cabang/pesanan/${it.id}`} className="reccard">
+              <div className="rc-top">
+                <span className="code">{it.orderNumber}</span>
+                <StatusBadge status={it.status} />
+              </div>
+              <div className="rc-title">{it.customerName}</div>
+              <div className="rc-sub">
+                {it.customerPhone ? displayPhoneID(it.customerPhone) : "tanpa telepon"} · {it.packageName}
+              </div>
+              <div className="rc-meta">
+                Sales {it.salesName || "—"} · {formatDate(it.createdAt)}
+                {crossBranchVisible && it.branchId !== ownBranchId && " · Cabang lain — hanya lihat"}
+              </div>
+              <span className="rc-arrow" aria-hidden="true">&rsaquo;</span>
+            </Link>
+          ))}
+        </div>
       )}
     </>
   );

@@ -82,7 +82,7 @@ export default async function PesananBaruPage() {
         </Link>
       </div>
       <h2 className="mtitle">Pelanggan &amp; Pesanan Baru</h2>
-      <p className="small muted" style={{ marginTop: -8, marginBottom: 16 }}>
+      <p className="footnote" style={{ marginTop: 0, marginBottom: 16 }}>
         {partner.name} · Cabang {branch.name}
       </p>
       <NewOrderForm branchId={pu.branch_id} staffOptions={staffOptions} packages={packages} />

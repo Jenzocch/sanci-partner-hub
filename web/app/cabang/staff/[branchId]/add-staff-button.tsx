@@ -90,7 +90,7 @@ export default function AddStaffButton({
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
       <div className="modal" role="dialog" aria-modal="true">
         <h2>Tambah Staf</h2>
-        <div className="banner" style={{ background: "var(--accent-soft)", color: "var(--accent-2)", fontSize: 13.5 }}>
+        <div className="banner info">
           Cabang: <b>{branchName}</b> — otomatis dari halaman ini, tidak bisa dipilih.
         </div>
         {netMsg && <div className="banner warn">{netMsg}</div>}
@@ -121,7 +121,7 @@ export default function AddStaffButton({
             <button type="button" className="btn" onClick={() => setOpen(false)}>
               Batal
             </button>
-            <button type="submit" className="btn primary" disabled={submitting}>
+            <button type="submit" className="btn primary lg block" disabled={submitting}>
               {submitting ? "Menyimpan…" : "Tambah Staf"}
             </button>
           </div>

@@ -23,13 +23,15 @@ export default function AdminNav() {
         <span className="serif word">SANCI</span>
         <span className="sub">Partner Hub</span>
       </div>
-      <Link href="/admin" className={`navlink${isPartners ? " on" : ""}`}>
-        Partner
-      </Link>
+      {/* Urutan mengikuti logika pemakaian harian: pemantauan pesanan dulu,
+          pengaturan partner setelahnya. */}
       <Link href="/admin/orders" className={`navlink${isOrders ? " on" : ""}`}>
         Pesanan Partner
       </Link>
-      <button className="navlink" onClick={signOut} style={{ marginTop: "auto" }}>
+      <Link href="/admin" className={`navlink${isPartners ? " on" : ""}`}>
+        Partner
+      </Link>
+      <button className="navlink bottom" onClick={signOut}>
         Keluar
       </button>
     </nav>

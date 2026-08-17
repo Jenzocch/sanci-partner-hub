@@ -146,8 +146,8 @@ export default async function PelangganDetailPage({
       </div>
 
       <div className="card">
-        <div className="row1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-          <h2 style={{ fontSize: 19 }}>{customer.full_name}</h2>
+        <div className="spread" style={{ marginBottom: 12 }}>
+          <h2 style={{ fontSize: "var(--fs-h3)" }}>{customer.full_name}</h2>
           {canEdit && (
             <CustomerEditActions
               customer={{
@@ -177,39 +177,31 @@ export default async function PelangganDetailPage({
           <dt>Catatan</dt>
           <dd>{customer.notes || "—"}</dd>
         </dl>
-        {!canEdit && (
-          <p className="small muted" style={{ marginTop: 14 }}>
-            Pelanggan ini dibuat oleh cabang lain — hanya bisa dilihat dari sini.
-          </p>
-        )}
+        {!canEdit && <p className="footnote">Pelanggan ini dibuat oleh cabang lain — hanya bisa dilihat dari sini.</p>}
       </div>
 
-      <h3 style={{ fontSize: 16, margin: "18px 0 10px" }}>Riwayat Pesanan</h3>
+      <div className="overline">Riwayat Pesanan</div>
       {orders.length === 0 ? (
         <div className="card emptybox">Belum ada pesanan untuk pelanggan ini.</div>
       ) : (
-        orders.map((o) => {
-          const branch = one(o.partner_branches);
-          return (
-            <Link
-              key={o.id}
-              href={`/cabang/pesanan/${o.id}`}
-              className="staffcard"
-              style={{ display: "block", textDecoration: "none", color: "inherit" }}
-            >
-              <div className="row1">
-                <span className="code">{o.order_number}</span>
-                <StatusBadge status={o.status} />
-              </div>
-              <div className="rl" style={{ marginTop: 6 }}>
-                {o.package_name}
-              </div>
-              <div className="rl">
-                {branch?.name ?? "—"} · {formatDate(o.created_at)}
-              </div>
-            </Link>
-          );
-        })
+        <div className="cardlist">
+          {orders.map((o) => {
+            const branch = one(o.partner_branches);
+            return (
+              <Link key={o.id} href={`/cabang/pesanan/${o.id}`} className="reccard">
+                <div className="rc-top">
+                  <span className="code">{o.order_number}</span>
+                  <StatusBadge status={o.status} />
+                </div>
+                <div className="rc-title">{o.package_name}</div>
+                <div className="rc-sub">
+                  {branch?.name ?? "—"} · {formatDate(o.created_at)}
+                </div>
+                <span className="rc-arrow" aria-hidden="true">&rsaquo;</span>
+              </Link>
+            );
+          })}
+        </div>
       )}
     </main>
   );
