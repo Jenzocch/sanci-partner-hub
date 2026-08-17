@@ -1,5 +1,5 @@
 /* =============================================================================
-   SANCI Partner Hub — STYLE CONTRACT  (v2, 2026-08-17)
+   SANCI Partner Hub — STYLE CONTRACT  (v3 "pure navy", 2026-08-17)
    Single source of truth for the whole app. Read this header before touching
    any page: wave-2 agents must reuse these classes instead of inline styles.
 
@@ -37,50 +37,54 @@
      --fs-caption  13px               ABSOLUTE MINIMUM (timestamps, th labels)
      --fs-input    17px → 16px ≥768   form controls (≥16 stops iOS zoom)
      --lh-tight 1.2  --lh 1.5  --lh-loose 1.6
-   Colour — TWO LAYERS: navy does the work, black-gold carries the brand.
-   The canvas stays light (grey page, white cards). Black-gold is an accent
-   layer, never a site-wide dark theme.
+   Colour — ONE HUE: navy, top to bottom (palette "B · pure navy", chosen by
+   the owner 2026-08-17; replaces the previous navy + black-gold pairing).
+   There is NO gold anywhere in the product any more. The canvas stays light
+   (grey page, white cards); the brand layer is a DEEP NAVY plate with white
+   type — never a black plate, never a site-wide dark theme.
 
    (a) Neutrals — light canvas, very slightly cooled towards the navy
-     --bg #f5f5f7        page canvas
+     --bg #f6f7f9        page canvas
      --surface #fff      cards, sidebar, inputs
-     --surface2 #eff1f5  subtle fill / hover / table head
-     --surface3 #e6e9ef  deeper fill (skeletons, inset rows)
-     --ink #1b1e24       primary text
-     --ink2 #5a616e      secondary text
-     --faint #646b79     tertiary (chevrons, timestamps) — still AA on --bg
-     --line #e3e5ea      hairline border   --line2 #ccd0d9  stronger (inputs)
+     --surface2 #eef1f6  subtle fill / hover / table head
+     --surface3 #e4e8f0  deeper fill (skeletons, inset rows)
+     --ink #1a1d24       primary text
+     --ink2 #58606e      secondary text
+     --faint #5f6675     tertiary (chevrons, timestamps) — still AA on --bg
+     --line #e2e5ec      hairline border   --line2 #cbd0da  stronger (inputs)
 
    (b) NAVY = the functional colour. Primary buttons, links, CTA, selected
        state, focus ring. Nothing else in the UI is allowed to be "primary".
-     --accent #1f3f6b      navy fill (btn.primary, biglink.cta, focus outline)
-     --accent-2 #16304f    darker navy — link text, hover, on --accent-soft
-     --accent-soft #e8eef7 pale navy tint (navlink.on, note, banner.info, chip)
-     --on-accent #ffffff   text on --accent          (10.7:1)
+     --accent #24427a      navy fill (btn.primary, biglink.cta, focus outline)
+     --accent-2 #1c3563    darker navy — link text, hover, on --accent-soft
+     --accent-soft #e7edf8 pale navy tint (navlink.on, note, banner.info, chip)
+     --on-accent #ffffff   text on --accent           (9.8:1)
 
-   (c) BLACK-GOLD = the brand/prestige layer. Only .idcard, .card.accent,
-       .wordmark and the sidebar wordmark. Furniture-showroom feel: near-black
-       ground, real gold type and rules.
-     --noir #14171c        near-black brand ground
-     --noir-2 #20242c      lifted near-black — border / inner surface on noir
-     --on-noir #f4f1e8     warm off-white type on noir      (15.9:1)
-     --on-noir-2 #b9bec9   secondary type on noir            (9.7:1)
-     --brass #c9a227       TRUE gold — type and rules ON NOIR (7.4:1)
-     --brass-2 #d4af37     brighter gold — the logo chip fill
-     --brass-line          gold hairline (translucent --brass)
-     --brass-ink #6d5310   deep antique gold — gold type on LIGHT surfaces
-                           (.code chip, sidebar wordmark). Gold at full
-                           saturation can never pass AA on white; this is the
-                           on-light half of the gold pair.
-     --brass-bg #f7f0d9    light gold tint (.code chip ground)
+   (c) BRAND LAYER = deep navy + white. Only .idcard, .card.accent, .wordmark
+       and the sidebar wordmark. Same hue family as (b), two steps darker, so
+       the brand plate reads as "the same app, turned up" instead of a second
+       theme. The --noir/--brass token NAMES are kept so no page file has to
+       change; their VALUES are navy now — nothing here is black or gold.
+     --noir #16233f        deep navy brand ground (was near-black)
+     --noir-2 #1e2f52      lifted navy — inner surface / nested cards on noir
+     --on-noir #ffffff     PURE WHITE type on the brand plate      (15.6:1)
+     --on-noir-2 #9fb2d4   steel-blue secondary type on noir        (7.3:1)
+     --brass #c6d8f5       ice-blue brand highlight ON NOIR (10.8:1) — the
+                           branch line, the SANCI chip. Was true gold.
+     --brass-2 #ffffff     white — the logo chip fill (navy letters on white)
+     --brass-line          white hairline at 16% — the plate's foil-thin edge
+     --brass-ink #1c3563   deep navy — brand type on LIGHT surfaces
+                           (.code chip, sidebar wordmark). Was antique gold.
+     --brass-bg #e8ecf3    blue-grey tint (.code chip ground)
 
      .idcard / .card.accent re-map --surface/--ink/--line/--accent/semantics
      to their on-noir values, so a .btn, .banner, .chip, .code or .skeleton
      dropped inside them stays legible with ZERO page-level markup change.
 
-   (d) Semantics — hue-nudged towards the navy so nothing looks fluorescent
-     --ok #146c3a / --ok-bg #e6f2e9      --warn #8a5a12 / --warn-bg #f8eeda
-     --bad #b3261e / --bad-bg #fbeceb    --off #5a6070 / --off-bg #eaebf0
+   (d) Semantics — carried over unchanged in role, hue-nudged to sit with the
+       new navy so nothing looks fluorescent
+     --ok #166339 / --ok-bg #e5f0e8      --warn #8f4a14 / --warn-bg #f8ebe0
+     --bad #ad271f / --bad-bg #faeceb    --off #5a6070 / --off-bg #e9ebf1
      All four pass AA (≥5:1) against both their own -bg and --surface.
    Shape / depth / motion / metrics
      --r-sm 8  --r-md 10  --r-lg 14  --r-xl 20  --r-pill 999
@@ -131,7 +135,7 @@
    Headings / labels
      .sectiontitle    20–22px section heading with correct top rhythm
      .overline        13px uppercase group label above a list
-     .wordmark        SANCI serif wordmark — gold letters on a near-black
+     .wordmark        SANCI serif wordmark — white letters on a deep-navy
                       plate (brand layer). inline-block, so .authcard.center
                       still centres it. Never restyle it per page.
      .footnote        15px muted closing note at the bottom of a page
@@ -166,7 +170,7 @@
      .chip.ok/.warn/.bad/.neutral/.accent   semantic chips — StatusBadge should
                       switch to these instead of inline background/color.
      .skeleton        loading placeholder block for loading.tsx routes
-     .card.accent     highlighted card — BLACK-GOLD brand layer, same ground as
+     .card.accent     highlighted card — DEEP-NAVY brand layer, same ground as
                       .idcard (replaces the inline accent-soft card style in
                       admin/orders/[orderId]/page.tsx). Anything nested inside
                       it inherits the on-noir token remap (§1b), so drop normal
@@ -208,23 +212,23 @@
   --fs-input:17px;
   --lh-tight:1.2; --lh:1.5; --lh-loose:1.6;
 
-  --bg:#f5f5f7; --surface:#ffffff; --surface2:#eff1f5; --surface3:#e6e9ef;
-  --ink:#1b1e24; --ink2:#5a616e; --faint:#646b79;
-  --line:#e3e5ea; --line2:#ccd0d9;
-  --accent:#1f3f6b; --accent-2:#16304f; --accent-soft:#e8eef7; --on-accent:#ffffff;
-  --noir:#14171c; --noir-2:#20242c; --on-noir:#f4f1e8; --on-noir-2:#b9bec9;
-  --brass:#c9a227; --brass-2:#d4af37; --brass-line:rgba(201,162,39,.45);
-  --brass-ink:#6d5310; --brass-bg:#f7f0d9;
-  --ok:#146c3a; --ok-bg:#e6f2e9;
-  --warn:#8a5a12; --warn-bg:#f8eeda;
-  --bad:#b3261e; --bad-bg:#fbeceb;
-  --off:#5a6070; --off-bg:#eaebf0;
+  --bg:#f6f7f9; --surface:#ffffff; --surface2:#eef1f6; --surface3:#e4e8f0;
+  --ink:#1a1d24; --ink2:#58606e; --faint:#5f6675;
+  --line:#e2e5ec; --line2:#cbd0da;
+  --accent:#24427a; --accent-2:#1c3563; --accent-soft:#e7edf8; --on-accent:#ffffff;
+  --noir:#16233f; --noir-2:#1e2f52; --on-noir:#ffffff; --on-noir-2:#9fb2d4;
+  --brass:#c6d8f5; --brass-2:#ffffff; --brass-line:rgba(255,255,255,.16);
+  --brass-ink:#1c3563; --brass-bg:#e8ecf3;
+  --ok:#166339; --ok-bg:#e5f0e8;
+  --warn:#8f4a14; --warn-bg:#f8ebe0;
+  --bad:#ad271f; --bad-bg:#faeceb;
+  --off:#5a6070; --off-bg:#e9ebf1;
 
   --r-sm:8px; --r-md:10px; --r-lg:14px; --r-xl:20px; --r-pill:999px;
   --shadow-xs:0 1px 2px rgba(0,0,0,.04);
   --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.045);
   --shadow-lg:0 10px 30px rgba(0,0,0,.12),0 30px 70px rgba(0,0,0,.14);
-  --ring:0 0 0 4px rgba(31,63,107,.20);
+  --ring:0 0 0 4px rgba(36,66,122,.20);
 
   --dur:.18s; --ease:cubic-bezier(.32,.72,0,1);
   --tap:44px; --side-w:240px; --main-max:1760px; --form-max:720px; --read-max:560px;
@@ -238,22 +242,24 @@
   }
 }
 
-/* Dark mode. The navy is lifted one step so it still reads as navy (and stays
-   AA) against a black canvas; the gold gets brighter because gold on a dark
-   ground is the whole point of the brand layer. Same token names throughout. */
+/* Dark mode. The functional navy is lifted one step so it still reads as navy
+   (and stays AA with white on it) against a black canvas; the brand plate goes
+   the other way — it LIGHTENS to #1d2c4d, because a #16233f plate on a black
+   page would disappear. Type on the plate stays pure white. Same token names
+   throughout; still zero gold. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#000000; --surface:#15171b; --surface2:#1e2126; --surface3:#282c33;
     --ink:#f2f4f8; --ink2:#a3aab8; --faint:#868e9d;
     --line:#292d34; --line2:#3d434d;
-    --accent:#3c6aa8; --accent-2:#89b4ea; --accent-soft:#152a45; --on-accent:#ffffff;
-    --noir:#0f1115; --noir-2:#242932; --on-noir:#f4f1e8; --on-noir-2:#b9bec9;
-    --brass:#e0be55; --brass-2:#efd67e; --brass-line:rgba(224,190,85,.45);
-    --brass-ink:#e6c65f; --brass-bg:#2e2712;
+    --accent:#3c6aa8; --accent-2:#8fb8ee; --accent-soft:#172a46; --on-accent:#ffffff;
+    --noir:#1d2c4d; --noir-2:#243459; --on-noir:#ffffff; --on-noir-2:#9fb2d4;
+    --brass:#c6d8f5; --brass-2:#ffffff; --brass-line:rgba(255,255,255,.18);
+    --brass-ink:#9fb8e4; --brass-bg:#1e2b47;
     --ok:#54cf8a; --ok-bg:#10301f;
-    --warn:#e8b955; --warn-bg:#332a12;
+    --warn:#ef9f5e; --warn-bg:#3a2313;
     --bad:#ff7a6b; --bad-bg:#3a1a17;
-    --off:#9aa2b1; --off-bg:#252932;
+    --off:#9aa2b1; --off-bg:#232833;
     --shadow-xs:0 1px 2px rgba(0,0,0,.5);
     --shadow:0 1px 2px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.45);
     --shadow-lg:0 10px 30px rgba(0,0,0,.6),0 30px 70px rgba(0,0,0,.6);
@@ -264,47 +270,48 @@
   --bg:#000000; --surface:#15171b; --surface2:#1e2126; --surface3:#282c33;
   --ink:#f2f4f8; --ink2:#a3aab8; --faint:#868e9d;
   --line:#292d34; --line2:#3d434d;
-  --accent:#3c6aa8; --accent-2:#89b4ea; --accent-soft:#152a45; --on-accent:#ffffff;
-  --noir:#0f1115; --noir-2:#242932; --on-noir:#f4f1e8; --on-noir-2:#b9bec9;
-  --brass:#e0be55; --brass-2:#efd67e; --brass-line:rgba(224,190,85,.45);
-  --brass-ink:#e6c65f; --brass-bg:#2e2712;
+  --accent:#3c6aa8; --accent-2:#8fb8ee; --accent-soft:#172a46; --on-accent:#ffffff;
+  --noir:#1d2c4d; --noir-2:#243459; --on-noir:#ffffff; --on-noir-2:#9fb2d4;
+  --brass:#c6d8f5; --brass-2:#ffffff; --brass-line:rgba(255,255,255,.18);
+  --brass-ink:#9fb8e4; --brass-bg:#1e2b47;
   --ok:#54cf8a; --ok-bg:#10301f;
-  --warn:#e8b955; --warn-bg:#332a12;
+  --warn:#ef9f5e; --warn-bg:#3a2313;
   --bad:#ff7a6b; --bad-bg:#3a1a17;
-  --off:#9aa2b1; --off-bg:#252932;
+  --off:#9aa2b1; --off-bg:#232833;
   --shadow-xs:0 1px 2px rgba(0,0,0,.5);
   --shadow:0 1px 2px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.45);
   --shadow-lg:0 10px 30px rgba(0,0,0,.6),0 30px 70px rgba(0,0,0,.6);
   --ring:0 0 0 4px rgba(60,106,168,.38);
 }
 
-/* ── 1b. Brand layer scope (black + gold) ──────────────────────────────────
-   .idcard and .card.accent are the only near-black surfaces in the app. Rather
+/* ── 1b. Brand layer scope (deep navy + white) ─────────────────────────────
+   .idcard and .card.accent are the only deep-navy surfaces in the app. Rather
    than restyling every child, they RE-DECLARE the surface tokens locally: a
    .btn, .banner, .chip, .code, .skeleton or an inline `var(--accent-2)` that a
    page already renders inside them resolves against the on-noir values, so no
    page file has to change and nothing can end up dark-on-dark. The block is
-   identical in light and dark mode — the brand layer is always black-gold. */
+   identical in light and dark mode — the brand layer is always deep navy with
+   white type. Every value below is a navy or a semantic; no gold, ever. */
 .idcard,.card.accent{
   --surface:var(--noir-2);
-  --surface2:#2a2f39;
-  --surface3:#2a2f39;
+  --surface2:#2a3c63;
+  --surface3:#2a3c63;
   --ink:var(--on-noir);
   --ink2:var(--on-noir-2);
   --faint:var(--on-noir-2);
-  --line:#2c323c;
-  --line2:#3b424e;
-  --accent:#6f9fdd;
-  --accent-2:#9ec1f0;
-  --accent-soft:#1c2c44;
-  --on-accent:#0b1626;
+  --line:#2c3f66;
+  --line2:#3c527f;
+  --accent:#7ba2e0;
+  --accent-2:#a9c6f2;
+  --accent-soft:#22345a;
+  --on-accent:#0d1830;
   --brass-ink:var(--brass);
-  --brass-bg:#2e2712;
-  --ok:#54cf8a; --ok-bg:#10301f;
-  --warn:#e8b955; --warn-bg:#332a12;
-  --bad:#ff7a6b; --bad-bg:#3a1a17;
-  --off:#9aa2b1; --off-bg:#252932;
-  --ring:0 0 0 4px rgba(201,162,39,.28);
+  --brass-bg:#22345a;
+  --ok:#54cf8a; --ok-bg:#133525;
+  --warn:#ef9f5e; --warn-bg:#402a17;
+  --bad:#ff8f82; --bad-bg:#4a1f1c;
+  --off:#a8b0bf; --off-bg:#2c3a55;
+  --ring:0 0 0 4px rgba(159,178,212,.30);
   color:var(--on-noir);
 }
 
@@ -335,13 +342,13 @@ img,svg{max-width:100%}
 .muted{color:var(--ink2)}
 .small{font-size:var(--fs-sec)}
 .sub{color:var(--ink2)}
-/* The SANCI mark is the brand layer in its smallest form: gold serif letters
-   on a near-black plate. inline-block so .authcard.center can still centre it. */
+/* The SANCI mark is the brand layer in its smallest form: white serif letters
+   on a deep-navy plate. inline-block so .authcard.center can still centre it. */
 .wordmark{
   display:inline-block;
   font-family:var(--font-serif);font-size:var(--fs-sec);font-weight:600;
   letter-spacing:.16em;text-transform:uppercase;
-  color:var(--brass);background:var(--noir);
+  color:var(--on-noir);background:var(--noir);
   border:1px solid var(--brass-line);border-radius:var(--r-sm);
   padding:5px 10px 5px 13px;margin-bottom:14px;
 }
@@ -514,8 +521,9 @@ img,svg{max-width:100%}
   display:flex;flex-direction:column;gap:2px;
 }
 .side .brand{display:flex;flex-direction:column;gap:1px;padding:2px 12px 22px}
-/* Gold-on-light half of the gold pair — a full-saturation gold could never
-   pass AA on the white rail, --brass-ink is the deep antique gold that can. */
+/* On-light half of the brand pair — the plate colour itself is too dark to
+   read as "brand" without its ground, so the rail wordmark uses --brass-ink,
+   the deep navy that carries the mark on a white surface (12.1:1). */
 .side .brand .word{font-size:20px;font-weight:700;letter-spacing:.04em;color:var(--brass-ink)}
 .side .brand .sub{font-size:var(--fs-caption);color:var(--ink2);letter-spacing:.01em}
 .navlink{
@@ -619,7 +627,7 @@ tr:last-child td{border-bottom:none}
   border-radius:var(--r-lg);box-shadow:var(--shadow);
   padding:22px;margin-bottom:16px;
 }
-/* Highlighted card — brand layer (see §1b), same black-gold as .idcard. */
+/* Highlighted card — brand layer (see §1b), same deep navy as .idcard. */
 .card.accent{background:var(--noir);border-color:var(--brass-line)}
 .cardgrid-two{display:grid;gap:18px}
 @media (min-width:1100px){ .cardgrid-two{grid-template-columns:360px 1fr} }
@@ -679,8 +687,8 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 }
 @media (min-width:1200px){ .pwrap{max-width:720px} }
 
-/* Identity card — the brand layer (see §1b): near-black ground, gold type and
-   a foil-thin gold rule so the card still reads as "brand" on a black canvas. */
+/* Identity card — the brand layer (see §1b): deep-navy ground, white type and
+   a foil-thin white rule so the card still reads as "brand" on a dark canvas. */
 .idcard{
   border-radius:var(--r-xl);background:var(--noir);
   border:1px solid var(--brass-line);box-shadow:var(--shadow);
@@ -742,7 +750,7 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 .biglink.cta{
   background:var(--accent);border-color:var(--accent);color:var(--on-accent);
   min-height:60px;font-size:calc(var(--fs-body) + 2px);font-weight:650;
-  box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 22px rgba(31,63,107,.24);
+  box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 22px rgba(36,66,122,.24);
 }
 .biglink.cta:hover{background:var(--accent-2);border-color:var(--accent-2)}
 .biglink.cta .arrow{color:var(--on-accent);opacity:.8}

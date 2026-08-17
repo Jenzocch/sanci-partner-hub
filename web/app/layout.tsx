@@ -19,7 +19,7 @@ export const viewport: Viewport = {
   // Warna bilah browser mengikuti kanvas halaman, bukan warna merek — supaya
   // batas antara aplikasi dan sistem tidak terlihat.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f7" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f7f9" },
     { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
   width: "device-width",

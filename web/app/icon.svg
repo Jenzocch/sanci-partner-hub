@@ -1,6 +1,6 @@
 <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <rect width="64" height="64" rx="14.08" fill="#14171c"/>
+    <rect width="64" height="64" rx="14.08" fill="#16233f"/>
     <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle"
       font-family="Georgia, 'Iowan Old Style', serif" font-weight="700"
-      font-size="33.28" fill="#c9a227">S</text>
+      font-size="33.28" fill="#ffffff">S</text>
   </svg>
