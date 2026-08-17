@@ -127,7 +127,7 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | P2-24 | 目錄開關（每 Partner） | `UNVERIFIED` | Partner 詳情頁權限分頁的「Katalog Produk SANCI」toggle；無列＝關（fail-closed——選配功能與 0006 的核心路徑 fail-open 相反，刻意）；audit 記 CATALOG_ACCESS_* |
 | P2-25 | 目錄瀏覽（cabang `/cabang/produk`） | `UNVERIFIED` | 手機照片網格＋搜尋＋kategori 篩選＋詳情 modal；缺貨灰化照常顯示（誠實告知）；「未開通」（提示聯繫 SANCI）與「空目錄」分開顯示；INACTIVE 產品對分店即時消失；零價格 |
 
-**Migration `0010_sanci_product_catalog.sql` 狀態**：已寫好＋本機行為測試 9 組全過（A–I：CRUD/未開通/開通/關閉/零寫入/storage/舊 bucket 不動/audit/回歸），四套既往測試逐字零回歸、冪等×3。**未在 production 執行；必須在 0009 之後跑**。期望數字 46 項，關鍵負面斷言：PRODUCT_NO_PARTNER_COLUMN 0 / PRODUCT_NO_PRICE_COLUMN 0 / PRODUCT_NO_STOCK_QTY_COLUMN 0 / PRODUCT_PARTNER_WRITE_POLICIES 0 / ACCESS_PARTNER_WRITE_POLICIES 0；PHOTO_BUCKET_PUBLIC **true**（產品照公開＝刻意，行銷素材；目錄「清單」仍被 RLS 擋——已知邊界：拿到照片網址的人可直開）。0010 後 0001 數字：RLS_ENABLED 16 / POLICIES 35。storage 的 5MB/MIME/公開讀實效仍需 production 驗證。
+**Migration `0010_sanci_product_catalog.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-17 Jenzo 執行成功並回貼，46 項數字與期望完全相符（含全部負面斷言與九個 audit 保留斷言）。**0001–0010 全鏈至此皆已在 production 套用並驗證。**本機行為測試 9 組先前全過、四套既往測試逐字零回歸、冪等×3。期望數字 46 項，關鍵負面斷言：PRODUCT_NO_PARTNER_COLUMN 0 / PRODUCT_NO_PRICE_COLUMN 0 / PRODUCT_NO_STOCK_QTY_COLUMN 0 / PRODUCT_PARTNER_WRITE_POLICIES 0 / ACCESS_PARTNER_WRITE_POLICIES 0；PHOTO_BUCKET_PUBLIC **true**（產品照公開＝刻意，行銷素材；目錄「清單」仍被 RLS 擋——已知邊界：拿到照片網址的人可直開）。0010 後 0001 數字：RLS_ENABLED 16 / POLICIES 35。storage 的 5MB/MIME/公開讀實效仍需 production 驗證。
 
 ### UI 全面改版（Apple 風設計系統 v2，2026-08-17，Jenzo 指示）
 
