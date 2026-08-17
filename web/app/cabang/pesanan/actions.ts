@@ -32,6 +32,8 @@ import {
 import {
   isMissingTableError,
   normalizePhoneID,
+  parseIDRInput,
+  type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
 
@@ -195,6 +197,100 @@ async function updateOrderWithPackageFallback(
     return safeWrite(supabase.from("partner_orders").update(base).eq("id", orderId).select("id").maybeSingle());
   }
   return first;
+}
+
+/* ------------------------------------------------------------------ *
+ * Jalur Pesanan + Total Belanja (partner_purchase_amount) — migration
+ * 0009 (Fase ini). Sepupu package_id: kolom boleh belum ada di server saat
+ * kode ini naik (LESSONS #12) — insert/update dicoba dulu DENGAN kolom ini,
+ * dan hanya kalau Postgres menjawab 42703 baru dicoba ulang TANPA kolom ini
+ * (insertOrderWithFallbacks / updateOrderWithFallbacks di bawah).
+ * ------------------------------------------------------------------ */
+
+/**
+ * `required=true` dipakai saat BUAT BARU (SPEC: wajib pilih salah satu).
+ * `required=false` dipakai saat UBAH — field ini bisa saja tidak dirender di
+ * form (kolom belum ada di server session ini), dan FormData akan mengirim
+ * string kosong; itu TIDAK boleh dianggap error validasi pengguna.
+ */
+function validateFulfillmentPath(
+  raw: string | undefined,
+  required: boolean
+): { ok: true; value: FulfillmentPath | null } | { ok: false; error: ActionError } {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) {
+    if (required) {
+      return { ok: false, error: { field: "fulfillment_path", message: "Pilih jalur pesanan" } };
+    }
+    return { ok: true, value: null };
+  }
+  if (trimmed !== "DIRECT_DELIVERY" && trimmed !== "SHOWROOM_VISIT") {
+    return { ok: false, error: { field: "fulfillment_path", message: "Jalur pesanan tidak valid." } };
+  }
+  return { ok: true, value: trimmed as FulfillmentPath };
+}
+
+/**
+ * Kolom DB-nya `numeric(15,2)` (migration 0009) — muat paling besar
+ * Rp 9.999.999.999.999, sedangkan parseIDRInput() sendiri masih menerima
+ * sampai Rp 99.999.999.999.999. Diperiksa di sini SUPAYA insert/update tidak
+ * pernah sampai memicu 22003 dari Postgres — pengguna tidak boleh melihat
+ * kode error mentah (catatan eksplisit di migration 0009).
+ */
+const MAX_PURCHASE_AMOUNT = 9_999_999_999_999;
+
+/**
+ * Angka dihitung ulang di server dari string mentah lewat parseIDRInput —
+ * satu-satunya sumber kebenaran (orders-shared.ts), tidak percaya angka yang
+ * sudah diformat/dihitung di client (SPEC §8 turunan, LESSONS #6).
+ */
+function validatePurchaseAmount(
+  raw: string | undefined
+): { ok: true; value: number | null } | { ok: false; error: ActionError } {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return { ok: true, value: null };
+  const n = parseIDRInput(trimmed);
+  if (n === null || n > MAX_PURCHASE_AMOUNT) {
+    return {
+      ok: false,
+      error: { field: "partner_purchase_amount", message: "Jumlah belanja tidak valid." },
+    };
+  }
+  return { ok: true, value: n };
+}
+
+/** Sepupu insertOrderWithPackageFallback, khusus kolom fulfillment_path/partner_purchase_amount. */
+async function insertOrderWithFallbacks(
+  supabase: SupabaseServerClient,
+  base: Record<string, unknown>,
+  packageId: string | null | undefined,
+  fulfillmentCols: Record<string, unknown>
+) {
+  const withFulfillment = { ...base, ...fulfillmentCols };
+  let res = await insertOrderWithPackageFallback(supabase, withFulfillment, packageId);
+  if (!res.ok && res.reason === "db" && isMissingColumnError({ code: res.code })) {
+    // package_id tetap dicoba lewat fallback internal di percobaan kedua ini —
+    // supaya kombinasi "package_id ada, fulfillment belum ada" (atau sebaliknya)
+    // sama-sama tertangani, bukan cuma satu arah.
+    res = await insertOrderWithPackageFallback(supabase, base, packageId);
+  }
+  return res;
+}
+
+/** Sepupu updateOrderWithPackageFallback untuk UPDATE, pola sama seperti di atas. */
+async function updateOrderWithFallbacks(
+  supabase: SupabaseServerClient,
+  orderId: string,
+  base: Record<string, unknown>,
+  packageId: string | null | undefined,
+  fulfillmentCols: Record<string, unknown>
+) {
+  const withFulfillment = { ...base, ...fulfillmentCols };
+  let res = await updateOrderWithPackageFallback(supabase, orderId, withFulfillment, packageId);
+  if (!res.ok && res.reason === "db" && isMissingColumnError({ code: res.code })) {
+    res = await updateOrderWithPackageFallback(supabase, orderId, base, packageId);
+  }
+  return res;
 }
 
 type CustomerLite = { id: string; full_name: string; phone: string };
@@ -484,6 +580,8 @@ export async function createCustomerAndOrder(input: {
   salesStaffId: string;
   picStaffId?: string;
   notes?: string;
+  fulfillmentPath: string;
+  purchaseAmountRaw?: string;
   clientRequestId: string;
 }): Promise<CreateOrderResult> {
   const supabase = await createClient();
@@ -506,6 +604,13 @@ export async function createCustomerAndOrder(input: {
     packagesAvailable: input.packagesAvailable,
   });
   if (!pkg.ok) return { error: pkg.error };
+
+  // Jalur pesanan wajib dipilih untuk order baru; jumlah belanja opsional.
+  const path = validateFulfillmentPath(input.fulfillmentPath, true);
+  if (!path.ok) return { error: path.error };
+  const amount = validatePurchaseAmount(input.purchaseAmountRaw);
+  if (!amount.ok) return { error: amount.error };
+
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: "Sales wajib dipilih." } };
 
   const salesOk = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
@@ -544,7 +649,7 @@ export async function createCustomerAndOrder(input: {
   if (preExistingOrder) {
     orderId = preExistingOrder.id;
   } else {
-    const written = await insertOrderWithPackageFallback(
+    const written = await insertOrderWithFallbacks(
       supabase,
       {
         customer_id: customer.id,
@@ -557,7 +662,8 @@ export async function createCustomerAndOrder(input: {
         created_by: identity.userId,
         client_request_id: orderReqId,
       },
-      pkg.packageId
+      pkg.packageId,
+      { fulfillment_path: path.value, partner_purchase_amount: amount.value }
     );
 
     if (written.ok) {
@@ -666,6 +772,8 @@ export async function updateOrder(input: {
   salesStaffId: string;
   picStaffId?: string;
   notes?: string;
+  fulfillmentPath?: string;
+  purchaseAmountRaw?: string;
 }): Promise<UpdateOrderResult> {
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
@@ -687,6 +795,24 @@ export async function updateOrder(input: {
     packagesAvailable: input.packagesAvailable,
   });
   if (!pkg.ok) return { error: pkg.error };
+
+  // `undefined` (kunci sama sekali tidak dikirim) berarti field ini TIDAK
+  // dirender di modal Ubah (kolomnya belum tersedia di sesi ini —
+  // extrasAvailable=false di halaman detail): kolom itu tidak boleh disentuh
+  // sama sekali, apalagi ditimpa null. String kosong yang benar-benar
+  // dikirim (field dirender tapi tidak dipilih) tetap boleh menyimpan null.
+  const fulfillmentCols: Record<string, unknown> = {};
+  if (input.fulfillmentPath !== undefined) {
+    const path = validateFulfillmentPath(input.fulfillmentPath, false);
+    if (!path.ok) return { error: path.error };
+    fulfillmentCols.fulfillment_path = path.value;
+  }
+  if (input.purchaseAmountRaw !== undefined) {
+    const amount = validatePurchaseAmount(input.purchaseAmountRaw);
+    if (!amount.ok) return { error: amount.error };
+    fulfillmentCols.partner_purchase_amount = amount.value;
+  }
+
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: "Sales wajib dipilih." } };
 
   // Staf diverifikasi terhadap cabang PESANAN (bisa beda dari cabang login saat
@@ -707,7 +833,7 @@ export async function updateOrder(input: {
   // UPDATE hanya kolom yang diizinkan (SPEC §37) + .select() supaya bisa
   // dipastikan ada baris yang benar-benar berubah — bukan cuma percaya respons
   // "tidak ada error" (LESSONS #7). RLS menolak dengan 0 baris, bukan error.
-  const written = await updateOrderWithPackageFallback(
+  const written = await updateOrderWithFallbacks(
     supabase,
     input.orderId,
     {
@@ -716,7 +842,8 @@ export async function updateOrder(input: {
       partner_pic_staff_id: picStaffId,
       notes: input.notes?.trim() || null,
     },
-    pkg.packageId
+    pkg.packageId,
+    fulfillmentCols
   );
 
   if (!written.ok) {
@@ -786,4 +913,98 @@ export async function cancelOrder(input: {
   revalidatePath("/cabang/pesanan");
   revalidatePath(`/cabang/pesanan/${input.orderId}`);
   return { data: { cancelled: true } };
+}
+
+/* ------------------------------------------------------------------ *
+ * Invoice (bucket privat `order-invoices`, kolom invoice_url — migration
+ * 0009, Fase ini). Berkas diunggah dari BROWSER (pola sama dengan logo
+ * partner, lib/partner-logo pattern), server ini hanya MENCATAT alamatnya —
+ * dan zero-trust: alamat dari client diperiksa dulu, bukan langsung dipercaya
+ * (LESSONS #6, sepupu setPartnerLogo).
+ * ------------------------------------------------------------------ */
+
+const INVOICE_GAGAL_CATAT = "Invoice gagal diunggah — data pesanan tetap tersimpan.";
+
+export type SetInvoiceResult = { data: { updated: true } } | { error: ActionError };
+
+/**
+ * Mencatat path invoice yang SUDAH diunggah client ke storage. Path WAJIB
+ * berbentuk `<orderId>/<namaBerkas>` — kalau tidak, ditolak (path dari
+ * bucket lain / order lain tidak pernah dipercaya begitu saja).
+ */
+export async function setOrderInvoicePath(input: {
+  orderId: string;
+  path: string;
+}): Promise<SetInvoiceResult> {
+  const supabase = await createClient();
+  const idOutcome = await getIdentity(supabase);
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+
+  const prefix = `${input.orderId}/`;
+  if (!input.path.startsWith(prefix) || input.path.includes("..")) {
+    return { error: { message: "Alamat invoice tidak dikenali." } };
+  }
+
+  const found = await fetchOrderForMutation(supabase, input.orderId);
+  if (!found.ok) return { error: found.error };
+  // UI menyembunyikan tombol unggah untuk order yang sudah dibatalkan, tapi
+  // itu saja bukan pengaman (LESSONS #5) — diperiksa ulang di sini juga.
+  if (found.order.status !== "REGISTERED") {
+    return { error: { message: "Pesanan ini sudah dibatalkan dan tidak bisa diubah lagi." } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("partner_orders")
+      .update({ invoice_url: input.path })
+      .eq("id", input.orderId)
+      .select("id")
+      .maybeSingle()
+  );
+
+  if (!written.ok) {
+    return {
+      error: {
+        message: updateFailureMessage(written, INVOICE_GAGAL_CATAT),
+      },
+    };
+  }
+
+  revalidatePath(`/cabang/pesanan/${input.orderId}`);
+  return { data: { updated: true } };
+}
+
+export type InvoiceSignedUrlResult =
+  | { status: "ok"; url: string }
+  | { status: "none" }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+/**
+ * Bucket `order-invoices` PRIVAT — tidak pernah getPublicUrl. Signed URL
+ * dibuat baru setiap dipanggil (berlaku 1 jam) supaya tautan yang sudah
+ * lama terbuka di layar tidak diam-diam kedaluwarsa tanpa cara memuat ulang.
+ */
+export async function getOrderInvoiceSignedUrl(orderId: string): Promise<InvoiceSignedUrlResult> {
+  const supabase = await createClient();
+  const idOutcome = await getIdentity(supabase);
+  if (idOutcome.status !== "ok") return { status: "error" };
+
+  // Dibaca terpisah dari query utama (pola sama dengan fetchCancelInfo /
+  // fetchOrderPackageId di halaman detail): kolom belum ada → 42703, halaman
+  // tetap harus jalan, fitur invoice cukup disembunyikan diam-diam.
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("invoice_url")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return error.code === "42703" ? { status: "unavailable" } : { status: "error" };
+  const path = (data as { invoice_url: string | null } | null)?.invoice_url ?? null;
+  if (!path) return { status: "none" };
+
+  const { data: signed, error: signErr } = await supabase.storage
+    .from("order-invoices")
+    .createSignedUrl(path, 3600);
+  if (signErr || !signed?.signedUrl) return { status: "error" };
+  return { status: "ok", url: signed.signedUrl };
 }

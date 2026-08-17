@@ -104,6 +104,19 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 
 **Migration `0008_packages_customer_edit_attribution.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-17 Jenzo 執行成功並回貼，23 項數字與期望完全相符（含三個刻意為 0 的負面斷言：PACKAGE_WRITE_POLICIES / RPC_EXEC_ANON / CUSTOMER_DELETE_POLICY）。**至此 0001–0008 全部已在 production 套用**。本機測試（38 項、矩陣零回歸、冪等×4）先前已全過。內容：partner_packages 表＋orders.package_id（含 fn_check_order_refs 驗 package 歸屬——RLS 管不到欄位內容，防 POST 別家 package id）＋customers 分店 UPDATE policy 與不可變欄位守衛＋`fn_correct_order_attribution` RPC。**已知缺口（記錄於檔內）**：phone_normalized 守衛只擋空值、擋不了「過期值」——鐵則：任何動 phone 的 Server Action 必須同時送重算好的 phone_normalized（現有 action 已遵守）。**未在 production 執行；必須在 0007 之後跑。**
 
+### Phase 2 第四切片（訂單路徑 + Invoice + 到店標記 + SANCI 內部備註，2026-08-17，Jenzo 定案）
+
+商業規則（Jenzo 原話翻譯）：分店建單分兩路——①客戶已在店購買 SANCI 商品→直接出貨；②客戶會來 SANCI 看其他產品（到店選品，Phase 3 的地基現在先做標記與到店紀錄）。分店回報客戶在店消費金額/上傳 invoice，SANCI **人工**判斷對應方案（系統不算折扣不碰定價）；判斷結果記在分店永遠看不到的內部備註。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-19 | Jalur Pesanan（DIRECT_DELIVERY/SHOWROOM_VISIT） | `UNVERIFIED` | 建單必選（卡片式雙選項）；可編輯；admin 列表有欄位＋篩選 |
+| P2-20 | 消費金額＋Invoice 上傳 | `UNVERIFIED` | 金額選填（IDR 即時格式化，上限對齊 DB numeric(15,2)）；invoice 進**私有** bucket `order-invoices`（分店只能傳自己可編輯訂單的、看自己可見的；顯示走 signed URL）；上傳失敗不拖垮訂單（比照 logo 模式） |
+| P2-21 | 到店標記（情境② 現在做的部分） | `UNVERIFIED` | admin 按「Tandai Pelanggan Sudah Tiba」；時間/操作者 server 強制（假值被覆寫，本機測試 T04）；分店連建單夾帶都被 DB 拒（T03）；分店端顯示綠色「已到店」banner；audit 記 ORDER_CUSTOMER_ARRIVED |
+| P2-22 | SANCI 內部備註 | `UNVERIFIED` | `order_internal_notes`：**分店零 policy（連 SELECT 都沒有，本機 N05–N06b 含最寬權限帳號全 0 列）**；append-only（admin 也不能改/刪）；含 client_request_id 防弱網重複（整合時補上並實測 unique 擋下） |
+
+**Migration `0009_fulfillment_invoice_arrival.sql` 狀態**：已寫好＋本機行為測試 74 案全過＋整合補丁（notes 防重複欄位）後全鏈重建與冪等重驗通過。**未在 production 執行；必須在 0008 之後跑**。期望驗證數字 36 項，關鍵：INVOICE_BUCKET_PUBLIC **false** / NOTES_NON_ADMIN_POLICIES **0** / NOTES_UPDATE_DELETE_POLICIES **0** / NOTES_IDEMPOTENCY_KEY 1 / ORDER_NEW_COLS_NOT_FROZEN 1。⚠️ 0009 後舊檔數字：0001 RLS_ENABLED 14 / POLICIES 31 / TRIGGERS 23；0004 TRIGGERS 12；0005 ORDER_TRIGGERS 8（詳見 migrations/README.md）。**storage 的 5MB/MIME 限制與私有 bucket 的 signed URL 行為只能在真 Supabase 驗**（本機 shim 測不到，已標註）。已知過渡限制：0009 未跑前，建單表單填的路徑/金額會被 42703 降級靜默丟棄（欄位不存在無處可存）——跑完 0009 即消失。
+
 ### UI 全面改版（Apple 風設計系統 v2，2026-08-17，Jenzo 指示）
 
 | 項目 | 狀態 | 說明 |

@@ -6,12 +6,20 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
+import {
+  formatIDR,
+  parseIDRInput,
+  FULFILLMENT_PATH_DESC,
+  FULFILLMENT_PATH_LABEL,
+  type FulfillmentPath,
+} from "@/lib/orders-shared";
 import { updateOrder, cancelOrder } from "../actions";
 
 export type StaffOption = { id: string; fullName: string; role: string };
 export type PackageOption = { id: string; name: string };
 /** Value <option> khusus untuk "Lainnya (ketik manual)" — bukan id package sungguhan. */
 const PACKAGE_MANUAL = "__manual__";
+const FULFILLMENT_PATHS: FulfillmentPath[] = ["DIRECT_DELIVERY", "SHOWROOM_VISIT"];
 
 const CANCEL_REASONS = [
   "Pelanggan membatalkan pembelian",
@@ -31,6 +39,9 @@ export default function OrderDetailActions({
   picStaffId,
   notes,
   staffOptions,
+  fulfillmentPath,
+  purchaseAmount,
+  extrasAvailable,
 }: {
   orderId: string;
   orderNumber: string;
@@ -42,6 +53,9 @@ export default function OrderDetailActions({
   picStaffId: string | null;
   notes: string | null;
   staffOptions: StaffOption[];
+  fulfillmentPath: FulfillmentPath | null;
+  purchaseAmount: number | null;
+  extrasAvailable: boolean;
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<null | "edit" | "cancel">(null);
@@ -67,6 +81,9 @@ export default function OrderDetailActions({
           picStaffId={picStaffId}
           notes={notes}
           staffOptions={staffOptions}
+          fulfillmentPath={fulfillmentPath}
+          purchaseAmount={purchaseAmount}
+          extrasAvailable={extrasAvailable}
           onClose={() => setModal(null)}
           onSaved={() => {
             setModal(null);
@@ -104,6 +121,9 @@ function EditOrderModal({
   picStaffId,
   notes,
   staffOptions,
+  fulfillmentPath,
+  purchaseAmount,
+  extrasAvailable,
   onClose,
   onSaved,
 }: {
@@ -115,6 +135,9 @@ function EditOrderModal({
   picStaffId: string | null;
   notes: string | null;
   staffOptions: StaffOption[];
+  fulfillmentPath: FulfillmentPath | null;
+  purchaseAmount: number | null;
+  extrasAvailable: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -137,6 +160,12 @@ function EditOrderModal({
   const [packageChoice, setPackageChoice] = useState<string>(
     hasPackages ? (packageMatchesOption ? (packageId as string) : PACKAGE_MANUAL) : ""
   );
+
+  /** Format Rupiah langsung saat mengetik — sama seperti form Pesanan Baru. */
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const n = parseIDRInput(e.target.value);
+    e.target.value = n === null ? "" : formatIDR(n);
+  }
 
   /** Lanjutkan pengisian dari draf lokal — nilai draf perlu disinkronkan ke state React juga. */
   function handleRestoreDraft() {
@@ -167,6 +196,10 @@ function EditOrderModal({
           salesStaffId: String(fd.get("sales_staff_id") || ""),
           picStaffId: picRaw || undefined,
           notes: String(fd.get("notes") || ""),
+          // `undefined` (bukan field kosong) kalau extrasAvailable false — field
+          // ini memang tidak dirender, kolomnya tidak boleh disentuh sama sekali.
+          fulfillmentPath: extrasAvailable ? String(fd.get("fulfillment_path") || "") : undefined,
+          purchaseAmountRaw: extrasAvailable ? String(fd.get("partner_purchase_amount") || "") : undefined,
         }),
     });
 
@@ -196,6 +229,41 @@ function EditOrderModal({
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <DraftBanner draft={draft.draft} onRestore={handleRestoreDraft} onDiscard={draft.discard} />
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
+          {extrasAvailable && (
+            <>
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", fontSize: "var(--fs-sec)", fontWeight: 600, color: "var(--ink)", marginBottom: 7 }}>
+                  Jalur Pesanan
+                </label>
+                <div className="radioset">
+                  {FULFILLMENT_PATHS.map((p) => (
+                    <label key={p}>
+                      <input type="radio" name="fulfillment_path" value={p} defaultChecked={fulfillmentPath === p} />
+                      <span>
+                        {FULFILLMENT_PATH_LABEL[p]}
+                        <div className="rd">{FULFILLMENT_PATH_DESC[p]}</div>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {errs.fulfillment_path && <div className="err-text">{errs.fulfillment_path}</div>}
+              </div>
+              <div className="field">
+                <label htmlFor="eo_amount">Total belanja pelanggan di toko (opsional)</label>
+                <input
+                  id="eo_amount"
+                  name="partner_purchase_amount"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Rp 0"
+                  defaultValue={purchaseAmount != null ? formatIDR(purchaseAmount) : ""}
+                  onChange={handleAmountChange}
+                />
+                {errs.partner_purchase_amount && <div className="err-text">{errs.partner_purchase_amount}</div>}
+                <div className="hint">Membantu SANCI menyiapkan penawaran yang sesuai.</div>
+              </div>
+            </>
+          )}
           {hasPackages ? (
             <div className={`field${errs.package_name ? " invalid" : ""}`}>
               <label htmlFor="eo_package_id">Package *</label>

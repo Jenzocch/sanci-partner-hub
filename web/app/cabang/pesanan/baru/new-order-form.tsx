@@ -6,7 +6,14 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { displayPhoneID } from "@/lib/orders-shared";
+import {
+  displayPhoneID,
+  formatIDR,
+  parseIDRInput,
+  FULFILLMENT_PATH_DESC,
+  FULFILLMENT_PATH_LABEL,
+  type FulfillmentPath,
+} from "@/lib/orders-shared";
 import {
   createCustomerAndOrder,
   createCustomerOnly,
@@ -16,6 +23,7 @@ import {
   searchCustomerByPhone,
   type OrderCreated,
 } from "../actions";
+import { INVOICE_ACCEPT, unggahInvoice } from "../invoice-upload";
 import StatusBadge from "../status-badge";
 
 type StaffOption = { id: string; fullName: string; role: string };
@@ -26,6 +34,7 @@ type LookupState = "idle" | "checking" | "found" | "not_found" | "invalid" | "er
 const SEARCH_DEBOUNCE_MS = 600;
 /** Value <option> khusus untuk "Lainnya (ketik manual)" — bukan id package sungguhan. */
 const PACKAGE_MANUAL = "__manual__";
+const FULFILLMENT_PATHS: FulfillmentPath[] = ["DIRECT_DELIVERY", "SHOWROOM_VISIT"];
 
 export default function NewOrderForm({
   branchId,
@@ -51,6 +60,7 @@ export default function NewOrderForm({
   const [phase, setPhase] = useState<"form" | "order_success" | "customer_success">("form");
   const [orderResult, setOrderResult] = useState<OrderCreated | null>(null);
   const [customerResult, setCustomerResult] = useState<FoundCustomer | null>(null);
+  const [invoiceMsg, setInvoiceMsg] = useState<string | null>(null);
 
   const hasPackages = packages.length > 0;
   // Select TIDAK dikontrol React (defaultValue, bukan value) — sama seperti pola
@@ -114,6 +124,12 @@ export default function NewOrderForm({
     setPhone(e.target.value);
   }
 
+  /** Format Rupiah langsung saat mengetik — tidak dikontrol React (sama seperti field lain di form ini). */
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const n = parseIDRInput(e.target.value);
+    e.target.value = n === null ? "" : formatIDR(n);
+  }
+
   function setFieldValue(name: string, value: string) {
     const el = draft.formRef.current?.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null;
     if (el) el.value = value;
@@ -147,6 +163,7 @@ export default function NewOrderForm({
     setErrs({});
     setNetMsg(null);
     setPartialMsg(null);
+    setInvoiceMsg(null);
     requestIdRef.current = crypto.randomUUID();
     const form = draft.formRef.current;
     if (form) form.reset();
@@ -215,6 +232,7 @@ export default function NewOrderForm({
     setErrs({});
     setNetMsg(null);
     setPartialMsg(null);
+    setInvoiceMsg(null);
     const form = draft.formRef.current;
     if (!form) {
       release();
@@ -229,6 +247,9 @@ export default function NewOrderForm({
     const selectedPackage = hasPackages && packageChoice && packageChoice !== PACKAGE_MANUAL
       ? packages.find((p) => p.id === packageChoice)
       : undefined;
+    // Berkas invoice diunggah TERPISAH sesudah order berhasil dibuat — tidak
+    // pernah ikut membatalkan pembuatan order kalau gagal (lihat invoice-upload.ts).
+    const invoiceFile = fd.get("invoice");
 
     const out = await submitSafely({
       run: () =>
@@ -242,16 +263,25 @@ export default function NewOrderForm({
           salesStaffId: String(fd.get("sales_staff_id") || ""),
           picStaffId: picRaw || undefined,
           notes: String(fd.get("notes") || ""),
+          fulfillmentPath: String(fd.get("fulfillment_path") || ""),
+          purchaseAmountRaw: String(fd.get("partner_purchase_amount") || ""),
           clientRequestId: rid,
         }),
       lookup: () => lookupOrderRequestId(rid),
     });
+
+    async function withInvoice(orderId: string) {
+      if (invoiceFile instanceof File && invoiceFile.size > 0) {
+        setInvoiceMsg(await unggahInvoice(orderId, invoiceFile));
+      }
+    }
 
     if (out.status === "confirmed") {
       const summary = await getOrderSummary(out.id);
       draft.clear();
       requestIdRef.current = null;
       if (summary.status === "found") {
+        await withInvoice(out.id);
         setOrderResult({ ...summary.order, customerId: foundCustomer?.id ?? "" });
         setPhase("order_success");
       } else {
@@ -283,6 +313,7 @@ export default function NewOrderForm({
     // res.data
     draft.clear();
     requestIdRef.current = null;
+    await withInvoice(res.data.id);
     setOrderResult(res.data);
     setPhase("order_success");
   }
@@ -291,6 +322,7 @@ export default function NewOrderForm({
     return (
       <div className="card">
         <div className="banner ok">Pesanan berhasil dibuat.</div>
+        {invoiceMsg && <div className="banner warn">{invoiceMsg}</div>}
         <dl className="kv">
           <dt>Nomor Order</dt>
           <dd className="code">{orderResult.orderNumber}</dd>
@@ -424,6 +456,40 @@ export default function NewOrderForm({
               Isi atau pastikan dulu data pelanggan di atas untuk mengisi bagian ini.
             </p>
           )}
+
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: "block", fontSize: "var(--fs-sec)", fontWeight: 600, color: "var(--ink)", marginBottom: 7 }}>
+              Jalur Pesanan *
+            </label>
+            <div className="radioset">
+              {FULFILLMENT_PATHS.map((p) => (
+                <label key={p}>
+                  <input type="radio" name="fulfillment_path" value={p} defaultChecked={false} />
+                  <span>
+                    {FULFILLMENT_PATH_LABEL[p]}
+                    <div className="rd">{FULFILLMENT_PATH_DESC[p]}</div>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {errs.fulfillment_path && <div className="err-text">{errs.fulfillment_path}</div>}
+          </div>
+
+          <div className="field">
+            <label htmlFor="po_amount">Total belanja pelanggan di toko (opsional)</label>
+            <input
+              id="po_amount"
+              name="partner_purchase_amount"
+              type="text"
+              inputMode="numeric"
+              placeholder="Rp 0"
+              defaultValue=""
+              onChange={handleAmountChange}
+            />
+            {errs.partner_purchase_amount && <div className="err-text">{errs.partner_purchase_amount}</div>}
+            <div className="hint">Membantu SANCI menyiapkan penawaran yang sesuai.</div>
+          </div>
+
           {hasPackages ? (
             <div className={`field${errs.package_name ? " invalid" : ""}`}>
               <label htmlFor="po_package_id">Package *</label>
@@ -479,6 +545,15 @@ export default function NewOrderForm({
           <div className="field">
             <label htmlFor="po_notes">Catatan</label>
             <textarea id="po_notes" name="notes" defaultValue="" placeholder="Opsional..." />
+          </div>
+
+          <div className="field">
+            <label htmlFor="po_invoice">Foto/PDF Invoice (opsional)</label>
+            <input id="po_invoice" name="invoice" type="file" accept={INVOICE_ACCEPT} />
+            <div className="hint">
+              PNG, JPG, WebP, atau PDF. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim.
+              Diunggah setelah pesanan berhasil dibuat.
+            </div>
           </div>
         </fieldset>
 

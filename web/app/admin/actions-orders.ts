@@ -1,7 +1,8 @@
 "use server";
 
 /**
- * Server Action Admin untuk Order (SPEC §16, §64) — Correct Attribution.
+ * Server Action Admin untuk Order (SPEC §16, §64) — Correct Attribution,
+ * plus slice Phase 2 #4 (Jalur/Invoice/Kedatangan/Catatan Internal SANCI).
  *
  * Hanya SANCI Admin yang boleh memanggil RPC ini (ditegakkan di dalam fungsi
  * database itu sendiri — zero-trust, LESSONS #5/#6: kalaupun Server Action ini
@@ -14,7 +15,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { PESAN } from "@/lib/safe-write";
+import { PESAN, safeWrite } from "@/lib/safe-write";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -23,6 +24,25 @@ const RPC_TIMEOUT_MS = 15_000;
 const TIMED_OUT = Symbol("timeout");
 
 const MIGRATION_MSG = "Fitur koreksi atribusi belum aktif — migrasi belum dijalankan.";
+
+/**
+ * fulfillment_path/partner_purchase_amount/invoice_url/customer_arrived_at
+ * (migration 0009, dikerjakan paralel) BISA belum ada di database (LESSONS
+ * #12) — kalau kolomnya belum ada, Postgres menjawab 42703 (undefined_column),
+ * BUKAN 42P01 (tabel hilang). Pola sama dengan cabang/pesanan/actions.ts.
+ */
+function isMissingColumnError(code: string | undefined): boolean {
+  return code === "42703";
+}
+
+function isMissingTable(code: string | undefined): boolean {
+  return code === "42P01";
+}
+
+const FULFILLMENT_MIGRATION_MSG =
+  "Fitur jalur pesanan belum aktif — migrasi database belum dijalankan.";
+const NOTES_MIGRATION_MSG =
+  "Fitur catatan internal belum aktif — migrasi database belum dijalankan.";
 
 /**
  * Sengaja tidak memakai safeWrite() dari lib/safe-write.ts: safeWrite menolak
@@ -103,4 +123,137 @@ export async function correctOrderAttribution(
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   return { data: true };
+}
+
+/**
+ * Tandai "Pelanggan Sudah Tiba" — hanya untuk pesanan jalur SHOWROOM_VISIT
+ * (SPEC slice ini). `customer_arrived_at` yang dikirim dari sini akan DITIMPA
+ * oleh trigger database dengan waktu server + aktor sesungguhnya (LESSONS
+ * #11: jangan percaya jam client) — nilai yang dikirim di sini hanya pemicu.
+ * DB juga menolak tulisan ini dari akun cabang (zero-trust, LESSONS #5/#6).
+ *
+ * safeWrite() + `.select().single()` memastikan rowcount benar-benar 1
+ * sebelum dilaporkan sukses — RLS yang menolak (0 baris) TIDAK dianggap
+ * berhasil (LESSONS #7, "sukses" tanpa bukti bukan sukses).
+ */
+export async function markCustomerArrived(
+  orderId: string
+): Promise<ActionResult<{ customerArrivedAt: string }>> {
+  const supabase = await createClient();
+
+  const { data: order, error: fetchErr } = await supabase
+    .from("partner_orders")
+    .select("fulfillment_path, customer_arrived_at")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (fetchErr) {
+    if (isMissingColumnError(fetchErr.code)) return { error: { message: FULFILLMENT_MIGRATION_MSG } };
+    return { error: { message: PESAN.serverSibuk } };
+  }
+  if (!order) return { error: { message: "Pesanan tidak ditemukan." } };
+  if (order.fulfillment_path !== "SHOWROOM_VISIT") {
+    return { error: { message: "Hanya pesanan jalur Kunjungan Showroom yang bisa ditandai tiba." } };
+  }
+  if (order.customer_arrived_at) {
+    // Sudah ditandai (mis. tab lain) — idempotent, bukan error (LESSONS #21).
+    return { data: { customerArrivedAt: order.customer_arrived_at } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("partner_orders")
+      .update({ customer_arrived_at: new Date().toISOString() })
+      .eq("id", orderId)
+      .select("customer_arrived_at")
+      .single()
+  );
+
+  if (!written.ok) {
+    if (written.reason === "db") {
+      if (isMissingColumnError(written.code)) return { error: { message: FULFILLMENT_MIGRATION_MSG } };
+      // Kemungkinan tab lain sudah menandai duluan di antara cek dan tulis —
+      // cek ulang sebelum melapor gagal, bukan langsung disebut error.
+      const { data: recheck } = await supabase
+        .from("partner_orders")
+        .select("customer_arrived_at")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (recheck?.customer_arrived_at) {
+        return { data: { customerArrivedAt: recheck.customer_arrived_at } };
+      }
+      return { error: { message: "Tidak bisa menandai kedatangan sekarang. Coba lagi." } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  return { data: { customerArrivedAt: written.data.customer_arrived_at } };
+}
+
+/**
+ * Catatan Internal SANCI (order_internal_notes, migration 0009) — HANYA
+ * SANCI Admin, append-only (tidak ada edit/hapus dari UI ini sama sekali;
+ * salah tulis dikoreksi dengan menambah catatan baru). Visibilitas partner
+ * ditolak di RLS, bukan cuma disembunyikan di UI (LESSONS #5).
+ *
+ * Catatan: tabel ini TIDAK punya kolom idempotency (client_request_id) di
+ * kontrak DB slice ini, jadi retry-setelah-jaringan-putus tidak bisa
+ * dipastikan aman dari duplikasi lewat mekanisme lookup seperti createPackage
+ * — pesan "belum pasti" di bawah sengaja mengarahkan pengguna memeriksa
+ * daftar catatan yang langsung tampil sebelum menekan Simpan lagi.
+ */
+export async function addInternalNote(
+  orderId: string,
+  note: string
+): Promise<ActionResult<{ id: string; createdAt: string }>> {
+  const supabase = await createClient();
+  const trimmed = note.trim();
+
+  if (!trimmed) return { error: { field: "note", message: "Catatan tidak boleh kosong." } };
+  if (trimmed.length > 2000) {
+    return { error: { field: "note", message: "Catatan terlalu panjang (maksimal 2000 karakter)." } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("order_internal_notes")
+      .insert({ order_id: orderId, note: trimmed })
+      .select("id, created_at")
+      .single()
+  );
+
+  if (!written.ok) {
+    if (written.reason === "db") {
+      if (isMissingTable(written.code)) return { error: { message: NOTES_MIGRATION_MSG } };
+      return { error: { message: PESAN.serverSibuk } };
+    }
+    return { error: { message: PESAN.belumPastiBaru } };
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  return { data: { id: String(written.data.id), createdAt: written.data.created_at } };
+}
+
+const INVOICE_BUCKET = "order-invoices";
+const INVOICE_URL_TTL_SECONDS = 300;
+
+/**
+ * Bucket invoice bersifat PRIVATE (bukan seperti partner-logos yang publik) —
+ * tampilan wajib lewat signed URL berumur pendek, tidak pernah URL publik
+ * tetap. Kalau bucket/kolom belum ada (migrasi belum jalan) atau file hilang,
+ * degradasi diam-diam ke `{ error: true }` — halaman tetap tampil, tinggal
+ * bagian invoice yang bilang "belum bisa dimuat" (LESSONS #12).
+ */
+export async function getInvoiceSignedUrl(path: string): Promise<{ url: string } | { error: true }> {
+  const supabase = await createClient();
+  try {
+    const { data, error } = await supabase.storage
+      .from(INVOICE_BUCKET)
+      .createSignedUrl(path, INVOICE_URL_TTL_SECONDS);
+    if (error || !data?.signedUrl) return { error: true };
+    return { url: data.signedUrl };
+  } catch {
+    return { error: true };
+  }
 }

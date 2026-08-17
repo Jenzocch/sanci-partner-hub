@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { displayPhoneID, isMissingTableError } from "@/lib/orders-shared";
+import {
+  displayPhoneID,
+  formatIDR,
+  isMissingTableError,
+  FULFILLMENT_PATH_LABEL,
+  type FulfillmentPath,
+} from "@/lib/orders-shared";
 import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
+import InvoiceSection from "./invoice-section";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +78,53 @@ async function fetchOrderPackageId(
     .maybeSingle();
   if (error) return null;
   return (data as { package_id: string | null } | null)?.package_id ?? null;
+}
+
+/**
+ * fulfillment_path / partner_purchase_amount / invoice_url / customer_arrived_at
+ * (migration 0009) dibaca TERPISAH dari query utama untuk alasan yang sama
+ * dengan fetchCancelInfo/fetchOrderPackageId di atas: kolom belum ada →
+ * fitur ini disembunyikan diam-diam, halaman tetap harus bisa dibuka
+ * (LESSONS #12). Keempat kolom ditambahkan migrasi yang sama, jadi dibaca
+ * dalam satu query saja.
+ */
+type OrderExtras = {
+  fulfillmentPath: FulfillmentPath | null;
+  purchaseAmount: number | null;
+  invoiceUrl: string | null;
+  customerArrivedAt: string | null;
+};
+const EMPTY_EXTRAS: OrderExtras = {
+  fulfillmentPath: null,
+  purchaseAmount: null,
+  invoiceUrl: null,
+  customerArrivedAt: null,
+};
+async function fetchOrderExtras(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ extras: OrderExtras; available: boolean }> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("fulfillment_path, partner_purchase_amount, invoice_url, customer_arrived_at")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { extras: EMPTY_EXTRAS, available: false };
+  const row = data as {
+    fulfillment_path: FulfillmentPath | null;
+    partner_purchase_amount: number | null;
+    invoice_url: string | null;
+    customer_arrived_at: string | null;
+  } | null;
+  return {
+    extras: {
+      fulfillmentPath: row?.fulfillment_path ?? null,
+      purchaseAmount: row?.partner_purchase_amount ?? null,
+      invoiceUrl: row?.invoice_url ?? null,
+      customerArrivedAt: row?.customer_arrived_at ?? null,
+    },
+    available: true,
+  };
 }
 
 export default async function PesananDetailPage({
@@ -166,6 +220,11 @@ export default async function PesananDetailPage({
   // menggambar tombol yang tidak akan berhasil dipakai).
   const canManage = canEditBranch && order.status === "REGISTERED";
 
+  const { extras, available: extrasAvailable } = await fetchOrderExtras(supabase, order.id);
+  // "invoice.pdf" → "pdf" — dipakai InvoiceSection untuk menebak cara
+  // menampilkan (gambar vs PDF) dari path yang tersimpan.
+  const invoiceExt = extras.invoiceUrl?.split(".").pop()?.toLowerCase() ?? null;
+
   // Staf untuk dropdown Sales/PIC diambil dari CABANG PESANAN (bisa beda dari
   // cabang login saat PARTNER_ALL_BRANCHES mengubah order cabang lain) — bukan
   // cabang pengguna sendiri (SPEC menuntut ini secara eksplisit).
@@ -228,6 +287,20 @@ export default async function PesananDetailPage({
             </span>
             <StatusBadge status={order.status} />
           </div>
+
+          {extrasAvailable && extras.customerArrivedAt && (
+            <div className="banner ok">
+              Pelanggan sudah tiba di SANCI —{" "}
+              {new Date(extras.customerArrivedAt).toLocaleString("id-ID", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
+          )}
+
           <dl className="kv">
             <dt>Pelanggan</dt>
             <dd>{customer?.full_name ?? "Pelanggan tidak diketahui"}</dd>
@@ -235,6 +308,20 @@ export default async function PesananDetailPage({
             <dd>{customer?.phone_normalized ? displayPhoneID(customer.phone_normalized) : "—"}</dd>
             <dt>Package</dt>
             <dd>{order.package_name}</dd>
+            {extrasAvailable && (
+              <>
+                <dt>Jalur Pesanan</dt>
+                <dd>
+                  {extras.fulfillmentPath ? (
+                    <span className="chip accent">{FULFILLMENT_PATH_LABEL[extras.fulfillmentPath]}</span>
+                  ) : (
+                    <span className="chip neutral">Belum ditentukan</span>
+                  )}
+                </dd>
+                <dt>Total Belanja di Toko</dt>
+                <dd>{extras.purchaseAmount != null ? formatIDR(extras.purchaseAmount) : "—"}</dd>
+              </>
+            )}
             <dt>Sales</dt>
             <dd>
               {sales?.full_name ?? "—"}
@@ -259,6 +346,10 @@ export default async function PesananDetailPage({
             </dd>
           </dl>
         </div>
+
+        {extrasAvailable && (
+          <InvoiceSection orderId={order.id} hasInvoice={!!extras.invoiceUrl} invoiceExt={invoiceExt} canManage={canManage} />
+        )}
 
         {order.status === "CANCELLED" && (
           <div className="banner" style={{ marginTop: 14 }}>
@@ -297,6 +388,9 @@ export default async function PesananDetailPage({
             picStaffId={order.partner_pic_staff_id}
             notes={order.notes}
             staffOptions={staffOptions}
+            fulfillmentPath={extras.fulfillmentPath}
+            purchaseAmount={extras.purchaseAmount}
+            extrasAvailable={extrasAvailable}
           />
         ) : (
           <p className="footnote">

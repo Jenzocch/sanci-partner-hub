@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
+  FULFILLMENT_PATH_LABEL,
   ORDER_STATUS_LABEL,
   displayPhoneID,
   isMissingTableError,
   normalizePhoneID,
+  type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
 
@@ -16,6 +18,12 @@ const STATUS_OPTIONS: { value: "ALL" | OrderStatus; label: string }[] = [
   { value: "ALL", label: "Status: semua" },
   { value: "REGISTERED", label: ORDER_STATUS_LABEL.REGISTERED },
   { value: "CANCELLED", label: ORDER_STATUS_LABEL.CANCELLED },
+];
+
+const JALUR_OPTIONS: { value: "ALL" | FulfillmentPath; label: string }[] = [
+  { value: "ALL", label: "Jalur: semua" },
+  { value: "DIRECT_DELIVERY", label: FULFILLMENT_PATH_LABEL.DIRECT_DELIVERY },
+  { value: "SHOWROOM_VISIT", label: FULFILLMENT_PATH_LABEL.SHOWROOM_VISIT },
 ];
 
 const ORDER_COLS =
@@ -38,12 +46,14 @@ type QueryErr = { code?: string; message?: string } | null;
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; jalur?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q || "").trim();
   const statusFilter: "ALL" | OrderStatus =
     sp.status === "REGISTERED" || sp.status === "CANCELLED" ? sp.status : "ALL";
+  const jalurFilter: "ALL" | FulfillmentPath =
+    sp.jalur === "DIRECT_DELIVERY" || sp.jalur === "SHOWROOM_VISIT" ? sp.jalur : "ALL";
 
   const supabase = await createClient();
 
@@ -157,6 +167,38 @@ export default async function AdminOrdersPage({
     }
   }
 
+  // ── 4. Jalur (fulfillment_path, migration 0009 dikerjakan paralel) — SELALU
+  //      diambil lewat query TERPISAH dari daftar utama supaya kolom yang
+  //      belum ada (42703) tidak pernah bisa menggagalkan query utama itu
+  //      sendiri (LESSONS #12). Kalau kolomnya tersedia, filter Jalur
+  //      diterapkan di memori pada baris yang SUDAH diambil (bukan query DB
+  //      baru dengan LIMIT-nya sendiri) — trade-off sengaja: baris yang cocok
+  //      jalur tertentu tapi berada di luar 50 baris terbaru tidak akan
+  //      muncul. Kalau kolom belum ada, filter dan kolom Jalur di tabel
+  //      SAMA SEKALI tidak ditampilkan (bukan ditampilkan kosong).
+  let jalurAvailable = false;
+  if (!queryErr) {
+    const { error: jalurProbeErr } = await supabase.from("partner_orders").select("fulfillment_path").limit(1);
+    jalurAvailable = !jalurProbeErr;
+  }
+
+  let jalurMap = new Map<string, FulfillmentPath | null>();
+  if (jalurAvailable && orderRows.length > 0) {
+    const { data: jalurData } = await supabase
+      .from("partner_orders")
+      .select("id, fulfillment_path")
+      .in("id", orderRows.map((r) => r.id));
+    jalurMap = new Map(
+      (jalurData ?? []).map((r: { id: string; fulfillment_path: FulfillmentPath | null }) => [
+        r.id,
+        r.fulfillment_path,
+      ])
+    );
+  }
+  if (jalurAvailable && jalurFilter !== "ALL") {
+    orderRows = orderRows.filter((r) => jalurMap.get(r.id) === jalurFilter);
+  }
+
   // ── Degradasi: tabel belum ada = migration belum jalan, bukan error biasa
   //    dan BUKAN "0 pesanan" (LESSONS #9, #12, #10).
   if (isMissingTableError(queryErr)) {
@@ -193,6 +235,15 @@ export default async function AdminOrdersPage({
             </option>
           ))}
         </select>
+        {jalurAvailable && (
+          <select name="jalur" defaultValue={jalurFilter} className="filter-select">
+            {JALUR_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        )}
         <button className="btn" type="submit">
           Cari
         </button>
@@ -219,6 +270,7 @@ export default async function AdminOrdersPage({
                   <th>Paket</th>
                   <th>Sales</th>
                   <th>Status</th>
+                  {jalurAvailable && <th>Jalur</th>}
                   <th>Dibuat</th>
                   <th></th>
                 </tr>
@@ -226,6 +278,7 @@ export default async function AdminOrdersPage({
               <tbody>
                 {orderRows.map((r) => {
                   const customer = customersMap.get(r.customer_id);
+                  const jalurPath = jalurMap.get(r.id);
                   return (
                     <tr key={r.id}>
                       <td>
@@ -252,6 +305,15 @@ export default async function AdminOrdersPage({
                           {ORDER_STATUS_LABEL[r.status]}
                         </span>
                       </td>
+                      {jalurAvailable && (
+                        <td>
+                          {jalurPath ? (
+                            <span className="chip accent">{FULFILLMENT_PATH_LABEL[jalurPath]}</span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      )}
                       <td className="small muted">
                         {new Date(r.created_at).toLocaleString("id-ID")}
                       </td>

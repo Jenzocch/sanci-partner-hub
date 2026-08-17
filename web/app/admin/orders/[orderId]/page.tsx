@@ -1,9 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { displayPhoneID, isMissingTableError } from "@/lib/orders-shared";
+import {
+  FULFILLMENT_PATH_LABEL,
+  displayPhoneID,
+  formatIDR,
+  isMissingTableError,
+  type FulfillmentPath,
+} from "@/lib/orders-shared";
 import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
 import CorrectAttributionButton, { type BranchOption } from "./correct-attribution-button";
+import MarkArrivedButton from "./mark-arrived-button";
+import InternalNoteForm from "./internal-note-form";
+import { getInvoiceSignedUrl } from "../../actions-orders";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +93,52 @@ async function fetchPackageDetail(
   return (data as PackageDetail | null) ?? null;
 }
 
+/**
+ * fulfillment_path/partner_purchase_amount/invoice_url/customer_arrived_at
+ * (migration 0009, dikerjakan paralel) dibaca TERPISAH dengan alasan yang
+ * sama dengan fetchCancelInfo/fetchPackageId di atas — kolom yang belum ada
+ * (42703) tidak boleh menggagalkan seluruh halaman (LESSONS #12).
+ */
+type FulfillmentInfo = {
+  fulfillment_path: FulfillmentPath | null;
+  partner_purchase_amount: number | null;
+  invoice_url: string | null;
+  customer_arrived_at: string | null;
+};
+async function fetchFulfillmentInfo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ info: FulfillmentInfo | null; unavailable: boolean }> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("fulfillment_path, partner_purchase_amount, invoice_url, customer_arrived_at")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { info: null, unavailable: error.code === "42703" };
+  return { info: (data as FulfillmentInfo | null) ?? null, unavailable: false };
+}
+
+/**
+ * order_internal_notes (migration 0009) — tabel BARU, jadi degradasinya
+ * 42P01 (tabel hilang), bukan 42703 (kolom hilang). Admin-only lewat RLS;
+ * halaman ini tidak menambah pengecekan role sendiri (zero-trust dari DB,
+ * bukan dari UI — LESSONS #5/#6).
+ */
+type InternalNoteRow = { id: string; note: string; created_at: string };
+async function fetchInternalNotes(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ notes: InternalNoteRow[]; unavailable: boolean }> {
+  const { data, error } = await supabase
+    .from("order_internal_notes")
+    .select("id, note, created_at")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) return { notes: [], unavailable: isMissingTableError(error) };
+  return { notes: (data ?? []) as InternalNoteRow[], unavailable: false };
+}
+
 type AuditRow = {
   id: number;
   action: string;
@@ -148,15 +203,23 @@ export default async function AdminOrderDetailPage({
   const sales = one(order.sales);
   const pic = one(order.pic);
 
-  const [cancelResult, packageIdResult] = await Promise.all([
+  const [cancelResult, packageIdResult, fulfillmentResult, notesResult] = await Promise.all([
     order.status === "CANCELLED"
       ? fetchCancelInfo(supabase, order.id)
       : Promise.resolve({ info: null, unavailable: false }),
     fetchPackageId(supabase, order.id),
+    fetchFulfillmentInfo(supabase, order.id),
+    fetchInternalNotes(supabase, order.id),
   ]);
   const packageDetail = packageIdResult.packageId
     ? await fetchPackageDetail(supabase, packageIdResult.packageId)
     : null;
+
+  const fulfillment = fulfillmentResult.info;
+  const invoiceResult = fulfillment?.invoice_url
+    ? await getInvoiceSignedUrl(fulfillment.invoice_url)
+    : null;
+  const invoiceUrl = invoiceResult && "url" in invoiceResult ? invoiceResult.url : null;
 
   // Semua cabang milik partner yang SAMA (semua status) — dipakai dua hal:
   // dropdown Koreksi Atribusi (hanya yang AKTIF, bukan cabang saat ini) dan
@@ -247,6 +310,43 @@ export default async function AdminOrderDetailPage({
               {pic?.full_name ?? "—"}
               {pic && pic.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
             </dd>
+            {fulfillmentResult.unavailable ? (
+              <>
+                <dt>Jalur</dt>
+                <dd className="small muted">Migrasi belum dijalankan</dd>
+              </>
+            ) : (
+              <>
+                <dt>Jalur</dt>
+                <dd>
+                  {fulfillment?.fulfillment_path ? (
+                    <span className="chip accent">{FULFILLMENT_PATH_LABEL[fulfillment.fulfillment_path]}</span>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+                <dt>Total Belanja di Toko</dt>
+                <dd>
+                  {fulfillment?.partner_purchase_amount != null
+                    ? formatIDR(fulfillment.partner_purchase_amount)
+                    : "Belum dilaporkan"}
+                </dd>
+                <dt>Invoice</dt>
+                <dd>
+                  {fulfillment?.invoice_url ? (
+                    invoiceUrl ? (
+                      <a href={invoiceUrl} target="_blank" rel="noopener noreferrer" className="linkbtn">
+                        Lihat Invoice
+                      </a>
+                    ) : (
+                      <span className="small muted">Invoice belum bisa dimuat.</span>
+                    )
+                  ) : (
+                    "Belum diunggah"
+                  )}
+                </dd>
+              </>
+            )}
             <dt>Catatan</dt>
             <dd>{order.notes || "—"}</dd>
             <dt>Dibuat</dt>
@@ -261,6 +361,32 @@ export default async function AdminOrderDetailPage({
               · waktu server
             </dd>
           </dl>
+
+          {/* Tandai kedatangan hanya untuk jalur SHOWROOM_VISIT (SPEC slice
+              ini) — DIRECT_DELIVERY tidak pernah menampilkan bagian ini. */}
+          {!fulfillmentResult.unavailable && fulfillment?.fulfillment_path === "SHOWROOM_VISIT" && (
+            fulfillment.customer_arrived_at ? (
+              <div className="banner ok" style={{ marginTop: 14 }}>
+                <strong>Pelanggan tiba</strong>{" "}
+                {new Date(fulfillment.customer_arrived_at).toLocaleString("id-ID", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}{" "}
+                · waktu server
+              </div>
+            ) : (
+              <div className="btnrow-inline">
+                <MarkArrivedButton
+                  orderId={order.id}
+                  customerName={customer?.full_name ?? "Pelanggan"}
+                  orderNumber={order.order_number}
+                />
+              </div>
+            )
+          )}
 
           {order.status === "CANCELLED" && (
             <div className="banner" style={{ marginTop: 14 }}>
@@ -287,6 +413,49 @@ export default async function AdminOrderDetailPage({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Catatan Internal SANCI — partner TIDAK PERNAH melihat kartu ini;
+          ditegakkan oleh RLS admin-only di DB, bukan cuma disembunyikan di
+          layar admin (LESSONS #5/#6). Append-only: tidak ada tombol
+          edit/hapus di mana pun pada kartu ini. */}
+      <div className="card">
+        <h3 style={{ fontSize: 17, marginBottom: 4 }}>Catatan Internal SANCI</h3>
+        <div className="banner warn" style={{ marginTop: 8 }}>
+          Hanya terlihat oleh SANCI — partner tidak bisa melihat bagian ini.
+        </div>
+        {notesResult.unavailable ? (
+          <div className="emptybox">Fitur catatan internal belum aktif — migrasi database belum dijalankan.</div>
+        ) : (
+          <>
+            {notesResult.notes.length === 0 ? (
+              <div className="emptybox">Belum ada catatan internal untuk pesanan ini.</div>
+            ) : (
+              <ul className="audit-list">
+                {notesResult.notes.map((n) => (
+                  <li key={n.id}>
+                    <span className="ts">
+                      {new Date(n.created_at).toLocaleString("id-ID", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      · waktu server
+                    </span>
+                    <div>{n.note}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <InternalNoteForm orderId={order.id} />
+            <p className="footnote">
+              Catatan internal hanya bertambah. Salah tulis dikoreksi dengan menambah catatan baru, bukan
+              mengubah yang lama.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="card">
