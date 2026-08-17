@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingTableError } from "@/lib/orders-shared";
 import SignOutButton from "./sign-out-button";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,15 @@ export default async function CabangHome() {
   const otherBranches = (visibleBranches ?? []).filter((b: Branch) => b.id !== pu.branch_id);
   const editAll = pol?.edit_scope === "PARTNER_ALL_BRANCHES";
 
+  // Entri "Produk SANCI" tetap tampil walau katalog belum dibuka SANCI untuk
+  // toko ini (baru begitu staf tahu fiturnya ada dan bisa minta dibuka) —
+  // hanya disembunyikan kalau migrasi tabelnya sendiri belum jalan (42P01).
+  const { error: catalogTableError } = await supabase
+    .from("sanci_catalog_access")
+    .select("partner_id")
+    .limit(1);
+  const produkVisible = !(catalogTableError && isMissingTableError(catalogTableError));
+
   return (
     <main className="pwrap">
       <div className="idcard">
@@ -101,6 +111,12 @@ export default async function CabangHome() {
           <span className="lbl">Pelanggan</span>
           <span className="arrow" aria-hidden="true">&rsaquo;</span>
         </Link>
+        {produkVisible && (
+          <Link href="/cabang/produk" className="biglink">
+            <span className="lbl">Produk SANCI</span>
+            <span className="arrow" aria-hidden="true">&rsaquo;</span>
+          </Link>
+        )}
         {myBranch && (
           <Link href={`/cabang/staff/${myBranch.id}`} className="biglink">
             <span className="lbl">Staf</span>

@@ -16,12 +16,13 @@ tanpa perlu membaca SQL-nya.
 | 0007 | `0007_audit_fixes.sql` | Perbaikan audit basis data: **P0** `INSERT … RETURNING` pelanggan/staf tidak lagi gagal, **P1** `fn_next_order_seq` ditutup dari publik. |
 | 0008 | `0008_packages_customer_edit_attribution.sql` | Irisan ketiga: master `partner_packages`, kolom `partner_orders.package_id`, Customer Edit untuk cabang, RPC koreksi atribusi khusus admin. |
 | 0009 | `0009_fulfillment_invoice_arrival.sql` | Irisan keempat: 5 kolom baru di `partner_orders` (jalur pesanan, total belanja, invoice, penanda pelanggan tiba), tabel `order_internal_notes` khusus admin & append-only, bucket **privat** `order-invoices` + RLS-nya. |
+| 0010 | `0010_sanci_product_catalog.sql` | Irisan kelima: Katalog Produk SANCI — tabel `sanci_products` (tanpa harga, stok hanya STATUS), saklar visibilitas per partner `sanci_catalog_access` (**fail-closed**: tanpa baris = tertutup), gerbang `fn_catalog_enabled()`, bucket **publik** `product-photos` + RLS-nya. |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -33,28 +34,37 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 
 | Yang dijalankan ulang | Yang rusak diam-diam |
 |---|---|
-| 0001 | `s_partner_read` kembali ke versi lama → **setiap "Simpan staf" dari cabang gagal**; `fn_audit_row` kehilangan awalan `PACKAGE`, `CUSTOMER_PHONE_CHANGED`, `ORDER_ATTRIBUTION_CORRECTED`, `ORDER_CANCELLED`, `ORDER_CUSTOMER_ARRIVED`, dan awalan `ORDER_INTERNAL_NOTE`. |
+| 0001 | `s_partner_read` kembali ke versi lama → **setiap "Simpan staf" dari cabang gagal**; `fn_audit_row` kehilangan awalan `PACKAGE`, `CUSTOMER_PHONE_CHANGED`, `ORDER_ATTRIBUTION_CORRECTED`, `ORDER_CANCELLED`, `ORDER_CUSTOMER_ARRIVED`, awalan `ORDER_INTERNAL_NOTE`, serta awalan `PRODUCT` & `CATALOG_ACCESS`. |
 | 0004 | `c_partner_read` kembali ke versi lama → **setiap "Simpan pelanggan" dari cabang gagal**; `fn_check_order_refs` berhenti memeriksa pemilik paket; `fn_audit_row` seperti di atas. |
-| 0005 | `fn_audit_row` kehilangan tambahan 0008 (PACKAGE / PHONE_CHANGED / ATTRIBUTION) dan tambahan 0009 (ARRIVED / INTERNAL_NOTE). |
+| 0005 | `fn_audit_row` kehilangan tambahan 0008 (PACKAGE / PHONE_CHANGED / ATTRIBUTION), 0009 (ARRIVED / INTERNAL_NOTE) dan 0010 (PRODUCT / CATALOG_ACCESS). |
 | 0006 | tidak ada — 0006 hanya menulis dua helper, dan sejak 0007 isi 0001 sudah sama. |
-| 0008 | `fn_audit_row` kehilangan tambahan 0009 saja (ARRIVED / INTERNAL_NOTE). |
+| 0008 | `fn_audit_row` kehilangan tambahan 0009 (ARRIVED / INTERNAL_NOTE) dan 0010 (PRODUCT / CATALOG_ACCESS). |
+| 0009 | `fn_audit_row` kehilangan tambahan 0010 saja (PRODUCT / CATALOG_ACCESS). |
 
-Khusus 0009, kerusakannya sudah diukur satu per satu — yang hilang HANYA isi
-`fn_audit_row`; trigger `trg_order_arrival`, kedua policy
-`order_internal_notes`, keempat policy `order_invoices_*`, dan status privat
-bucket `order-invoices` semuanya **selamat**. Bentuk kerusakannya persis begini:
+Khusus 0009 dan 0010, kerusakannya sudah diukur satu per satu — yang hilang
+HANYA isi `fn_audit_row`. Trigger `trg_order_arrival`, kedua policy
+`order_internal_notes`, keempat policy `order_invoices_*`, status privat bucket
+`order-invoices`, kedua tabel katalog beserta keempat policy-nya, fungsi
+`fn_catalog_enabled()` beserta hak EXECUTE-nya, dan keempat policy
+`product_photos_*` semuanya **selamat** (diukur dengan menjalankan ulang
+0001/0004/0005/0008/0009 satu per satu di atas rantai lengkap). Bentuk
+kerusakannya persis begini:
 
 | Yang terlihat di layar Aktivitas | Seharusnya |
 |---|---|
 | `ORDER_INTERNAL_NOTES_CREATED` (pakai S) | `ORDER_INTERNAL_NOTE_CREATED` |
 | `ORDER_UPDATED` saat pelanggan ditandai tiba | `ORDER_CUSTOMER_ARRIVED` |
+| `SANCI_PRODUCTS_CREATED` | `PRODUCT_CREATED` |
+| `SANCI_PRODUCTS_STATUS_CHANGED` | `PRODUCT_STATUS_CHANGED` |
+| `SANCI_CATALOG_ACCESS_UPDATED` | `CATALOG_ACCESS_UPDATED` |
 | `PARTNER_ORDERS_UPDATED` (kalau yang diulang 0001) | `ORDER_UPDATED` |
 
 Kode mentah itu akan tampil apa adanya kepada pembacanya karena
 `web/lib/audit-format.ts` tidak punya labelnya. Perbaikannya satu langkah:
-jalankan ulang 0009. Sebaliknya — dan ini sengaja — versi `fn_audit_row` di
-0009 memuat SELURUH perilaku 0004+0005+0008, jadi menjalankan 0009 paling
-akhir juga **memulihkan** pemetaan yang sempat tertimpa berkas lama.
+jalankan ulang berkas TERAKHIR (0010). Sebaliknya — dan ini sengaja — versi
+`fn_audit_row` di 0010 memuat SELURUH perilaku 0004+0005+0008+0009, jadi
+menjalankan 0010 paling akhir juga **memulihkan** pemetaan yang sempat tertimpa
+berkas lama.
 
 Dua hal yang **tidak** ikut rusak, supaya tidak ditakuti tanpa perlu:
 
@@ -64,30 +74,31 @@ Dua hal yang **tidak** ikut rusak, supaya tidak ditakuti tanpa perlu:
 * Hak EXECUTE yang dicabut 0007 — `CREATE OR REPLACE` mempertahankan hak akses,
   jadi `fn_next_order_seq` tetap tertutup.
 
-Tetap saja: **jalankan ulang berurutan sampai 0009.** Setelah dijalankan ulang,
+Tetap saja: **jalankan ulang berurutan sampai 0010.** Setelah dijalankan ulang,
 cocokkan lagi angka di tabel bawah — itu satu-satunya bukti (LESSONS #7 & #16;
 "Run tanpa tulisan merah" bukan bukti).
 
 ## Angka verifikasi yang diharapkan
 
 Kolom **fresh** = nilai saat berkas itu dijalankan pertama kali dalam rantai.
-Kolom **setelah 0009** = nilai kalau blok verifikasi berkas itu dijalankan ulang
+Kolom **setelah 0010** = nilai kalau blok verifikasi berkas itu dijalankan ulang
 pada database yang sudah lengkap. Nilai yang **berubah** ditandai `→`.
 
 ### 0001
-| Cek | fresh | setelah 0009 |
+| Cek | fresh | setelah 0010 |
 |---|---|---|
 | TABLES | 9 | 9 |
-| RLS_ENABLED | 9 | 9 → **14** (+customers, partner_orders, partner_order_counters, partner_packages, order_internal_notes) |
-| POLICIES | 19 | 19 → **31** (+6 dari 0004, +1 dari 0005, +3 dari 0008, +2 dari 0009) |
-| TRIGGERS | 12 | 12 → **23** (+5 dari 0004, +2 dari 0005, +3 dari 0008, +1 dari 0009) |
+| RLS_ENABLED | 9 | 9 → **16** (+customers, partner_orders, partner_order_counters, partner_packages, order_internal_notes, sanci_products, sanci_catalog_access) |
+| POLICIES | 19 | 19 → **35** (+6 dari 0004, +1 dari 0005, +3 dari 0008, +2 dari 0009, +4 dari 0010) |
+| TRIGGERS | 12 | 12 → **23** (+5 dari 0004, +2 dari 0005, +3 dari 0008, +1 dari 0009, +0 dari 0010) |
 
 `TRIGGERS` di 0001 hanya menghitung tabel berawalan `partner%`, jadi kedua
-trigger `order_internal_notes` TIDAK ikut terhitung di sini — yang bertambah
-dari 0009 hanya `trg_order_arrival` pada `partner_orders`.
+trigger `order_internal_notes` dan kelima trigger kedua tabel katalog TIDAK ikut
+terhitung di sini — yang bertambah dari 0009 hanya `trg_order_arrival` pada
+`partner_orders`, dan 0010 tidak menambah apa pun ke angka ini.
 
 ### 0003
-| Cek | fresh | setelah 0009 |
+| Cek | fresh | setelah 0010 |
 |---|---|---|
 | BUCKET | 1 | 1 |
 | BUCKET_PUBLIC | true | true |
@@ -95,11 +106,12 @@ dari 0009 hanya `trg_order_arrival` pada `partner_orders`.
 | LOGO_URL_COLUMN | 1 | 1 |
 
 Blok 0003 menyaring `policyname like 'partner_logos_%'`, jadi keempat policy
-`order_invoices_*` milik 0009 memang tidak boleh muncul di angka ini. Kalau
-`STORAGE_POLICIES` menjadi 8, berarti penyaringnya ikut terubah — laporkan.
+`order_invoices_*` milik 0009 dan keempat policy `product_photos_*` milik 0010
+memang tidak boleh muncul di angka ini. Kalau `STORAGE_POLICIES` menjadi 8 atau
+12, berarti penyaringnya ikut terubah — laporkan.
 
 ### 0004
-| Cek | fresh | setelah 0009 |
+| Cek | fresh | setelah 0010 |
 |---|---|---|
 | TABLES | 3 | 3 |
 | RLS_ENABLED | 3 | 3 |
@@ -110,7 +122,7 @@ Blok 0003 menyaring `policyname like 'partner_logos_%'`, jadi keempat policy
 | AUDIT_MAP | 1 | 1 |
 
 ### 0005
-| Cek | fresh | setelah 0009 |
+| Cek | fresh | setelah 0010 |
 |---|---|---|
 | CANCEL_COLUMNS | 3 | 3 |
 | ORDER_POLICIES | 4 | 4 |
@@ -133,7 +145,7 @@ isi 0008 (SPEC §33–34). Kalau nilainya 1 padahal 0008 **belum** dijalankan,
 itu masalah — laporkan.
 
 ### 0006
-| Cek | fresh | setelah 0009 |
+| Cek | fresh | setelah 0010 |
 |---|---|---|
 | VIEW_LEFT_JOIN / EDIT_LEFT_JOIN | 1 / 1 | 1 / 1 |
 | VIEW_INNER_JOIN / EDIT_INNER_JOIN | 0 / 0 | 0 / 0 |
@@ -216,6 +228,61 @@ Empat angka yang paling menentukan, dan kenapa:
   0, setiap operasi storage pada bucket ini melempar *error* "permission denied
   for function", bukan sekadar menyembunyikan berkas.
 
+### 0010
+| Cek | nilai |
+|---|---|
+| PRODUCT_TABLE | 1 |
+| PRODUCT_NO_PARTNER_COLUMN | **0** |
+| PRODUCT_STOCK_CHECK / PRODUCT_STOCK_VALUES | 1 / **1** |
+| PRODUCT_STATUS_CHECK | 1 |
+| PRODUCT_CODE_UNIQUE_PARTIAL / PRODUCT_CODE_NOT_BLANK | 1 / 1 |
+| PRODUCT_NO_PRICE_COLUMN / PRODUCT_NO_STOCK_QTY_COLUMN | **0** / **0** |
+| PRODUCT_IDEMPOTENCY_KEY | 1 |
+| PRODUCT_RLS / PRODUCT_POLICIES | 1 / 2 |
+| PRODUCT_PARTNER_WRITE_POLICIES | **0** |
+| PRODUCT_READ_GATED | **1** |
+| PRODUCT_TRIGGERS | 3 |
+| ACCESS_TABLE / ACCESS_PK_PARTNER / ACCESS_FK_CASCADE | 1 / 1 / 1 |
+| ACCESS_RLS / ACCESS_POLICIES | 1 / 2 |
+| ACCESS_PARTNER_WRITE_POLICIES | **0** |
+| ACCESS_TRIGGERS | 2 |
+| ACCESS_NO_ROW_MEANS_CLOSED | **1** |
+| CATALOG_FN / CATALOG_FN_SECDEF | 1 / 1 |
+| CATALOG_FN_EXEC_ANON / CATALOG_FN_EXEC_AUTHENTICATED | **1** / **1** |
+| PHOTO_BUCKET | 1 |
+| PHOTO_BUCKET_PUBLIC | **true** |
+| PHOTO_BUCKET_LIMIT / PHOTO_BUCKET_MIME | 5242880 / 3 |
+| PHOTO_POLICIES / PHOTO_WRITE_ADMIN_ONLY | 4 / 3 |
+| LOGO_BUCKET_PUBLIC / LOGO_POLICIES | true / 4 |
+| INVOICE_BUCKET_PUBLIC / INVOICE_POLICIES | false / 4 |
+| AUDIT_PRODUCT / AUDIT_CATALOG_ACCESS | 1 / 1 |
+| AUDIT_KEEP_0004 / AUDIT_KEEP_0005 | 1 / 1 |
+| AUDIT_KEEP_0008_PKG / AUDIT_KEEP_0008_PHONE / AUDIT_KEEP_0008_ATTR | 1 / 1 / 1 |
+| AUDIT_KEEP_0009_ARRIVED / AUDIT_KEEP_0009_NOTE | 1 / 1 |
+
+Lima angka yang paling menentukan, dan kenapa:
+
+* `PRODUCT_PARTNER_WRITE_POLICIES` dan `ACCESS_PARTNER_WRITE_POLICIES` **wajib
+  0**. Tidak boleh ada satu pun policy tulis yang bisa bernilai benar tanpa
+  `fn_is_admin()`. Kalau `ACCESS_PARTNER_WRITE_POLICIES` menjadi 1, partner bisa
+  menyalakan saklarnya sendiri — dan seluruh gagasan "visibilitas ditentukan
+  SANCI" runtuh tanpa satu pun pesan error.
+* `PRODUCT_READ_GATED` **wajib 1** — policy baca partner menyebut `ACTIVE` DAN
+  `fn_catalog_enabled()` sekaligus. Kalau salah satu hilang: tanpa `ACTIVE`
+  produk yang sudah ditarik muncul lagi di layar partner; tanpa
+  `fn_catalog_enabled()` SELURUH katalog terbuka untuk SEMUA partner.
+* `ACCESS_NO_ROW_MEANS_CLOSED` **wajib 1** — `fn_catalog_enabled()` memakai
+  `EXISTS(... and enabled)`, sehingga "tidak ada baris" bernilai false. Inilah
+  fail-closed yang diminta owner; kalau seseorang mengubahnya menjadi
+  `coalesce(..., true)`, setiap partner baru langsung melihat seluruh katalog.
+* `PHOTO_BUCKET_PUBLIC` **wajib `true`** — kebalikan dari `order-invoices`, dan
+  itu disengaja (alasannya di §7 berkas 0010: foto produk adalah materi
+  pemasaran; yang dilindungi RLS adalah DAFTAR produknya). Kalau `false`, grid
+  katalog menampilkan gambar rusak sampai signed URL dibuatkan.
+* `CATALOG_FN_EXEC_ANON` / `_AUTHENTICATED` **wajib 1** (LESSONS #26). Kalau 0,
+  setiap SELECT ke `sanci_products` melempar *error* "permission denied for
+  function", bukan sekadar mengembalikan 0 baris.
+
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 
 `phone_normalized` dihitung Server Action (`normalizePhoneID()`), bukan SQL —
@@ -250,3 +317,29 @@ Tiga batas milik 0009, semuanya sudah diukur, bukan dugaan:
    akibatnya (URL publik mati, wajib signed URL) hanya terlihat di Supabase
    sungguhan. Ketiganya masuk daftar verifikasi produksi, bukan daftar "sudah
    terbukti".
+
+Empat batas milik 0010, semuanya sudah diukur, bukan dugaan:
+
+1. **Foto produk TIDAK dilindungi RLS — hanya daftarnya yang dilindungi.** Bucket
+   `product-photos` publik (keputusan sadar, alasannya di §7 berkas 0010), jadi
+   siapa pun yang MEMEGANG alamat sebuah foto bisa membukanya tanpa login,
+   selamanya. Sudah diuji: partner yang katalognya belum dibuka membaca 0 produk
+   tapi tetap bisa melihat objek fotonya. Konsekuensinya satu dan wajib dipatuhi:
+   **jangan pernah mengunggah berkas non-pemasaran ke bucket ini** (daftar harga
+   internal, invoice, dokumen apa pun) — tempatnya `order-invoices` yang privat.
+2. **`photo_url` wajib berversi.** Satu produk = satu path tetap yang ditimpa
+   (upsert), jadi isi berkas berubah sementara alamatnya tidak. Tanpa parameter
+   `?v=<waktu unggah>` yang ditambahkan Server Action saat menyimpan, admin yang
+   mengganti foto akan tetap melihat foto lama dari cache/CDN dan menyimpulkan
+   "gagal simpan" (LESSONS #22 — persis kasus `partner-logos`).
+3. **Batas ukuran 5 MB, daftar MIME, dan `public = true` bucket
+   `product-photos` ditegakkan layanan Storage, bukan Postgres** — sama seperti
+   catatan nomor 3 milik 0009. Nilainya diperiksa blok verifikasi, tapi yang
+   menolak berkas 20 MB atau `.exe` adalah storage-api saat unggah. Masuk daftar
+   verifikasi produksi, bukan daftar "sudah terbukti".
+4. **`web/lib/audit-format.ts` belum punya label untuk enam aksi baru** yang
+   dihasilkan 0010: `PRODUCT_CREATED`, `PRODUCT_UPDATED`,
+   `PRODUCT_STATUS_CHANGED`, `PRODUCT_DELETED`, `CATALOG_ACCESS_CREATED`,
+   `CATALOG_ACCESS_UPDATED` (dan `CATALOG_ACCESS_DELETED` kalau baris saklar
+   pernah dihapus). Sampai label itu ditambahkan, layar Aktivitas menampilkan
+   kodenya apa adanya. Berkas 0010 sengaja tidak menyentuh `web/**`.

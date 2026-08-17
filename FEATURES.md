@@ -117,6 +117,18 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 
 **Migration `0009_fulfillment_invoice_arrival.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-17 Jenzo 執行成功並回貼，36 項數字與期望完全相符（含 INVOICE_BUCKET_PUBLIC false、NOTES_NON_ADMIN_POLICIES 0、NOTES_UPDATE_DELETE_POLICIES 0、NOTES_IDEMPOTENCY_KEY 1、六個 audit 保留斷言全 1）。本機 74 案行為測試先前已全過。期望驗證數字 36 項，關鍵：INVOICE_BUCKET_PUBLIC **false** / NOTES_NON_ADMIN_POLICIES **0** / NOTES_UPDATE_DELETE_POLICIES **0** / NOTES_IDEMPOTENCY_KEY 1 / ORDER_NEW_COLS_NOT_FROZEN 1。⚠️ 0009 後舊檔數字：0001 RLS_ENABLED 14 / POLICIES 31 / TRIGGERS 23；0004 TRIGGERS 12；0005 ORDER_TRIGGERS 8（詳見 migrations/README.md）。**storage 的 5MB/MIME 限制與私有 bucket 的 signed URL 行為只能在真 Supabase 驗**（本機 shim 測不到，已標註）。已知過渡限制：0009 未跑前，建單表單填的路徑/金額會被 42703 降級靜默丟棄（欄位不存在無處可存）——跑完 0009 即消失。
 
+### Phase 2 第五切片（SANCI 產品目錄，2026-08-17，Jenzo 定案）
+
+決策：庫存只顯示三種狀態（Tersedia/Terbatas/Habis，不放數量——過期數字比沒數字更誤導）；目錄可見權限**每 Partner 開/關**（預設關，SANCI 主動開通）；**完全零價格**（方案由 SANCI 人工報，與折扣判斷原則一致）。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-23 | 產品管理（admin `/admin/produk`） | `UNVERIFIED` | 照片網格＋Tambah/Ubah＋庫存狀態快速切換＋上下架；照片走公開 bucket `product-photos`（一產品一路徑 upsert＋`?v=` 防快取，LESSONS #22）；DB 層用負面斷言釘死不准偷加價格/數量/partner_id 欄位 |
+| P2-24 | 目錄開關（每 Partner） | `UNVERIFIED` | Partner 詳情頁權限分頁的「Katalog Produk SANCI」toggle；無列＝關（fail-closed——選配功能與 0006 的核心路徑 fail-open 相反，刻意）；audit 記 CATALOG_ACCESS_* |
+| P2-25 | 目錄瀏覽（cabang `/cabang/produk`） | `UNVERIFIED` | 手機照片網格＋搜尋＋kategori 篩選＋詳情 modal；缺貨灰化照常顯示（誠實告知）；「未開通」（提示聯繫 SANCI）與「空目錄」分開顯示；INACTIVE 產品對分店即時消失；零價格 |
+
+**Migration `0010_sanci_product_catalog.sql` 狀態**：已寫好＋本機行為測試 9 組全過（A–I：CRUD/未開通/開通/關閉/零寫入/storage/舊 bucket 不動/audit/回歸），四套既往測試逐字零回歸、冪等×3。**未在 production 執行；必須在 0009 之後跑**。期望數字 46 項，關鍵負面斷言：PRODUCT_NO_PARTNER_COLUMN 0 / PRODUCT_NO_PRICE_COLUMN 0 / PRODUCT_NO_STOCK_QTY_COLUMN 0 / PRODUCT_PARTNER_WRITE_POLICIES 0 / ACCESS_PARTNER_WRITE_POLICIES 0；PHOTO_BUCKET_PUBLIC **true**（產品照公開＝刻意，行銷素材；目錄「清單」仍被 RLS 擋——已知邊界：拿到照片網址的人可直開）。0010 後 0001 數字：RLS_ENABLED 16 / POLICIES 35。storage 的 5MB/MIME/公開讀實效仍需 production 驗證。
+
 ### UI 全面改版（Apple 風設計系統 v2，2026-08-17，Jenzo 指示）
 
 | 項目 | 狀態 | 說明 |

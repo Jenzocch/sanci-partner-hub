@@ -6,6 +6,7 @@ import AddBranchButton from "./add-branch-button";
 import AddPackageButton from "./add-package-button";
 import PackageActions from "./package-actions";
 import PermissionsForm from "./permissions-form";
+import CatalogAccessForm from "./catalog-access-form";
 import UserToggleButton from "./user-toggle-button";
 import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
 import PartnerLogo from "@/lib/partner-logo";
@@ -16,6 +17,8 @@ export const dynamic = "force-dynamic";
 // boleh mengekspor apa pun selain async function, jadi string ini didefinisikan
 // ulang di sini alih-alih diimpor.
 const PACKAGE_MIGRATION_MSG = "Fitur package belum aktif — migrasi belum dijalankan.";
+// Sama persis dengan pesan di actions-products.ts dan app/admin/produk/page.tsx.
+const CATALOG_MIGRATION_MSG = "Fitur katalog produk belum aktif — migrasi belum dijalankan.";
 
 const SLBL: Record<string, string> = {
   ACTIVE: "AKTIF",
@@ -52,31 +55,43 @@ export default async function PartnerDetailPage({
     .maybeSingle();
   if (!partner) notFound();
 
-  const [{ data: branches }, { data: users }, { data: policy }, { data: packages, error: packagesErr }] =
-    await Promise.all([
-      supabase
-        .from("partner_branches")
-        .select("id, name, address, city, status")
-        .eq("partner_id", id)
-        .order("name"),
-      supabase.from("partner_users").select("id, name, role, status, branch_id").eq("partner_id", id),
-      supabase
-        .from("partner_access_policies")
-        .select("visibility_scope, edit_scope, configured")
-        .eq("partner_id", id)
-        .maybeSingle(),
-      supabase
-        .from("partner_packages")
-        .select("id, name, code, description, status")
-        .eq("partner_id", id)
-        .order("name"),
-    ]);
+  const [
+    { data: branches },
+    { data: users },
+    { data: policy },
+    { data: packages, error: packagesErr },
+    { data: catalogAccess, error: catalogErr },
+  ] = await Promise.all([
+    supabase
+      .from("partner_branches")
+      .select("id, name, address, city, status")
+      .eq("partner_id", id)
+      .order("name"),
+    supabase.from("partner_users").select("id, name, role, status, branch_id").eq("partner_id", id),
+    supabase
+      .from("partner_access_policies")
+      .select("visibility_scope, edit_scope, configured")
+      .eq("partner_id", id)
+      .maybeSingle(),
+    supabase
+      .from("partner_packages")
+      .select("id, name, code, description, status")
+      .eq("partner_id", id)
+      .order("name"),
+    supabase.from("sanci_catalog_access").select("enabled").eq("partner_id", id).maybeSingle(),
+  ]);
 
   // Tabel partner_packages bisa saja belum ada (migrasi 0008 dijalankan
   // terpisah dari kode — LESSONS #12). Error lain (bukan 42P01) TIDAK boleh
   // disamarkan jadi "belum aktif" — itu pesan yang salah (LESSONS #10).
   const packagesMissing = isMissingTableErr(packagesErr);
   const packagesOtherError = !!packagesErr && !packagesMissing;
+
+  // sanci_catalog_access bisa saja belum ada juga (migrasi 0010, dikerjakan
+  // paralel dengan kode ini). Sama aturannya: 42P01 = degradasi, error lain
+  // TIDAK boleh disamarkan.
+  const catalogMissing = isMissingTableErr(catalogErr);
+  const catalogOtherError = !!catalogErr && !catalogMissing;
 
   const activeBranches = ((branches ?? []) as Branch[]).filter((b) => b.status === "ACTIVE");
   const activeUsers = (users ?? []).filter((u) => u.status === "ACTIVE");
@@ -326,13 +341,28 @@ export default async function PartnerDetailPage({
     // ini harus bilang itu secara eksplisit, bukan diam (audit P2-2).
     const pol: PolicyRow = policy || { visibility_scope: "OWN_BRANCH", edit_scope: "OWN_BRANCH", configured: false };
     body = (
-      <PermissionsForm
-        partnerId={id}
-        partnerName={partner.name}
-        visibilityScope={pol.visibility_scope}
-        editScope={pol.edit_scope}
-        configured={pol.configured}
-      />
+      <div>
+        <PermissionsForm
+          partnerId={id}
+          partnerName={partner.name}
+          visibilityScope={pol.visibility_scope}
+          editScope={pol.edit_scope}
+          configured={pol.configured}
+        />
+        {catalogMissing ? (
+          <div className="card emptybox" style={{ maxWidth: 560 }}>
+            {CATALOG_MIGRATION_MSG}
+          </div>
+        ) : catalogOtherError ? (
+          <div className="card" style={{ maxWidth: 560 }}>
+            <div className="err" style={{ marginBottom: 0 }}>
+              Pengaturan katalog gagal dimuat. Muat ulang halaman untuk mencoba lagi.
+            </div>
+          </div>
+        ) : (
+          <CatalogAccessForm partnerId={id} enabled={catalogAccess?.enabled ?? false} />
+        )}
+      </div>
     );
   }
 

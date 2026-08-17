@@ -1,0 +1,115 @@
+/* Grid foto Katalog Produk SANCI (Phase 2 slice 5). Scoped ke halaman ini
+   lewat CSS Module — bukan globals.css, karena slice ini hanya boleh
+   menyentuh web/app/cabang/**. Semua warna/radius/shadow tetap memakai token
+   dari STYLE CONTRACT (var(--surface) dkk sudah global lewat :root, CSS
+   Module hanya melokalkan NAMA KELAS, bukan custom property). */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+@media (min-width: 600px) {
+  .grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+}
+@media (min-width: 900px) {
+  .grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+}
+@media (min-width: 1200px) {
+  .grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.card:hover { background: var(--surface2); box-shadow: var(--shadow); }
+.card:active { transform: scale(.99); }
+
+.photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface2);
+  overflow: hidden;
+  flex: none;
+}
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--faint);
+  font-size: var(--fs-caption);
+  text-align: center;
+  line-height: var(--lh-tight);
+  padding: 8px;
+}
+
+/* HABIS tetap tampil (jujur ke pelanggan), difoto pudar + chip .bad yang
+   sudah dipasang lewat STOCK_STATUS_CHIP menjelaskan alasannya. */
+.outofstock .photo img,
+.outofstock .placeholder {
+  filter: grayscale(70%);
+  opacity: .6;
+}
+
+.body {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.name {
+  font-size: var(--fs-sec);
+  font-weight: 650;
+  line-height: var(--lh-tight);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.cat { font-size: var(--fs-caption); color: var(--ink2); }
+
+/* Chip filter kategori — dinamis dari data, jadi bukan .segmented (yang
+   dirancang untuk set filter tetap kecil). Nada visual tetap konsisten
+   dengan .chip lewat token --off-bg/--accent-soft yang sama. */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.filterchip {
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-caption);
+  font-weight: 650;
+  background: var(--off-bg);
+  color: var(--off);
+  border: none;
+  white-space: nowrap;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.filterchip:hover { background: var(--surface3); }
+.filterOn { background: var(--accent-soft); color: var(--accent-2); }
+
+.detailphoto {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface2);
+  margin-bottom: 16px;
+}
+.detailphoto img { width: 100%; height: 100%; object-fit: cover; display: block; }

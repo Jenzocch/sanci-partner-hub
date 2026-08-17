@@ -16,6 +16,7 @@ export default function AdminNav() {
 
   const isPartners = pathname === "/admin" || pathname.startsWith("/admin/partners");
   const isOrders = pathname.startsWith("/admin/orders");
+  const isProducts = pathname.startsWith("/admin/produk");
 
   return (
     <nav className="side">
@@ -24,9 +25,12 @@ export default function AdminNav() {
         <span className="sub">Partner Hub</span>
       </div>
       {/* Urutan mengikuti logika pemakaian harian: pemantauan pesanan dulu,
-          pengaturan partner setelahnya. */}
+          katalog produk, pengaturan partner setelahnya. */}
       <Link href="/admin/orders" className={`navlink${isOrders ? " on" : ""}`}>
         Pesanan Partner
+      </Link>
+      <Link href="/admin/produk" className={`navlink${isProducts ? " on" : ""}`}>
+        Produk
       </Link>
       <Link href="/admin" className={`navlink${isPartners ? " on" : ""}`}>
         Partner

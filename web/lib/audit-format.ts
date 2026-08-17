@@ -36,6 +36,9 @@ const VALUE_LABELS: Record<string, string> = {
   SUSPENDED: "Ditangguhkan",
   DIRECT_DELIVERY: "Kirim Langsung",
   SHOWROOM_VISIT: "Kunjungan Showroom",
+  AVAILABLE: "Tersedia",
+  LIMITED: "Terbatas",
+  OUT_OF_STOCK: "Habis",
 };
 
 const asLabel = (v: unknown) => {
@@ -84,6 +87,12 @@ export const ACTION_LABELS: Record<string, string> = {
   PACKAGE_CREATED: "Package dibuat",
   PACKAGE_UPDATED: "Package diubah",
   PACKAGE_STATUS_CHANGED: "Status package berubah",
+  PRODUCT_CREATED: "Produk ditambahkan",
+  PRODUCT_UPDATED: "Produk diubah",
+  PRODUCT_STATUS_CHANGED: "Status produk berubah",
+  PRODUCT_DELETED: "Produk dihapus",
+  CATALOG_ACCESS_CREATED: "Akses katalog dibuka",
+  CATALOG_ACCESS_UPDATED: "Akses katalog diubah",
   PARTNER_CREATED: "Partner dibuat",
   PARTNER_UPDATED: "Partner diubah",
   PARTNER_STATUS_CHANGED: "Status partner berubah",

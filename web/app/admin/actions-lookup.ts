@@ -11,6 +11,7 @@ const TABLES = {
   branch: "partner_branches",
   staff: "partner_staff",
   package: "partner_packages",
+  product: "sanci_products",
 } as const;
 
 export type LookupEntity = keyof typeof TABLES;
