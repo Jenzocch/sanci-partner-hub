@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { displayPhoneID, isMissingTableError } from "@/lib/orders-shared";
-import { formatAuditDiff } from "@/lib/audit-format";
+import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
 import CorrectAttributionButton, { type BranchOption } from "./correct-attribution-button";
 
 export const dynamic = "force-dynamic";
@@ -311,8 +311,8 @@ export default async function AdminOrderDetailPage({
                   : null;
               return (
                 <li key={a.id}>
-                  <span className="act">{a.action}</span>
-                  <span className="muted">{a.actor_role}</span>
+                  <span className="act">{formatAuditAction(a.action)}</span>{" "}
+                  <span className="muted">· {formatActorRole(a.actor_role)}</span>
                   <span className="ts">{new Date(a.created_at).toLocaleString("id-ID")} · waktu server</span>
                   {a.reason && <div className="diff">Alasan: {a.reason}</div>}
                   {attributionLine && <div className="diff">{attributionLine}</div>}

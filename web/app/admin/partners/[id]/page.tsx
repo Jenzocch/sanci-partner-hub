@@ -7,7 +7,7 @@ import AddPackageButton from "./add-package-button";
 import PackageActions from "./package-actions";
 import PermissionsForm from "./permissions-form";
 import UserToggleButton from "./user-toggle-button";
-import { formatAuditDiff } from "@/lib/audit-format";
+import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
 import PartnerLogo from "@/lib/partner-logo";
 
 export const dynamic = "force-dynamic";
@@ -354,8 +354,8 @@ export default async function PartnerDetailPage({
               const diffLines = formatAuditDiff(a.before, a.after);
               return (
                 <li key={a.id}>
-                  <span className="act">{a.action}</span>
-                  <span className="muted">{a.actor_role}</span>
+                  <span className="act">{formatAuditAction(a.action)}</span>{" "}
+                  <span className="muted">· {formatActorRole(a.actor_role)}</span>
                   <span className="ts">{new Date(a.created_at).toLocaleString("id-ID")} · waktu server</span>
                   {diffLines.length > 0 && (
                     <div className="diff">
