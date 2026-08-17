@@ -15,7 +15,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { PESAN, safeWrite } from "@/lib/safe-write";
+import { PESAN, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -197,15 +197,17 @@ export async function markCustomerArrived(
  * salah tulis dikoreksi dengan menambah catatan baru). Visibilitas partner
  * ditolak di RLS, bukan cuma disembunyikan di UI (LESSONS #5).
  *
- * Catatan: tabel ini TIDAK punya kolom idempotency (client_request_id) di
- * kontrak DB slice ini, jadi retry-setelah-jaringan-putus tidak bisa
- * dipastikan aman dari duplikasi lewat mekanisme lookup seperti createPackage
- * — pesan "belum pasti" di bawah sengaja mengarahkan pengguna memeriksa
- * daftar catatan yang langsung tampil sebelum menekan Simpan lagi.
+ * order_internal_notes SUDAH punya kolom `client_request_id` + unique index
+ * (ditambahkan saat integrasi 0009 — sudah diverifikasi di production, lihat
+ * NOTES_IDEMPOTENCY_KEY). Pola idempotency di bawah ditiru dari createPackage
+ * di actions-packages.ts (LESSONS #21): cek nomor permintaan dulu → insert →
+ * kalau bentrok/tak pasti, tanya ulang lewat nomor permintaan yang sama,
+ * supaya jaringan lemah tidak membuat catatan ganda.
  */
 export async function addInternalNote(
   orderId: string,
-  note: string
+  note: string,
+  clientRequestId: string
 ): Promise<ActionResult<{ id: string; createdAt: string }>> {
   const supabase = await createClient();
   const trimmed = note.trim();
@@ -215,20 +217,60 @@ export async function addInternalNote(
     return { error: { field: "note", message: "Catatan terlalu panjang (maksimal 2000 karakter)." } };
   }
 
+  const { data: existing, error: existingErr } = await supabase
+    .from("order_internal_notes")
+    .select("id, created_at")
+    .eq("client_request_id", clientRequestId)
+    .maybeSingle();
+  if (existingErr) {
+    if (isMissingTable(existingErr.code)) return { error: { message: NOTES_MIGRATION_MSG } };
+    return { error: { message: PESAN.serverSibuk } };
+  }
+  if (existing) {
+    revalidatePath(`/admin/orders/${orderId}`);
+    return { data: { id: String(existing.id), createdAt: existing.created_at } };
+  }
+
   const written = await safeWrite(
     supabase
       .from("order_internal_notes")
-      .insert({ order_id: orderId, note: trimmed })
+      .insert({ order_id: orderId, note: trimmed, client_request_id: clientRequestId })
       .select("id, created_at")
       .single()
   );
 
+  const recheck = () =>
+    confirmByRequestId(
+      supabase
+        .from("order_internal_notes")
+        .select("id, created_at")
+        .eq("client_request_id", clientRequestId)
+        .maybeSingle()
+    );
+
   if (!written.ok) {
     if (written.reason === "db") {
       if (isMissingTable(written.code)) return { error: { message: NOTES_MIGRATION_MSG } };
+      // Bentrok nomor permintaan = percobaan sebelumnya sudah mendarat (LESSONS #21).
+      if (isRequestIdConflict(written)) {
+        const again = await recheck();
+        if (again.status === "found") {
+          revalidatePath(`/admin/orders/${orderId}`);
+          return { data: { id: String(again.data.id), createdAt: again.data.created_at } };
+        }
+        return { error: { message: PESAN.belumPastiBaru } };
+      }
       return { error: { message: PESAN.serverSibuk } };
     }
-    return { error: { message: PESAN.belumPastiBaru } };
+    // Jawaban tidak sampai: tanyakan status sebenarnya, jangan INSERT lagi.
+    const check = await recheck();
+    if (check.status === "found") {
+      revalidatePath(`/admin/orders/${orderId}`);
+      return { data: { id: String(check.data.id), createdAt: check.data.created_at } };
+    }
+    return {
+      error: { message: check.status === "absent" ? PESAN.belumTersimpan : PESAN.belumPastiBaru },
+    };
   }
 
   revalidatePath(`/admin/orders/${orderId}`);
@@ -236,7 +278,12 @@ export async function addInternalNote(
 }
 
 const INVOICE_BUCKET = "order-invoices";
-const INVOICE_URL_TTL_SECONDS = 300;
+// Samakan dengan cabang/pesanan/actions.ts (getOrderInvoiceSignedUrl): 1 jam,
+// bukan 5 menit. Link ini dibuat sekali saat server render halaman detail —
+// TTL pendek berarti admin yang buka halaman lalu baru klik "Lihat Invoice"
+// beberapa menit kemudian dapat 403 tanpa jalan untuk memuat ulang tautannya
+// selain reload seluruh halaman.
+const INVOICE_URL_TTL_SECONDS = 3600;
 
 /**
  * Bucket invoice bersifat PRIVATE (bukan seperti partner-logos yang publik) —

@@ -44,6 +44,17 @@ const VALUE_LABELS: Record<string, string> = {
   AVAILABLE: "Tersedia",
   LIMITED: "Terbatas",
   OUT_OF_STOCK: "Habis",
+  // Ditambahkan audit round 2 (LESSONS #28): nilai yang benar-benar ditulis DB
+  // untuk menonaktifkan staf/akun (status ENDED/DISABLED) dan untuk kebijakan
+  // akses (visibility_scope/edit_scope) tapi belum ada di tabel ini — tanpa
+  // baris ini kode Inggris bocor mentah ke Activity (LESSONS #13). Wording
+  // "Sesama partner" / "Cabang sendiri" disamakan dengan cabang/akun/page.tsx.
+  ENDED: "Berakhir",
+  DISABLED: "Dinonaktifkan",
+  OWN_BRANCH: "Cabang sendiri",
+  PARTNER_ALL_BRANCHES: "Sesama partner",
+  SELECTED_BRANCHES: "Cabang terpilih",
+  BRANCH_USER: "Pengguna Cabang",
 };
 
 const asLabel = (key: string, v: unknown) => {
@@ -128,6 +139,10 @@ export const ACTION_LABELS: Record<string, string> = {
   // Aktivitas (SPEC §69). Label lama di atas dipertahankan (tidak berbahaya).
   STAFF_STATUS_CHANGED: "Status staf berubah",
   STAFF_ASSIGNMENT_CREATED: "Penugasan staf dibuat",
+  // fn_audit_row (0010:558) memancarkan <PREFIX>_UPDATED, bukan _CHANGED —
+  // STAFF_ASSIGNMENT_CHANGED di bawah adalah kode mati (tidak pernah ditulis
+  // DB), dibiarkan agar tidak berbahaya kalau ada pemanggil lama.
+  STAFF_ASSIGNMENT_UPDATED: "Penugasan staf berubah",
   STAFF_ASSIGNMENT_CHANGED: "Penugasan staf berubah",
   STAFF_ASSIGNMENT_STATUS_CHANGED: "Status penugasan staf berubah",
   USER_CREATED: "Akun dibuat",
@@ -140,6 +155,9 @@ export const ACTION_LABELS: Record<string, string> = {
 export const ROLE_LABELS: Record<string, string> = {
   PARTNER_USER: "Pengguna Cabang",
   SANCI_ADMIN: "SANCI Admin",
+  // 0010:596 menulis 'SYSTEM' saat auth.uid() null (mis. proses server/trigger
+  // tanpa sesi login) — tanpa label ini kode Inggris tampil mentah di Activity.
+  SYSTEM: "Sistem",
 };
 
 export function formatAuditAction(action: string): string {

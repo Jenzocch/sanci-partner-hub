@@ -87,6 +87,14 @@ async function fetchOrderPackageId(
  * fitur ini disembunyikan diam-diam, halaman tetap harus bisa dibuka
  * (LESSONS #12). Keempat kolom ditambahkan migrasi yang sama, jadi dibaca
  * dalam satu query saja.
+ *
+ * Tiga status, BUKAN dua (LESSONS #10 — error DB ≠ "fitur belum aktif"):
+ *   - "ok"             → kolom ada, data terbaca normal.
+ *   - "missing-column" → 42703, migrasi memang belum jalan — sembunyikan
+ *                         bagian ini diam-diam, ini keadaan transisi wajar.
+ *   - "error"          → error LAIN (RLS berubah, timeout, koneksi putus) —
+ *                         TIDAK boleh disamarkan jadi "belum aktif"; halaman
+ *                         harus bilang "gagal dimuat" + jalan untuk coba lagi.
  */
 type OrderExtras = {
   fulfillmentPath: FulfillmentPath | null;
@@ -100,16 +108,19 @@ const EMPTY_EXTRAS: OrderExtras = {
   invoiceUrl: null,
   customerArrivedAt: null,
 };
+type OrderExtrasState = "ok" | "missing-column" | "error";
 async function fetchOrderExtras(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string
-): Promise<{ extras: OrderExtras; available: boolean }> {
+): Promise<{ extras: OrderExtras; state: OrderExtrasState }> {
   const { data, error } = await supabase
     .from("partner_orders")
     .select("fulfillment_path, partner_purchase_amount, invoice_url, customer_arrived_at")
     .eq("id", orderId)
     .maybeSingle();
-  if (error) return { extras: EMPTY_EXTRAS, available: false };
+  if (error) {
+    return { extras: EMPTY_EXTRAS, state: error.code === "42703" ? "missing-column" : "error" };
+  }
   const row = data as {
     fulfillment_path: FulfillmentPath | null;
     partner_purchase_amount: number | null;
@@ -123,7 +134,7 @@ async function fetchOrderExtras(
       invoiceUrl: row?.invoice_url ?? null,
       customerArrivedAt: row?.customer_arrived_at ?? null,
     },
-    available: true,
+    state: "ok",
   };
 }
 
@@ -220,7 +231,8 @@ export default async function PesananDetailPage({
   // menggambar tombol yang tidak akan berhasil dipakai).
   const canManage = canEditBranch && order.status === "REGISTERED";
 
-  const { extras, available: extrasAvailable } = await fetchOrderExtras(supabase, order.id);
+  const { extras, state: extrasState } = await fetchOrderExtras(supabase, order.id);
+  const extrasAvailable = extrasState === "ok";
   // "invoice.pdf" → "pdf" — dipakai InvoiceSection untuk menebak cara
   // menampilkan (gambar vs PDF) dari path yang tersimpan.
   const invoiceExt = extras.invoiceUrl?.split(".").pop()?.toLowerCase() ?? null;
@@ -287,6 +299,17 @@ export default async function PesananDetailPage({
             </span>
             <StatusBadge status={order.status} />
           </div>
+
+          {extrasState === "error" && (
+            <div className="banner bad">
+              Bagian ini gagal dimuat — muat ulang halaman.
+              <div className="btnrow-inline">
+                <Link href={`/cabang/pesanan/${orderId}`} className="btn sm">
+                  Muat Ulang
+                </Link>
+              </div>
+            </div>
+          )}
 
           {extrasAvailable && extras.customerArrivedAt && (
             <div className="banner ok">

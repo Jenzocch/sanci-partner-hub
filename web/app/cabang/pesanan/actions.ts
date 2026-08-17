@@ -259,7 +259,21 @@ function validatePurchaseAmount(
   return { ok: true, value: n };
 }
 
-/** Sepupu insertOrderWithPackageFallback, khusus kolom fulfillment_path/partner_purchase_amount. */
+/**
+ * Sepupu insertOrderWithPackageFallback, khusus kolom
+ * fulfillment_path/partner_purchase_amount.
+ *
+ * `fulfillmentCols` kosong ({}) berarti kolom ini memang TIDAK dirender di
+ * form (probe client bilang belum tersedia) — tidak ada percobaan kedua,
+ * tidak ada apa pun yang bisa "hilang". Kalau `fulfillmentCols` TERISI
+ * (field dirender, mungkin dijawab pengguna) tapi Postgres tetap menjawab
+ * 42703 saat insert (probe client meleset / race dengan rollback migrasi),
+ * percobaan kedua tanpa kolom itu BOLEH tetap menyimpan order — tapi caller
+ * WAJIB tahu jawaban pengguna dibuang, supaya tidak dilaporkan sukses penuh
+ * (LESSONS #12: "user yang sudah mengisi tidak boleh diam-diam dibuang").
+ * `droppedFulfillment` hanya true kalau nilai yang dibuang itu BUKAN null —
+ * null berarti pengguna memang belum menjawab (field opsional saat Ubah).
+ */
 async function insertOrderWithFallbacks(
   supabase: SupabaseServerClient,
   base: Record<string, unknown>,
@@ -268,13 +282,15 @@ async function insertOrderWithFallbacks(
 ) {
   const withFulfillment = { ...base, ...fulfillmentCols };
   let res = await insertOrderWithPackageFallback(supabase, withFulfillment, packageId);
+  let droppedFulfillment = false;
   if (!res.ok && res.reason === "db" && isMissingColumnError({ code: res.code })) {
     // package_id tetap dicoba lewat fallback internal di percobaan kedua ini —
     // supaya kombinasi "package_id ada, fulfillment belum ada" (atau sebaliknya)
     // sama-sama tertangani, bukan cuma satu arah.
     res = await insertOrderWithPackageFallback(supabase, base, packageId);
+    droppedFulfillment = res.ok && fulfillmentCols.fulfillment_path != null;
   }
-  return res;
+  return { res, droppedFulfillment };
 }
 
 /** Sepupu updateOrderWithPackageFallback untuk UPDATE, pola sama seperti di atas. */
@@ -591,6 +607,14 @@ export async function createCustomerAndOrder(input: {
   picStaffId?: string;
   notes?: string;
   fulfillmentPath: string;
+  /**
+   * Hasil probe client atas kolom fulfillment_path (LESSONS #12, sama pola
+   * dengan packagesAvailable). `false` = form TIDAK merender radio Jalur
+   * Pesanan sama sekali (kolom belum ada di sesi ini) — jangan wajibkan,
+   * jangan sertakan kolomnya. `undefined`/`true` = dirender & wajib diisi,
+   * pola lama tetap jalan untuk client lama.
+   */
+  fulfillmentAvailable?: boolean;
   purchaseAmountRaw?: string;
   clientRequestId: string;
 }): Promise<CreateOrderResult> {
@@ -615,8 +639,13 @@ export async function createCustomerAndOrder(input: {
   });
   if (!pkg.ok) return { error: pkg.error };
 
-  // Jalur pesanan wajib dipilih untuk order baru; jumlah belanja opsional.
-  const path = validateFulfillmentPath(input.fulfillmentPath, true);
+  // Jalur pesanan wajib dipilih untuk order baru — TAPI hanya kalau field-nya
+  // memang dirender client (fulfillmentAvailable dari probe kolom). Kalau
+  // tidak dirender, ini sama seperti fulfillmentPath di updateOrder: tidak
+  // boleh dianggap "user tidak menjawab pertanyaan wajib" (LESSONS #12,
+  // menyamakan create dengan pola `undefined` yang sudah dipakai update).
+  const fulfillmentRendered = input.fulfillmentAvailable !== false;
+  const path = validateFulfillmentPath(input.fulfillmentPath, fulfillmentRendered);
   if (!path.ok) return { error: path.error };
   const amount = validatePurchaseAmount(input.purchaseAmountRaw);
   if (!amount.ok) return { error: amount.error };
@@ -657,11 +686,20 @@ export async function createCustomerAndOrder(input: {
     .eq("client_request_id", orderReqId)
     .maybeSingle();
 
+  // Sama seperti updateOrder: kalau field ini tidak dirender (kolom belum
+  // ada di sesi client ini), kolomnya sama sekali tidak disertakan — bukan
+  // ditulis null (LESSONS #12, menyamakan create dengan pola `undefined`
+  // milik update).
+  const fulfillmentCols: Record<string, unknown> = fulfillmentRendered
+    ? { fulfillment_path: path.value, partner_purchase_amount: amount.value }
+    : {};
+
   let orderId: string;
+  let droppedFulfillment = false;
   if (preExistingOrder) {
     orderId = preExistingOrder.id;
   } else {
-    const written = await insertOrderWithFallbacks(
+    const { res: written, droppedFulfillment: dropped } = await insertOrderWithFallbacks(
       supabase,
       {
         customer_id: customer.id,
@@ -675,8 +713,9 @@ export async function createCustomerAndOrder(input: {
         client_request_id: orderReqId,
       },
       pkg.packageId,
-      { fulfillment_path: path.value, partner_purchase_amount: amount.value }
+      fulfillmentCols
     );
+    droppedFulfillment = dropped;
 
     if (written.ok) {
       orderId = written.data.id;
@@ -717,6 +756,23 @@ export async function createCustomerAndOrder(input: {
         customerPhone: customer.phone,
         message:
           "Pesanan tersimpan tetapi rinciannya belum bisa dimuat ulang. Buka Daftar Pesanan untuk memastikan.",
+      },
+    };
+  }
+
+  if (droppedFulfillment) {
+    // Field ini DIRENDER dan (kemungkinan) dijawab pengguna, tapi Postgres
+    // menolak kolomnya saat insert nyata (probe meleset / migrasi rollback
+    // di antara load halaman dan submit) — order tetap tersimpan lewat
+    // fallback, TAPI jawabannya hilang. Tidak boleh dilaporkan sukses penuh
+    // (LESSONS #12) walau order-nya sendiri valid dan sudah bisa dibuka.
+    return {
+      partial: {
+        customerId: customer.id,
+        customerName: customer.full_name,
+        customerPhone: customer.phone,
+        message:
+          "Pesanan tersimpan, tetapi Jalur Pesanan belum bisa disimpan (fitur belum aktif di server). Hubungi SANCI Admin.",
       },
     };
   }

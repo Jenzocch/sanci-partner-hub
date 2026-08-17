@@ -40,10 +40,16 @@ export default function NewOrderForm({
   branchId,
   staffOptions,
   packages,
+  packagesLoadError,
+  fulfillmentAvailable,
 }: {
   branchId: string;
   staffOptions: StaffOption[];
   packages: PackageOption[];
+  /** true kalau query package GAGAL karena sebab selain tabel belum ada (P3). */
+  packagesLoadError: boolean;
+  /** Probe server: kolom fulfillment_path (migration 0009) ada di sesi ini? (LESSONS #12) */
+  fulfillmentAvailable: boolean;
 }) {
   const { submitting, begin, release, reset } = useSubmitGuard();
   const draft = useLocalDraft("pesanan-baru", `new@${branchId}`, true);
@@ -264,6 +270,7 @@ export default function NewOrderForm({
           picStaffId: picRaw || undefined,
           notes: String(fd.get("notes") || ""),
           fulfillmentPath: String(fd.get("fulfillment_path") || ""),
+          fulfillmentAvailable,
           purchaseAmountRaw: String(fd.get("partner_purchase_amount") || ""),
           clientRequestId: rid,
         }),
@@ -457,23 +464,25 @@ export default function NewOrderForm({
             </p>
           )}
 
-          <div style={{ marginBottom: 18 }}>
-            <label style={{ display: "block", fontSize: "var(--fs-sec)", fontWeight: 600, color: "var(--ink)", marginBottom: 7 }}>
-              Jalur Pesanan *
-            </label>
-            <div className="radioset">
-              {FULFILLMENT_PATHS.map((p) => (
-                <label key={p}>
-                  <input type="radio" name="fulfillment_path" value={p} defaultChecked={false} />
-                  <span>
-                    {FULFILLMENT_PATH_LABEL[p]}
-                    <div className="rd">{FULFILLMENT_PATH_DESC[p]}</div>
-                  </span>
-                </label>
-              ))}
+          {fulfillmentAvailable && (
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: "block", fontSize: "var(--fs-sec)", fontWeight: 600, color: "var(--ink)", marginBottom: 7 }}>
+                Jalur Pesanan *
+              </label>
+              <div className="radioset">
+                {FULFILLMENT_PATHS.map((p) => (
+                  <label key={p}>
+                    <input type="radio" name="fulfillment_path" value={p} defaultChecked={false} />
+                    <span>
+                      {FULFILLMENT_PATH_LABEL[p]}
+                      <div className="rd">{FULFILLMENT_PATH_DESC[p]}</div>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {errs.fulfillment_path && <div className="err-text">{errs.fulfillment_path}</div>}
             </div>
-            {errs.fulfillment_path && <div className="err-text">{errs.fulfillment_path}</div>}
-          </div>
+          )}
 
           <div className="field">
             <label htmlFor="po_amount">Total belanja pelanggan di toko (opsional)</label>
@@ -514,6 +523,9 @@ export default function NewOrderForm({
             <div className={`field${!hasPackages && errs.package_name ? " invalid" : ""}`}>
               <label htmlFor="po_package">Nama Package *</label>
               <input id="po_package" name="package_name" type="text" defaultValue="" />
+              {!hasPackages && packagesLoadError && (
+                <div className="hint">Daftar package gagal dimuat — ketik manual.</div>
+              )}
               {!hasPackages && errs.package_name && <div className="err-text">{errs.package_name}</div>}
             </div>
           )}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { addInternalNote } from "../../actions-orders";
+import { lookupByRequestId } from "../../actions-lookup";
 
 /**
  * Form tambah Catatan Internal SANCI — append-only, tidak ada tombol
@@ -17,6 +18,11 @@ export default function InternalNoteForm({ orderId }: { orderId: string }) {
   const [note, setNote] = useState("");
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
+  // Nomor permintaan dipakai ulang bila percobaan sebelumnya belum pasti
+  // berhasil; dibuat baru sesudah tersimpan supaya catatan berikutnya
+  // punya nomor sendiri (pola sama dengan AddPackageButton, hanya di sini
+  // tanpa gerbang "buka modal" jadi dibuat lewat lazy initializer state).
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -25,8 +31,16 @@ export default function InternalNoteForm({ orderId }: { orderId: string }) {
     setNetMsg(null);
     const out = await submitSafely({
       kind: "create",
-      run: () => addInternalNote(orderId, note),
+      run: () => addInternalNote(orderId, note, requestId),
+      lookup: () => lookupByRequestId("internalNote", requestId),
     });
+    if (out.status === "confirmed") {
+      setRequestId(crypto.randomUUID());
+      reset();
+      setNote("");
+      router.refresh();
+      return;
+    }
     if (out.status !== "ok") {
       release();
       setNetMsg(out.message);
@@ -38,6 +52,7 @@ export default function InternalNoteForm({ orderId }: { orderId: string }) {
       setErrMsg(res.error.message);
       return;
     }
+    setRequestId(crypto.randomUUID());
     reset();
     setNote("");
     router.refresh();

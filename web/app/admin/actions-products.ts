@@ -249,11 +249,17 @@ export async function setProductPhoto(id: string, photoUrl: string): Promise<Act
  */
 export async function setCatalogAccess(partnerId: string, enabled: boolean): Promise<ActionResult<true>> {
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("sanci_catalog_access")
-    .upsert({ partner_id: partnerId, enabled }, { onConflict: "partner_id" });
-  if (error) {
-    if (isMissingTable(error.code)) return { error: { message: CATALOG_MIGRATION_MSG } };
+  const saved = await safeWrite(
+    supabase
+      .from("sanci_catalog_access")
+      .upsert({ partner_id: partnerId, enabled }, { onConflict: "partner_id" })
+      .select("partner_id")
+      .single()
+  );
+  if (!saved.ok) {
+    if (saved.reason === "db" && isMissingTable(saved.code)) {
+      return { error: { message: CATALOG_MIGRATION_MSG } };
+    }
     return { error: { message: "Tidak bisa menyimpan pengaturan katalog sekarang." } };
   }
 

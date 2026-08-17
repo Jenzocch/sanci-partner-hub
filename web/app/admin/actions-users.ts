@@ -16,8 +16,15 @@ export async function toggleUserStatus(userId: string): Promise<ActionResult<tru
   if (!user) return { error: { message: "Akun tidak ditemukan." } };
 
   const nextStatus = user.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
-  const { error } = await supabase.from("partner_users").update({ status: nextStatus }).eq("id", userId);
-  if (error) return { error: { message: "Tidak bisa mengubah status akun sekarang." } };
+  const { data: updated, error } = await supabase
+    .from("partner_users")
+    .update({ status: nextStatus })
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle();
+  // RLS bisa menyaring update ini jadi 0 baris tanpa error — jangan anggap berhasil
+  // kalau tidak ada baris yang benar-benar berubah (LESSONS #7).
+  if (error || !updated) return { error: { message: "Tidak bisa mengubah status akun sekarang." } };
 
   revalidatePath(`/admin/partners/${user.partner_id}`);
   return { data: true };

@@ -223,8 +223,15 @@ export async function setPartnerStatus(
     }
   }
 
-  const { error } = await supabase.from("partners").update({ status }).eq("id", id);
-  if (error) return { error: { message: "Tidak bisa mengubah status sekarang." } };
+  const { data: updated, error } = await supabase
+    .from("partners")
+    .update({ status })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  // RLS bisa menyaring update ini jadi 0 baris tanpa error — jangan anggap berhasil
+  // kalau tidak ada baris yang benar-benar berubah (LESSONS #7).
+  if (error || !updated) return { error: { message: "Tidak bisa mengubah status sekarang." } };
 
   revalidatePath("/admin");
   revalidatePath(`/admin/partners/${id}`);
@@ -246,10 +253,15 @@ export async function deleteDraftPartner(id: string, typedCode: string) {
     return { error: { message: `Ketik ${partner.code} persis untuk konfirmasi.` } };
   }
 
-  const { error } = await supabase.from("partners").delete().eq("id", id);
+  const { data: deleted, error } = await supabase.from("partners").delete().eq("id", id).select("id");
   if (error) {
     // FK RESTRICT dari branch/staff/user lain — master data terpakai tidak boleh hilang diam-diam.
     return { error: { message: "Partner ini sudah punya data terkait — tidak bisa dihapus permanen." } };
+  }
+  // RLS bisa menyaring delete ini jadi 0 baris tanpa error — jangan redirect seolah
+  // berhasil kalau tidak ada baris yang benar-benar terhapus (LESSONS #7).
+  if (!deleted || deleted.length === 0) {
+    return { error: { message: "Tidak bisa menghapus partner sekarang." } };
   }
 
   revalidatePath("/admin");

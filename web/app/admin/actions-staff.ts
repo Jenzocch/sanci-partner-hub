@@ -206,11 +206,17 @@ export async function transferStaff(
   if (!current) return { error: { message: "Penugasan aktif tidak ditemukan." } };
 
   const today = new Date().toISOString().slice(0, 10);
-  const { error: endErr } = await supabase
+  const { data: ended, error: endErr } = await supabase
     .from("partner_staff_assignments")
     .update({ end_at: today, status: "ENDED" })
-    .eq("id", current.id);
+    .eq("id", current.id)
+    .select("id")
+    .maybeSingle();
   if (endErr) return { error: { message: "Tidak bisa memindahkan sekarang." } };
+  // RLS bisa menyaring update ini jadi 0 baris tanpa error (mis. beda cabang yang
+  // tidak terlihat) — kalau tidak dipastikan, jangan lanjut buat penugasan baru,
+  // nanti staf ini malah kepasang di dua cabang sekaligus.
+  if (!ended) return { error: { message: "Tidak bisa memindahkan sekarang." } };
 
   const { error: startErr } = await supabase.from("partner_staff_assignments").insert({
     staff_id: staffId,

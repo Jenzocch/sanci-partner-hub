@@ -184,16 +184,24 @@ export default async function AdminOrdersPage({
 
   let jalurMap = new Map<string, FulfillmentPath | null>();
   if (jalurAvailable && orderRows.length > 0) {
-    const { data: jalurData } = await supabase
+    const { data: jalurData, error: jalurErr } = await supabase
       .from("partner_orders")
       .select("id, fulfillment_path")
       .in("id", orderRows.map((r) => r.id));
-    jalurMap = new Map(
-      (jalurData ?? []).map((r: { id: string; fulfillment_path: FulfillmentPath | null }) => [
-        r.id,
-        r.fulfillment_path,
-      ])
-    );
+    if (jalurErr) {
+      // Query kedua gagal walau probe di atas lolos — jangan biarkan jalurMap
+      // kosong lalu diam-diam menyaring semua baris kalau ada filter Jalur
+      // aktif (LESSONS #10). Turunkan ke jalur degradasi yang sudah ada:
+      // kolom + filter Jalur disembunyikan semua, bukan ditampilkan kosong.
+      jalurAvailable = false;
+    } else {
+      jalurMap = new Map(
+        (jalurData ?? []).map((r: { id: string; fulfillment_path: FulfillmentPath | null }) => [
+          r.id,
+          r.fulfillment_path,
+        ])
+      );
+    }
   }
   if (jalurAvailable && jalurFilter !== "ALL") {
     orderRows = orderRows.filter((r) => jalurMap.get(r.id) === jalurFilter);

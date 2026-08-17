@@ -7,6 +7,23 @@ export const dynamic = "force-dynamic";
 
 type Assignment = { staff_id: string; role: string };
 
+/**
+ * Jalur Pesanan (fulfillment_path, migration 0009) mungkin belum ada di
+ * server sesi ini — kode boleh naik duluan sebelum SQL dijalankan (LESSONS
+ * #12). Diprobe TERPISAH, pola sama dengan fetchOrderExtras di halaman
+ * detail (`[orderId]/page.tsx`): kalau 42703, form TIDAK BOLEH merender
+ * radio Jalur Pesanan sama sekali — user tidak boleh dipaksa menjawab
+ * pertanyaan yang jawabannya pasti dibuang diam-diam oleh fallback insert.
+ * `.limit(1)` cukup: planner memeriksa keberadaan kolom terlepas dari ada
+ * tidaknya baris yang cocok, jadi tidak butuh order yang sudah ada.
+ */
+async function fetchFulfillmentAvailable(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<boolean> {
+  const { error } = await supabase.from("partner_orders").select("fulfillment_path").limit(1);
+  return !error;
+}
+
 export default async function PesananBaruPage() {
   const supabase = await createClient();
   const {
@@ -63,16 +80,22 @@ export default async function PesananBaruPage() {
     .filter((s) => s.status === "ACTIVE" && roleByStaff.has(s.id))
     .map((s) => ({ id: s.id, fullName: s.full_name, role: roleByStaff.get(s.id)! }));
 
-  // Package (migration 0008) — kalau tabelnya belum ada (42P01) atau memang
-  // belum ada package aktif, form turun ke input teks bebas seperti sekarang;
-  // jangan tampilkan error, ini keadaan transisi yang wajar (LESSONS #12).
-  const { data: packageRows } = await supabase
+  // Package (migration 0008) — kalau tabelnya belum ada (42P01), form turun
+  // ke input teks bebas diam-diam; ini keadaan transisi yang wajar (LESSONS
+  // #12). Error LAIN (RLS berubah, timeout) TIDAK boleh disamarkan jadi
+  // "partner ini memang belum punya package" — form tetap turun ke manual
+  // (tidak boleh macet), tapi pengguna diberi tahu supaya tidak salah paham
+  // kenapa dropdown-nya kosong (P3, sepupu LESSONS #10).
+  const { data: packageRows, error: packagesError } = await supabase
     .from("partner_packages")
     .select("id, name")
     .eq("partner_id", pu.partner_id)
     .eq("status", "ACTIVE")
     .order("name");
   const packages = (packageRows ?? []).map((p) => ({ id: p.id, name: p.name }));
+  const packagesLoadError = !!packagesError && packagesError.code !== "42P01";
+
+  const fulfillmentAvailable = await fetchFulfillmentAvailable(supabase);
 
   return (
     <main className="pwrap">
@@ -85,7 +108,13 @@ export default async function PesananBaruPage() {
       <p className="footnote" style={{ marginTop: 0, marginBottom: 16 }}>
         {partner.name} · Cabang {branch.name}
       </p>
-      <NewOrderForm branchId={pu.branch_id} staffOptions={staffOptions} packages={packages} />
+      <NewOrderForm
+        branchId={pu.branch_id}
+        staffOptions={staffOptions}
+        packages={packages}
+        packagesLoadError={packagesLoadError}
+        fulfillmentAvailable={fulfillmentAvailable}
+      />
     </main>
   );
 }

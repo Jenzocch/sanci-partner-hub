@@ -24,6 +24,18 @@ function one<T>(v: One<T>): T | null {
   return Array.isArray(v) ? v[0] ?? null : v;
 }
 
+/**
+ * Kolom-kolom dari migration yang dikerjakan paralel (LESSONS #12) dibaca
+ * lewat query TERPISAH — tapi "kolom belum ada" (42703, migrasi belum
+ * dijalankan) dan "query ini gagal karena sebab lain" (jaringan/DB) BUKAN hal
+ * yang sama dan tidak boleh dirender sama seperti "belum diisi" (LESSONS
+ * #10). Tiga keadaan eksplisit, bukan boolean `unavailable`.
+ */
+type ColumnFetch<T> =
+  | { status: "ok"; data: T }
+  | { status: "missing-column" }
+  | { status: "error" };
+
 type OrderDetailRow = {
   id: string;
   order_number: string;
@@ -52,14 +64,14 @@ type CancelInfo = { cancelled_at: string | null; cancellation_reason: string | n
 async function fetchCancelInfo(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string
-): Promise<{ info: CancelInfo | null; unavailable: boolean }> {
+): Promise<ColumnFetch<CancelInfo | null>> {
   const { data, error } = await supabase
     .from("partner_orders")
     .select("cancelled_at, cancellation_reason")
     .eq("id", orderId)
     .maybeSingle();
-  if (error) return { info: null, unavailable: error.code === "42703" };
-  return { info: (data as CancelInfo | null) ?? null, unavailable: false };
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  return { status: "ok", data: (data as CancelInfo | null) ?? null };
 }
 
 /**
@@ -69,14 +81,14 @@ async function fetchCancelInfo(
 async function fetchPackageId(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string
-): Promise<{ packageId: string | null; unavailable: boolean }> {
+): Promise<ColumnFetch<string | null>> {
   const { data, error } = await supabase
     .from("partner_orders")
     .select("package_id")
     .eq("id", orderId)
     .maybeSingle();
-  if (error) return { packageId: null, unavailable: error.code === "42703" };
-  return { packageId: (data as { package_id: string | null } | null)?.package_id ?? null, unavailable: false };
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  return { status: "ok", data: (data as { package_id: string | null } | null)?.package_id ?? null };
 }
 
 type PackageDetail = { name: string; code: string; status: string };
@@ -108,14 +120,14 @@ type FulfillmentInfo = {
 async function fetchFulfillmentInfo(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string
-): Promise<{ info: FulfillmentInfo | null; unavailable: boolean }> {
+): Promise<ColumnFetch<FulfillmentInfo | null>> {
   const { data, error } = await supabase
     .from("partner_orders")
     .select("fulfillment_path, partner_purchase_amount, invoice_url, customer_arrived_at")
     .eq("id", orderId)
     .maybeSingle();
-  if (error) return { info: null, unavailable: error.code === "42703" };
-  return { info: (data as FulfillmentInfo | null) ?? null, unavailable: false };
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  return { status: "ok", data: (data as FulfillmentInfo | null) ?? null };
 }
 
 /**
@@ -206,16 +218,15 @@ export default async function AdminOrderDetailPage({
   const [cancelResult, packageIdResult, fulfillmentResult, notesResult] = await Promise.all([
     order.status === "CANCELLED"
       ? fetchCancelInfo(supabase, order.id)
-      : Promise.resolve({ info: null, unavailable: false }),
+      : Promise.resolve<ColumnFetch<CancelInfo | null>>({ status: "ok", data: null }),
     fetchPackageId(supabase, order.id),
     fetchFulfillmentInfo(supabase, order.id),
     fetchInternalNotes(supabase, order.id),
   ]);
-  const packageDetail = packageIdResult.packageId
-    ? await fetchPackageDetail(supabase, packageIdResult.packageId)
-    : null;
+  const packageId = packageIdResult.status === "ok" ? packageIdResult.data : null;
+  const packageDetail = packageId ? await fetchPackageDetail(supabase, packageId) : null;
 
-  const fulfillment = fulfillmentResult.info;
+  const fulfillment = fulfillmentResult.status === "ok" ? fulfillmentResult.data : null;
   const invoiceResult = fulfillment?.invoice_url
     ? await getInvoiceSignedUrl(fulfillment.invoice_url)
     : null;
@@ -310,10 +321,20 @@ export default async function AdminOrderDetailPage({
               {pic?.full_name ?? "—"}
               {pic && pic.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
             </dd>
-            {fulfillmentResult.unavailable ? (
+            {fulfillmentResult.status === "missing-column" ? (
               <>
                 <dt>Jalur</dt>
                 <dd className="small muted">Migrasi belum dijalankan</dd>
+              </>
+            ) : fulfillmentResult.status === "error" ? (
+              <>
+                <dt>Jalur</dt>
+                <dd>
+                  <span className="err">Bagian ini gagal dimuat — muat ulang halaman.</span>{" "}
+                  <Link href={`/admin/orders/${order.id}`} className="btn sm">
+                    Coba Lagi
+                  </Link>
+                </dd>
               </>
             ) : (
               <>
@@ -364,7 +385,7 @@ export default async function AdminOrderDetailPage({
 
           {/* Tandai kedatangan hanya untuk jalur SHOWROOM_VISIT (SPEC slice
               ini) — DIRECT_DELIVERY tidak pernah menampilkan bagian ini. */}
-          {!fulfillmentResult.unavailable && fulfillment?.fulfillment_path === "SHOWROOM_VISIT" && (
+          {fulfillmentResult.status === "ok" && fulfillment?.fulfillment_path === "SHOWROOM_VISIT" && (
             fulfillment.customer_arrived_at ? (
               <div className="banner ok" style={{ marginTop: 14 }}>
                 <strong>Pelanggan tiba</strong>{" "}
@@ -391,15 +412,22 @@ export default async function AdminOrderDetailPage({
           {order.status === "CANCELLED" && (
             <div className="banner" style={{ marginTop: 14 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Pesanan dibatalkan</div>
-              {cancelResult.unavailable ? (
+              {cancelResult.status === "missing-column" ? (
                 <div>Info pembatalan belum tersedia (migrasi database belum dijalankan).</div>
+              ) : cancelResult.status === "error" ? (
+                <div>
+                  <span className="err">Bagian ini gagal dimuat — muat ulang halaman.</span>{" "}
+                  <Link href={`/admin/orders/${order.id}`} className="btn sm">
+                    Coba Lagi
+                  </Link>
+                </div>
               ) : (
                 <>
-                  <div>Alasan: {cancelResult.info?.cancellation_reason || "—"}</div>
+                  <div>Alasan: {cancelResult.data?.cancellation_reason || "—"}</div>
                   <div>
                     Waktu:{" "}
-                    {cancelResult.info?.cancelled_at
-                      ? new Date(cancelResult.info.cancelled_at).toLocaleString("id-ID", {
+                    {cancelResult.data?.cancelled_at
+                      ? new Date(cancelResult.data.cancelled_at).toLocaleString("id-ID", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
