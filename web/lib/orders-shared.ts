@@ -36,6 +36,38 @@ export function displayPhoneID(normalized: string): string {
 
 export type OrderStatus = "REGISTERED" | "CANCELLED";
 
+export type FulfillmentPath = "DIRECT_DELIVERY" | "SHOWROOM_VISIT";
+
+/** Label pendek untuk chip/kolom tabel. */
+export const FULFILLMENT_PATH_LABEL: Record<FulfillmentPath, string> = {
+  DIRECT_DELIVERY: "Kirim Langsung",
+  SHOWROOM_VISIT: "Kunjungan Showroom",
+};
+
+/** Penjelasan lengkap untuk pilihan di form (bahasa pegawai toko sehari-hari). */
+export const FULFILLMENT_PATH_DESC: Record<FulfillmentPath, string> = {
+  DIRECT_DELIVERY: "Produk SANCI sudah dibeli di toko — SANCI kirim langsung, pelanggan tidak perlu datang",
+  SHOWROOM_VISIT: "Pelanggan akan datang ke SANCI untuk melihat / memilih produk",
+};
+
+/** Format Rupiah tanpa sen: 1500000 → "Rp 1.500.000". */
+export function formatIDR(amount: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+/** Parse input uang bebas format ("1.500.000", "Rp 1500000") → angka atau null. */
+export function parseIDRInput(raw: string): number | null {
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return null;
+  const n = Number(digits);
+  if (!Number.isFinite(n) || n < 0 || n > 99_999_999_999_999) return null;
+  return n;
+}
+
 /** Label status dalam Bahasa Indonesia — jangan hardcode string status di UI. */
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   REGISTERED: "Terdaftar",

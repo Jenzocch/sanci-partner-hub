@@ -20,6 +20,9 @@ const LABELS: Record<string, string> = {
   notes: "Catatan",
   description: "Deskripsi",
   cancellation_reason: "Alasan Pembatalan",
+  fulfillment_path: "Jalur Pesanan",
+  partner_purchase_amount: "Total Belanja di Toko",
+  invoice_url: "Invoice",
 };
 
 // Nilai enum internal → bahasa sehari-hari.
@@ -28,8 +31,11 @@ const VALUE_LABELS: Record<string, string> = {
   CANCELLED: "Dibatalkan",
   ACTIVE: "Aktif",
   INACTIVE: "Nonaktif",
+  DRAF: "Draf",
   DRAFT: "Draf",
   SUSPENDED: "Ditangguhkan",
+  DIRECT_DELIVERY: "Kirim Langsung",
+  SHOWROOM_VISIT: "Kunjungan Showroom",
 };
 
 const asLabel = (v: unknown) => {
@@ -70,6 +76,8 @@ export const ACTION_LABELS: Record<string, string> = {
   ORDER_STATUS_CHANGED: "Status pesanan berubah",
   ORDER_CANCELLED: "Pesanan dibatalkan",
   ORDER_ATTRIBUTION_CORRECTED: "Atribusi cabang dikoreksi",
+  ORDER_CUSTOMER_ARRIVED: "Pelanggan tiba di SANCI",
+  ORDER_INTERNAL_NOTE_CREATED: "Catatan internal SANCI ditambahkan",
   CUSTOMER_CREATED: "Pelanggan dibuat",
   CUSTOMER_UPDATED: "Pelanggan diubah",
   CUSTOMER_PHONE_CHANGED: "Nomor telepon pelanggan diubah",
