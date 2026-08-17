@@ -127,7 +127,33 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | P2-24 | 目錄開關（每 Partner） | `UNVERIFIED` | Partner 詳情頁權限分頁的「Katalog Produk SANCI」toggle；無列＝關（fail-closed——選配功能與 0006 的核心路徑 fail-open 相反，刻意）；audit 記 CATALOG_ACCESS_* |
 | P2-25 | 目錄瀏覽（cabang `/cabang/produk`） | `UNVERIFIED` | 手機照片網格＋搜尋＋kategori 篩選＋詳情 modal；缺貨灰化照常顯示（誠實告知）；「未開通」（提示聯繫 SANCI）與「空目錄」分開顯示；INACTIVE 產品對分店即時消失；零價格 |
 
-**Migration `0010_sanci_product_catalog.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-17 Jenzo 執行成功並回貼，46 項數字與期望完全相符（含全部負面斷言與九個 audit 保留斷言）。**0001–0010 全鏈至此皆已在 production 套用並驗證。**本機行為測試 9 組先前全過、四套既往測試逐字零回歸、冪等×3。期望數字 46 項，關鍵負面斷言：PRODUCT_NO_PARTNER_COLUMN 0 / PRODUCT_NO_PRICE_COLUMN 0 / PRODUCT_NO_STOCK_QTY_COLUMN 0 / PRODUCT_PARTNER_WRITE_POLICIES 0 / ACCESS_PARTNER_WRITE_POLICIES 0；PHOTO_BUCKET_PUBLIC **true**（產品照公開＝刻意，行銷素材；目錄「清單」仍被 RLS 擋——已知邊界：拿到照片網址的人可直開）。0010 後 0001 數字：RLS_ENABLED 16 / POLICIES 35。storage 的 5MB/MIME/公開讀實效仍需 production 驗證。
+### Audit round 3（安全＋正確性全面審計，2026-08-17）
+
+Jenzo 指示「認真 audit」。四領域分工,安全與正確性兩塊由 Opus 完成(UI/UX 與效能兩塊首輪遭額度中斷,**尚未補跑**)。
+
+**結論:P0 = 0、安全 P1 = 0** — 跨 Partner 邊界(P0 原則)逐條追過守住:三個 storage bucket 路徑約定、order_internal_notes、audit_logs 全部確認分店無可達路徑;13 處 embed cast 的 null 防護無一遺漏;所有寫入身分皆 server 端查表核發,無 client 傳值決定權限的路徑。
+
+**修掉 13 項**(commit `74d0e69` 程式層 + `f9cfc94` DB 層):
+
+| 級別 | 問題 | 修法 |
+|---|---|---|
+| **P1** | 建單「Jalur Pesanan」必填但欄位缺失時被靜默丟棄且報成功——資訊 100% 蒸發(不像 package 有文字備援),事後無法區分「沒問」與「問了被吃掉」;連帶 SHOWROOM_VISIT 訂單的「客人已到」按鈕永不出現 | 兩層:表單先探測欄位存在才渲染問題;server 端若仍被丟棄則降級為 partial 誠實回報 |
+| P2 | `transferStaff` 第一段寫入未驗 rowcount → 同 partner 內 view-only 分店可**兼併**別店員工(同時掛兩店、進對方業績下拉),UI 報成功 | `.select("id").maybeSingle()`,0 列即中止不 insert |
+| P2 | `fn_check_order_refs` 漏驗 `customer_id` → 塞別家客戶 UUID 可讓對方客戶個資變可讀(今日無枚舉管道,但 UUID 一旦外流即 P0) | 0011 補對稱檢查;測試證明守衛真的是原因(先確認讀不到,再用維護管道建立連結證明會變讀得到) |
+| P2 | `toggleUserStatus`/`setPartnerStatus`/`deleteDraftPartner`/`setCatalogAccess` 四處 RLS 靜默 0 列回報成功 | 全部加 rowcount 驗證 |
+| P2 | admin/orders 列表 Jalur 查詢丟棄 error,配合篩選器把 DB 錯誤變「0 筆訂單」 | 解構 error,降級為隱藏欄位而非顯示空值 |
+| P2 | admin 與 cabang 詳情頁降級規則**相反**:admin 把「讀不到」畫成「沒填」,「客人已到」按鈕無聲消失 | 兩端統一三態(ok / missing-column / error) |
+| P2 | 內部備註表單承諾「不會重複儲存」但沒帶 idempotency key(DB 欄位早已存在,程式沒接上;註解還是過期的錯誤資訊) | 接上 client_request_id 三段式 |
+| P2/P3 | audit 標籤:`STAFF_DEACTIVATED`/`USER_DISABLED`/`STAFF_ASSIGNMENT_CHANGED` 皆為**死代碼**(DB 實發 `_STATUS_CHANGED`/`_UPDATED`);`ENDED`/`DISABLED`/兩個 access scope/`SYSTEM` 缺標籤 → 停用員工/停用帳號/改權限三個最常用動作都漏英文碼 | 補齊並註明哪些是死代碼 |
+| P3 | `sanci_catalog_access.enabled` DEFAULT `true` 與程式端「無列=關」相反 → 未來批次腳本會一次打開所有 Partner 目錄 | 0011 改 `default false`(升級路徑實測既有開/關值不變) |
+| P3 | `invoice_url` 可指向別張訂單路徑(檔案不外洩但 admin 看到錯的發票) | 0011 加專屬 guard trigger,僅在值變動時檢查 |
+| P3 | invoice signed URL TTL 兩端不一致(300 vs 3600);package 下拉載入錯誤被當成「沒有 package」;金額在 audit diff 顯示生數字 | 全部對齊/修正 |
+
+**已知並接受**(記錄避免下輪重複判定):`fn_invoice_order_branch` 對 anon 開放 EXECUTE 是 0009 作者評估後的取捨(不 grant 會讓 storage 操作全炸,LESSONS #26 反向坑),僅洩漏 order→branch 對應無業務欄位。
+
+**Migration `0011_audit_hardening.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-17 Jenzo 執行成功並回貼，34 項數字與期望完全相符（含 REFS_EXEC_PUBLIC 0 / ACCESS_DEFAULT_TRUE 0 / ORDER_DELETE_POLICY 0 等負面斷言與兩個 audit 保留斷言）。本機測試:客戶檢查 21 項、invoice 路徑 19 項、真實升級路徑實測、四套既往測試逐字零回歸、冪等×3。0011 後舊檔數字:0001 TRIGGERS 24 / 0004 TRIGGERS 13 / 0005 及 0009 ORDER_TRIGGERS 9(全部源於新增的 `trg_order_invoice_path`)。
+
+**Migration `0010_sanci_product_catalog.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-17 Jenzo 執行成功並回貼，46 項數字與期望完全相符（含全部負面斷言與九個 audit 保留斷言）。**0001–0011 全鏈至此皆已在 production 套用並驗證。**本機行為測試 9 組先前全過、四套既往測試逐字零回歸、冪等×3。期望數字 46 項，關鍵負面斷言：PRODUCT_NO_PARTNER_COLUMN 0 / PRODUCT_NO_PRICE_COLUMN 0 / PRODUCT_NO_STOCK_QTY_COLUMN 0 / PRODUCT_PARTNER_WRITE_POLICIES 0 / ACCESS_PARTNER_WRITE_POLICIES 0；PHOTO_BUCKET_PUBLIC **true**（產品照公開＝刻意，行銷素材；目錄「清單」仍被 RLS 擋——已知邊界：拿到照片網址的人可直開）。0010 後 0001 數字：RLS_ENABLED 16 / POLICIES 35。storage 的 5MB/MIME/公開讀實效仍需 production 驗證。
 
 ### UI 全面改版（Apple 風設計系統 v2，2026-08-17，Jenzo 指示）
 
