@@ -101,6 +101,14 @@ export async function createProduct(input: {
         }
         return { error: { message: PESAN.belumPastiBaru } };
       }
+      // Bentrok KODE PRODUK (sanci_products_code_key) — beda constraint dari
+      // client_request_id di atas (LESSONS #21: satu tabel, dua unique, dua
+      // arti berbeda). Tanpa cabang ini pengguna melihat "server sibuk" dan
+      // menekan Simpan lagi berulang — tidak akan pernah berhasil karena
+      // masalahnya bukan jaringan, sama seperti createPackage di actions-packages.ts.
+      if (written.code === "23505") {
+        return { error: { field: "code", message: "Kode produk sudah dipakai." } };
+      }
       return { error: { message: PESAN.serverSibuk } };
     }
     // Jawaban tidak sampai: tanyakan status sebenarnya, jangan INSERT lagi.
@@ -142,6 +150,12 @@ export async function updateProduct(
   if (!saved.ok) {
     if (saved.reason === "db") {
       if (isMissingTable(saved.code)) return { error: { message: CATALOG_MIGRATION_MSG } };
+      // Sama seperti createProduct: bentrok kode (23505) bukan "server sibuk"
+      // — pesan generik akan menyuruh admin mengulang percobaan yang pasti
+      // gagal lagi (parity dengan updatePackage di actions-packages.ts).
+      if (saved.code === "23505") {
+        return { error: { field: "code", message: "Kode produk sudah dipakai." } };
+      }
       return { error: { message: PESAN.serverSibuk } };
     }
     return { error: { message: PESAN.belumPastiUbah } };

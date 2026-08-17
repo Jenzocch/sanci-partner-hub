@@ -552,22 +552,32 @@ export async function getOrderSummary(
   return order ? { status: "found", order } : { status: "unknown" };
 }
 
+/**
+ * "invalid" = baris memang tidak ada / staf tidak aktif / beda partner —
+ * pesan validasi pengguna wajar. "error" = query itu sendiri GAGAL (jaringan/
+ * DB) — TIDAK boleh disamarkan jadi "invalid" (LESSONS #10): dulu fungsi ini
+ * membuang field `error` sepenuhnya, jadi hiccup jaringan sesaat membuat
+ * pengguna melihat "Sales harus dipilih dari daftar staf aktif" walau
+ * pilihannya benar — pesan yang menyuruh mengganti pilihan padahal
+ * masalahnya di server, bukan di pilihan.
+ */
 async function verifyActiveStaffInBranch(
   supabase: SupabaseServerClient,
   staffId: string,
   branchId: string,
   partnerId: string
-): Promise<boolean> {
-  const { data } = await supabase
+): Promise<"ok" | "invalid" | "error"> {
+  const { data, error } = await supabase
     .from("partner_staff_assignments")
     .select("staff_id, partner_staff:staff_id(id, status, partner_id)")
     .eq("staff_id", staffId)
     .eq("branch_id", branchId)
     .is("end_at", null)
     .maybeSingle();
-  if (!data) return false;
+  if (error) return "error";
+  if (!data) return "invalid";
   const staff = data.partner_staff as unknown as { id: string; status: string; partner_id: string } | null;
-  return !!staff && staff.status === "ACTIVE" && staff.partner_id === partnerId;
+  return !!staff && staff.status === "ACTIVE" && staff.partner_id === partnerId ? "ok" : "invalid";
 }
 
 export async function createCustomerAndOrder(input: {
@@ -613,16 +623,18 @@ export async function createCustomerAndOrder(input: {
 
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: "Sales wajib dipilih." } };
 
-  const salesOk = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
-  if (!salesOk) {
+  const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
+  if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
+  if (salesCheck === "invalid") {
     return {
       error: { field: "sales_staff_id", message: "Sales harus dipilih dari daftar staf aktif cabang ini." },
     };
   }
   let picStaffId: string | null = null;
   if (input.picStaffId) {
-    const picOk = await verifyActiveStaffInBranch(supabase, input.picStaffId, identity.branchId, identity.partnerId);
-    if (!picOk) {
+    const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, identity.branchId, identity.partnerId);
+    if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
+    if (picCheck === "invalid") {
       return { error: { field: "pic_staff_id", message: "PIC harus dipilih dari daftar staf aktif cabang ini." } };
     }
     picStaffId = input.picStaffId;
@@ -817,14 +829,16 @@ export async function updateOrder(input: {
 
   // Staf diverifikasi terhadap cabang PESANAN (bisa beda dari cabang login saat
   // PARTNER_ALL_BRANCHES mengubah pesanan cabang lain) — bukan cabang pengguna.
-  const salesOk = await verifyActiveStaffInBranch(supabase, input.salesStaffId, order.branch_id, order.partner_id);
-  if (!salesOk) {
+  const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, order.branch_id, order.partner_id);
+  if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
+  if (salesCheck === "invalid") {
     return { error: { field: "sales_staff_id", message: "Sales harus dipilih dari daftar staf aktif cabang ini." } };
   }
   let picStaffId: string | null = null;
   if (input.picStaffId) {
-    const picOk = await verifyActiveStaffInBranch(supabase, input.picStaffId, order.branch_id, order.partner_id);
-    if (!picOk) {
+    const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, order.branch_id, order.partner_id);
+    if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
+    if (picCheck === "invalid") {
       return { error: { field: "pic_staff_id", message: "PIC harus dipilih dari daftar staf aktif cabang ini." } };
     }
     picStaffId = input.picStaffId;

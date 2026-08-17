@@ -118,6 +118,18 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - 反向的坑：policy 表達式是以**查詢者**身分執行的，把 policy 用到的輔助函式（fn_can_view_branch 等）也 revoke 掉，查表會直接炸 `permission denied for function`——不是安靜的 0 列（實測過）。
 - **規則**：每個新 security definer 函式誕生時就決定 EXECUTE 面——「只給 trigger/RPC 內部用」→ revoke public/anon/authenticated；「被 RLS policy 引用」→ 明確 grant anon+authenticated。寫在 migration 裡，不靠預設值。
 
+### 27. 一張表兩個 unique constraint 時，每個「23505 → 好懂訊息」的翻譯都要照抄一次——複製 CRUD pattern 時漏掉就是啞巴錯誤〔本專案 2026-08-17 audit round 2〕
+- **情境**：`sanci_products` 同時有 `client_request_id`（idempotency）和 `sanci_products_code_key`（業務碼）兩個 unique constraint,兩者違反都回 23505（呼應 LESSONS #21）。`actions-packages.ts`（先寫的）在 idempotency 分支之後補了 `if (written.code === "23505") return {field:"code", message:"Kode package sudah dipakai."}`；`actions-products.ts`（照著抄的）只抄到 idempotency 分支就停了，兩個 CRUD 函式（createProduct/updateProduct）都漏了這段。
+- **症狀**：admin 建立/改名產品時撞到重複代碼，看到的是「Tidak bisa menyimpan sekarang. Coba lagi sebentar lagi.」——按 Simpan 重試永遠不會成功,因為問題不是網路是代碼重複,訊息卻叫他重試。
+- **修法**：`actions-products.ts` 的 `written.reason === "db"` 分支裡,`isRequestIdConflict` 判斷之後、通用 `serverSibuk` 之前,補上 `if (written.code === "23505") return {field:"code", message:"Kode produk sudah dipakai."}`，create/update 兩處都要補。
+- **教訓**：抄 CRUD pattern 到新表時，「這張表有幾個 unique constraint、每個各自的錯誤訊息」要逐一核對來源檔案，不能只抄到第一個分支就收工——這類 bug typecheck/build 都是綠的,只有真的觸發那個 constraint 才會現形。
+
+### 28. `audit_logs` 的 diff 渲染器（SKIP/LABELS）是全域共用的——新表新增任何 actor UUID／storage path／boolean 欄位,都要照著既有欄位的待遇補一份,不會自動繼承〔本專案 2026-08-17 audit round 2〕
+- **情境**：`web/lib/audit-format.ts` 的 `SKIP` 集合和 `LABELS`/`VALUE_LABELS` 對照表是**所有**表共用的通用渲染器,不是每張表各自的 schema。0009 加了 `customer_arrived_by`（跟 `created_by`/`cancelled_by` 同類的 actor UUID）和 0010 加了 `photo_url`（跟 `logo_url` 同類的 storage path）,但兩個都沒有比照舊欄位加進 `SKIP`；`sanci_catalog_access.enabled` 是新的 boolean 欄位,`asLabel` 原本只認得字串枚舉,布林值會被 `String()` 變成英文的 `"true"/"false"` 直接漏進印尼文介面（呼應 LESSONS #13）。
+- **症狀**：Admin 打開訂單/Partner 的「Activity」分頁,標記客戶到店後的 diff 會多印一行原始 UUID（`customer_arrived_by: 3fa85f64-...`）；開/關某 partner 的產品目錄存取,diff 顯示 `enabled: true → false` 而不是印尼文。兩者都不是安全漏洞（僅 admin 可見）,但違反這個檔案自己在註解裡定的規矩（「Kolom internal... jangan pernah ditampilkan mentah」）,也是本專案上一輪才修過的同一類 bug（P2-2,UUID 洩漏進 Activity）。
+- **修法**：新表產生的每個新欄位都要問一次「這是 actor UUID／storage path／純內部鍵嗎」→ 加進 `SKIP`；「這是要給人看的業務值嗎」→ 加進 `LABELS`（布林值另外在 `asLabel` 里特判,不能只加字串枚舉表）。
+- **教訓**：`audit-format.ts` 沒有 TypeScript 型別把它和資料表 schema 綁在一起,新增/修改資料表的 migration 完成後,必須手動巡一次這個檔案的 `SKIP`/`LABELS`——這是純字串比對,漏掉不會有任何編譯期或執行期錯誤提示,只會在 UI 上安靜地洩漏原始值。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

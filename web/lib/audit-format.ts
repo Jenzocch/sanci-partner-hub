@@ -1,3 +1,5 @@
+import { formatIDR } from "./orders-shared";
+
 const LABELS: Record<string, string> = {
   name: "Nama",
   code: "Kode",
@@ -23,6 +25,9 @@ const LABELS: Record<string, string> = {
   fulfillment_path: "Jalur Pesanan",
   partner_purchase_amount: "Total Belanja di Toko",
   invoice_url: "Invoice",
+  category: "Kategori",
+  stock_status: "Status Stok",
+  enabled: "Akses Katalog",
 };
 
 // Nilai enum internal → bahasa sehari-hari.
@@ -41,7 +46,13 @@ const VALUE_LABELS: Record<string, string> = {
   OUT_OF_STOCK: "Habis",
 };
 
-const asLabel = (v: unknown) => {
+const asLabel = (key: string, v: unknown) => {
+  // Boolean mentah (mis. sanci_catalog_access.enabled) tidak boleh tampil
+  // sebagai "true"/"false" — itu bahasa Inggris bocor ke UI (LESSONS #13).
+  if (typeof v === "boolean") return v ? "Ya" : "Tidak";
+  // Uang tetap harus lewat formatIDR — angka mentah ("1500000") tidak
+  // terbaca sebagai Rupiah oleh staf non-teknis (item H audit round 2).
+  if (key === "partner_purchase_amount" && typeof v === "number") return formatIDR(v);
   const s = String(v);
   return VALUE_LABELS[s] ?? s;
 };
@@ -70,6 +81,15 @@ const SKIP = new Set([
   "phone_normalized",
   "created_via_partner_id",
   "created_via_branch_id",
+  // Ditambahkan slice 4/5: parity dengan created_by/cancelled_by di atas —
+  // customer_arrived_by adalah UUID aktor, photo_url adalah path storage.
+  // Tanpa ini keduanya bocor mentah ke Activity (pola persis P2-2 lama).
+  // customer_arrived_at TIDAK diikutkan diff: aksi ORDER_CUSTOMER_ARRIVED
+  // sudah menyampaikan kejadiannya, dan waktunya sudah tampil terformat di
+  // banner "Pelanggan sudah tiba" — sama seperti cancelled_at di atas.
+  "customer_arrived_by",
+  "customer_arrived_at",
+  "photo_url",
 ]);
 
 // Kode aksi audit → kalimat sehari-hari (dipakai halaman Activity/History).
@@ -102,11 +122,18 @@ export const ACTION_LABELS: Record<string, string> = {
   STAFF_CREATED: "Staf ditambahkan",
   STAFF_UPDATED: "Staf diubah",
   STAFF_DEACTIVATED: "Staf dinonaktifkan",
+  // fn_audit_row (migrasi 0001) memancarkan <PREFIX>_STATUS_CHANGED saat kolom
+  // status berubah — bukan STAFF_DEACTIVATED / USER_DISABLED / dst. Tanpa label
+  // ini, menonaktifkan staf / akun / penugasan menampilkan KODE MENTAH di layar
+  // Aktivitas (SPEC §69). Label lama di atas dipertahankan (tidak berbahaya).
+  STAFF_STATUS_CHANGED: "Status staf berubah",
   STAFF_ASSIGNMENT_CREATED: "Penugasan staf dibuat",
   STAFF_ASSIGNMENT_CHANGED: "Penugasan staf berubah",
+  STAFF_ASSIGNMENT_STATUS_CHANGED: "Status penugasan staf berubah",
   USER_CREATED: "Akun dibuat",
   USER_DISABLED: "Akun dinonaktifkan",
   USER_REACTIVATED: "Akun diaktifkan kembali",
+  USER_STATUS_CHANGED: "Status akun berubah",
   PERMISSION_CHANGED: "Izin akses diubah",
 };
 
@@ -143,11 +170,11 @@ export function formatAuditDiff(
     const label = LABELS[key] || key;
     if (b === undefined || b === null) {
       if (a === null || a === "" || a === undefined) continue;
-      lines.push(`${label}: ${asLabel(a)}`);
+      lines.push(`${label}: ${asLabel(key, a)}`);
     } else if (a === undefined) {
-      lines.push(`${label}: ${asLabel(b)} (dihapus)`);
+      lines.push(`${label}: ${asLabel(key, b)} (dihapus)`);
     } else {
-      lines.push(`${label}: ${asLabel(b)} → ${asLabel(a)}`);
+      lines.push(`${label}: ${asLabel(key, b)} → ${asLabel(key, a)}`);
     }
   }
   return lines;
