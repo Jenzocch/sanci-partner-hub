@@ -37,7 +37,7 @@ export default function PartnerLogo({
         objectFit: "contain",
         borderRadius: Math.round(size / 5),
         border: "1px solid var(--line)",
-        background: "#fff",
+        background: "var(--surface)",
         flex: "none",
       }}
     />
