@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CODE_RE } from "@/lib/validation";
 import {
-  PESAN,
+  pesan,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
 } from "@/lib/safe-write";
+import { getMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> =
@@ -25,13 +26,15 @@ export async function createPartner(input: {
   clientRequestId: string;
   confirmDuplicate?: boolean;
 }): Promise<ActionResult<{ id: string }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
   const code = input.code.trim().toUpperCase();
 
-  if (!name) return { error: { field: "name", message: "Nama partner wajib diisi." } };
+  if (!name) return { error: { field: "name", message: m.admin.partnerNameRequired } };
   if (!CODE_RE.test(code)) {
-    return { error: { field: "code", message: "2–8 karakter, hanya A–Z, 0–9, dan tanda hubung." } };
+    return { error: { field: "code", message: m.admin.partnerCodeInvalid } };
   }
 
   // Idempotency (SPEC §61/§73): request yang sama (retry jaringan lemah) tidak boleh membuat baris kedua.
@@ -87,7 +90,7 @@ export async function createPartner(input: {
       }
       // Jangan bocorkan error DB mentah ke pengguna (SPEC §69).
       if (written.code === "23505") {
-        return { error: { field: "code", message: `Kode partner ${code} sudah dipakai.` } };
+        return { error: { field: "code", message: m.admin.partnerCodeTaken.replace("{code}", code) } };
       }
       return { error: { message: PESAN.serverSibuk } };
     }
@@ -118,16 +121,18 @@ export async function updatePartner(
   id: string,
   input: { name: string; code?: string; contactName?: string; contactPhone?: string }
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const { data: partner } = await supabase
     .from("partners")
     .select("status")
     .eq("id", id)
     .maybeSingle();
-  if (!partner) return { error: { message: "Partner tidak ditemukan." } };
+  if (!partner) return { error: { message: m.admin.partnerNotFound } };
 
   const name = input.name.trim();
-  if (!name) return { error: { field: "name", message: "Nama partner wajib diisi." } };
+  if (!name) return { error: { field: "name", message: m.admin.partnerNameRequired } };
 
   const update: Record<string, unknown> = {
     name,
@@ -140,7 +145,7 @@ export async function updatePartner(
   if (!locked && input.code) {
     code = input.code.trim().toUpperCase();
     if (!CODE_RE.test(code)) {
-      return { error: { field: "code", message: "2–8 karakter, hanya A–Z, 0–9, dan tanda hubung." } };
+      return { error: { field: "code", message: m.admin.partnerCodeInvalid } };
     }
     update.code = code;
   }
@@ -153,7 +158,7 @@ export async function updatePartner(
       return { error: { message: PESAN.belumPastiUbah } };
     }
     if (saved.code === "23505") {
-      return { error: { field: "code", message: `Kode partner ${code} sudah dipakai.` } };
+      return { error: { field: "code", message: m.admin.partnerCodeTaken.replace("{code}", code ?? "") } };
     }
     return { error: { message: PESAN.serverSibuk } };
   }
@@ -178,10 +183,12 @@ export async function setPartnerLogo(
   // bucket logo milik partner ini yang boleh masuk ke kolom logo_url.
   // Garis miring di akhir alamat proyek dibuang dulu — kalau tidak, pencocokan
   // di bawah gagal diam-diam dan logo tidak pernah tersimpan.
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
   const prefix = `${base}/storage/v1/object/public/partner-logos/${id}/`;
   if (!logoUrl.startsWith(prefix)) {
-    return { error: { message: "Alamat logo tidak dikenali." } };
+    return { error: { message: m.admin.logoUrlUnrecognized } };
   }
 
   const supabase = await createClient();
@@ -201,6 +208,7 @@ export async function setPartnerStatus(
   id: string,
   status: "ACTIVE" | "SUSPENDED" | "INACTIVE"
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
   const supabase = await createClient();
 
   if (status === "ACTIVE") {
@@ -219,7 +227,7 @@ export async function setPartnerStatus(
       supabase.from("partner_access_policies").select("configured").eq("partner_id", id).maybeSingle(),
     ]);
     if (!branchCount || !userCount || !policy?.configured) {
-      return { error: { message: "Syarat aktivasi belum lengkap." } };
+      return { error: { message: m.admin.partnerActivationRequirementsMissing } };
     }
   }
 
@@ -231,7 +239,7 @@ export async function setPartnerStatus(
     .maybeSingle();
   // RLS bisa menyaring update ini jadi 0 baris tanpa error — jangan anggap berhasil
   // kalau tidak ada baris yang benar-benar berubah (LESSONS #7).
-  if (error || !updated) return { error: { message: "Tidak bisa mengubah status sekarang." } };
+  if (error || !updated) return { error: { message: m.admin.partnerStatusChangeFailed } };
 
   revalidatePath("/admin");
   revalidatePath(`/admin/partners/${id}`);
@@ -239,29 +247,30 @@ export async function setPartnerStatus(
 }
 
 export async function deleteDraftPartner(id: string, typedCode: string) {
+  const m = await getMessages();
   const supabase = await createClient();
   const { data: partner } = await supabase
     .from("partners")
     .select("code, status")
     .eq("id", id)
     .maybeSingle();
-  if (!partner) return { error: { message: "Partner tidak ditemukan." } };
+  if (!partner) return { error: { message: m.admin.partnerNotFound } };
   if (partner.status !== "DRAFT") {
-    return { error: { message: "Hanya partner berstatus DRAF yang bisa dihapus permanen." } };
+    return { error: { message: m.admin.partnerDeleteDraftOnly } };
   }
   if (typedCode.trim().toUpperCase() !== partner.code) {
-    return { error: { message: `Ketik ${partner.code} persis untuk konfirmasi.` } };
+    return { error: { message: m.admin.partnerDeleteCodeMismatch.replace("{code}", partner.code) } };
   }
 
   const { data: deleted, error } = await supabase.from("partners").delete().eq("id", id).select("id");
   if (error) {
     // FK RESTRICT dari branch/staff/user lain — master data terpakai tidak boleh hilang diam-diam.
-    return { error: { message: "Partner ini sudah punya data terkait — tidak bisa dihapus permanen." } };
+    return { error: { message: m.admin.partnerHasRelatedData } };
   }
   // RLS bisa menyaring delete ini jadi 0 baris tanpa error — jangan redirect seolah
   // berhasil kalau tidak ada baris yang benar-benar terhapus (LESSONS #7).
   if (!deleted || deleted.length === 0) {
-    return { error: { message: "Tidak bisa menghapus partner sekarang." } };
+    return { error: { message: m.admin.partnerDeleteFailed } };
   }
 
   revalidatePath("/admin");

@@ -4,19 +4,21 @@ import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PESAN, WRITE_TIMEOUT_MS, confirmByRequestId, safeWrite } from "@/lib/safe-write";
+import { pesan, WRITE_TIMEOUT_MS, confirmByRequestId, safeWrite } from "@/lib/safe-write";
+import { getMessages, type Messages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
 
 export async function toggleUserStatus(userId: string): Promise<ActionResult<true>> {
+  const m = await getMessages();
   const supabase = await createClient();
   const { data: user } = await supabase
     .from("partner_users")
     .select("status, partner_id")
     .eq("id", userId)
     .maybeSingle();
-  if (!user) return { error: { message: "Akun tidak ditemukan." } };
+  if (!user) return { error: { message: m.admin.userNotFound } };
 
   const nextStatus = user.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
   const { data: updated, error } = await supabase
@@ -27,7 +29,7 @@ export async function toggleUserStatus(userId: string): Promise<ActionResult<tru
     .maybeSingle();
   // RLS bisa menyaring update ini jadi 0 baris tanpa error — jangan anggap berhasil
   // kalau tidak ada baris yang benar-benar berubah (LESSONS #7).
-  if (error || !updated) return { error: { message: "Tidak bisa mengubah status akun sekarang." } };
+  if (error || !updated) return { error: { message: m.admin.userToggleFailed } };
 
   revalidatePath(`/admin/partners/${user.partner_id}`);
   return { data: true };
@@ -58,41 +60,37 @@ export async function toggleUserStatus(userId: string): Promise<ActionResult<tru
 /** Cukup untuk menolak salah ketik; validasi sebenarnya tetap di sisi Auth. */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** Panjang minimum kata sandi awal. Tombol "Buat otomatis" menghasilkan lebih panjang. */
+/**
+ * Panjang minimum kata sandi. Kata sandinya ditentukan sendiri oleh toko
+ * (biasanya dikirim ke SANCI lewat WhatsApp), jadi angka ini satu-satunya
+ * saringan di sisi kami. Kalau proyek Supabase punya syarat yang lebih ketat,
+ * penolakannya diterjemahkan lewat pesanAkun(m).sandiLemah — bukan ditampilkan
+ * apa adanya.
+ */
 const MIN_PANJANG_SANDI = 10;
 
-const PESAN_AKUN = {
-  tidakBerwenang: "Anda tidak berwenang membuat akun login.",
-  cekIzinGagal: "Tidak bisa memastikan hak akses Anda sekarang. Muat ulang halaman lalu coba lagi.",
-  kunciBelumDiatur:
-    "Pembuatan akun login belum bisa dijalankan karena pengaturan server belum lengkap. " +
-    "Minta petugas teknis mengisi variabel lingkungan SUPABASE_SERVICE_ROLE_KEY di Vercel, " +
-    "lalu buka halaman ini lagi. Isian Anda tidak ada yang tersimpan.",
-  emailDipakai:
-    "Email ini sudah dipakai. Gunakan email lain. Kalau menurut Anda email ini seharusnya belum " +
-    "terpakai, hubungi petugas teknis — jangan dipaksa dibuat ulang.",
-  sandiLemah:
-    "Kata sandi awal ditolak sistem login karena belum memenuhi syarat keamanan. Pakai kata sandi " +
-    "yang lebih panjang dan mencampur huruf besar, huruf kecil, serta angka.",
-  emailDitolak: "Email ini ditolak sistem login. Periksa penulisannya, lalu coba lagi.",
-  gagalBuat: "Tidak bisa membuat akun login sekarang. Coba lagi sebentar lagi.",
-  buatTidakPasti:
-    "Koneksi ke server terputus sebelum jawaban sampai, jadi belum bisa dipastikan akun login " +
-    "sudah dibuat atau belum. JANGAN langsung membuat ulang. Muat ulang halaman ini dan lihat " +
-    "daftar Akun: kalau akun belum muncul tetapi email tadi ditolak karena sudah dipakai, " +
-    "hubungi petugas teknis dan sebutkan email tersebut.",
-  batalBersih:
-    "Akun login GAGAL dibuat dan tidak ada yang tertinggal di sistem. Silakan coba lagi dengan " +
-    "email yang sama.",
-} as const;
+// Teksnya hidup di lib/i18n/messages/admin.ts (kunci `user*`) — fungsi ini
+// hanya memberi nama pendek yang sama seperti konstanta lama, supaya
+// pemanggilnya tidak berubah banyak. Jaga makna kata-katanya persis: ini
+// menjelaskan keamanan kata sandi (sistem menyimpan sidik jari, bukan kata
+// sandi itu sendiri) dan keadaan setengah-jadi yang JUJUR, bukan disamarkan.
+function pesanAkun(m: Messages) {
+  return {
+    tidakBerwenang: m.admin.userNotAuthorized,
+    cekIzinGagal: m.admin.userPermCheckFailed,
+    kunciBelumDiatur: m.admin.userServiceKeyMissingCreate,
+    emailDipakai: m.admin.userEmailTaken,
+    sandiLemah: m.admin.userWeakPassword,
+    emailDitolak: m.admin.userEmailRejected,
+    gagalBuat: m.admin.userCreateFailedGeneric,
+    buatTidakPasti: m.admin.userCreateUnconfirmedMsg,
+    batalBersih: m.admin.userCreateCleanRollback,
+  } as const;
+}
 
 /** Keadaan setengah jadi — WAJIB jujur, tidak boleh disebut berhasil (LESSONS #2/#7). */
-function pesanSetengahJadi(email: string): string {
-  return (
-    `Akun login untuk ${email} sudah dibuat di sistem login, TETAPI belum terhubung ke partner ` +
-    `ini, jadi belum bisa dipakai untuk masuk. Jangan membuat ulang dengan email yang sama. ` +
-    `Catat email ini dan hubungi petugas teknis.`
-  );
+function pesanSetengahJadi(m: Messages, email: string): string {
+  return m.admin.userHalfCreated.replace("{email}", email);
 }
 
 const HABIS_WAKTU = Symbol("timeout");
@@ -204,6 +202,9 @@ export async function createPartnerUser(
   partnerId: string,
   input: { name: string; branchId: string; email: string; password: string }
 ): Promise<ActionResult<{ id: string; email: string }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
+  const PESAN_AKUN = pesanAkun(m);
   const supabase = await createClient();
 
   // ── 1. Pemanggil harus SANCI Admin ────────────────────────────────────
@@ -225,26 +226,28 @@ export async function createPartnerUser(
 
   // ── 2. Validasi isian ─────────────────────────────────────────────────
   const name = input.name.trim();
-  if (!name) return { error: { field: "name", message: "Nama wajib diisi." } };
+  if (!name) return { error: { field: "name", message: m.admin.userNameRequiredField } };
 
   const email = input.email.trim().toLowerCase();
-  if (!email) return { error: { field: "email", message: "Email wajib diisi." } };
+  if (!email) return { error: { field: "email", message: m.admin.userEmailRequiredField } };
   if (!EMAIL_RE.test(email)) {
     return {
       error: {
         field: "email",
-        message: "Format email belum benar. Contoh: gh-bsd@sanci.com",
+        message: m.admin.userEmailFormatInvalid,
       },
     };
   }
 
   const password = input.password;
-  if (!password) return { error: { field: "password", message: "Kata sandi awal wajib diisi." } };
+  if (!password) {
+    return { error: { field: "password", message: m.admin.userPasswordRequiredField } };
+  }
   if (password.length < MIN_PANJANG_SANDI) {
     return {
       error: {
         field: "password",
-        message: `Kata sandi awal minimal ${MIN_PANJANG_SANDI} karakter. Tekan "Buat otomatis" kalau ingin dibuatkan sistem.`,
+        message: m.admin.userPasswordTooShort.replace("{min}", String(MIN_PANJANG_SANDI)),
       },
     };
   }
@@ -252,7 +255,7 @@ export async function createPartnerUser(
   // ── 3. Cabang: pasangan partner↔cabang dicari ulang di server ─────────
   // partner_id/branch_id dari browser tidak pernah dipercaya (LESSONS #6).
   if (!input.branchId) {
-    return { error: { field: "branch_id", message: "Cabang wajib dipilih." } };
+    return { error: { field: "branch_id", message: m.admin.userBranchRequiredField } };
   }
   const { data: branch, error: branchErr } = await supabase
     .from("partner_branches")
@@ -262,13 +265,13 @@ export async function createPartnerUser(
     .maybeSingle();
   if (branchErr) return { error: { message: PESAN.serverSibuk } };
   if (!branch) {
-    return { error: { field: "branch_id", message: "Cabang tidak ditemukan pada partner ini." } };
+    return { error: { field: "branch_id", message: m.admin.userBranchNotFoundOnPartner } };
   }
   if (branch.status !== "ACTIVE") {
     return {
       error: {
         field: "branch_id",
-        message: "Cabang itu sedang tidak aktif. Aktifkan cabangnya dulu, baru buat akunnya.",
+        message: m.admin.userBranchInactive,
       },
     };
   }
@@ -337,7 +340,7 @@ export async function createPartnerUser(
   if (cek.status === "unknown") {
     // Tidak tahu barisnya ada atau tidak → JANGAN hapus akun auth-nya; kalau
     // ternyata sudah terhubung, penghapusan itu merusak akun yang berfungsi.
-    return { error: { message: pesanSetengahJadi(email) } };
+    return { error: { message: pesanSetengahJadi(m, email) } };
   }
 
   // Terbukti tidak ada baris penghubung → akun auth ini yatim. Batalkan.
@@ -346,5 +349,184 @@ export async function createPartnerUser(
 
   // Pembatalan pun gagal. Laporkan keadaan sebenarnya — jangan pernah mengaku
   // berhasil, dan jangan pernah berpura-pura tidak terjadi apa-apa.
-  return { error: { message: pesanSetengahJadi(email) } };
+  return { error: { message: pesanSetengahJadi(m, email) } };
+}
+
+/* ==================================================================== *
+ * Mengganti kata sandi akun cabang (P-07 lanjutan)
+ *
+ * Kenapa fitur ini ada, dan kenapa TIDAK ADA layar "lihat kata sandi":
+ *
+ * Sistem login tidak menyimpan kata sandinya, hanya sidik jarinya, jadi kata
+ * sandi yang sudah tersimpan memang tidak bisa dibaca kembali oleh siapa pun —
+ * termasuk SANCI. Menyimpan salinan yang bisa dibaca ulang (di tabel mana pun,
+ * dengan cara apa pun) DILARANG di proyek ini: siapa saja yang bisa membuka
+ * database akan melihat kata sandi SEMUA toko sekaligus, dan toko lazim memakai
+ * kata sandi yang sama di tempat lain. Jadi satu-satunya jalan untuk toko yang
+ * lupa kata sandi adalah menetapkan kata sandi baru di sini.
+ *
+ * Urutan pemakaian service_role SAMA PERSIS dengan createPartnerUser dan tidak
+ * boleh dibalik (LESSONS #19):
+ *
+ *   1. Pastikan pemanggilnya SANCI Admin — dengan sesi pengguna sendiri, RLS
+ *      masih aktif.
+ *   2. Baris akun sasaran dibaca ulang di server memakai sesi biasa; yang
+ *      datang dari browser hanya id baris `partner_users`, tidak pernah
+ *      `auth_user_id` (LESSONS #6). Policy `u_admin_all` ikut menjaga sekali
+ *      lagi di sini.
+ *   3. BARU sesudah itu klien service_role dibuat, dan HANYA untuk satu
+ *      panggilan Auth (`auth.admin.updateUserById`).
+ *   4. Nilai kuncinya tidak pernah di-log, tidak pernah dikembalikan, dan tidak
+ *      pernah masuk pesan error.
+ *
+ * Berbeda dengan pembuatan akun, fungsi ini TIDAK menulis dua tahap: hanya satu
+ * operasi Auth, tidak ada baris tabel yang ikut berubah, jadi tidak ada keadaan
+ * setengah jadi dan tidak ada yang perlu dibatalkan. Kalau jawabannya hilang,
+ * mengulang dengan kata sandi baru yang sama sepenuhnya aman.
+ * ==================================================================== */
+
+// Sama pola dengan pesanAkun(m) di atas — teksnya hidup di admin.ts (kunci
+// `reset*`). Jaga makna persis: menjelaskan bahwa kata sandi lama tetap
+// berlaku sampai penggantian sukses, dan keadaan "belum pasti" TIDAK boleh
+// disebut berhasil.
+function pesanReset(m: Messages) {
+  return {
+    kunciBelumDiatur: m.admin.resetServiceKeyMissing,
+    akunTidakAda: m.admin.resetAccountNotFound,
+    akunTidakLengkap: m.admin.resetAccountIncomplete,
+    gagal: m.admin.resetGenericFail,
+    tidakPasti: m.admin.resetPasswordUnconfirmedMsg,
+  } as const;
+}
+
+type HasilGantiSandi =
+  | { status: "updated" }
+  | { status: "weak-password" }
+  | { status: "user-missing" }
+  /** Jawaban tidak sampai. Kata sandi MUNGKIN sudah berganti — tidak boleh ditebak. */
+  | { status: "unconfirmed" }
+  | { status: "failed" };
+
+/**
+ * Satu-satunya operasi service_role di alur ini.
+ *
+ * Pesan error mentah dari Auth TIDAK PERNAH diteruskan ke pemanggil — hanya
+ * dipetakan jadi salah satu status di atas.
+ */
+async function gantiKataSandiAuth(
+  admin: SupabaseClient,
+  authUserId: string,
+  password: string
+): Promise<HasilGantiSandi> {
+  let res;
+  try {
+    res = await balapWaktu(
+      admin.auth.admin.updateUserById(authUserId, { password }),
+      WRITE_TIMEOUT_MS
+    );
+  } catch {
+    return { status: "unconfirmed" };
+  }
+  if (res === HABIS_WAKTU) return { status: "unconfirmed" };
+
+  const { data, error } = res;
+  if (error) {
+    const code = error.code ?? "";
+    const status = error.status;
+    // Gagal di lapisan jaringan (status tidak ada / 0) atau server bermasalah
+    // (5xx): kata sandi bisa saja tetap berganti. Jangan mengaku tahu.
+    if (status === undefined || status === 0 || status >= 500) return { status: "unconfirmed" };
+    if (code === "request_timeout") return { status: "unconfirmed" };
+    if (code === "weak_password") return { status: "weak-password" };
+    // GoTrue lama membalas 422 tanpa kode; teks ini hanya diperiksa, tidak pernah ditampilkan.
+    if (status === 422 && /password/i.test(error.message)) return { status: "weak-password" };
+    if (code === "user_not_found" || status === 404) return { status: "user-missing" };
+    return { status: "failed" };
+  }
+  if (!data?.user?.id) {
+    // Tidak ada error tapi juga tidak ada pengguna — jangan dianggap berhasil (LESSONS #7).
+    return { status: "unconfirmed" };
+  }
+  return { status: "updated" };
+}
+
+export async function resetPartnerUserPassword(
+  userId: string,
+  password: string
+): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
+  const PESAN_AKUN = pesanAkun(m);
+  const PESAN_RESET = pesanReset(m);
+  const supabase = await createClient();
+
+  // ── 1. Pemanggil harus SANCI Admin ────────────────────────────────────
+  // Dicek dengan sesi pengguna sendiri, SEBELUM kunci service_role disentuh.
+  const { data: sesi, error: sesiErr } = await supabase.auth.getUser();
+  if (sesiErr || !sesi?.user) return { error: { message: PESAN_AKUN.tidakBerwenang } };
+
+  const { data: adminRow, error: adminErr } = await supabase
+    .from("platform_admins")
+    .select("auth_user_id")
+    .eq("auth_user_id", sesi.user.id)
+    .maybeSingle();
+  // Error database ≠ "bukan admin" (LESSONS #10).
+  if (adminErr) return { error: { message: PESAN_AKUN.cekIzinGagal } };
+  if (!adminRow) return { error: { message: PESAN_AKUN.tidakBerwenang } };
+
+  // ── 2. Validasi isian ─────────────────────────────────────────────────
+  // Kecocokan "ketik ulang" diperiksa di layar (server hanya menerima satu
+  // nilai) — pemeriksaan panjangnya tetap di sini supaya tidak bisa dilewati.
+  if (!password) {
+    return { error: { field: "password", message: m.admin.resetPasswordRequiredField } };
+  }
+  if (password.length < MIN_PANJANG_SANDI) {
+    return {
+      error: {
+        field: "password",
+        message: m.admin.resetPasswordTooShortField.replace("{min}", String(MIN_PANJANG_SANDI)),
+      },
+    };
+  }
+
+  // ── 3. Akun sasaran dicari ulang di server, masih dengan sesi biasa ───
+  // Browser hanya mengirim id baris partner_users; `auth_user_id` dibaca di
+  // sini lewat RLS (LESSONS #6). Kalau suatu saat langkah 1 bisa ditembus,
+  // policy `u_admin_all` membuat pembacaan ini tidak mengembalikan apa pun,
+  // jadi kunci service_role di bawah tidak pernah punya sasaran.
+  if (!userId) return { error: { message: PESAN_RESET.akunTidakAda } };
+  const { data: target, error: targetErr } = await supabase
+    .from("partner_users")
+    .select("id, auth_user_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (targetErr) return { error: { message: PESAN.serverSibuk } };
+  if (!target) return { error: { message: PESAN_RESET.akunTidakAda } };
+  if (!target.auth_user_id) return { error: { message: PESAN_RESET.akunTidakLengkap } };
+
+  // ── 4. Baru sekarang kunci service_role dipakai ───────────────────────
+  const admin = createAdminClient();
+  // Kunci belum diatur di Vercel: turunkan fungsinya dengan penjelasan, jangan
+  // rusak (LESSONS #12). Belum ada apa pun yang berubah sampai baris ini.
+  if (!admin) return { error: { message: PESAN_RESET.kunciBelumDiatur } };
+
+  // ── 5. Ganti kata sandinya ────────────────────────────────────────────
+  const hasil = await gantiKataSandiAuth(admin, target.auth_user_id, password);
+  if (hasil.status === "weak-password") {
+    return { error: { field: "password", message: PESAN_AKUN.sandiLemah } };
+  }
+  if (hasil.status === "user-missing") {
+    return { error: { message: PESAN_RESET.akunTidakLengkap } };
+  }
+  if (hasil.status === "unconfirmed") {
+    return { error: { message: PESAN_RESET.tidakPasti } };
+  }
+  if (hasil.status !== "updated") {
+    return { error: { message: PESAN_RESET.gagal } };
+  }
+
+  // Tidak ada kolom yang ditampilkan di layar ikut berubah (kata sandinya
+  // memang tidak disimpan di tabel mana pun), jadi tidak ada yang perlu
+  // dimuat ulang — revalidatePath sengaja tidak dipanggil di sini.
+  return { data: true };
 }

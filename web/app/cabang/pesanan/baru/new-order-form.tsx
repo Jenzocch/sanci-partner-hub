@@ -10,8 +10,8 @@ import {
   displayPhoneID,
   formatIDR,
   parseIDRInput,
-  FULFILLMENT_PATH_DESC,
-  FULFILLMENT_PATH_LABEL,
+  fulfillmentDesc,
+  fulfillmentLabel,
   type FulfillmentPath,
 } from "@/lib/orders-shared";
 import {
@@ -25,6 +25,7 @@ import {
 } from "../actions";
 import { INVOICE_ACCEPT, unggahInvoice } from "../invoice-upload";
 import StatusBadge from "../status-badge";
+import { useMessages } from "@/lib/i18n/provider";
 
 type StaffOption = { id: string; fullName: string; role: string };
 export type PackageOption = { id: string; name: string };
@@ -51,6 +52,7 @@ export default function NewOrderForm({
   /** Probe server: kolom fulfillment_path (migration 0009) ada di sesi ini? (LESSONS #12) */
   fulfillmentAvailable: boolean;
 }) {
+  const m = useMessages();
   const { submitting, begin, release, reset } = useSubmitGuard();
   const draft = useLocalDraft("pesanan-baru", `new@${branchId}`, true);
 
@@ -199,6 +201,7 @@ export default function NewOrderForm({
     const fd = new FormData(form);
     const rid = requestIdRef.current!;
     const out = await submitSafely({
+      messages: m,
       run: () =>
         createCustomerOnly({
           fullName: String(fd.get("full_name") || ""),
@@ -258,6 +261,7 @@ export default function NewOrderForm({
     const invoiceFile = fd.get("invoice");
 
     const out = await submitSafely({
+      messages: m,
       run: () =>
         createCustomerAndOrder({
           customerId: selectedExisting && foundCustomer ? foundCustomer.id : undefined,
@@ -279,7 +283,7 @@ export default function NewOrderForm({
 
     async function withInvoice(orderId: string) {
       if (invoiceFile instanceof File && invoiceFile.size > 0) {
-        setInvoiceMsg(await unggahInvoice(orderId, invoiceFile));
+        setInvoiceMsg(await unggahInvoice(m, orderId, invoiceFile));
       }
     }
 
@@ -292,7 +296,7 @@ export default function NewOrderForm({
         setOrderResult({ ...summary.order, customerId: foundCustomer?.id ?? "" });
         setPhase("order_success");
       } else {
-        setNetMsg("Pesanan kemungkinan sudah tersimpan, tapi rinciannya belum bisa dimuat. Buka Daftar Pesanan.");
+        setNetMsg(m.cabang.errOrderUnknownAfterConfirm);
         release();
       }
       return;
@@ -328,28 +332,28 @@ export default function NewOrderForm({
   if (phase === "order_success" && orderResult) {
     return (
       <div className="card">
-        <div className="banner ok">Pesanan berhasil dibuat.</div>
+        <div className="banner ok">{m.cabang.orderCreatedBanner}</div>
         {invoiceMsg && <div className="banner warn">{invoiceMsg}</div>}
         <dl className="kv">
-          <dt>Nomor Order</dt>
+          <dt>{m.common.orderNumber}</dt>
           <dd className="code">{orderResult.orderNumber}</dd>
-          <dt>Status</dt>
+          <dt>{m.common.status}</dt>
           <dd>
-            <StatusBadge status={orderResult.status} />
+            <StatusBadge status={orderResult.status} messages={m} />
           </dd>
-          <dt>Pelanggan</dt>
+          <dt>{m.common.customer}</dt>
           <dd>{orderResult.customerName}</dd>
-          <dt>Telepon</dt>
+          <dt>{m.common.phone}</dt>
           <dd>{displayPhoneID(orderResult.customerPhone)}</dd>
-          <dt>Package</dt>
+          <dt>{m.common.package}</dt>
           <dd>{orderResult.packageName}</dd>
         </dl>
         <div className="btnrow">
           <Link href="/cabang/pesanan" className="btn">
-            Daftar Pesanan
+            {m.cabang.homeOrders}
           </Link>
           <button type="button" className="btn primary" onClick={resetFormForNext}>
-            Buat Pesanan Lagi
+            {m.cabang.newOrderAgainCta}
           </button>
         </div>
       </div>
@@ -359,17 +363,17 @@ export default function NewOrderForm({
   if (phase === "customer_success" && customerResult) {
     return (
       <div className="card">
-        <div className="banner ok">Pelanggan berhasil disimpan.</div>
+        <div className="banner ok">{m.cabang.customerSavedBanner}</div>
         <dl className="kv">
-          <dt>Nama</dt>
+          <dt>{m.common.name}</dt>
           <dd>{customerResult.full_name}</dd>
-          <dt>Telepon</dt>
+          <dt>{m.common.phone}</dt>
           <dd>{customerResult.phone}</dd>
         </dl>
-        <p className="hint">Belum ada pesanan untuk pelanggan ini. Anda bisa membuat pesanan sekarang.</p>
+        <p className="hint">{m.cabang.newCustomerNoOrdersHint}</p>
         <div className="btnrow">
           <Link href="/cabang/pesanan" className="btn">
-            Daftar Pesanan
+            {m.cabang.homeOrders}
           </Link>
           <button
             type="button"
@@ -383,7 +387,7 @@ export default function NewOrderForm({
               requestIdRef.current = crypto.randomUUID();
             }}
           >
-            Buat Pesanan untuk Pelanggan Ini
+            {m.cabang.newOrderForCustomerCta}
           </button>
         </div>
       </div>
@@ -398,9 +402,9 @@ export default function NewOrderForm({
       <DraftBanner draft={draft.draft} onRestore={handleRestoreDraft} onDiscard={draft.discard} />
 
       <form ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
-        <h3 style={{ fontSize: "var(--fs-h3)", marginBottom: 10 }}>Pelanggan</h3>
+        <h3 style={{ fontSize: "var(--fs-h3)", marginBottom: 10 }}>{m.common.customer}</h3>
         <div className={`field${errs.phone ? " invalid" : ""}`}>
-          <label htmlFor="po_phone">Nomor HP / WhatsApp *</label>
+          <label htmlFor="po_phone">{m.cabang.phoneWhatsappLabel}</label>
           <input
             id="po_phone"
             name="phone"
@@ -411,13 +415,13 @@ export default function NewOrderForm({
             onChange={handlePhoneChange}
             disabled={selectedExisting}
           />
-          {lookupState === "checking" && <div className="hint">Memeriksa pelanggan…</div>}
+          {lookupState === "checking" && <div className="hint">{m.cabang.checkingCustomer}</div>}
           {lookupState === "error" && (
             <div className="banner bad" style={{ marginTop: 8, marginBottom: 0 }}>
-              Tidak dapat memeriksa pelanggan — coba lagi.
+              {m.cabang.errCustomerCheckFailed}
               <div className="btnrow-inline">
                 <button type="button" className="btn sm" onClick={() => runSearch(phone)}>
-                  Coba Lagi
+                  {m.common.retry}
                 </button>
               </div>
             </div>
@@ -427,10 +431,10 @@ export default function NewOrderForm({
 
         {lookupState === "found" && !selectedExisting && foundCustomer && (
           <div className="banner info">
-            Pelanggan ditemukan: <b>{foundCustomer.full_name}</b> · {foundCustomer.phone}
+            {m.cabang.customerFoundPrefix} <b>{foundCustomer.full_name}</b> · {foundCustomer.phone}
             <div className="btnrow-inline">
               <button type="button" className="btn sm primary" onClick={handleUseExisting}>
-                Gunakan Pelanggan Ini
+                {m.cabang.useThisCustomerCta}
               </button>
             </div>
           </div>
@@ -438,44 +442,44 @@ export default function NewOrderForm({
 
         {selectedExisting && foundCustomer && (
           <div className="banner info">
-            Pelanggan dipilih: <b>{foundCustomer.full_name}</b> · {foundCustomer.phone}
+            {m.cabang.customerSelectedPrefix} <b>{foundCustomer.full_name}</b> · {foundCustomer.phone}
             <div className="btnrow-inline">
               <button type="button" className="btn sm" onClick={handleChangeCustomer}>
-                Ganti Pelanggan
+                {m.cabang.changeCustomerCta}
               </button>
             </div>
           </div>
         )}
 
         <div className={`field${errs.full_name ? " invalid" : ""}`} style={{ display: selectedExisting ? "none" : undefined }}>
-          <label htmlFor="po_name">Nama Lengkap *</label>
+          <label htmlFor="po_name">{m.common.fullName} *</label>
           <input id="po_name" name="full_name" type="text" defaultValue="" disabled={selectedExisting} />
           {errs.full_name && <div className="err-text">{errs.full_name}</div>}
           {lookupState === "not_found" && !errs.full_name && (
-            <div className="hint">Belum ada pelanggan dengan nomor ini — isi nama untuk membuat baru.</div>
+            <div className="hint">{m.cabang.newCustomerHint}</div>
           )}
         </div>
 
         <fieldset disabled={!customerReady} style={{ border: "none", padding: 0, margin: "18px 0 0", opacity: customerReady ? 1 : 0.5 }}>
-          <legend style={{ fontSize: "var(--fs-h3)", fontWeight: 650, marginBottom: 10, padding: 0 }}>Pesanan</legend>
+          <legend style={{ fontSize: "var(--fs-h3)", fontWeight: 650, marginBottom: 10, padding: 0 }}>{m.common.order}</legend>
           {!customerReady && (
             <p className="hint" style={{ marginBottom: 12 }}>
-              Isi atau pastikan dulu data pelanggan di atas untuk mengisi bagian ini.
+              {m.cabang.orderSectionLockedHint}
             </p>
           )}
 
           {fulfillmentAvailable && (
             <div style={{ marginBottom: 18 }}>
               <label style={{ display: "block", fontSize: "var(--fs-sec)", fontWeight: 600, color: "var(--ink)", marginBottom: 7 }}>
-                Jalur Pesanan *
+                {m.common.fulfillment} *
               </label>
               <div className="radioset">
                 {FULFILLMENT_PATHS.map((p) => (
                   <label key={p}>
                     <input type="radio" name="fulfillment_path" value={p} defaultChecked={false} />
                     <span>
-                      {FULFILLMENT_PATH_LABEL[p]}
-                      <div className="rd">{FULFILLMENT_PATH_DESC[p]}</div>
+                      {fulfillmentLabel(m, p)}
+                      <div className="rd">{fulfillmentDesc(m, p)}</div>
                     </span>
                   </label>
                 ))}
@@ -485,7 +489,7 @@ export default function NewOrderForm({
           )}
 
           <div className="field">
-            <label htmlFor="po_amount">Total belanja pelanggan di toko (opsional)</label>
+            <label htmlFor="po_amount">{m.cabang.purchaseAmountLabel}</label>
             <input
               id="po_amount"
               name="partner_purchase_amount"
@@ -496,56 +500,56 @@ export default function NewOrderForm({
               onChange={handleAmountChange}
             />
             {errs.partner_purchase_amount && <div className="err-text">{errs.partner_purchase_amount}</div>}
-            <div className="hint">Membantu SANCI menyiapkan penawaran yang sesuai.</div>
+            <div className="hint">{m.cabang.purchaseAmountHint}</div>
           </div>
 
           {hasPackages ? (
             <div className={`field${errs.package_name ? " invalid" : ""}`}>
-              <label htmlFor="po_package_id">Package *</label>
+              <label htmlFor="po_package_id">{m.cabang.packageFieldLabel}</label>
               <select
                 id="po_package_id"
                 name="package_id"
                 defaultValue=""
                 onChange={(e) => setPackageChoice(e.target.value)}
               >
-                <option value="">— Pilih Package —</option>
+                <option value="">{m.cabang.selectPackagePlaceholder}</option>
                 {packages.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
-                <option value={PACKAGE_MANUAL}>Lainnya (ketik manual)</option>
+                <option value={PACKAGE_MANUAL}>{m.cabang.packageManualOption}</option>
               </select>
               {errs.package_name && <div className="err-text">{errs.package_name}</div>}
             </div>
           ) : null}
           {(!hasPackages || packageChoice === PACKAGE_MANUAL) && (
             <div className={`field${!hasPackages && errs.package_name ? " invalid" : ""}`}>
-              <label htmlFor="po_package">Nama Package *</label>
+              <label htmlFor="po_package">{m.cabang.packageNameFieldLabel}</label>
               <input id="po_package" name="package_name" type="text" defaultValue="" />
               {!hasPackages && packagesLoadError && (
-                <div className="hint">Daftar package gagal dimuat — ketik manual.</div>
+                <div className="hint">{m.cabang.packageLoadErrorHint}</div>
               )}
               {!hasPackages && errs.package_name && <div className="err-text">{errs.package_name}</div>}
             </div>
           )}
           <div className={`field${errs.sales_staff_id ? " invalid" : ""}`}>
-            <label htmlFor="po_sales">Sales *</label>
+            <label htmlFor="po_sales">{m.cabang.salesFieldLabel}</label>
             <select id="po_sales" name="sales_staff_id" defaultValue="">
-              <option value="">— Pilih Sales —</option>
+              <option value="">{m.cabang.selectSalesPlaceholder}</option>
               {salesOptions.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.fullName} ({s.role})
                 </option>
               ))}
             </select>
-            {salesOptions.length === 0 && <div className="hint">Belum ada staf aktif di cabang ini.</div>}
+            {salesOptions.length === 0 && <div className="hint">{m.cabang.noActiveStaffHint}</div>}
             {errs.sales_staff_id && <div className="err-text">{errs.sales_staff_id}</div>}
           </div>
           <div className={`field${errs.pic_staff_id ? " invalid" : ""}`}>
-            <label htmlFor="po_pic">PIC</label>
+            <label htmlFor="po_pic">{m.cabang.picLabel}</label>
             <select id="po_pic" name="pic_staff_id" defaultValue="">
-              <option value="">— Tidak dipilih —</option>
+              <option value="">{m.cabang.notSelectedOption}</option>
               {picOptions.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.fullName} ({s.role})
@@ -555,17 +559,14 @@ export default function NewOrderForm({
             {errs.pic_staff_id && <div className="err-text">{errs.pic_staff_id}</div>}
           </div>
           <div className="field">
-            <label htmlFor="po_notes">Catatan</label>
-            <textarea id="po_notes" name="notes" defaultValue="" placeholder="Opsional..." />
+            <label htmlFor="po_notes">{m.common.notes}</label>
+            <textarea id="po_notes" name="notes" defaultValue="" placeholder={m.cabang.optionalPlaceholder} />
           </div>
 
           <div className="field">
-            <label htmlFor="po_invoice">Foto/PDF Invoice (opsional)</label>
+            <label htmlFor="po_invoice">{m.cabang.invoiceFieldLabel}</label>
             <input id="po_invoice" name="invoice" type="file" accept={INVOICE_ACCEPT} />
-            <div className="hint">
-              PNG, JPG, WebP, atau PDF. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim.
-              Diunggah setelah pesanan berhasil dibuat.
-            </div>
+            <div className="hint">{m.cabang.invoiceFieldHint}</div>
           </div>
         </fieldset>
 
@@ -577,11 +578,11 @@ export default function NewOrderForm({
               disabled={submitting || !customerReady}
               onClick={onSubmitCustomerOnly}
             >
-              {submitting ? "Menyimpan…" : "Simpan Pelanggan Saja"}
+              {submitting ? m.common.saving : m.cabang.saveCustomerOnlyCta}
             </button>
           )}
           <button type="button" className="btn primary lg block" disabled={submitting || !customerReady} onClick={onSubmitOrder}>
-            {submitting ? "Menyimpan…" : "Buat Pesanan"}
+            {submitting ? m.common.saving : m.cabang.createOrderCta}
           </button>
         </div>
       </form>

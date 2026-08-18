@@ -2,15 +2,20 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AddPartnerButton from "./add-partner-button";
 import PartnerLogo from "@/lib/partner-logo";
+import { getMessages } from "@/lib/i18n";
+import type { Messages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-const SLBL: Record<string, string> = {
-  ACTIVE: "AKTIF",
-  DRAFT: "DRAF",
-  SUSPENDED: "DITANGGUHKAN",
-  INACTIVE: "NONAKTIF",
-};
+function statusLabel(m: Messages, s: string): string {
+  const map: Record<string, string> = {
+    ACTIVE: m.common.statusActive,
+    DRAFT: m.common.statusDraft,
+    SUSPENDED: m.common.statusSuspended,
+    INACTIVE: m.common.statusInactive,
+  };
+  return map[s] ?? s;
+}
 
 type PartnerRow = {
   id: string;
@@ -28,6 +33,7 @@ export default async function AdminPartnersPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; access?: string }>;
 }) {
+  const m = await getMessages();
   const sp = await searchParams;
   const q = (sp.q || "").trim().toLowerCase();
   const statusFilter = sp.status || "ALL";
@@ -87,9 +93,11 @@ export default async function AdminPartnersPage({
         userCount: userCountByPartner.get(p.id) ?? 0,
         accessLabel: policy
           ? isSame
-            ? `Sesama partner · ${policy.edit_scope === "PARTNER_ALL_BRANCHES" ? "Lihat + Edit" : "Lihat saja"}`
-            : "Cabang sendiri"
-          : "Belum diatur",
+            ? `${m.common.scopePartnerAll} · ${
+                policy.edit_scope === "PARTNER_ALL_BRANCHES" ? m.admin.accessViewEdit : m.admin.accessViewOnly
+              }`
+            : m.common.scopeOwnBranch
+          : m.admin.partnersAccessNotSet,
         matchBranch,
       };
     })
@@ -98,7 +106,7 @@ export default async function AdminPartnersPage({
   return (
     <div>
       <div className="worktop">
-        <h1>Partner</h1>
+        <h1>{m.common.partner}</h1>
         <AddPartnerButton />
       </div>
 
@@ -106,47 +114,47 @@ export default async function AdminPartnersPage({
         <input
           type="search"
           name="q"
-          placeholder="Cari partner / cabang / kode…"
+          placeholder={m.admin.partnersSearchPlaceholder}
           defaultValue={sp.q || ""}
           className="search-input"
         />
         <select name="status" defaultValue={statusFilter} className="filter-select">
-          <option value="ALL">Status: semua</option>
-          <option value="ACTIVE">{SLBL.ACTIVE}</option>
-          <option value="DRAFT">{SLBL.DRAFT}</option>
-          <option value="SUSPENDED">{SLBL.SUSPENDED}</option>
-          <option value="INACTIVE">{SLBL.INACTIVE}</option>
+          <option value="ALL">{m.admin.filterStatusAll}</option>
+          <option value="ACTIVE">{m.common.statusActive}</option>
+          <option value="DRAFT">{m.common.statusDraft}</option>
+          <option value="SUSPENDED">{m.common.statusSuspended}</option>
+          <option value="INACTIVE">{m.common.statusInactive}</option>
         </select>
         <select name="access" defaultValue={accessFilter} className="filter-select">
-          <option value="ALL">Akses: semua</option>
-          <option value="OWN">Cabang sendiri</option>
-          <option value="SAME">Sesama partner</option>
+          <option value="ALL">{m.admin.filterAccessAll}</option>
+          <option value="OWN">{m.common.scopeOwnBranch}</option>
+          <option value="SAME">{m.common.scopePartnerAll}</option>
         </select>
         <button className="btn" type="submit">
-          Cari
+          {m.common.search}
         </button>
       </form>
 
       {listErr ? (
         <div className="card" style={{ margin: 0 }}>
-          <div className="err">Daftar partner gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.common.errorLoad}</div>
         </div>
       ) : rows.length === 0 ? (
         <div className="card emptybox">
           {(partners ?? []).length === 0
-            ? "Belum ada partner."
-            : `Tidak ada partner yang cocok dengan "${sp.q}".`}
+            ? m.admin.partnersEmpty
+            : m.admin.partnersEmptyFiltered.replace("{q}", sp.q || "")}
         </div>
       ) : (
         <div className="tablewrap">
           <table>
             <thead>
               <tr>
-                <th>Merek</th>
-                <th>Cabang</th>
-                <th>Akun</th>
-                <th>Akses</th>
-                <th>Status</th>
+                <th>{m.admin.partnersColBrand}</th>
+                <th>{m.common.branch}</th>
+                <th>{m.common.account}</th>
+                <th>{m.admin.partnersColAccess}</th>
+                <th>{m.common.status}</th>
                 <th></th>
               </tr>
             </thead>
@@ -160,7 +168,9 @@ export default async function AdminPartnersPage({
                         <strong>{r.partner.name}</strong>{" "}
                         <span className="code">{r.partner.code}</span>
                         {r.matchBranch && (
-                          <div className="small muted">Cabang cocok: {r.matchBranch.name}</div>
+                          <div className="small muted">
+                            {m.admin.partnersMatchedBranch.replace("{branch}", r.matchBranch.name)}
+                          </div>
                         )}
                       </Link>
                     </div>
@@ -169,11 +179,11 @@ export default async function AdminPartnersPage({
                   <td className="num">{r.userCount}</td>
                   <td>{r.accessLabel}</td>
                   <td>
-                    <span className={`chip ${r.partner.status}`}>{SLBL[r.partner.status]}</span>
+                    <span className={`chip ${r.partner.status}`}>{statusLabel(m, r.partner.status)}</span>
                   </td>
                   <td className="ta-right">
                     <Link href={`/admin/partners/${r.partner.id}`} className="linkbtn">
-                      Buka
+                      {m.admin.openBtn}
                     </Link>
                   </td>
                 </tr>

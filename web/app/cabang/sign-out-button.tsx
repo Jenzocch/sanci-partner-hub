@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useMessages } from "@/lib/i18n/provider";
 
 export default function SignOutButton() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const m = useMessages();
 
   async function onClick() {
     setBusy(true);
@@ -17,7 +19,7 @@ export default function SignOutButton() {
 
   return (
     <button className="btn danger block" onClick={onClick} disabled={busy}>
-      {busy ? "Keluar…" : "Keluar"}
+      {busy ? m.cabang.signingOut : m.cabang.homeSignOut}
     </button>
   );
 }

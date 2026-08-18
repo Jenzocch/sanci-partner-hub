@@ -127,24 +127,6 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | P2-24 | 目錄開關（每 Partner） | `UNVERIFIED` | Partner 詳情頁權限分頁的「Katalog Produk SANCI」toggle；無列＝關（fail-closed——選配功能與 0006 的核心路徑 fail-open 相反，刻意）；audit 記 CATALOG_ACCESS_* |
 | P2-25 | 目錄瀏覽（cabang `/cabang/produk`） | `UNVERIFIED` | 手機照片網格＋搜尋＋kategori 篩選＋詳情 modal；缺貨灰化照常顯示（誠實告知）；「未開通」（提示聯繫 SANCI）與「空目錄」分開顯示；INACTIVE 產品對分店即時消失；零價格 |
 
-### 產品目錄初始資料匯入（2026-08-18，Jenzo 提供 Master_data.xlsx + Master_Data2.xlsx）
-
-169 筆產品（104 + 65）＋照片，來源是兩份 Excel 主檔。匯入工具在
-`web/scripts/import-master-data/`（`run.mjs` + 已整理好的 `products.json` +
-已壓縮照片），**尚未實際寫入資料庫**——這個 session 的沙盒環境沒有真的
-Supabase 憑證，需要 Jenzo 在自己電腦上跑一次（步驟見該資料夾 README.md）。
-
-匯入時的決策：
-- 價格欄位（PRICE/UNIT、HARGA LAMA）完全不匯入，遵守 0010 的「零價格」鐵律。
-- Excel「Stock di Easy」→ `stock_status`：0 → Habis，其餘 → Tersedia（Excel
-  沒有「Terbatas」的資料可對應，之後要人工調整）。
-- 兩份 Excel 對同一類別的命名不一致（"Mattress" vs "SANCI Mattress"、
-  "Pillow" vs "SANCI Pillow"）——已統一成含 SANCI 字首的版本，避免分店端
-  分類篩選（依字串完全比對分組）被拆成兩組。
-- 照片用跟 Admin → Produk 手動上傳完全相同的規格壓縮（PRESET_PRODUK：長邊
-  1280px、WebP 品質 0.82），46 MB 原始照片壓到約 4.6 MB。
-- 用 `code`（DB 唯一鍵）做 upsert，重複執行安全，不會產生重複產品。
-
 ### Audit round 3（安全＋正確性全面審計，2026-08-17）
 
 Jenzo 指示「認真 audit」。四領域分工,安全與正確性兩塊由 Opus 完成(UI/UX 與效能兩塊首輪遭額度中斷,**尚未補跑**)。
@@ -183,6 +165,36 @@ Jenzo 指示「認真 audit」。四領域分工,安全與正確性兩塊由 Opu
 | 全頁面套用 | `UNVERIFIED` | admin 7 檔＋cabang 21 檔逐頁清理：~54 處 inline style 換合約 class、列表改 .reccard 卡片式、篩選改 segmented、loading 改 skeleton。文案逐一檢查已是日常印尼語（零改動需要）。**純外觀零邏輯變動**（diff 掃描確認無查詢/action 改動） |
 
 以上待 Jenzo 用真帳號在手機＋桌面實看後升級 VERIFIED。
+
+### 三語系（印尼文／英文／簡體中文，2026-08-17～18，Jenzo 指示）
+
+| 項目 | 狀態 | 說明 |
+|---|---|---|
+| 三語系文案架構 | `UNVERIFIED` | Cookie 存語言（`sanci_locale`，**非** URL 路徑——保留 PWA「加到主畫面」捷徑/書籤不失效）；`id`/`en`/`zh` 三份文案並排寫在 `lib/i18n/messages/{common,cabang,admin}.ts`，`en`/`zh` 用 `satisfies Shape` 鎖住 key 集合——漏翻或打錯 key 是**編譯期錯誤**，不是畫面上半個印尼文半個中文。共用字彙見 `lib/i18n/GLOSSARY.md`（含簡體中文禁用詞表：擋掉「儲存/搜尋/帳號/登入」等繁體用詞混入）|
+| `admin/**` 全頁翻譯 | `UNVERIFIED` | 訂單、Partner、分行、Package、產品目錄、權限、帳號建立/密碼重設（P-07）全部含在內；`admin-nav.tsx` 加 `<LocaleSwitcher/>`（Keluar 上方） |
+| `cabang/**` 全頁翻譯 | `UNVERIFIED` | 首頁、訂單（建立/編輯/取消/發票）、客戶、員工、產品目錄全部含在內；`LocaleSwitcher` 放在首頁 `.ilist`（帳號連結下方，Keluar 上方）|
+| 共用底層模組同步 i18n | `UNVERIFIED` | `lib/safe-write.ts`（`pesan(m)` 取代舊 `PESAN` 常數，`submitSafely()` 的 `messages` 改**必填**）、`lib/orders-shared.ts`/`lib/catalog-shared.ts`/`lib/audit-format.ts`（狀態/角色/audit diff 標籤全部經 `m` 翻譯）、`lib/compress-image.ts`（圖片壓縮失敗訊息——格式錯/太大/讀不出來/裝置處理不了——原本硬編印尼文，現在也走 `Messages`，`compressImage()` 的 `m` 參數同樣必填）|
+| service_role 未外流複查 | `VERIFIED`（本機掃描） | 帳號建立/密碼重設兩個檔案被翻譯 agent 重新改過，重新對 `.next` build 產物做 bundle 掃描：`SUPABASE_SERVICE_ROLE_KEY` 只出現在**提示文字**（「請技術人員在 Vercel 填此環境變數」），真正讀取 `process.env` 的程式碼仍只在兩個 server-only 檔案（`app/admin/actions-users.ts`、`app/admin/partners/[id]/page.tsx`），沒有任何 `"use client"` 檔案匯入 `lib/supabase/admin.ts` |
+
+兩個 agent 平行改 `admin/**`／`cabang/**` 時，各自範圍內 typecheck 都過，但共用底層模組（`safe-write.ts`）簽名收斂後有 8 個檔案的呼叫點沒跟上（舊 `PESAN` 匯入、`submitSafely()` 漏 `messages`）——清 `tsconfig.tsbuildinfo` 對整棵 `web/` 重跑 `tsc --noEmit`＋`next build` 才抓到，兩邊分開跑測不出來（見 LESSONS #31）。修完後 `npm run build`／`npx eslint .` 全綠，`/offline` 仍是靜態預渲染（`○`）。
+
+### 產品目錄初始資料匯入（2026-08-18，Jenzo 提供 Master_data.xlsx + Master_Data2.xlsx）
+
+169 筆產品（104 + 65）＋照片，來源是兩份 Excel 主檔。匯入工具在
+`web/scripts/import-master-data/`（`run.mjs` + 已整理好的 `products.json` +
+已壓縮照片），**尚未實際寫入資料庫**——這個 session 的沙盒環境沒有真的
+Supabase 憑證，需要 Jenzo 在自己電腦上跑一次（步驟見該資料夾 README.md）。
+
+匯入時的決策：
+- 價格欄位（PRICE/UNIT、HARGA LAMA）完全不匯入，遵守 0010 的「零價格」鐵律。
+- Excel「Stock di Easy」→ `stock_status`：0 → Habis，其餘 → Tersedia（Excel
+  沒有「Terbatas」的資料可對應，之後要人工調整）。
+- 兩份 Excel 對同一類別的命名不一致（"Mattress" vs "SANCI Mattress"、
+  "Pillow" vs "SANCI Pillow"）——已統一成含 SANCI 字首的版本，避免分店端
+  分類篩選（依字串完全比對分組）被拆成兩組。
+- 照片用跟 Admin → Produk 手動上傳完全相同的規格壓縮（PRESET_PRODUK：長邊
+  1280px、WebP 品質 0.82），46 MB 原始照片壓到約 4.6 MB。
+- 用 `code`（DB 唯一鍵）做 upsert，重複執行安全，不會產生重複產品。
 
 **第二切片已知限制**（刻意接受，非遺漏）：
 - 訂單原 Sales 已停用時，編輯任何欄位都要先重選在職 Sales 才能存檔（dropdown 只列 active staff）——體驗有刺但不違規，下輪再議

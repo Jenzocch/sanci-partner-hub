@@ -6,11 +6,13 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
+import { useMessages } from "@/lib/i18n/provider";
 import { createPartner } from "./actions";
 import { lookupByRequestId } from "./actions-lookup";
 
 export default function AddPartnerButton() {
   const router = useRouter();
+  const m = useMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -49,6 +51,7 @@ export default function AddPartnerButton() {
           confirmDuplicate: !!dup,
         }),
       lookup: () => lookupByRequestId("partner", rid),
+      messages: m,
     });
     if (out.status === "confirmed") {
       // Respons hilang, tapi pengecekan ke server membuktikan datanya sudah masuk.
@@ -88,7 +91,7 @@ export default function AddPartnerButton() {
   if (!open) {
     return (
       <button className="btn primary" onClick={openModal}>
-        + Tambah Partner
+        {m.admin.partnerAddBtn}
       </button>
     );
   }
@@ -96,11 +99,10 @@ export default function AddPartnerButton() {
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
       <div className="modal" role="dialog" aria-modal="true">
-        <h2>Tambah Partner</h2>
+        <h2>{m.admin.partnerAddModalTitle}</h2>
         {dup && (
           <div className="banner warn">
-            Kemungkinan duplikat: <b>{dup.name}</b>. Klik Buat Partner lagi untuk tetap
-            melanjutkan, atau batal.
+            {m.admin.partnerDupWarning.replace("{name}", dup.name)}
           </div>
         )}
         {netMsg && <div className="banner warn">{netMsg}</div>}
@@ -108,12 +110,12 @@ export default function AddPartnerButton() {
         <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.name ? " invalid" : ""}`}>
-            <label htmlFor="ap_name">Nama partner *</label>
+            <label htmlFor="ap_name">{m.admin.partnerNameFieldLabel}</label>
             <input id="ap_name" name="name" type="text" autoComplete="off" />
             {errs.name && <div className="err-text">{errs.name}</div>}
           </div>
           <div className={`field${errs.code ? " invalid" : ""}`}>
-            <label htmlFor="ap_code">Kode partner *</label>
+            <label htmlFor="ap_code">{m.admin.partnerCodeFieldLabel}</label>
             <input
               id="ap_code"
               name="code"
@@ -121,25 +123,23 @@ export default function AddPartnerButton() {
               style={{ textTransform: "uppercase" }}
               autoComplete="off"
             />
-            <div className="hint">
-              2–8 karakter, A–Z 0–9 dan tanda hubung. Contoh: GH, GOLDEN, GH-ID.
-            </div>
+            <div className="hint">{m.admin.partnerCodeHint}</div>
             {errs.code && <div className="err-text">{errs.code}</div>}
           </div>
           <div className="field">
-            <label htmlFor="ap_contact">Narahubung</label>
+            <label htmlFor="ap_contact">{m.common.contactName}</label>
             <input id="ap_contact" name="contact_name" type="text" />
           </div>
           <div className="field">
-            <label htmlFor="ap_phone">WhatsApp</label>
+            <label htmlFor="ap_phone">{m.common.whatsapp}</label>
             <input id="ap_phone" name="contact_phone" type="tel" inputMode="tel" />
           </div>
           <div className="btnrow">
             <button type="button" className="btn" onClick={() => setOpen(false)}>
-              Batal
+              {m.common.cancel}
             </button>
             <button type="submit" className="btn primary" disabled={submitting}>
-              {submitting ? "Menyimpan…" : dup ? "Tetap Buat Partner" : "Buat Partner"}
+              {submitting ? m.admin.partnerCreatingBtn : dup ? m.admin.partnerCreateBtnDup : m.admin.partnerCreateBtn}
             </button>
           </div>
         </form>

@@ -117,6 +117,11 @@
      .code .overlay .modal
    Text utils
      .serif .muted .small .sub
+   Language
+     .langswitch      language <select> (lib/i18n/locale-switcher.tsx). Drop it
+                      in .side (sits above "Keluar"), in an .ilist row, or at
+                      the foot of an .authcard — it adapts, no variant needed.
+     .sr-only         label text for screen readers only
 
    ---------------------------------------------------------------------------
    3. NEW CLASSES — wave-2 should adopt these
@@ -858,7 +863,40 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 .tab.on{color:var(--accent-2);border-bottom-color:var(--accent)}
 .tab:hover:not(.on){color:var(--ink)}
 
-/* ── 16. Motion preferences ────────────────────────────────────────────── */
+/* ── 16. Language switcher ─────────────────────────────────────────────── */
+/* One class for all three places it appears: the bottom of the admin rail
+   (above Keluar), the "Akun Saya" list on the cabang home, and the login card.
+   It is a plain full-width select that borrows the surrounding surface — no
+   new colour, every value comes from the tokens above. */
+.langswitch{display:block;width:100%}
+.langswitch select{
+  width:100%;min-height:var(--tap);padding:10px 12px;
+  font-size:var(--fs-sec);font-weight:500;
+  color:var(--ink);background:var(--surface);
+  border:1px solid var(--line2);border-radius:var(--r-md);
+  transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease);
+}
+.langswitch select:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+.langswitch select:disabled{opacity:.6;cursor:progress}
+/* In the sidebar it is the item that sits just above .navlink.bottom, so it
+   takes the bottom slot instead and lets "Keluar" follow it. */
+.side .langswitch{margin-top:auto;padding:0 12px 6px}
+.side .langswitch+.navlink.bottom{margin-top:0}
+/* In a grouped list (cabang home) it is one row of the card, not a floating
+   control: same inset as .biglink, with the same hairline above it. */
+.ilist .langswitch{padding:12px 18px;border-top:1px solid var(--line)}
+.ilist .langswitch:first-child{border-top:none}
+/* On the login / offline card it closes the card, below the form. */
+.authcard .langswitch{margin-top:20px}
+
+/* Visible to screen readers only — the switcher's own label (the <select>
+   itself is the visible control). */
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0;
+}
+
+/* ── 17. Motion preferences ────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{
     animation-duration:.001ms !important;animation-iteration-count:1 !important;

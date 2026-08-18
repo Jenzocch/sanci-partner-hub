@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Messages } from "./i18n/messages";
 
 /**
  * Draf lokal otomatis (SPEC §58, LESSONS #1).
@@ -29,23 +30,32 @@ export function draftKey(formName: string, recordId?: string | null): string {
   return `sanci:draft:${formName}:${recordId || "new"}`;
 }
 
-export function waktuRelatif(savedAt: number, now: number = Date.now()): string {
+/**
+ * "5 menit lalu" / "5 min ago" / "5 分钟前". Teksnya dari common.ts, angkanya
+ * disisipkan di {n} — jadi tiap bahasa boleh menaruh angkanya di posisi yang
+ * berbeda. Tanggal panjang (lebih dari seminggu) memakai `dateLocale` supaya
+ * urutan hari/bulan/tahun ikut kebiasaan pembacanya.
+ */
+export function waktuRelatif(m: Messages, savedAt: number, now: number = Date.now()): string {
+  const c = m.common;
+  const isi = (t: string, n: number) => t.replace("{n}", String(n));
   const detik = Math.max(0, Math.round((now - savedAt) / 1000));
-  if (detik < 60) return "beberapa detik lalu";
+  if (detik < 60) return c.timeJustNow;
   const menit = Math.round(detik / 60);
-  if (menit < 60) return `${menit} menit lalu`;
+  if (menit < 60) return isi(c.timeMinutesAgo, menit);
   const jam = Math.round(menit / 60);
-  if (jam < 24) return `${jam} jam lalu`;
+  if (jam < 24) return isi(c.timeHoursAgo, jam);
   const hari = Math.round(jam / 24);
-  if (hari <= 7) return `${hari} hari lalu`;
+  const hariTeks = hari === 1 ? c.timeDayAgo : isi(c.timeDaysAgo, hari);
+  if (hari <= 7) return hariTeks;
   try {
-    return new Date(savedAt).toLocaleDateString("id-ID", {
+    return new Date(savedAt).toLocaleDateString(c.dateLocale, {
       day: "numeric",
       month: "long",
       year: "numeric",
     });
   } catch {
-    return `${hari} hari lalu`;
+    return hariTeks;
   }
 }
 

@@ -16,18 +16,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CODE_RE, normalizeCode } from "@/lib/validation";
 import {
-  PESAN,
+  pesan,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
 } from "@/lib/safe-write";
+import { getMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
-
-// Tidak diekspor: file "use server" hanya boleh mengekspor async function.
-// Nilai yang sama dipakai lagi di partners/[id]/page.tsx sebagai string literal.
-const PACKAGE_MIGRATION_MSG = "Fitur package belum aktif — migrasi belum dijalankan.";
 
 function isMissingTable(code: string | undefined): boolean {
   return code === "42P01";
@@ -37,13 +34,15 @@ export async function createPackage(
   partnerId: string,
   input: { name: string; code: string; description?: string; clientRequestId: string }
 ): Promise<ActionResult<{ id: string }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
   const code = normalizeCode(input.code);
 
-  if (!name) return { error: { field: "name", message: "Nama package wajib diisi." } };
+  if (!name) return { error: { field: "name", message: m.admin.packageNameRequired } };
   if (!CODE_RE.test(code)) {
-    return { error: { field: "code", message: "2–8 karakter, hanya A–Z, 0–9, dan tanda hubung." } };
+    return { error: { field: "code", message: m.admin.partnerCodeInvalid } };
   }
 
   const { data: existing, error: existingErr } = await supabase
@@ -52,7 +51,7 @@ export async function createPackage(
     .eq("client_request_id", input.clientRequestId)
     .maybeSingle();
   if (existingErr) {
-    if (isMissingTable(existingErr.code)) return { error: { message: PACKAGE_MIGRATION_MSG } };
+    if (isMissingTable(existingErr.code)) return { error: { message: m.admin.packageMigrationMsg } };
     return { error: { message: PESAN.serverSibuk } };
   }
   if (existing) {
@@ -85,7 +84,7 @@ export async function createPackage(
 
   if (!written.ok) {
     if (written.reason === "db") {
-      if (isMissingTable(written.code)) return { error: { message: PACKAGE_MIGRATION_MSG } };
+      if (isMissingTable(written.code)) return { error: { message: m.admin.packageMigrationMsg } };
       // Bentrok nomor permintaan = percobaan sebelumnya sudah mendarat (LESSONS #21).
       if (isRequestIdConflict(written)) {
         const again = await recheck();
@@ -96,7 +95,7 @@ export async function createPackage(
         return { error: { message: PESAN.belumPastiBaru } };
       }
       if (written.code === "23505") {
-        return { error: { field: "code", message: "Kode package sudah dipakai." } };
+        return { error: { field: "code", message: m.admin.packageCodeTaken } };
       }
       return { error: { message: PESAN.serverSibuk } };
     }
@@ -120,13 +119,15 @@ export async function updatePackage(
   id: string,
   input: { name: string; code: string; description?: string }
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
   const code = normalizeCode(input.code);
 
-  if (!name) return { error: { field: "name", message: "Nama package wajib diisi." } };
+  if (!name) return { error: { field: "name", message: m.admin.packageNameRequired } };
   if (!CODE_RE.test(code)) {
-    return { error: { field: "code", message: "2–8 karakter, hanya A–Z, 0–9, dan tanda hubung." } };
+    return { error: { field: "code", message: m.admin.partnerCodeInvalid } };
   }
 
   const saved = await safeWrite(
@@ -140,9 +141,9 @@ export async function updatePackage(
 
   if (!saved.ok) {
     if (saved.reason === "db") {
-      if (isMissingTable(saved.code)) return { error: { message: PACKAGE_MIGRATION_MSG } };
+      if (isMissingTable(saved.code)) return { error: { message: m.admin.packageMigrationMsg } };
       if (saved.code === "23505") {
-        return { error: { field: "code", message: "Kode package sudah dipakai." } };
+        return { error: { field: "code", message: m.admin.packageCodeTaken } };
       }
       return { error: { message: PESAN.serverSibuk } };
     }
@@ -157,6 +158,7 @@ export async function setPackageStatus(
   id: string,
   status: "ACTIVE" | "INACTIVE"
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("partner_packages")
@@ -166,8 +168,8 @@ export async function setPackageStatus(
     .single();
 
   if (error || !data) {
-    if (isMissingTable(error?.code)) return { error: { message: PACKAGE_MIGRATION_MSG } };
-    return { error: { message: "Tidak bisa mengubah status sekarang." } };
+    if (isMissingTable(error?.code)) return { error: { message: m.admin.packageMigrationMsg } };
+    return { error: { message: m.admin.partnerStatusChangeFailed } };
   }
 
   revalidatePath(`/admin/partners/${data.partner_id}`);

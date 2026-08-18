@@ -2,11 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
+import { getMessages } from "@/lib/i18n";
 import CustomerListClient, { type CustomerListItem } from "./customer-list-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function PelangganListPage() {
+  const m = await getMessages();
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,7 +23,7 @@ export default async function PelangganListPage() {
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -64,15 +66,15 @@ export default async function PelangganListPage() {
     <main className="pwrap">
       <div className="backrow">
         <Link href="/cabang" className="linkbtn">
-          ← Beranda
+          {m.cabang.navBackHome}
         </Link>
       </div>
       <div className="worktop">
         <h2 className="mtitle" style={{ marginBottom: 0 }}>
-          Pelanggan
+          {m.common.customer}
         </h2>
         <Link href="/cabang/pesanan/baru" className="btn primary sm">
-          + Pelanggan Baru
+          {m.cabang.newCustomerCta}
         </Link>
       </div>
       <CustomerListClient items={items} errorKind={errorKind} />

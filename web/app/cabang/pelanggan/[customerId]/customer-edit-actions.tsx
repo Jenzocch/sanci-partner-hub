@@ -7,6 +7,7 @@ import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { normalizePhoneID } from "@/lib/orders-shared";
+import { useMessages } from "@/lib/i18n/provider";
 import { updateCustomer } from "../actions";
 
 type Customer = {
@@ -23,11 +24,12 @@ type Customer = {
 export default function CustomerEditActions({ customer }: { customer: Customer }) {
   const router = useRouter();
   const [modal, setModal] = useState<null | "edit">(null);
+  const m = useMessages();
 
   return (
     <>
       <button type="button" className="btn sm" onClick={() => setModal("edit")}>
-        Ubah
+        {m.common.edit}
       </button>
 
       {modal === "edit" && (
@@ -56,6 +58,7 @@ function EditCustomerModal({
   const { submitting, begin, release } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);
+  const m = useMessages();
   // Kunci draf per customerId — draf pelanggan lain tidak boleh tercampur.
   const draft = useLocalDraft("customer-edit", customer.id, true);
 
@@ -83,6 +86,7 @@ function EditCustomerModal({
 
     const out = await submitSafely({
       kind: "update",
+      messages: m,
       run: () =>
         updateCustomer({
           customerId: customer.id,
@@ -117,18 +121,18 @@ function EditCustomerModal({
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true">
-        <h2>Ubah Pelanggan</h2>
+        <h2>{m.cabang.editCustomerModalTitle}</h2>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <DraftBanner draft={draft.draft} onRestore={handleRestoreDraft} onDiscard={draft.discard} />
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.full_name ? " invalid" : ""}`}>
-            <label htmlFor="ce_name">Nama Lengkap *</label>
+            <label htmlFor="ce_name">{m.common.fullName} *</label>
             <input id="ce_name" name="full_name" type="text" defaultValue={customer.fullName} />
             {errs.full_name && <div className="err-text">{errs.full_name}</div>}
           </div>
           <div className={`field${errs.phone ? " invalid" : ""}`}>
-            <label htmlFor="ce_phone">Nomor HP / WhatsApp *</label>
+            <label htmlFor="ce_phone">{m.cabang.phoneWhatsappLabel}</label>
             <input
               id="ce_phone"
               name="phone"
@@ -138,36 +142,36 @@ function EditCustomerModal({
               onChange={(e) => setPhone(e.target.value)}
             />
             {phoneChanged && !errs.phone && (
-              <div className="hint">Nomor telepon akan diperbarui untuk semua pesanan pelanggan ini.</div>
+              <div className="hint">{m.cabang.phoneUpdateHint}</div>
             )}
             {errs.phone && <div className="err-text">{errs.phone}</div>}
           </div>
           <div className="field">
-            <label htmlFor="ce_whatsapp">WhatsApp (jika beda)</label>
+            <label htmlFor="ce_whatsapp">{m.cabang.whatsappIfDifferentLabel}</label>
             <input id="ce_whatsapp" name="whatsapp" type="text" defaultValue={customer.whatsapp || ""} />
           </div>
           <div className="field">
-            <label htmlFor="ce_address">Alamat</label>
-            <textarea id="ce_address" name="address" defaultValue={customer.address || ""} placeholder="Opsional..." />
+            <label htmlFor="ce_address">{m.common.address}</label>
+            <textarea id="ce_address" name="address" defaultValue={customer.address || ""} placeholder={m.cabang.optionalPlaceholder} />
           </div>
           <div className="field">
-            <label htmlFor="ce_city">Kota</label>
+            <label htmlFor="ce_city">{m.common.city}</label>
             <input id="ce_city" name="city" type="text" defaultValue={customer.city || ""} />
           </div>
           <div className="field">
-            <label htmlFor="ce_province">Provinsi</label>
+            <label htmlFor="ce_province">{m.common.province}</label>
             <input id="ce_province" name="province" type="text" defaultValue={customer.province || ""} />
           </div>
           <div className="field">
-            <label htmlFor="ce_notes">Catatan</label>
-            <textarea id="ce_notes" name="notes" defaultValue={customer.notes || ""} placeholder="Opsional..." />
+            <label htmlFor="ce_notes">{m.common.notes}</label>
+            <textarea id="ce_notes" name="notes" defaultValue={customer.notes || ""} placeholder={m.cabang.optionalPlaceholder} />
           </div>
           <div className="btnrow">
             <button type="button" className="btn" onClick={onClose} disabled={submitting}>
-              Batal
+              {m.common.cancel}
             </button>
             <button type="submit" className="btn primary lg block" disabled={submitting}>
-              {submitting ? "Menyimpan…" : "Simpan"}
+              {submitting ? m.common.saving : m.common.save}
             </button>
           </div>
         </form>

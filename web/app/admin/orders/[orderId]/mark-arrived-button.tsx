@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useMessages } from "@/lib/i18n/provider";
 import { markCustomerArrived } from "../../actions-orders";
 
 /**
@@ -23,6 +24,7 @@ export default function MarkArrivedButton({
   orderNumber: string;
 }) {
   const router = useRouter();
+  const m = useMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [netMsg, setNetMsg] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export default function MarkArrivedButton({
     const out = await submitSafely({
       kind: "update",
       run: () => markCustomerArrived(orderId),
+      messages: m,
     });
     if (out.status !== "ok") {
       release();
@@ -65,25 +68,25 @@ export default function MarkArrivedButton({
   return (
     <>
       <button className="btn primary" onClick={openModal}>
-        Tandai Pelanggan Sudah Tiba
+        {m.admin.markArrivedBtn}
       </button>
 
       {open && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Tandai Pelanggan Sudah Tiba</h2>
+            <h2>{m.admin.markArrivedModalTitle}</h2>
             <p className="small muted" style={{ marginBottom: 14 }}>
-              Pesanan <strong>{orderNumber}</strong> atas nama <strong>{customerName}</strong> akan
-              ditandai pelanggan sudah tiba di SANCI. Waktu dan petugas yang menandai tercatat otomatis
-              di Activity dan tidak bisa diubah dari layar ini.
+              {m.admin.markArrivedDesc
+                .replace("{orderNumber}", orderNumber)
+                .replace("{customer}", customerName)}
             </p>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             <div className="btnrow">
               <button type="button" className="btn" onClick={closeModal}>
-                Batal
+                {m.common.cancel}
               </button>
               <button type="button" className="btn primary" disabled={submitting} onClick={onConfirm}>
-                {submitting ? "Menandai…" : "Ya, Sudah Tiba"}
+                {submitting ? m.admin.markArrivedMarkingBtn : m.admin.markArrivedConfirmBtn}
               </button>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useMessages } from "@/lib/i18n/provider";
 import { addInternalNote } from "../../actions-orders";
 import { lookupByRequestId } from "../../actions-lookup";
 
@@ -14,6 +15,7 @@ import { lookupByRequestId } from "../../actions-lookup";
  */
 export default function InternalNoteForm({ orderId }: { orderId: string }) {
   const router = useRouter();
+  const m = useMessages();
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [note, setNote] = useState("");
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -33,6 +35,7 @@ export default function InternalNoteForm({ orderId }: { orderId: string }) {
       kind: "create",
       run: () => addInternalNote(orderId, note, requestId),
       lookup: () => lookupByRequestId("internalNote", requestId),
+      messages: m,
     });
     if (out.status === "confirmed") {
       setRequestId(crypto.randomUUID());
@@ -63,17 +66,17 @@ export default function InternalNoteForm({ orderId }: { orderId: string }) {
       {netMsg && <div className="banner warn">{netMsg}</div>}
       {errMsg && <div className="banner bad">{errMsg}</div>}
       <div className={`field${errMsg ? " invalid" : ""}`} style={{ marginBottom: 10 }}>
-        <label htmlFor="note_text">Catatan baru</label>
+        <label htmlFor="note_text">{m.admin.internalNoteFieldLabel}</label>
         <textarea
           id="note_text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Contoh: Invoice 2,5jt → penawaran diskon dekorasi diberikan ke pelanggan."
+          placeholder={m.admin.internalNotePlaceholder}
         />
       </div>
       <div className="btnrow-inline">
         <button type="submit" className="btn primary" disabled={submitting}>
-          {submitting ? "Menyimpan…" : "Simpan Catatan"}
+          {submitting ? m.common.saving : m.admin.internalNoteSaveBtn}
         </button>
       </div>
     </form>

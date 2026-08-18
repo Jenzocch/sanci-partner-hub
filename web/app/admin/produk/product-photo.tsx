@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMessages } from "@/lib/i18n/provider";
 
 /**
  * Thumbnail foto produk untuk grid /admin/produk. Kalau foto tidak ada ATAU
@@ -10,6 +11,7 @@ import { useState } from "react";
  * kotak foto yang konsisten di grid).
  */
 export default function ProductPhoto({ url, name }: { url: string | null; name: string }) {
+  const m = useMessages();
   const [gagal, setGagal] = useState(false);
   const showPlaceholder = !url || gagal;
 
@@ -27,7 +29,7 @@ export default function ProductPhoto({ url, name }: { url: string | null; name: 
       }}
     >
       {showPlaceholder ? (
-        <span className="small muted">Tanpa foto</span>
+        <span className="small muted">{m.admin.productNoPhoto}</span>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img

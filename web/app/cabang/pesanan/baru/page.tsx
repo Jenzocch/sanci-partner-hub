@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getMessages } from "@/lib/i18n";
 import NewOrderForm from "./new-order-form";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ async function fetchFulfillmentAvailable(
 }
 
 export default async function PesananBaruPage() {
+  const m = await getMessages();
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,7 +42,7 @@ export default async function PesananBaruPage() {
     return (
       <main className="page">
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -55,10 +57,7 @@ export default async function PesananBaruPage() {
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">
-            Data partner/cabang Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa
-            pengaturan akun dan izin cabang.
-          </div>
+          <div className="err">{m.cabang.errPartnerBranchLoad}</div>
         </div>
       </main>
     );
@@ -101,12 +100,12 @@ export default async function PesananBaruPage() {
     <main className="pwrap">
       <div className="backrow">
         <Link href="/cabang/pesanan" className="linkbtn">
-          ← Daftar Pesanan
+          {m.cabang.navBackOrders}
         </Link>
       </div>
-      <h2 className="mtitle">Pelanggan &amp; Pesanan Baru</h2>
+      <h2 className="mtitle">{m.cabang.newOrderTitle}</h2>
       <p className="footnote" style={{ marginTop: 0, marginBottom: 16 }}>
-        {partner.name} · Cabang {branch.name}
+        {partner.name} · {m.cabang.homeBranchLabel.replace("{name}", branch.name)}
       </p>
       <NewOrderForm
         branchId={pu.branch_id}

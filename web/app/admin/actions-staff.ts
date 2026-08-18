@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
-  PESAN,
+  pesan,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
 } from "@/lib/safe-write";
+import { getMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -18,9 +19,11 @@ export async function createStaff(
   branchId: string,
   input: { fullName: string; phone?: string; role: string; clientRequestId: string }
 ): Promise<ActionResult<{ id: string }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const fullName = input.fullName.trim();
-  if (!fullName) return { error: { field: "full_name", message: "Nama lengkap wajib diisi." } };
+  if (!fullName) return { error: { field: "full_name", message: m.admin.staffFullNameRequired } };
   const role = ROLES.includes(input.role as (typeof ROLES)[number]) ? input.role : "Lainnya";
 
   const { data: branch } = await supabase
@@ -28,7 +31,7 @@ export async function createStaff(
     .select("id, partner_id")
     .eq("id", branchId)
     .maybeSingle();
-  if (!branch) return { error: { message: "Cabang tidak ditemukan." } };
+  if (!branch) return { error: { message: m.admin.branchNotFound } };
 
   const { data: existing } = await supabase
     .from("partner_staff")
@@ -106,7 +109,7 @@ export async function createStaff(
           message:
             assigned.reason === "unconfirmed"
               ? PESAN.belumPastiBaru
-              : "Staf tersimpan tetapi penugasan cabang gagal. Hubungi dukungan teknis.",
+              : m.admin.staffAssignmentPartialFail,
         },
       };
     }
@@ -121,9 +124,11 @@ export async function updateStaff(
   staffId: string,
   input: { fullName: string; phone?: string; role: string }
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const fullName = input.fullName.trim();
-  if (!fullName) return { error: { field: "full_name", message: "Nama lengkap wajib diisi." } };
+  if (!fullName) return { error: { field: "full_name", message: m.admin.staffFullNameRequired } };
   const role = ROLES.includes(input.role as (typeof ROLES)[number]) ? input.role : "Lainnya";
 
   const saved = await safeWrite(
@@ -150,7 +155,7 @@ export async function updateStaff(
     .is("end_at", null)
     .select("branch_id")
     .maybeSingle();
-  if (aErr) return { error: { message: "Tidak bisa menyimpan peran sekarang." } };
+  if (aErr) return { error: { message: m.admin.staffAssignmentSavedFailed } };
 
   revalidatePath(`/admin/partners/${staff.partner_id}`);
   if (assignment) {
@@ -161,6 +166,7 @@ export async function updateStaff(
 }
 
 export async function deactivateStaff(staffId: string): Promise<ActionResult<true>> {
+  const m = await getMessages();
   const supabase = await createClient();
 
   const { data: assignment } = await supabase
@@ -176,7 +182,7 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<tru
     .eq("id", staffId)
     .select("partner_id")
     .single();
-  if (error || !staff) return { error: { message: "Tidak bisa menonaktifkan sekarang." } };
+  if (error || !staff) return { error: { message: m.admin.staffDeactivateFailed } };
 
   if (assignment) {
     await supabase
@@ -195,6 +201,7 @@ export async function transferStaff(
   staffId: string,
   toBranchId: string
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
   const supabase = await createClient();
 
   const { data: current } = await supabase
@@ -203,7 +210,7 @@ export async function transferStaff(
     .eq("staff_id", staffId)
     .is("end_at", null)
     .maybeSingle();
-  if (!current) return { error: { message: "Penugasan aktif tidak ditemukan." } };
+  if (!current) return { error: { message: m.admin.staffTransferActiveNotFound } };
 
   const today = new Date().toISOString().slice(0, 10);
   const { data: ended, error: endErr } = await supabase
@@ -212,18 +219,18 @@ export async function transferStaff(
     .eq("id", current.id)
     .select("id")
     .maybeSingle();
-  if (endErr) return { error: { message: "Tidak bisa memindahkan sekarang." } };
+  if (endErr) return { error: { message: m.admin.staffTransferFailed } };
   // RLS bisa menyaring update ini jadi 0 baris tanpa error (mis. beda cabang yang
   // tidak terlihat) — kalau tidak dipastikan, jangan lanjut buat penugasan baru,
   // nanti staf ini malah kepasang di dua cabang sekaligus.
-  if (!ended) return { error: { message: "Tidak bisa memindahkan sekarang." } };
+  if (!ended) return { error: { message: m.admin.staffTransferFailed } };
 
   const { error: startErr } = await supabase.from("partner_staff_assignments").insert({
     staff_id: staffId,
     branch_id: toBranchId,
     role: current.role,
   });
-  if (startErr) return { error: { message: "Tidak bisa memindahkan sekarang." } };
+  if (startErr) return { error: { message: m.admin.staffTransferFailed } };
 
   const partnerRef = current.partner_branches as unknown as { partner_id: string } | null;
   if (partnerRef) {

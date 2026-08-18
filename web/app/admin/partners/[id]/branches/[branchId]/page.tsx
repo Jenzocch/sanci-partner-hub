@@ -4,15 +4,19 @@ import AddStaffButton from "./add-staff-button";
 import StaffActions from "./staff-actions";
 import BranchActions from "./branch-actions";
 import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
+import { getMessages, type Messages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-const SLBL: Record<string, string> = {
-  ACTIVE: "AKTIF",
-  DRAFT: "DRAF",
-  SUSPENDED: "DITANGGUHKAN",
-  INACTIVE: "NONAKTIF",
-};
+function statusLabel(m: Messages, s: string): string {
+  const map: Record<string, string> = {
+    ACTIVE: m.common.statusActive,
+    DRAFT: m.common.statusDraft,
+    SUSPENDED: m.common.statusSuspended,
+    INACTIVE: m.common.statusInactive,
+  };
+  return map[s] ?? s;
+}
 
 type Assignment = { staff_id: string; branch_id: string; role: string; end_at: string | null };
 
@@ -26,6 +30,7 @@ export default async function BranchDetailPage({
   const { id: partnerId, branchId } = await params;
   const sp = await searchParams;
   const tab = sp.tab || "overview";
+  const m = await getMessages();
   const supabase = await createClient();
 
   const { data: branch } = await supabase
@@ -43,9 +48,9 @@ export default async function BranchDetailPage({
   if (!partner) notFound();
 
   const tabs = [
-    { key: "overview", label: "Ringkasan" },
-    { key: "staff", label: "Staf" },
-    { key: "activity", label: "Aktivitas" },
+    { key: "overview", label: m.admin.tabOverview },
+    { key: "staff", label: m.admin.tabStaff },
+    { key: "activity", label: m.admin.tabActivity },
   ];
 
   let body: React.ReactNode = null;
@@ -54,27 +59,27 @@ export default async function BranchDetailPage({
     body = (
       <div className="card" style={{ maxWidth: 640 }}>
         <dl className="kv">
-          <dt>Partner</dt>
+          <dt>{m.common.partner}</dt>
           <dd>{partner.name}</dd>
-          <dt>Kode cabang</dt>
+          <dt>{m.admin.branchInfoColCode}</dt>
           <dd>
             <span className="code">
               {partner.code} / {branch.code}
             </span>
           </dd>
-          <dt>Alamat lengkap</dt>
+          <dt>{m.admin.branchInfoColAddress}</dt>
           <dd>{branch.address}</dd>
-          <dt>Kota</dt>
+          <dt>{m.common.city}</dt>
           <dd>{branch.city || "—"}</dd>
-          <dt>Provinsi</dt>
+          <dt>{m.common.province}</dt>
           <dd>{branch.province || "—"}</dd>
-          <dt>Kontak</dt>
+          <dt>{m.common.contactName}</dt>
           <dd>{branch.contact_name || "—"}</dd>
-          <dt>WhatsApp</dt>
+          <dt>{m.common.whatsapp}</dt>
           <dd>{branch.contact_phone || "—"}</dd>
-          <dt>Status</dt>
+          <dt>{m.common.status}</dt>
           <dd>
-            <span className={`chip ${branch.status}`}>{SLBL[branch.status]}</span>
+            <span className={`chip ${branch.status}`}>{statusLabel(m, branch.status)}</span>
           </dd>
         </dl>
         <BranchActions branch={branch} />
@@ -104,7 +109,7 @@ export default async function BranchDetailPage({
           <AddStaffButton branchId={branchId} partnerName={partner.name} branchName={branch.name} />
         </div>
         {activeStaff.length === 0 ? (
-          <div className="card emptybox">Belum ada staf terdaftar di cabang ini.</div>
+          <div className="card emptybox">{m.admin.staffEmpty}</div>
         ) : (
           activeStaff.map((s) => {
             const a = assignByStaff.get(s.id)!;
@@ -112,10 +117,10 @@ export default async function BranchDetailPage({
               <div key={s.id} className="staffcard">
                 <div className="row1">
                   <span className="nm">{s.full_name}</span>
-                  <span className="chip ACTIVE">AKTIF</span>
+                  <span className="chip ACTIVE">{m.common.statusActive}</span>
                 </div>
                 <div className="rl">
-                  {a.role} · {s.phone || "tanpa telepon"}
+                  {a.role} · {s.phone || m.admin.staffNoPhone}
                 </div>
                 <div className="ops">
                   <StaffActions
@@ -142,16 +147,19 @@ export default async function BranchDetailPage({
     body = (
       <div className="card">
         {!audit || audit.length === 0 ? (
-          <div className="emptybox">Belum ada aktivitas tercatat.</div>
+          <div className="emptybox">{m.admin.activityEmpty}</div>
         ) : (
           <ul className="audit-list">
             {audit.map((a) => {
-              const diffLines = formatAuditDiff(a.before, a.after);
+              const diffLines = formatAuditDiff(m, a.before, a.after);
               return (
                 <li key={a.id}>
-                  <span className="act">{formatAuditAction(a.action)}</span>{" "}
-                  <span className="muted">· {formatActorRole(a.actor_role)}</span>
-                  <span className="ts">{new Date(a.created_at).toLocaleString("id-ID")} · waktu server</span>
+                  <span className="act">{formatAuditAction(m, a.action)}</span>{" "}
+                  <span className="muted">· {formatActorRole(m, a.actor_role)}</span>
+                  <span className="ts">
+                    {new Date(a.created_at).toLocaleString("id-ID")}
+                    {m.admin.createdAtServerTimeSuffix}
+                  </span>
                   {diffLines.length > 0 && (
                     <div className="diff">
                       {diffLines.map((line, i) => (
@@ -171,19 +179,19 @@ export default async function BranchDetailPage({
   return (
     <div>
       <div className="crumb">
-        <a href="/admin">Partner</a> / <a href={`/admin/partners/${partnerId}`}>{partner.name}</a> /{" "}
+        <a href="/admin">{m.common.partner}</a> / <a href={`/admin/partners/${partnerId}`}>{partner.name}</a> /{" "}
         {branch.name}
       </div>
       <div className="pagehead">
         <span>
-          <h1>Cabang {branch.name}</h1>
+          <h1>{m.common.branch} {branch.name}</h1>
           <div className="muted" style={{ marginTop: 4 }}>
             {partner.name} · {branch.address}
             {branch.city ? `, ${branch.city}` : ""}
           </div>
         </span>
         <span className={`chip ${branch.status}`} style={{ fontSize: 14, padding: "5px 14px" }}>
-          {SLBL[branch.status]}
+          {statusLabel(m, branch.status)}
         </span>
       </div>
 

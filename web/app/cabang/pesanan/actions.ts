@@ -23,7 +23,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   LOOKUP_TIMEOUT_MS,
-  PESAN,
+  pesan,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
@@ -36,12 +36,10 @@ import {
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
+import { getMessages, type Messages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
-
-const MISSING_TABLE_MSG =
-  "Modul Pesanan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.";
 
 /**
  * Kolom cancelled_at/cancelled_by/cancellation_reason ditambahkan migration
@@ -52,9 +50,6 @@ const MISSING_TABLE_MSG =
 function isMissingColumnError(err: { code?: string } | null): boolean {
   return !!err && err.code === "42703";
 }
-
-const MIGRATION_0005_MSG =
-  "Fitur ini belum aktif — migrasi database belum dijalankan. Hubungi SANCI Admin.";
 
 type Identity = { partnerId: string; branchId: string; userId: string };
 
@@ -90,10 +85,11 @@ async function getIdentity(supabase: SupabaseServerClient): Promise<IdentityOutc
 }
 
 /** Pesan seragam untuk hasil getIdentity yang bukan "ok" (dipakai tiap Server Action). */
-function identityErrorMessage(outcome: Extract<IdentityOutcome, { status: "no-user" | "load-error" }>): string {
-  return outcome.status === "load-error"
-    ? "Data akun gagal dimuat — coba lagi."
-    : "Sesi tidak valid. Muat ulang halaman.";
+function identityErrorMessage(
+  m: Messages,
+  outcome: Extract<IdentityOutcome, { status: "no-user" | "load-error" }>
+): string {
+  return outcome.status === "load-error" ? m.cabang.errAccountLoadRetry : m.cabang.errSessionInvalid;
 }
 
 /* ------------------------------------------------------------------ *
@@ -119,10 +115,12 @@ type PackageResolution =
  *                kolom yang bahkan tidak pernah "diisi").
  */
 async function resolvePackage(
+  m: Messages,
   supabase: SupabaseServerClient,
   partnerId: string,
   input: { packageId?: string; packageName: string; packagesAvailable?: boolean }
 ): Promise<PackageResolution> {
+  const PESAN = pesan(m);
   if (input.packageId) {
     const { data, error } = await supabase
       .from("partner_packages")
@@ -138,7 +136,7 @@ async function resolvePackage(
     if (!data || data.status !== "ACTIVE") {
       return {
         ok: false,
-        error: { field: "package_name", message: "Package tidak ditemukan atau sudah tidak aktif. Pilih ulang." },
+        error: { field: "package_name", message: m.cabang.errPackageNotFound },
       };
     }
     return { ok: true, packageName: data.name, packageId: data.id };
@@ -150,7 +148,7 @@ async function resolvePackage(
       ok: false,
       error: {
         field: "package_name",
-        message: input.packagesAvailable ? "Package wajib dipilih." : "Nama package wajib diisi.",
+        message: input.packagesAvailable ? m.cabang.errPackageRequired : m.cabang.errPackageNameRequired,
       },
     };
   }
@@ -214,18 +212,19 @@ async function updateOrderWithPackageFallback(
  * string kosong; itu TIDAK boleh dianggap error validasi pengguna.
  */
 function validateFulfillmentPath(
+  m: Messages,
   raw: string | undefined,
   required: boolean
 ): { ok: true; value: FulfillmentPath | null } | { ok: false; error: ActionError } {
   const trimmed = (raw ?? "").trim();
   if (!trimmed) {
     if (required) {
-      return { ok: false, error: { field: "fulfillment_path", message: "Pilih jalur pesanan" } };
+      return { ok: false, error: { field: "fulfillment_path", message: m.cabang.errFulfillmentRequired } };
     }
     return { ok: true, value: null };
   }
   if (trimmed !== "DIRECT_DELIVERY" && trimmed !== "SHOWROOM_VISIT") {
-    return { ok: false, error: { field: "fulfillment_path", message: "Jalur pesanan tidak valid." } };
+    return { ok: false, error: { field: "fulfillment_path", message: m.cabang.errFulfillmentInvalid } };
   }
   return { ok: true, value: trimmed as FulfillmentPath };
 }
@@ -245,6 +244,7 @@ const MAX_PURCHASE_AMOUNT = 9_999_999_999_999;
  * sudah diformat/dihitung di client (SPEC §8 turunan, LESSONS #6).
  */
 function validatePurchaseAmount(
+  m: Messages,
   raw: string | undefined
 ): { ok: true; value: number | null } | { ok: false; error: ActionError } {
   const trimmed = (raw ?? "").trim();
@@ -253,7 +253,7 @@ function validatePurchaseAmount(
   if (n === null || n > MAX_PURCHASE_AMOUNT) {
     return {
       ok: false,
-      error: { field: "partner_purchase_amount", message: "Jumlah belanja tidak valid." },
+      error: { field: "partner_purchase_amount", message: m.cabang.errPurchaseAmountInvalid },
     };
   }
   return { ok: true, value: n };
@@ -389,11 +389,13 @@ type ResolveCustomerOutcome =
   | { ok: false; error: ActionError };
 
 async function resolveOrCreateCustomer(
+  m: Messages,
   supabase: SupabaseServerClient,
   identity: Identity,
   input: ResolveCustomerInput,
   clientRequestId: string
 ): Promise<ResolveCustomerOutcome> {
+  const PESAN = pesan(m);
   if (input.mode === "existing") {
     const { data: existing, error } = await supabase
       .from("customers")
@@ -401,20 +403,20 @@ async function resolveOrCreateCustomer(
       .eq("id", input.customerId)
       .maybeSingle();
     if (error) {
-      if (isMissingTableError(error)) return { ok: false, error: { message: MISSING_TABLE_MSG } };
+      if (isMissingTableError(error)) return { ok: false, error: { message: m.cabang.errOrderModuleInactive } };
       return { ok: false, error: { message: PESAN.serverSibuk } };
     }
     if (!existing) {
-      return { ok: false, error: { message: "Pelanggan tidak ditemukan lagi. Muat ulang halaman dan cari ulang." } };
+      return { ok: false, error: { message: m.cabang.errCustomerNotFoundReload } };
     }
     return { ok: true, customer: existing };
   }
 
   const fullName = input.fullName.trim();
-  if (!fullName) return { ok: false, error: { field: "full_name", message: "Nama lengkap wajib diisi." } };
+  if (!fullName) return { ok: false, error: { field: "full_name", message: m.cabang.errFullNameRequired } };
   const normalized = normalizePhoneID(input.phone);
   if (!normalized) {
-    return { ok: false, error: { field: "phone", message: "Nomor telepon tidak valid." } };
+    return { ok: false, error: { field: "phone", message: m.cabang.errPhoneInvalid } };
   }
   const phoneTrim = input.phone.trim();
   const notes = input.notes?.trim() || null;
@@ -447,7 +449,7 @@ async function resolveOrCreateCustomer(
   if (written.ok) return { ok: true, customer: written.data };
 
   if (written.reason === "db" && isMissingTableError({ code: written.code })) {
-    return { ok: false, error: { message: MISSING_TABLE_MSG } };
+    return { ok: false, error: { message: m.cabang.errOrderModuleInactive } };
   }
 
   if (written.reason === "unconfirmed" || isRequestIdConflict(written)) {
@@ -472,12 +474,14 @@ export async function createCustomerOnly(input: {
   notes?: string;
   clientRequestId: string;
 }): Promise<ActionResult<{ customerId: string; fullName: string; phone: string }>> {
+  const m = await getMessages();
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
-  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
   const identity = idOutcome.identity;
 
   const resolved = await resolveOrCreateCustomer(
+    m,
     supabase,
     identity,
     { mode: "new", fullName: input.fullName, phone: input.phone, notes: input.notes },
@@ -618,9 +622,11 @@ export async function createCustomerAndOrder(input: {
   purchaseAmountRaw?: string;
   clientRequestId: string;
 }): Promise<CreateOrderResult> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
-  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
   const identity = idOutcome.identity;
 
   const custReqId = `${input.clientRequestId}:customer`;
@@ -628,11 +634,11 @@ export async function createCustomerAndOrder(input: {
     ? { mode: "existing", customerId: input.customerId }
     : { mode: "new", fullName: input.fullName || "", phone: input.phone || "", notes: undefined };
 
-  const resolved = await resolveOrCreateCustomer(supabase, identity, resolveInput, custReqId);
+  const resolved = await resolveOrCreateCustomer(m, supabase, identity, resolveInput, custReqId);
   if (!resolved.ok) return { error: resolved.error };
   const customer = resolved.customer;
 
-  const pkg = await resolvePackage(supabase, identity.partnerId, {
+  const pkg = await resolvePackage(m, supabase, identity.partnerId, {
     packageId: input.packageId,
     packageName: input.packageName,
     packagesAvailable: input.packagesAvailable,
@@ -645,18 +651,18 @@ export async function createCustomerAndOrder(input: {
   // boleh dianggap "user tidak menjawab pertanyaan wajib" (LESSONS #12,
   // menyamakan create dengan pola `undefined` yang sudah dipakai update).
   const fulfillmentRendered = input.fulfillmentAvailable !== false;
-  const path = validateFulfillmentPath(input.fulfillmentPath, fulfillmentRendered);
+  const path = validateFulfillmentPath(m, input.fulfillmentPath, fulfillmentRendered);
   if (!path.ok) return { error: path.error };
-  const amount = validatePurchaseAmount(input.purchaseAmountRaw);
+  const amount = validatePurchaseAmount(m, input.purchaseAmountRaw);
   if (!amount.ok) return { error: amount.error };
 
-  if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: "Sales wajib dipilih." } };
+  if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: m.cabang.errSalesRequired } };
 
   const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
   if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
   if (salesCheck === "invalid") {
     return {
-      error: { field: "sales_staff_id", message: "Sales harus dipilih dari daftar staf aktif cabang ini." },
+      error: { field: "sales_staff_id", message: m.cabang.errSalesInvalidStaff },
     };
   }
   let picStaffId: string | null = null;
@@ -664,13 +670,13 @@ export async function createCustomerAndOrder(input: {
     const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, identity.branchId, identity.partnerId);
     if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
     if (picCheck === "invalid") {
-      return { error: { field: "pic_staff_id", message: "PIC harus dipilih dari daftar staf aktif cabang ini." } };
+      return { error: { field: "pic_staff_id", message: m.cabang.errPicInvalidStaff } };
     }
     picStaffId = input.picStaffId;
   }
 
   const orderReqId = `${input.clientRequestId}:order`;
-  const partialMsg = "Pelanggan tersimpan. Pesanan gagal — ulangi dari daftar pelanggan.";
+  const partialMsg = m.cabang.partialOrderFailed;
   const partialResult = {
     partial: {
       customerId: customer.id,
@@ -721,7 +727,7 @@ export async function createCustomerAndOrder(input: {
       orderId = written.data.id;
     } else if (written.reason === "db" && isMissingTableError({ code: written.code })) {
       return {
-        partial: { ...partialResult.partial, message: MISSING_TABLE_MSG },
+        partial: { ...partialResult.partial, message: m.cabang.errOrderModuleInactive },
       };
     } else if (written.reason === "unconfirmed" || isRequestIdConflict(written)) {
       const recheck = await confirmByRequestId(
@@ -735,8 +741,7 @@ export async function createCustomerAndOrder(input: {
         return {
           partial: {
             ...partialResult.partial,
-            message:
-              "Pelanggan tersimpan. Status pesanan belum bisa dipastikan karena koneksi terputus — cek Daftar Pesanan sebelum mencoba lagi.",
+            message: m.cabang.partialOrderUnknownStatus,
           },
         };
       }
@@ -754,8 +759,7 @@ export async function createCustomerAndOrder(input: {
         customerId: customer.id,
         customerName: customer.full_name,
         customerPhone: customer.phone,
-        message:
-          "Pesanan tersimpan tetapi rinciannya belum bisa dimuat ulang. Buka Daftar Pesanan untuk memastikan.",
+        message: m.cabang.partialOrderSummaryUnavailable,
       },
     };
   }
@@ -771,8 +775,7 @@ export async function createCustomerAndOrder(input: {
         customerId: customer.id,
         customerName: customer.full_name,
         customerPhone: customer.phone,
-        message:
-          "Pesanan tersimpan, tetapi Jalur Pesanan belum bisa disimpan (fitur belum aktif di server). Hubungi SANCI Admin.",
+        message: m.cabang.partialFulfillmentDropped,
       },
     };
   }
@@ -797,20 +800,22 @@ type MutableOrderRef = { id: string; partner_id: string; branch_id: string; stat
  * ditebak di sini.
  */
 async function fetchOrderForMutation(
+  m: Messages,
   supabase: SupabaseServerClient,
   orderId: string
 ): Promise<{ ok: true; order: MutableOrderRef } | { ok: false; error: ActionError }> {
+  const PESAN = pesan(m);
   const { data, error } = await supabase
     .from("partner_orders")
     .select("id, partner_id, branch_id, status")
     .eq("id", orderId)
     .maybeSingle();
   if (error) {
-    if (isMissingTableError(error)) return { ok: false, error: { message: MISSING_TABLE_MSG } };
+    if (isMissingTableError(error)) return { ok: false, error: { message: m.cabang.errOrderModuleInactive } };
     return { ok: false, error: { message: PESAN.serverSibuk } };
   }
   if (!data) {
-    return { ok: false, error: { message: "Pesanan tidak ditemukan atau Anda tidak punya akses." } };
+    return { ok: false, error: { message: m.cabang.errOrderNotFoundNoAccess } };
   }
   return { ok: true, order: data as MutableOrderRef };
 }
@@ -822,10 +827,15 @@ async function fetchOrderForMutation(
  * "tidak punya akses", baru "no row returned" (0 baris — RLS menolak DIAM-DIAM,
  * bukan error) yang jadi pesan akses/berubah (bukan sukses palsu, LESSONS #7).
  */
-function updateFailureMessage(written: { reason: "db"; code?: string; detail: string } | { reason: "unconfirmed" }, noRowMsg: string): string {
+function updateFailureMessage(
+  m: Messages,
+  written: { reason: "db"; code?: string; detail: string } | { reason: "unconfirmed" },
+  noRowMsg: string
+): string {
+  const PESAN = pesan(m);
   if (written.reason === "unconfirmed") return PESAN.belumPastiUbah;
-  if (isMissingColumnError({ code: written.code })) return MIGRATION_0005_MSG;
-  if (isMissingTableError({ code: written.code })) return MISSING_TABLE_MSG;
+  if (isMissingColumnError({ code: written.code })) return m.cabang.errFeatureInactive;
+  if (isMissingTableError({ code: written.code })) return m.cabang.errOrderModuleInactive;
   if (written.detail === "no row returned") return noRowMsg;
   return PESAN.serverSibuk;
 }
@@ -843,21 +853,23 @@ export async function updateOrder(input: {
   fulfillmentPath?: string;
   purchaseAmountRaw?: string;
 }): Promise<UpdateOrderResult> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
-  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
 
-  const found = await fetchOrderForMutation(supabase, input.orderId);
+  const found = await fetchOrderForMutation(m, supabase, input.orderId);
   if (!found.ok) return { error: found.error };
   const order = found.order;
 
   if (order.status !== "REGISTERED") {
-    return { error: { message: "Pesanan ini sudah dibatalkan dan tidak bisa diubah lagi." } };
+    return { error: { message: m.cabang.errOrderAlreadyCancelled } };
   }
 
   // Package divalidasi terhadap partner PESANAN (bisa beda dari partner sesi
   // kalau suatu hari lintas-partner — hari ini selalu sama, tapi ini yang benar).
-  const pkg = await resolvePackage(supabase, order.partner_id, {
+  const pkg = await resolvePackage(m, supabase, order.partner_id, {
     packageId: input.packageId,
     packageName: input.packageName,
     packagesAvailable: input.packagesAvailable,
@@ -871,31 +883,31 @@ export async function updateOrder(input: {
   // dikirim (field dirender tapi tidak dipilih) tetap boleh menyimpan null.
   const fulfillmentCols: Record<string, unknown> = {};
   if (input.fulfillmentPath !== undefined) {
-    const path = validateFulfillmentPath(input.fulfillmentPath, false);
+    const path = validateFulfillmentPath(m, input.fulfillmentPath, false);
     if (!path.ok) return { error: path.error };
     fulfillmentCols.fulfillment_path = path.value;
   }
   if (input.purchaseAmountRaw !== undefined) {
-    const amount = validatePurchaseAmount(input.purchaseAmountRaw);
+    const amount = validatePurchaseAmount(m, input.purchaseAmountRaw);
     if (!amount.ok) return { error: amount.error };
     fulfillmentCols.partner_purchase_amount = amount.value;
   }
 
-  if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: "Sales wajib dipilih." } };
+  if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: m.cabang.errSalesRequired } };
 
   // Staf diverifikasi terhadap cabang PESANAN (bisa beda dari cabang login saat
   // PARTNER_ALL_BRANCHES mengubah pesanan cabang lain) — bukan cabang pengguna.
   const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, order.branch_id, order.partner_id);
   if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
   if (salesCheck === "invalid") {
-    return { error: { field: "sales_staff_id", message: "Sales harus dipilih dari daftar staf aktif cabang ini." } };
+    return { error: { field: "sales_staff_id", message: m.cabang.errSalesInvalidStaff } };
   }
   let picStaffId: string | null = null;
   if (input.picStaffId) {
     const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, order.branch_id, order.partner_id);
     if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
     if (picCheck === "invalid") {
-      return { error: { field: "pic_staff_id", message: "PIC harus dipilih dari daftar staf aktif cabang ini." } };
+      return { error: { field: "pic_staff_id", message: m.cabang.errPicInvalidStaff } };
     }
     picStaffId = input.picStaffId;
   }
@@ -919,10 +931,7 @@ export async function updateOrder(input: {
   if (!written.ok) {
     return {
       error: {
-        message: updateFailureMessage(
-          written,
-          "Pesanan tidak bisa diubah — Anda mungkin tidak punya akses ke cabang ini, atau pesanan sudah berubah/dibatalkan. Muat ulang halaman."
-        ),
+        message: updateFailureMessage(m, written, m.cabang.errOrderUpdateNoAccess),
       },
     };
   }
@@ -944,20 +953,21 @@ export async function cancelOrder(input: {
   orderId: string;
   reason: string;
 }): Promise<CancelOrderResult> {
+  const m = await getMessages();
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
-  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
 
   const reason = input.reason.trim();
-  if (!reason) return { error: { field: "reason", message: "Alasan pembatalan wajib diisi." } };
+  if (!reason) return { error: { field: "reason", message: m.cabang.errCancelReasonRequired } };
   if (reason.length > 500) {
-    return { error: { field: "reason", message: "Alasan pembatalan terlalu panjang (maksimal 500 karakter)." } };
+    return { error: { field: "reason", message: m.cabang.errCancelReasonTooLong } };
   }
 
-  const found = await fetchOrderForMutation(supabase, input.orderId);
+  const found = await fetchOrderForMutation(m, supabase, input.orderId);
   if (!found.ok) return { error: found.error };
   if (found.order.status === "CANCELLED") {
-    return { error: { message: "Pesanan ini sudah dibatalkan sebelumnya." } };
+    return { error: { message: m.cabang.errOrderAlreadyCancelledBefore } };
   }
 
   const written = await safeWrite(
@@ -972,10 +982,7 @@ export async function cancelOrder(input: {
   if (!written.ok) {
     return {
       error: {
-        message: updateFailureMessage(
-          written,
-          "Pesanan tidak bisa dibatalkan — Anda mungkin tidak punya akses ke cabang ini, atau pesanan sudah berubah. Muat ulang halaman."
-        ),
+        message: updateFailureMessage(m, written, m.cabang.errOrderCancelNoAccess),
       },
     };
   }
@@ -993,8 +1000,6 @@ export async function cancelOrder(input: {
  * (LESSONS #6, sepupu setPartnerLogo).
  * ------------------------------------------------------------------ */
 
-const INVOICE_GAGAL_CATAT = "Invoice gagal diunggah — data pesanan tetap tersimpan.";
-
 export type SetInvoiceResult = { data: { updated: true } } | { error: ActionError };
 
 /**
@@ -1006,21 +1011,22 @@ export async function setOrderInvoicePath(input: {
   orderId: string;
   path: string;
 }): Promise<SetInvoiceResult> {
+  const m = await getMessages();
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
-  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
 
   const prefix = `${input.orderId}/`;
   if (!input.path.startsWith(prefix) || input.path.includes("..")) {
-    return { error: { message: "Alamat invoice tidak dikenali." } };
+    return { error: { message: m.cabang.errInvoicePathInvalid } };
   }
 
-  const found = await fetchOrderForMutation(supabase, input.orderId);
+  const found = await fetchOrderForMutation(m, supabase, input.orderId);
   if (!found.ok) return { error: found.error };
   // UI menyembunyikan tombol unggah untuk order yang sudah dibatalkan, tapi
   // itu saja bukan pengaman (LESSONS #5) — diperiksa ulang di sini juga.
   if (found.order.status !== "REGISTERED") {
-    return { error: { message: "Pesanan ini sudah dibatalkan dan tidak bisa diubah lagi." } };
+    return { error: { message: m.cabang.errOrderAlreadyCancelled } };
   }
 
   const written = await safeWrite(
@@ -1035,7 +1041,7 @@ export async function setOrderInvoicePath(input: {
   if (!written.ok) {
     return {
       error: {
-        message: updateFailureMessage(written, INVOICE_GAGAL_CATAT),
+        message: updateFailureMessage(m, written, m.cabang.errInvoiceUploadFailed),
       },
     };
   }

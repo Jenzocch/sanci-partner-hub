@@ -6,6 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
+import { useMessages } from "@/lib/i18n/provider";
 import { updateStaff, deactivateStaff } from "../../../admin/actions-staff";
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
@@ -14,6 +15,7 @@ type Staff = { id: string; full_name: string; phone: string | null; role: string
 
 export default function StaffActions({ staff }: { staff: Staff }) {
   const router = useRouter();
+  const m = useMessages();
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -40,6 +42,7 @@ export default function StaffActions({ staff }: { staff: Staff }) {
     const fd = new FormData(e.currentTarget);
     const out = await submitSafely({
       kind: "update",
+      messages: m,
       run: () =>
         updateStaff(staff.id, {
           fullName: String(fd.get("full_name") || ""),
@@ -66,7 +69,7 @@ export default function StaffActions({ staff }: { staff: Staff }) {
   }
 
   async function onDeactivate() {
-    if (!confirm(`Nonaktifkan ${staff.full_name}? Riwayat tetap tersimpan.`)) return;
+    if (!confirm(m.cabang.confirmDeactivateStaff.replace("{name}", staff.full_name))) return;
     if (!begin()) return;
     const res = await deactivateStaff(staff.id);
     release();
@@ -81,32 +84,32 @@ export default function StaffActions({ staff }: { staff: Staff }) {
     <>
       <div className="ops">
         <button className="btn sm" onClick={openEdit}>
-          Ubah
+          {m.common.edit}
         </button>
         <button className="btn sm danger" onClick={onDeactivate} disabled={submitting}>
-          {submitting ? "Menyimpan…" : "Nonaktifkan"}
+          {submitting ? m.common.saving : m.common.deactivate}
         </button>
       </div>
 
       {modal === "edit" && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Ubah Staf</h2>
+            <h2>{m.cabang.editStaffModalTitle}</h2>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
             <form onSubmit={onEdit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
               <div className={`field${errs.full_name ? " invalid" : ""}`}>
-                <label htmlFor="ces_name">Nama lengkap *</label>
+                <label htmlFor="ces_name">{m.common.fullName} *</label>
                 <input id="ces_name" name="full_name" type="text" defaultValue={staff.full_name} />
                 {errs.full_name && <div className="err-text">{errs.full_name}</div>}
               </div>
               <div className="field">
-                <label htmlFor="ces_phone">Telepon</label>
+                <label htmlFor="ces_phone">{m.common.phone}</label>
                 <input id="ces_phone" name="phone" type="tel" defaultValue={staff.phone || ""} />
               </div>
               <div className="field">
-                <label htmlFor="ces_role">Peran *</label>
+                <label htmlFor="ces_role">{m.common.role} *</label>
                 <select id="ces_role" name="role" defaultValue={staff.role}>
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
@@ -117,10 +120,10 @@ export default function StaffActions({ staff }: { staff: Staff }) {
               </div>
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
-                  Batal
+                  {m.common.cancel}
                 </button>
                 <button type="submit" className="btn primary lg block" disabled={submitting}>
-                  {submitting ? "Menyimpan…" : "Simpan"}
+                  {submitting ? m.common.saving : m.common.save}
                 </button>
               </div>
             </form>

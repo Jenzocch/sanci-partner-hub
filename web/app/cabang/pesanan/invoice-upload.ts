@@ -19,35 +19,32 @@
 import { compressImage, MAKS_UKURAN_BYTE, PRESET_INVOICE } from "@/lib/compress-image";
 import { submitSafely } from "@/lib/safe-write";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+import type { Messages } from "@/lib/i18n";
 import { setOrderInvoicePath } from "./actions";
 
 export const INVOICE_ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
 
-export const INVOICE_GAGAL = "Invoice gagal diunggah — data pesanan tetap tersimpan.";
-
-const PESAN_INVOICE = {
-  tipeSalah: "Format invoice harus PNG, JPG, WebP, atau PDF.",
-  terlaluBesar: "Ukuran invoice maksimal 5 MB. Pilih berkas yang lebih kecil.",
-};
-
 type SiapUnggah = { blob: Blob; ext: string; contentType: string };
 
-async function siapkanInvoice(file: File): Promise<{ ok: true; data: SiapUnggah } | { ok: false; message: string }> {
+async function siapkanInvoice(
+  m: Messages,
+  file: File
+): Promise<{ ok: true; data: SiapUnggah } | { ok: false; message: string }> {
   const tipe = (file.type || "").toLowerCase();
 
   if (tipe === "application/pdf") {
-    if (file.size > MAKS_UKURAN_BYTE) return { ok: false, message: PESAN_INVOICE.terlaluBesar };
+    if (file.size > MAKS_UKURAN_BYTE) return { ok: false, message: m.cabang.errInvoiceTooLarge };
     return { ok: true, data: { blob: file, ext: "pdf", contentType: "application/pdf" } };
   }
 
   if (!["image/png", "image/jpeg", "image/webp", "image/jpg"].includes(tipe)) {
-    return { ok: false, message: PESAN_INVOICE.tipeSalah };
+    return { ok: false, message: m.cabang.errInvoiceWrongType };
   }
 
   // Invoice: sisi 2000 px + mutu tinggi supaya nominal tetap terbaca (bukan
   // 512 px logo). Kalau hasilnya masih >5 MB, compressImage otomatis coba
   // ulang di 1600 px sekali sebelum menyerah — keterbacaan didahulukan.
-  const kecil = await compressImage(file, PRESET_INVOICE);
+  const kecil = await compressImage(file, PRESET_INVOICE, m);
   if (!kecil.ok) return { ok: false, message: kecil.message };
   const ext = kecil.blob.type === "image/webp" ? "webp" : kecil.blob.type === "image/png" ? "png" : "jpg";
   return { ok: true, data: { blob: kecil.blob, ext, contentType: kecil.blob.type || "image/jpeg" } };
@@ -60,15 +57,16 @@ async function siapkanInvoice(file: File): Promise<{ ok: true; data: SiapUnggah 
  * pemanggil (form Pesanan Baru / halaman detail) tidak boleh ikut gagal
  * karenanya.
  */
-export async function unggahInvoice(orderId: string, file: File): Promise<string | null> {
-  const siap = await siapkanInvoice(file);
-  if (!siap.ok) return `${INVOICE_GAGAL} ${siap.message}`;
+export async function unggahInvoice(m: Messages, orderId: string, file: File): Promise<string | null> {
+  const siap = await siapkanInvoice(m, file);
+  if (!siap.ok) return `${m.cabang.errInvoiceUploadFailed} ${siap.message}`;
 
   // Nama tetap (upsert) per order — "ganti file" cukup menimpa yang lama,
   // tidak menumpuk berkas yatim.
   const path = `${orderId}/invoice.${siap.data.ext}`;
   const out = await submitSafely({
     kind: "update",
+    messages: m,
     timeoutMs: 30_000,
     run: async () => {
       const supabase = createBrowserSupabase();
@@ -83,6 +81,6 @@ export async function unggahInvoice(orderId: string, file: File): Promise<string
     },
   });
 
-  if (out.status !== "ok" || out.result === false) return INVOICE_GAGAL;
+  if (out.status !== "ok" || out.result === false) return m.cabang.errInvoiceUploadFailed;
   return null;
 }

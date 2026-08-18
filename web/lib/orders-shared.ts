@@ -9,6 +9,8 @@
  * Mengembalikan null jika input tidak bisa dianggap nomor valid
  * (terlalu pendek/panjang setelah dibersihkan).
  */
+import type { Messages } from "./i18n/messages";
+
 export function normalizePhoneID(raw: string): string | null {
   const digits = raw.replace(/[^0-9]/g, "");
   if (!digits) return null;
@@ -38,17 +40,24 @@ export type OrderStatus = "REGISTERED" | "CANCELLED";
 
 export type FulfillmentPath = "DIRECT_DELIVERY" | "SHOWROOM_VISIT";
 
-/** Label pendek untuk chip/kolom tabel. */
-export const FULFILLMENT_PATH_LABEL: Record<FulfillmentPath, string> = {
-  DIRECT_DELIVERY: "Kirim Langsung",
-  SHOWROOM_VISIT: "Kunjungan Showroom",
-};
+/**
+ * Label pendek untuk chip/kolom tabel.
+ *
+ * Teksnya hidup di lib/i18n/messages/common.ts, bukan di sini — halaman WAJIB
+ * memanggil fungsi ini dengan `Messages` miliknya (server: `await
+ * getMessages()`, client: `useMessages()`). Jangan pernah menulis ulang
+ * labelnya di komponen.
+ */
+export function fulfillmentLabel(m: Messages, p: FulfillmentPath): string {
+  return p === "DIRECT_DELIVERY" ? m.common.fulfillmentDirect : m.common.fulfillmentShowroom;
+}
 
 /** Penjelasan lengkap untuk pilihan di form (bahasa pegawai toko sehari-hari). */
-export const FULFILLMENT_PATH_DESC: Record<FulfillmentPath, string> = {
-  DIRECT_DELIVERY: "Produk SANCI sudah dibeli di toko — SANCI kirim langsung, pelanggan tidak perlu datang",
-  SHOWROOM_VISIT: "Pelanggan akan datang ke SANCI untuk melihat / memilih produk",
-};
+export function fulfillmentDesc(m: Messages, p: FulfillmentPath): string {
+  return p === "DIRECT_DELIVERY"
+    ? m.common.fulfillmentDirectDesc
+    : m.common.fulfillmentShowroomDesc;
+}
 
 /** Format Rupiah tanpa sen: 1500000 → "Rp 1.500.000". */
 export function formatIDR(amount: number): string {
@@ -68,11 +77,10 @@ export function parseIDRInput(raw: string): number | null {
   return n;
 }
 
-/** Label status dalam Bahasa Indonesia — jangan hardcode string status di UI. */
-export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  REGISTERED: "Terdaftar",
-  CANCELLED: "Dibatalkan",
-};
+/** Label status pesanan — jangan pernah menampilkan kode mentah di UI. */
+export function orderStatusLabel(m: Messages, s: OrderStatus): string {
+  return s === "REGISTERED" ? m.common.orderStatusRegistered : m.common.orderStatusCancelled;
+}
 
 export interface CustomerRow {
   id: string;

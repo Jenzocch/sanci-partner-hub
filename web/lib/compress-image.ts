@@ -23,8 +23,11 @@
  *     pernah menganggap pemeriksaan di berkas ini sebagai pengamanan.
  *   - Kegagalan di sini TIDAK BOLEH menggagalkan penyimpanan data. Pemanggil
  *     wajib memperlakukan hasil `ok: false` sebagai peringatan saja.
- *   - Semua pesan Bahasa Indonesia sederhana, tanpa istilah teknis.
+ *   - Pesan kesalahan memakai `Messages` (bahasa yang sedang dipakai) — bukan
+ *     Bahasa Indonesia tetap, supaya kegagalan kompresi juga trilingual.
  */
+
+import type { Messages } from "./i18n/messages";
 
 export const MAKS_UKURAN_BYTE = 5 * 1024 * 1024; // 5 MB sebelum dikecilkan, SAMA untuk semua preset
 
@@ -44,8 +47,8 @@ export type PresetKompres = {
   maksSisiPx: number;
   /** Mutu WebP/JPEG (0–1). */
   mutu: number;
-  /** Kata benda untuk pesan kesalahan, mis. "Logo" / "Foto invoice". */
-  label: string;
+  /** Kunci m.common.compressLabel* dipakai untuk kata benda pesan kesalahan. */
+  labelKey: "compressLabelLogo" | "compressLabelInvoice" | "compressLabelProduk";
   /**
    * Kalau canvas gagal total ATAU hasil kompresi tidak lebih kecil dari
    * aslinya, berkas asli boleh dipakai apa adanya selama tidak lebih besar
@@ -67,13 +70,13 @@ export type PresetKompres = {
 export const PRESET_LOGO: PresetKompres = {
   maksSisiPx: 512,
   mutu: 0.8,
-  label: "Logo",
+  labelKey: "compressLabelLogo",
   batasAsliByte: BATAS_ASLI_BYTE, // 1 MB — logo kecil, tidak perlu toleransi besar
 };
 export const PRESET_INVOICE: PresetKompres = {
   maksSisiPx: 2000,
   mutu: 0.85,
-  label: "Foto invoice",
+  labelKey: "compressLabelInvoice",
   batasAsliByte: MAKS_UKURAN_BYTE, // 5 MB — keterbacaan teks > ukuran berkas
   sisiUlang: 1600,
   batasUlangByte: MAKS_UKURAN_BYTE, // masih >5 MB di 2000px → coba 1600px sekali
@@ -81,7 +84,7 @@ export const PRESET_INVOICE: PresetKompres = {
 export const PRESET_PRODUK: PresetKompres = {
   maksSisiPx: 1280,
   mutu: 0.82,
-  label: "Foto produk",
+  labelKey: "compressLabelProduk",
   batasAsliByte: 2 * 1024 * 1024, // 2 MB — sedikit lebih lega dari logo, foto lebih besar
 };
 
@@ -93,19 +96,20 @@ function formatMB(byte: number): string {
   return (Math.round((byte / (1024 * 1024)) * 10) / 10).toString();
 }
 
-/** Pesan kesalahan disusun dari label + ambang preset supaya sesuai jenis gambarnya. */
-export function pesanKompres(label: string, batasAsliByte: number = BATAS_ASLI_BYTE) {
-  const l = label.toLowerCase();
+/** Pesan kesalahan disusun dari label + ambang preset, dalam bahasa `m`. */
+function pesanKompres(m: Messages, labelKey: PresetKompres["labelKey"], batasAsliByte: number) {
+  const label = m.common[labelKey];
   return {
-    tipeSalah: `Format ${l} harus PNG, JPG, atau WebP.`,
-    terlaluBesar: `Ukuran ${l} maksimal ${formatMB(MAKS_UKURAN_BYTE)} MB. Pilih gambar yang lebih kecil.`,
-    tidakTerbaca: "Gambar itu tidak bisa dibaca. Coba pilih berkas gambar lain.",
-    tidakBisaDiproses: `${label} tidak bisa diproses di perangkat ini. Coba pakai gambar yang lebih kecil (di bawah ${formatMB(batasAsliByte)} MB).`,
+    tipeSalah: m.common.compressWrongType.replace("{label}", label),
+    terlaluBesar: m.common.compressTooLarge
+      .replace("{label}", label)
+      .replace("{maxMB}", formatMB(MAKS_UKURAN_BYTE)),
+    tidakTerbaca: m.common.compressUnreadable,
+    tidakBisaDiproses: m.common.compressCannotProcess
+      .replace("{label}", label)
+      .replace("{limitMB}", formatMB(batasAsliByte)),
   };
 }
-
-/** Pesan default (logo) — dipertahankan untuk pemanggil lama. */
-export const PESAN_LOGO = pesanKompres(PRESET_LOGO.label, PRESET_LOGO.batasAsliByte);
 
 export type HasilKompres =
   | { ok: true; blob: Blob }
@@ -193,9 +197,7 @@ async function kompresKe(sumber: Sumber, sisiMaks: number, mutu: number): Promis
 }
 
 /**
- * Memeriksa dan mengecilkan satu berkas gambar sesuai `preset` (default
- * `PRESET_LOGO` — pemanggil lama yang tidak memberi preset eksplisit tetap
- * mendapat perilaku persis seperti sebelumnya).
+ * Memeriksa dan mengecilkan satu berkas gambar sesuai `preset`.
  *
  * Berhasil → Blob siap unggah (WebP; kalau perangkat tidak mendukung WebP,
  * JPEG; kalau canvas gagal total, berkas asli selama masih di bawah batas
@@ -203,9 +205,10 @@ async function kompresKe(sumber: Sumber, sisiMaks: number, mutu: number): Promis
  */
 export async function compressImage(
   file: File,
-  preset: PresetKompres = PRESET_LOGO
+  preset: PresetKompres,
+  m: Messages
 ): Promise<HasilKompres> {
-  const pesan = pesanKompres(preset.label, preset.batasAsliByte);
+  const pesan = pesanKompres(m, preset.labelKey, preset.batasAsliByte);
   // Pemeriksaan yang pasti bisa dilakukan tanpa canvas — dilakukan lebih dulu.
   const tipe = (file.type || "").toLowerCase();
   if (!TIPE_DIIZINKAN.includes(tipe)) return { ok: false, message: pesan.tipeSalah };

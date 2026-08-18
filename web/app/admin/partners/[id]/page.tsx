@@ -9,7 +9,9 @@ import PermissionsForm from "./permissions-form";
 import CatalogAccessForm from "./catalog-access-form";
 import UserToggleButton from "./user-toggle-button";
 import AddUserButton from "./add-user-button";
+import ResetPasswordButton from "./reset-password-button";
 import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
+import { getMessages, type Messages } from "@/lib/i18n";
 import PartnerLogo from "@/lib/partner-logo";
 // Hanya fungsi pembaca boolean — nilai kuncinya tidak pernah keluar dari modul
 // itu, dan modul itu tidak boleh diimpor komponen "use client" mana pun.
@@ -17,25 +19,15 @@ import { isServiceRoleConfigured } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-// Sama persis dengan pesan di actions-packages.ts — file "use server" tidak
-// boleh mengekspor apa pun selain async function, jadi string ini didefinisikan
-// ulang di sini alih-alih diimpor.
-const PACKAGE_MIGRATION_MSG = "Fitur package belum aktif — migrasi belum dijalankan.";
-// Sama persis dengan pesan di actions-products.ts dan app/admin/produk/page.tsx.
-const CATALOG_MIGRATION_MSG = "Fitur katalog produk belum aktif — migrasi belum dijalankan.";
-
-// Nilai enum internal tetap Inggris di DB, tampilannya wajib Indonesia
-// (LESSONS #13). Sama persis dengan VALUE_LABELS di lib/audit-format.ts.
-const RLBL: Record<string, string> = {
-  BRANCH_USER: "Pengguna Cabang",
-};
-
-const SLBL: Record<string, string> = {
-  ACTIVE: "AKTIF",
-  DRAFT: "DRAF",
-  SUSPENDED: "DITANGGUHKAN",
-  INACTIVE: "NONAKTIF",
-};
+function statusLabel(m: Messages, s: string): string {
+  const map: Record<string, string> = {
+    ACTIVE: m.common.statusActive,
+    DRAFT: m.common.statusDraft,
+    SUSPENDED: m.common.statusSuspended,
+    INACTIVE: m.common.statusInactive,
+  };
+  return map[s] ?? s;
+}
 
 type Branch = {
   id: string;
@@ -63,6 +55,7 @@ export default async function PartnerDetailPage({
   const { id } = await params;
   const sp = await searchParams;
   const tab = sp.tab || "overview";
+  const m = await getMessages();
   const supabase = await createClient();
 
   const { data: partner } = await supabase
@@ -114,21 +107,21 @@ export default async function PartnerDetailPage({
   const activeBranches = ((branches ?? []) as Branch[]).filter((b) => b.status === "ACTIVE");
   const activeUsers = (users ?? []).filter((u) => u.status === "ACTIVE");
   const gate = [
-    { ok: !!partner.name, label: "Nama partner" },
-    { ok: !!partner.code, label: "Kode partner" },
-    { ok: activeBranches.length > 0, label: "Minimal 1 cabang aktif" },
-    { ok: activeUsers.length > 0, label: "Minimal 1 akun login aktif" },
-    { ok: !!policy?.configured, label: "Hak akses sudah diatur" },
+    { ok: !!partner.name, label: m.admin.gateReqName },
+    { ok: !!partner.code, label: m.admin.gateReqCode },
+    { ok: activeBranches.length > 0, label: m.admin.gateReqBranch },
+    { ok: activeUsers.length > 0, label: m.admin.gateReqUser },
+    { ok: !!policy?.configured, label: m.admin.gateReqAccess },
   ];
   const canActivate = gate.every((g) => g.ok);
 
   const tabs = [
-    { key: "overview", label: "Ringkasan" },
-    { key: "branches", label: "Cabang" },
-    { key: "packages", label: "Package" },
-    { key: "users", label: "Akun" },
-    { key: "permissions", label: "Hak Akses" },
-    { key: "history", label: "Riwayat" },
+    { key: "overview", label: m.admin.tabOverview },
+    { key: "branches", label: m.common.branch },
+    { key: "packages", label: m.common.package },
+    { key: "users", label: m.common.account },
+    { key: "permissions", label: m.admin.tabPermissions },
+    { key: "history", label: m.admin.tabHistory },
   ];
 
   let body: React.ReactNode = null;
@@ -139,20 +132,20 @@ export default async function PartnerDetailPage({
         <div className="card">
           <div className="row" style={{ marginBottom: 14 }}>
             <PartnerLogo url={partner.logo_url} name={partner.name} size={56} />
-            <h3 style={{ fontSize: 17 }}>Informasi Partner</h3>
+            <h3 style={{ fontSize: 17 }}>{m.admin.partnerInfoTitle}</h3>
           </div>
           <dl className="kv">
-            <dt>Kode</dt>
+            <dt>{m.common.code}</dt>
             <dd>
               <span className="code">{partner.code}</span>
             </dd>
-            <dt>Status</dt>
+            <dt>{m.common.status}</dt>
             <dd>
-              <span className={`chip ${partner.status}`}>{SLBL[partner.status]}</span>
+              <span className={`chip ${partner.status}`}>{statusLabel(m, partner.status)}</span>
             </dd>
-            <dt>Kontak</dt>
+            <dt>{m.common.contactName}</dt>
             <dd>{partner.contact_name || "—"}</dd>
-            <dt>WhatsApp</dt>
+            <dt>{m.common.whatsapp}</dt>
             <dd>{partner.contact_phone || "—"}</dd>
           </dl>
           <PartnerActions partner={partner} canActivate={canActivate} />
@@ -161,7 +154,7 @@ export default async function PartnerDetailPage({
         <div className="card">
           {partner.status === "DRAFT" ? (
             <>
-              <h3 style={{ fontSize: 17, marginBottom: 12 }}>Syarat aktivasi</h3>
+              <h3 style={{ fontSize: 17, marginBottom: 12 }}>{m.admin.activationRequirementsTitle}</h3>
               <ul className="gate">
                 {gate.map((g) => (
                   <li key={g.label} className={g.ok ? "yes" : "no"}>
@@ -173,10 +166,10 @@ export default async function PartnerDetailPage({
             </>
           ) : (
             <>
-              <h3 style={{ fontSize: 17, marginBottom: 12 }}>Cabang</h3>
+              <h3 style={{ fontSize: 17, marginBottom: 12 }}>{m.common.branch}</h3>
               {activeBranches.length === 0 ? (
                 <div className="emptybox" style={{ padding: 24 }}>
-                  Belum ada cabang.
+                  {m.admin.branchesEmpty}
                 </div>
               ) : (
                 activeBranches.map((b) => (
@@ -193,7 +186,7 @@ export default async function PartnerDetailPage({
                         {b.city ? `, ${b.city}` : ""}
                       </div>
                     </span>
-                    <span className={`chip ${b.status}`}>{SLBL[b.status]}</span>
+                    <span className={`chip ${b.status}`}>{statusLabel(m, b.status)}</span>
                   </Link>
                 ))
               )}
@@ -211,15 +204,15 @@ export default async function PartnerDetailPage({
           <AddBranchButton partnerId={id} />
         </div>
         {(branches ?? []).length === 0 ? (
-          <div className="card emptybox">Belum ada cabang.</div>
+          <div className="card emptybox">{m.admin.branchesEmpty}</div>
         ) : (
           <div className="tablewrap">
             <table>
               <thead>
                 <tr>
-                  <th>Cabang</th>
-                  <th>Alamat</th>
-                  <th>Status</th>
+                  <th>{m.common.branch}</th>
+                  <th>{m.admin.colAddress}</th>
+                  <th>{m.common.status}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -236,11 +229,11 @@ export default async function PartnerDetailPage({
                       {b.city ? `, ${b.city}` : ""}
                     </td>
                     <td>
-                      <span className={`chip ${b.status}`}>{SLBL[b.status]}</span>
+                      <span className={`chip ${b.status}`}>{statusLabel(m, b.status)}</span>
                     </td>
                     <td className="ta-right">
                       <Link href={`/admin/partners/${id}/branches/${b.id}`} className="linkbtn">
-                        Buka
+                        {m.admin.openBtn}
                       </Link>
                     </td>
                   </tr>
@@ -255,11 +248,11 @@ export default async function PartnerDetailPage({
 
   if (tab === "packages") {
     if (packagesMissing) {
-      body = <div className="card emptybox">{PACKAGE_MIGRATION_MSG}</div>;
+      body = <div className="card emptybox">{m.admin.packageMigrationMsg}</div>;
     } else if (packagesOtherError) {
       body = (
         <div className="card">
-          <div className="err">Daftar package gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.common.errorLoad}</div>
         </div>
       );
     } else {
@@ -269,16 +262,16 @@ export default async function PartnerDetailPage({
             <AddPackageButton partnerId={id} />
           </div>
           {(packages ?? []).length === 0 ? (
-            <div className="card emptybox">Belum ada package.</div>
+            <div className="card emptybox">{m.admin.packagesEmpty}</div>
           ) : (
             <div className="tablewrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Nama</th>
-                    <th>Kode</th>
-                    <th>Deskripsi</th>
-                    <th>Status</th>
+                    <th>{m.common.name}</th>
+                    <th>{m.common.code}</th>
+                    <th>{m.common.description}</th>
+                    <th>{m.common.status}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -291,7 +284,7 @@ export default async function PartnerDetailPage({
                       </td>
                       <td>{p.description || "—"}</td>
                       <td>
-                        <span className={`chip ${p.status}`}>{SLBL[p.status]}</span>
+                        <span className={`chip ${p.status}`}>{statusLabel(m, p.status)}</span>
                       </td>
                       <td className="ta-right">
                         <PackageActions pkg={p} />
@@ -328,29 +321,25 @@ export default async function PartnerDetailPage({
           // pasti gagal. Kode ini boleh naik lebih dulu — begitu kuncinya diisi,
           // tombolnya muncul sendiri tanpa deploy ulang (LESSONS #12).
           <div className="card emptybox" style={{ marginBottom: 14 }}>
-            Pembuatan akun login belum aktif di server ini. Minta petugas teknis mengisi variabel
-            lingkungan SUPABASE_SERVICE_ROLE_KEY di Vercel; sesudah itu tombol Tambah Akun muncul
-            sendiri di halaman ini. Menonaktifkan dan mengaktifkan kembali akun yang sudah ada tetap
-            bisa dilakukan sekarang.
+            {m.admin.usersServiceKeyMissing}
           </div>
         )}
         {bisaBuatAkun && activeBranches.length === 0 && (
           <div className="card emptybox" style={{ marginBottom: 14 }}>
-            Belum ada cabang aktif. Buat dan aktifkan cabangnya dulu di tab Cabang — setiap akun
-            login harus terikat ke satu cabang.
+            {m.admin.usersNoActiveBranch}
           </div>
         )}
         {(users ?? []).length === 0 ? (
-          <div className="card emptybox">Belum ada akun login.</div>
+          <div className="card emptybox">{m.admin.usersEmpty}</div>
         ) : (
           <div className="tablewrap">
             <table>
               <thead>
                 <tr>
-                  <th>Nama</th>
-                  <th>Cabang</th>
-                  <th>Peran</th>
-                  <th>Status</th>
+                  <th>{m.common.name}</th>
+                  <th>{m.common.branch}</th>
+                  <th>{m.common.role}</th>
+                  <th>{m.common.status}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -359,14 +348,32 @@ export default async function PartnerDetailPage({
                   <tr key={u.id}>
                     <td style={{ fontWeight: 650 }}>{u.name}</td>
                     <td>{branchNameById.get(u.branch_id) || "—"}</td>
-                    <td>{RLBL[u.role] || u.role}</td>
+                    <td>{u.role === "BRANCH_USER" ? m.common.roleBranchUser : u.role}</td>
                     <td>
                       <span className={`chip ${u.status === "ACTIVE" ? "ACTIVE" : "INACTIVE"}`}>
-                        {u.status === "ACTIVE" ? "AKTIF" : "NONAKTIF"}
+                        {u.status === "ACTIVE" ? m.common.statusActive : m.common.statusInactive}
                       </span>
                     </td>
                     <td className="ta-right">
-                      <UserToggleButton userId={u.id} active={u.status === "ACTIVE"} />
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          flexWrap: "wrap",
+                          justifyContent: "flex-end",
+                        }}
+                      >
+                        {/* Tanpa kunci service_role, penggantian kata sandi pasti gagal —
+                            tombolnya disembunyikan, bukan ditampilkan lalu menolak. */}
+                        {bisaBuatAkun && (
+                          <ResetPasswordButton
+                            userId={u.id}
+                            userName={u.name}
+                            branchName={branchNameById.get(u.branch_id) || ""}
+                          />
+                        )}
+                        <UserToggleButton userId={u.id} active={u.status === "ACTIVE"} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -374,12 +381,7 @@ export default async function PartnerDetailPage({
             </table>
           </div>
         )}
-        <p className="footnote">
-          Satu cabang memakai satu akun bersama; nama penjual dan PIC tetap dipilih dari daftar staf
-          saat membuat pesanan. Email untuk masuk tidak ditampilkan di daftar ini — catat saat akun
-          dibuat. Kata sandi awal hanya tampil satu kali, tepat setelah akun dibuat, dan tidak bisa
-          dilihat lagi sesudahnya.
-        </p>
+        <p className="footnote">{m.admin.usersFootnote}</p>
       </div>
     );
   }
@@ -400,12 +402,12 @@ export default async function PartnerDetailPage({
         />
         {catalogMissing ? (
           <div className="card emptybox" style={{ maxWidth: 560 }}>
-            {CATALOG_MIGRATION_MSG}
+            {m.admin.catalogMigrationMsg}
           </div>
         ) : catalogOtherError ? (
           <div className="card" style={{ maxWidth: 560 }}>
             <div className="err" style={{ marginBottom: 0 }}>
-              Pengaturan katalog gagal dimuat. Muat ulang halaman untuk mencoba lagi.
+              {m.common.errorLoad}
             </div>
           </div>
         ) : (
@@ -426,16 +428,19 @@ export default async function PartnerDetailPage({
     body = (
       <div className="card">
         {!audit || audit.length === 0 ? (
-          <div className="emptybox">Belum ada aktivitas tercatat.</div>
+          <div className="emptybox">{m.admin.activityEmpty}</div>
         ) : (
           <ul className="audit-list">
             {audit.map((a) => {
-              const diffLines = formatAuditDiff(a.before, a.after);
+              const diffLines = formatAuditDiff(m, a.before, a.after);
               return (
                 <li key={a.id}>
-                  <span className="act">{formatAuditAction(a.action)}</span>{" "}
-                  <span className="muted">· {formatActorRole(a.actor_role)}</span>
-                  <span className="ts">{new Date(a.created_at).toLocaleString("id-ID")} · waktu server</span>
+                  <span className="act">{formatAuditAction(m, a.action)}</span>{" "}
+                  <span className="muted">· {formatActorRole(m, a.actor_role)}</span>
+                  <span className="ts">
+                    {new Date(a.created_at).toLocaleString("id-ID")}
+                    {m.admin.createdAtServerTimeSuffix}
+                  </span>
                   {diffLines.length > 0 && (
                     <div className="diff">
                       {diffLines.map((line, i) => (
@@ -448,9 +453,7 @@ export default async function PartnerDetailPage({
             })}
           </ul>
         )}
-        <p className="footnote">
-          Catatan audit hanya bertambah. Tidak ada yang bisa mengubah atau menghapusnya dari aplikasi.
-        </p>
+        <p className="footnote">{m.admin.auditFootnote}</p>
       </div>
     );
   }
@@ -458,12 +461,12 @@ export default async function PartnerDetailPage({
   return (
     <div>
       <div className="crumb">
-        <a href="/admin">Partner</a> / {partner.name}
+        <a href="/admin">{m.common.partner}</a> / {partner.name}
       </div>
       <div className="pagehead">
         <h1>{partner.name}</h1>
         <span className={`chip ${partner.status}`} style={{ fontSize: 14, padding: "5px 14px" }}>
-          {SLBL[partner.status]}
+          {statusLabel(m, partner.status)}
         </span>
       </div>
 

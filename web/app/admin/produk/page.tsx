@@ -1,25 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { STOCK_STATUS_CHIP, STOCK_STATUS_LABEL, type SanciProductRow, type StockStatus } from "@/lib/catalog-shared";
+import { STOCK_STATUS_CHIP, stockStatusLabel, type SanciProductRow, type StockStatus } from "@/lib/catalog-shared";
 import AddProductButton from "./add-product-button";
 import ProductActions from "./product-actions";
 import ProductPhoto from "./product-photo";
+import { getMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
-
-// Sama persis dengan pesan di actions-products.ts — file "use server" tidak
-// boleh mengekspor apa pun selain async function, jadi string ini
-// didefinisikan ulang di sini alih-alih diimpor (pola sama dengan
-// PACKAGE_MIGRATION_MSG di partners/[id]/page.tsx).
-const CATALOG_MIGRATION_MSG = "Fitur katalog produk belum aktif — migrasi belum dijalankan.";
-
-const STATUS_LABEL: Record<string, string> = { ACTIVE: "AKTIF", INACTIVE: "NONAKTIF" };
-
-const STOCK_OPTIONS: { value: "ALL" | StockStatus; label: string }[] = [
-  { value: "ALL", label: "Stok: semua" },
-  { value: "AVAILABLE", label: STOCK_STATUS_LABEL.AVAILABLE },
-  { value: "LIMITED", label: STOCK_STATUS_LABEL.LIMITED },
-  { value: "OUT_OF_STOCK", label: STOCK_STATUS_LABEL.OUT_OF_STOCK },
-];
 
 function isMissingTableErr(err: { code?: string } | null): boolean {
   return !!err && err.code === "42P01";
@@ -30,6 +16,13 @@ export default async function ProdukPage({
 }: {
   searchParams: Promise<{ q?: string; stock?: string }>;
 }) {
+  const m = await getMessages();
+  const STOCK_OPTIONS: { value: "ALL" | StockStatus; label: string }[] = [
+    { value: "ALL", label: m.admin.filterStockAll },
+    { value: "AVAILABLE", label: m.common.stockAvailable },
+    { value: "LIMITED", label: m.common.stockLimited },
+    { value: "OUT_OF_STOCK", label: m.common.stockOutOfStock },
+  ];
   const sp = await searchParams;
   const q = (sp.q || "").trim().toLowerCase();
   const stockFilter: "ALL" | StockStatus =
@@ -48,9 +41,9 @@ export default async function ProdukPage({
     return (
       <div>
         <div className="worktop">
-          <h1>Produk</h1>
+          <h1>{m.common.product}</h1>
         </div>
-        <div className="card emptybox">{CATALOG_MIGRATION_MSG}</div>
+        <div className="card emptybox">{m.admin.catalogMigrationMsg}</div>
       </div>
     );
   }
@@ -68,7 +61,7 @@ export default async function ProdukPage({
   return (
     <div>
       <div className="worktop">
-        <h1>Produk</h1>
+        <h1>{m.common.product}</h1>
         <AddProductButton />
       </div>
 
@@ -76,7 +69,7 @@ export default async function ProdukPage({
         <input
           type="search"
           name="q"
-          placeholder="Cari nama / kode produk…"
+          placeholder={m.admin.produkSearchPlaceholder}
           defaultValue={sp.q || ""}
           className="search-input"
         />
@@ -88,17 +81,17 @@ export default async function ProdukPage({
           ))}
         </select>
         <button className="btn" type="submit">
-          Cari
+          {m.common.search}
         </button>
       </form>
 
       {error ? (
         <div className="card" style={{ margin: 0 }}>
-          <div className="err">Daftar produk gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.common.errorLoad}</div>
         </div>
       ) : rows.length === 0 ? (
         <div className="card emptybox">
-          {allRows.length === 0 ? "Belum ada produk." : `Tidak ada produk yang cocok dengan "${sp.q}".`}
+          {allRows.length === 0 ? m.admin.produkEmpty : m.admin.produkEmptyFiltered.replace("{q}", sp.q || "")}
         </div>
       ) : (
         <div
@@ -123,8 +116,10 @@ export default async function ProdukPage({
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8 }}>
-                  <span className={STOCK_STATUS_CHIP[p.stock_status]}>{STOCK_STATUS_LABEL[p.stock_status]}</span>
-                  <span className={`chip ${p.status}`}>{STATUS_LABEL[p.status]}</span>
+                  <span className={STOCK_STATUS_CHIP[p.stock_status]}>{stockStatusLabel(m, p.stock_status)}</span>
+                  <span className={`chip ${p.status}`}>
+                    {p.status === "ACTIVE" ? m.common.statusActive : m.common.statusInactive}
+                  </span>
                 </div>
                 <ProductActions product={p} />
               </div>
@@ -133,7 +128,7 @@ export default async function ProdukPage({
         </div>
       )}
 
-      <p className="footnote">Produk nonaktif tidak terlihat oleh partner.</p>
+      <p className="footnote">{m.admin.produkFootnote}</p>
     </div>
   );
 }

@@ -6,9 +6,12 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
+import { useMessages } from "@/lib/i18n/provider";
 import { updateStaff, deactivateStaff, transferStaff } from "../../../../actions-staff";
 
-const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
+// Nilai yang DIKIRIM ke server tetap literal ini (samakan dengan ROLES di
+// actions-staff.ts) — hanya LABEL yang ditampilkan mengikuti bahasa.
+const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"] as const;
 
 type Staff = { id: string; full_name: string; phone: string | null; role: string };
 type OtherBranch = { id: string; name: string };
@@ -21,6 +24,13 @@ export default function StaffActions({
   otherBranches: OtherBranch[];
 }) {
   const router = useRouter();
+  const m = useMessages();
+  const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
+    Sales: m.admin.staffRoleSales,
+    "Resepsionis / CS": m.admin.staffRoleReception,
+    Manajer: m.admin.staffRoleManager,
+    Lainnya: m.admin.staffRoleOther,
+  };
   const [modal, setModal] = useState<null | "edit" | "transfer">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -53,6 +63,7 @@ export default function StaffActions({
           phone: String(fd.get("phone") || ""),
           role: String(fd.get("role") || staff.role),
         }),
+      messages: m,
     });
     if (out.status !== "ok") {
       release();
@@ -73,7 +84,7 @@ export default function StaffActions({
   }
 
   async function onDeactivate() {
-    if (!confirm(`Nonaktifkan ${staff.full_name}? Riwayat tetap tersimpan.`)) return;
+    if (!confirm(m.admin.staffDeactivateConfirm.replace("{name}", staff.full_name))) return;
     if (!begin()) return;
     await deactivateStaff(staff.id);
     release();
@@ -89,6 +100,7 @@ export default function StaffActions({
     const out = await submitSafely({
       kind: "update",
       run: () => transferStaff(staff.id, String(fd.get("branch_id") || "")),
+      messages: m,
     });
     if (out.status !== "ok") {
       release();
@@ -109,51 +121,51 @@ export default function StaffActions({
     <>
       <div className="ops">
         <button className="btn sm" onClick={() => openModal("edit")}>
-          Ubah
+          {m.common.edit}
         </button>
         {otherBranches.length > 0 && (
           <button className="btn sm" onClick={() => openModal("transfer")}>
-            Pindahkan
+            {m.admin.staffTransferBtn}
           </button>
         )}
         <button className="btn sm danger" onClick={onDeactivate} disabled={submitting}>
-          {submitting ? "Menyimpan…" : "Nonaktifkan"}
+          {submitting ? m.common.saving : m.admin.staffDeactivateBtn}
         </button>
       </div>
 
       {modal === "edit" && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Ubah Staf</h2>
+            <h2>{m.admin.staffEditModalTitle}</h2>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
             <form onSubmit={onEdit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
               <div className={`field${errs.full_name ? " invalid" : ""}`}>
-                <label htmlFor="es_name">Nama lengkap *</label>
+                <label htmlFor="es_name">{m.admin.staffNameFieldLabel}</label>
                 <input id="es_name" name="full_name" type="text" defaultValue={staff.full_name} />
                 {errs.full_name && <div className="err-text">{errs.full_name}</div>}
               </div>
               <div className="field">
-                <label htmlFor="es_phone">Telepon</label>
+                <label htmlFor="es_phone">{m.common.phone}</label>
                 <input id="es_phone" name="phone" type="tel" defaultValue={staff.phone || ""} />
               </div>
               <div className="field">
-                <label htmlFor="es_role">Peran *</label>
+                <label htmlFor="es_role">{m.admin.staffRoleFieldLabel}</label>
                 <select id="es_role" name="role" defaultValue={staff.role}>
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {ROLE_LABELS[r]}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
-                  Batal
+                  {m.common.cancel}
                 </button>
                 <button type="submit" className="btn primary" disabled={submitting}>
-                  {submitting ? "Menyimpan…" : "Simpan"}
+                  {submitting ? m.common.saving : m.common.save}
                 </button>
               </div>
             </form>
@@ -164,16 +176,15 @@ export default function StaffActions({
       {modal === "transfer" && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Pindahkan {staff.full_name}</h2>
+            <h2>{m.admin.staffTransferModalTitle.replace("{name}", staff.full_name)}</h2>
             <p className="small muted" style={{ marginBottom: 14 }}>
-              Pemindahan mengakhiri penugasan lama dan memulai yang baru — riwayat tidak pernah ditulis
-              ulang.
+              {m.admin.staffTransferDesc}
             </p>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <form onSubmit={onTransfer}>
               <div className="field">
-                <label htmlFor="tr_branch">Cabang tujuan *</label>
+                <label htmlFor="tr_branch">{m.admin.staffTransferBranchFieldLabel}</label>
                 <select id="tr_branch" name="branch_id">
                   {otherBranches.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -184,10 +195,10 @@ export default function StaffActions({
               </div>
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
-                  Batal
+                  {m.common.cancel}
                 </button>
                 <button type="submit" className="btn primary" disabled={submitting}>
-                  {submitting ? "Memindahkan…" : "Pindahkan"}
+                  {submitting ? m.admin.staffTransferringBtn : m.admin.staffTransferBtn}
                 </button>
               </div>
             </form>

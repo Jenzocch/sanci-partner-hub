@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { displayPhoneID, isMissingTableError, type OrderStatus } from "@/lib/orders-shared";
+import { getMessages } from "@/lib/i18n";
 import StatusBadge from "../../pesanan/status-badge";
 import CustomerEditActions from "./customer-edit-actions";
 
@@ -37,9 +38,9 @@ type OrderHistoryRow = {
   partner_branches: One<{ name: string }>;
 };
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, dateLocale: string): string {
   try {
-    return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    return new Date(iso).toLocaleDateString(dateLocale, { day: "numeric", month: "long", year: "numeric" });
   } catch {
     return iso;
   }
@@ -50,6 +51,7 @@ export default async function PelangganDetailPage({
 }: {
   params: Promise<{ customerId: string }>;
 }) {
+  const m = await getMessages();
   const { customerId } = await params;
   const supabase = await createClient();
   const {
@@ -68,7 +70,7 @@ export default async function PelangganDetailPage({
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -97,9 +99,7 @@ export default async function PelangganDetailPage({
       return (
         <main className="pwrap">
           <div className="card">
-            <div className="banner bad">
-              Modul Pelanggan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.
-            </div>
+            <div className="banner bad">{m.cabang.errCustomerModuleInactive}</div>
           </div>
         </main>
       );
@@ -107,9 +107,9 @@ export default async function PelangganDetailPage({
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">Gagal memuat detail pelanggan.</div>
+          <div className="err">{m.cabang.errCustomerDetailLoadFailed}</div>
           <Link href={`/cabang/pelanggan/${customerId}`} className="btn sm">
-            Coba Lagi
+            {m.common.retry}
           </Link>
         </div>
       </main>
@@ -141,7 +141,7 @@ export default async function PelangganDetailPage({
     <main className="pwrap">
       <div className="backrow">
         <Link href="/cabang/pelanggan" className="linkbtn">
-          ← Pelanggan
+          {m.cabang.navBackCustomers}
         </Link>
       </div>
 
@@ -164,25 +164,25 @@ export default async function PelangganDetailPage({
           )}
         </div>
         <dl className="kv">
-          <dt>Telepon</dt>
+          <dt>{m.common.phone}</dt>
           <dd>{displayPhoneID(customer.phone_normalized)}</dd>
-          <dt>WhatsApp</dt>
+          <dt>{m.common.whatsapp}</dt>
           <dd>{customer.whatsapp || "—"}</dd>
-          <dt>Alamat</dt>
+          <dt>{m.common.address}</dt>
           <dd>{customer.address || "—"}</dd>
-          <dt>Kota</dt>
+          <dt>{m.common.city}</dt>
           <dd>{customer.city || "—"}</dd>
-          <dt>Provinsi</dt>
+          <dt>{m.common.province}</dt>
           <dd>{customer.province || "—"}</dd>
-          <dt>Catatan</dt>
+          <dt>{m.common.notes}</dt>
           <dd>{customer.notes || "—"}</dd>
         </dl>
-        {!canEdit && <p className="footnote">Pelanggan ini dibuat oleh cabang lain — hanya bisa dilihat dari sini.</p>}
+        {!canEdit && <p className="footnote">{m.cabang.customerOtherBranchNote}</p>}
       </div>
 
-      <div className="overline">Riwayat Pesanan</div>
+      <div className="overline">{m.cabang.orderHistoryTitle}</div>
       {orders.length === 0 ? (
-        <div className="card emptybox">Belum ada pesanan untuk pelanggan ini.</div>
+        <div className="card emptybox">{m.cabang.noOrdersForCustomer}</div>
       ) : (
         <div className="cardlist">
           {orders.map((o) => {
@@ -191,11 +191,11 @@ export default async function PelangganDetailPage({
               <Link key={o.id} href={`/cabang/pesanan/${o.id}`} className="reccard">
                 <div className="rc-top">
                   <span className="code">{o.order_number}</span>
-                  <StatusBadge status={o.status} />
+                  <StatusBadge status={o.status} messages={m} />
                 </div>
                 <div className="rc-title">{o.package_name}</div>
                 <div className="rc-sub">
-                  {branch?.name ?? "—"} · {formatDate(o.created_at)}
+                  {branch?.name ?? "—"} · {formatDate(o.created_at, m.common.dateLocale)}
                 </div>
                 <span className="rc-arrow" aria-hidden="true">&rsaquo;</span>
               </Link>

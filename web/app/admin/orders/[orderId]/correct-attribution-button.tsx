@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useMessages } from "@/lib/i18n/provider";
 import { correctOrderAttribution } from "../../actions-orders";
 
 export type BranchOption = { id: string; name: string };
@@ -18,6 +19,7 @@ export default function CorrectAttributionButton({
   otherBranches: BranchOption[];
 }) {
   const router = useRouter();
+  const m = useMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -49,6 +51,7 @@ export default function CorrectAttributionButton({
           String(fd.get("branch_id") || ""),
           String(fd.get("reason") || "")
         ),
+      messages: m,
     });
     if (out.status !== "ok") {
       release();
@@ -70,29 +73,27 @@ export default function CorrectAttributionButton({
   return (
     <>
       <button className="btn sm" onClick={openModal}>
-        Koreksi Cabang
+        {m.admin.correctAttributionBtn}
       </button>
 
       {open && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Koreksi Cabang Pesanan</h2>
+            <h2>{m.admin.correctAttributionModalTitle}</h2>
             <p className="small muted" style={{ marginBottom: 14 }}>
-              Cabang saat ini: <strong>{currentBranchName}</strong>. Hanya cabang lain milik partner yang
-              sama yang bisa dipilih — partner tidak bisa diubah lewat layar ini. Setiap koreksi tercatat
-              di Activity beserta alasannya.
+              {m.admin.correctAttributionDesc.replace("{branch}", currentBranchName)}
             </p>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             {otherBranches.length === 0 ? (
-              <div className="emptybox">Tidak ada cabang lain yang aktif di partner ini.</div>
+              <div className="emptybox">{m.admin.correctAttributionNoOtherBranches}</div>
             ) : (
               <form onSubmit={onSubmit}>
                 <div className={`field${errs.branch_id ? " invalid" : ""}`}>
-                  <label htmlFor="ca_branch">Cabang tujuan *</label>
+                  <label htmlFor="ca_branch">{m.admin.correctAttributionBranchFieldLabel}</label>
                   <select id="ca_branch" name="branch_id" defaultValue="">
                     <option value="" disabled>
-                      — Pilih cabang —
+                      {m.admin.correctAttributionBranchPlaceholder}
                     </option>
                     {otherBranches.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -103,16 +104,16 @@ export default function CorrectAttributionButton({
                   {errs.branch_id && <div className="err-text">{errs.branch_id}</div>}
                 </div>
                 <div className={`field${errs.reason ? " invalid" : ""}`}>
-                  <label htmlFor="ca_reason">Alasan koreksi *</label>
-                  <textarea id="ca_reason" name="reason" placeholder="Contoh: salah pilih cabang saat input pesanan..." />
+                  <label htmlFor="ca_reason">{m.admin.correctAttributionReasonFieldLabel}</label>
+                  <textarea id="ca_reason" name="reason" placeholder={m.admin.correctAttributionReasonPlaceholder} />
                   {errs.reason && <div className="err-text">{errs.reason}</div>}
                 </div>
                 <div className="btnrow">
                   <button type="button" className="btn" onClick={closeModal}>
-                    Batal
+                    {m.common.cancel}
                   </button>
                   <button type="submit" className="btn primary" disabled={submitting}>
-                    {submitting ? "Menyimpan…" : "Simpan Koreksi"}
+                    {submitting ? m.common.saving : m.admin.correctAttributionSaveBtn}
                   </button>
                 </div>
               </form>

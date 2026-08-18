@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useMessages } from "@/lib/i18n/provider";
 import { setCatalogAccess } from "../../actions-products";
 
 /**
@@ -21,6 +22,7 @@ export default function CatalogAccessForm({
   enabled: boolean;
 }) {
   const router = useRouter();
+  const m = useMessages();
   const { submitting, begin, release } = useSubmitGuard();
   const [err, setErr] = useState<string | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export default function CatalogAccessForm({
     const out = await submitSafely({
       kind: "update",
       run: () => setCatalogAccess(partnerId, fd.get("catalog") === "OPEN"),
+      messages: m,
     });
     release();
     if (out.status !== "ok") {
@@ -53,27 +56,27 @@ export default function CatalogAccessForm({
 
   return (
     <div className="card" style={{ maxWidth: 560 }}>
-      <h3 style={{ fontSize: 17, marginBottom: 6 }}>Katalog Produk SANCI</h3>
+      <h3 style={{ fontSize: 17, marginBottom: 6 }}>{m.admin.catalogAccessTitle}</h3>
       <p className="small muted" style={{ marginBottom: 12 }}>
-        Jika terbuka, semua cabang partner ini bisa melihat katalog produk SANCI.
+        {m.admin.catalogAccessDesc}
       </p>
       {netMsg && <div className="banner warn">{netMsg}</div>}
       {err && <div className="banner bad">{err}</div>}
-      {saved && <div className="banner ok">Tersimpan.</div>}
+      {saved && <div className="banner ok">{m.admin.savedMsg}</div>}
       <form onSubmit={onSubmit}>
         <div className="radioset">
           <label>
             <input type="radio" name="catalog" value="OPEN" defaultChecked={enabled} />
-            <span>Terbuka</span>
+            <span>{m.admin.catalogOpenLabel}</span>
           </label>
           <label>
             <input type="radio" name="catalog" value="CLOSED" defaultChecked={!enabled} />
-            <span>Tertutup</span>
+            <span>{m.admin.catalogClosedLabel}</span>
           </label>
         </div>
         <div style={{ marginTop: 18 }}>
           <button className="btn primary" type="submit" disabled={submitting}>
-            {submitting ? "Menyimpan…" : "Simpan"}
+            {submitting ? m.common.saving : m.common.save}
           </button>
         </div>
       </form>

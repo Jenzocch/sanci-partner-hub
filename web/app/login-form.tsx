@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useMessages } from "@/lib/i18n/provider";
 
 export default function LoginForm({ signOutOnly }: { signOutOnly?: boolean }) {
+  const m = useMessages().common;
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +22,7 @@ export default function LoginForm({ signOutOnly }: { signOutOnly?: boolean }) {
   if (signOutOnly) {
     return (
       <button className="btn" onClick={signOut} disabled={busy}>
-        {busy ? "Keluar…" : "Keluar"}
+        {busy ? m.signingOut : m.signOut}
       </button>
     );
   }
@@ -35,12 +37,10 @@ export default function LoginForm({ signOutOnly }: { signOutOnly?: boolean }) {
       password,
     });
     if (error) {
-      // Jangan bocorkan error teknis mentah ke pengguna (SPEC §69).
-      setErr(
-        error.message === "Invalid login credentials"
-          ? "Email atau kata sandi salah."
-          : "Tidak bisa masuk sekarang. Coba lagi sebentar lagi."
-      );
+      // Jangan bocorkan error teknis mentah ke pengguna (SPEC §69). Teks
+      // Supabase selalu Inggris, jadi yang dicocokkan adalah pesan aslinya,
+      // bukan hasil terjemahannya.
+      setErr(error.message === "Invalid login credentials" ? m.loginWrong : m.loginFailed);
       setBusy(false);
       return;
     }
@@ -51,7 +51,7 @@ export default function LoginForm({ signOutOnly }: { signOutOnly?: boolean }) {
     <form onSubmit={onSubmit}>
       {err && <div className="err">{err}</div>}
       <div className="field">
-        <label htmlFor="email">Email</label>
+        <label htmlFor="email">{m.loginEmail}</label>
         <input
           id="email"
           type="email"
@@ -63,7 +63,7 @@ export default function LoginForm({ signOutOnly }: { signOutOnly?: boolean }) {
         />
       </div>
       <div className="field">
-        <label htmlFor="password">Kata sandi</label>
+        <label htmlFor="password">{m.loginPassword}</label>
         <input
           id="password"
           type="password"
@@ -74,7 +74,7 @@ export default function LoginForm({ signOutOnly }: { signOutOnly?: boolean }) {
         />
       </div>
       <button className="btn primary" type="submit" disabled={busy}>
-        {busy ? "Masuk…" : "Masuk"}
+        {busy ? m.loginSubmitting : m.loginSubmit}
       </button>
     </form>
   );

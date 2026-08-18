@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CODE_RE, normalizeCode } from "@/lib/validation";
 import {
-  PESAN,
+  pesan,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
 } from "@/lib/safe-write";
+import { getMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -26,16 +27,18 @@ export async function createBranch(
     clientRequestId: string;
   }
 ): Promise<ActionResult<{ id: string }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
   const address = input.address.trim();
   const code = normalizeCode(input.code);
 
-  if (!name) return { error: { field: "name", message: "Nama cabang wajib diisi." } };
+  if (!name) return { error: { field: "name", message: m.admin.branchNameRequired } };
   if (!CODE_RE.test(code)) {
-    return { error: { field: "code", message: "2–8 karakter, hanya A–Z, 0–9, dan tanda hubung." } };
+    return { error: { field: "code", message: m.admin.partnerCodeInvalid } };
   }
-  if (!address) return { error: { field: "address", message: "Alamat lengkap wajib diisi." } };
+  if (!address) return { error: { field: "address", message: m.admin.branchAddressRequired } };
 
   const { data: existing } = await supabase
     .from("partner_branches")
@@ -86,7 +89,7 @@ export async function createBranch(
         return { error: { message: PESAN.belumPastiBaru } };
       }
       if (written.code === "23505") {
-        return { error: { field: "code", message: `Kode cabang ${code} sudah ada di partner ini.` } };
+        return { error: { field: "code", message: m.admin.branchCodeTaken.replace("{code}", code) } };
       }
       return { error: { message: PESAN.serverSibuk } };
     }
@@ -118,11 +121,13 @@ export async function updateBranch(
     contactPhone?: string;
   }
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
   const address = input.address.trim();
-  if (!name) return { error: { field: "name", message: "Nama cabang wajib diisi." } };
-  if (!address) return { error: { field: "address", message: "Alamat lengkap wajib diisi." } };
+  if (!name) return { error: { field: "name", message: m.admin.branchNameRequired } };
+  if (!address) return { error: { field: "address", message: m.admin.branchAddressRequired } };
 
   const saved = await safeWrite(
     supabase
@@ -157,6 +162,7 @@ export async function setBranchStatus(
   id: string,
   status: "ACTIVE" | "SUSPENDED"
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
   const supabase = await createClient();
   const { data: branch, error } = await supabase
     .from("partner_branches")
@@ -165,7 +171,7 @@ export async function setBranchStatus(
     .select("partner_id")
     .single();
 
-  if (error || !branch) return { error: { message: "Tidak bisa mengubah status sekarang." } };
+  if (error || !branch) return { error: { message: m.admin.partnerStatusChangeFailed } };
 
   revalidatePath(`/admin/partners/${branch.partner_id}`);
   revalidatePath(`/admin/partners/${branch.partner_id}/branches/${id}`);

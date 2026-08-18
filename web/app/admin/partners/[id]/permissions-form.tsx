@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
+import { useMessages } from "@/lib/i18n/provider";
 import { updatePolicy } from "../../actions-permissions";
 
 export default function PermissionsForm({
@@ -21,6 +22,7 @@ export default function PermissionsForm({
   configured: boolean;
 }) {
   const router = useRouter();
+  const m = useMessages();
   const { submitting, begin, release } = useSubmitGuard();
   const [err, setErr] = useState<string | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export default function PermissionsForm({
           visibilityScope: String(fd.get("visibility") || "OWN_BRANCH"),
           editScope: String(fd.get("edit") || "OWN_BRANCH"),
         }),
+      messages: m,
     });
     release();
     if (out.status !== "ok") {
@@ -58,26 +61,23 @@ export default function PermissionsForm({
 
   return (
     <div className="card" style={{ maxWidth: 560 }}>
-      <h3 style={{ fontSize: 17, marginBottom: 6 }}>Visibilitas Cabang</h3>
+      <h3 style={{ fontSize: 17, marginBottom: 6 }}>{m.admin.permVisibilityTitle}</h3>
       <p className="small muted" style={{ marginBottom: 12 }}>
-        Hanya SANCI Admin yang dapat mengubah pengaturan ini. Berlaku untuk semua akun login{" "}
-        {partnerName}.
+        {m.admin.permVisibilityDesc.replace("{partner}", partnerName)}
       </p>
       {!configured && !saved && (
-        <div className="banner warn">
-          Belum diatur — saat ini berlaku: Hanya cabang sendiri (bawaan).
-        </div>
+        <div className="banner warn">{m.admin.permNotConfiguredWarning}</div>
       )}
       {netMsg && <div className="banner warn">{netMsg}</div>}
       {err && <div className="banner bad">{err}</div>}
-      {saved && <div className="banner ok">Tersimpan.</div>}
+      {saved && <div className="banner ok">{m.admin.savedMsg}</div>}
       <form onSubmit={onSubmit}>
         <div className="radioset" style={{ marginBottom: 18 }}>
           <label>
             <input type="radio" name="visibility" value="OWN_BRANCH" defaultChecked={visibilityScope === "OWN_BRANCH"} />
             <span>
-              Hanya cabang sendiri
-              <div className="rd">Setiap cabang hanya melihat cabangnya sendiri.</div>
+              {m.common.scopeOwnBranch}
+              <div className="rd">{m.admin.permOwnBranchDesc}</div>
             </span>
           </label>
           <label>
@@ -88,18 +88,18 @@ export default function PermissionsForm({
               defaultChecked={visibilityScope === "PARTNER_ALL_BRANCHES"}
             />
             <span>
-              Semua cabang sesama partner
-              <div className="rd">Semua cabang {partnerName} bisa saling melihat. Tidak pernah partner lain.</div>
+              {m.admin.permAllBranchesLabel}
+              <div className="rd">{m.admin.permAllBranchesDesc.replace("{partner}", partnerName)}</div>
             </span>
           </label>
         </div>
-        <h3 style={{ fontSize: 17, marginBottom: 6 }}>Akses ke cabang lain</h3>
+        <h3 style={{ fontSize: 17, marginBottom: 6 }}>{m.admin.permEditTitle}</h3>
         <div className="radioset">
           <label>
             <input type="radio" name="edit" value="OWN_BRANCH" defaultChecked={editScope === "OWN_BRANCH"} />
             <span>
-              Lihat saja
-              <div className="rd">Cabang lain hanya bisa dilihat.</div>
+              {m.admin.accessViewOnly}
+              <div className="rd">{m.admin.permViewOnlyDesc}</div>
             </span>
           </label>
           <label>
@@ -110,21 +110,18 @@ export default function PermissionsForm({
               defaultChecked={editScope === "PARTNER_ALL_BRANCHES"}
             />
             <span>
-              Lihat + edit
-              <div className="rd">Staf cabang lain juga bisa dikelola.</div>
+              {m.admin.accessViewEdit}
+              <div className="rd">{m.admin.permViewEditDesc}</div>
             </span>
           </label>
         </div>
         <div style={{ marginTop: 18 }}>
           <button className="btn primary" type="submit" disabled={submitting}>
-            {submitting ? "Menyimpan…" : "Simpan hak akses"}
+            {submitting ? m.common.saving : m.admin.permSaveBtn}
           </button>
         </div>
       </form>
-      <p className="footnote">
-        Aturan cabang terpilih (misal hanya Jakarta A ↔ Jakarta B) disiapkan untuk fase berikutnya —
-        skema data sudah mendukung, layar ini belum.
-      </p>
+      <p className="footnote">{m.admin.permFootnote}</p>
     </div>
   );
 }

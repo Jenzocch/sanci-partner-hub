@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getLocale, getMessages } from "@/lib/i18n";
+import { I18nProvider } from "@/lib/i18n/provider";
 import AdminNav from "./admin-nav";
 
 export const dynamic = "force-dynamic";
@@ -22,10 +24,17 @@ export default async function AdminLayout({
     .maybeSingle();
   if (!admin) redirect("/");
 
+  // Komponen client di bawah /admin membaca teksnya lewat `useMessages()`;
+  // bundle-nya diteruskan sekali di sini karena cookie hanya bisa dibaca di
+  // server. Halaman server tetap memanggil `getMessages()` sendiri.
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+
   return (
-    <div className="shell">
-      <AdminNav />
-      <main className="main">{children}</main>
-    </div>
+    <I18nProvider locale={locale} messages={messages}>
+      <div className="shell">
+        <AdminNav />
+        <main className="main">{children}</main>
+      </div>
+    </I18nProvider>
   );
 }

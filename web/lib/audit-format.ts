@@ -1,72 +1,97 @@
+import type { Messages } from "./i18n/messages";
 import { formatIDR } from "./orders-shared";
 
-const LABELS: Record<string, string> = {
-  name: "Nama",
-  code: "Kode",
-  status: "Status",
-  contact_name: "Kontak",
-  contact_phone: "WhatsApp",
-  address: "Alamat",
-  city: "Kota",
-  province: "Provinsi",
-  full_name: "Nama",
-  phone: "Telepon",
-  whatsapp: "WhatsApp",
-  role: "Peran",
-  visibility_scope: "Visibilitas",
-  edit_scope: "Cakupan Edit",
-  configured: "Dikonfigurasi",
-  end_at: "Tanggal Berakhir",
-  order_number: "Nomor Pesanan",
-  package_name: "Package",
-  notes: "Catatan",
-  description: "Deskripsi",
-  cancellation_reason: "Alasan Pembatalan",
-  fulfillment_path: "Jalur Pesanan",
-  partner_purchase_amount: "Total Belanja di Toko",
-  invoice_url: "Invoice",
-  category: "Kategori",
-  stock_status: "Status Stok",
-  enabled: "Akses Katalog",
-};
+/**
+ * Layar Aktivitas dalam tiga bahasa.
+ *
+ * Semua teks hidup di lib/i18n/messages/common.ts; file ini hanya memetakan
+ * KODE dari database (nama kolom, nilai enum, kode aksi) ke kunci pesan.
+ * Pemanggil menyerahkan `Messages` miliknya — halaman server memakai
+ * `await getMessages()`, komponen client memakai `useMessages()`.
+ *
+ * Kalau sebuah kode belum punya label, yang tampil adalah KODE MENTAH
+ * (mis. "STAFF_ASSIGNMENT_CREATED") — itu bahasa Inggris bocor ke pengguna
+ * non-teknis (LESSONS #13). Tambahkan barisnya di sini + kuncinya di
+ * common.ts, jangan biarkan lolos.
+ */
+
+// Nama kolom database → label yang dimengerti pengguna.
+function fieldLabel(m: Messages, key: string): string | undefined {
+  const c = m.common;
+  const map: Record<string, string> = {
+    name: c.name,
+    code: c.code,
+    status: c.status,
+    contact_name: c.contactName,
+    contact_phone: c.whatsapp,
+    address: c.address,
+    city: c.city,
+    province: c.province,
+    full_name: c.fullName,
+    phone: c.phone,
+    whatsapp: c.whatsapp,
+    role: c.role,
+    visibility_scope: c.visibilityScope,
+    edit_scope: c.editScope,
+    configured: c.configured,
+    end_at: c.endDate,
+    order_number: c.orderNumber,
+    package_name: c.package,
+    notes: c.notes,
+    description: c.description,
+    cancellation_reason: c.cancellationReason,
+    fulfillment_path: c.fulfillment,
+    partner_purchase_amount: c.storePurchase,
+    invoice_url: c.invoice,
+    category: c.category,
+    stock_status: c.stockStatus,
+    enabled: c.catalogAccess,
+  };
+  return map[key];
+}
 
 // Nilai enum internal → bahasa sehari-hari.
-const VALUE_LABELS: Record<string, string> = {
-  REGISTERED: "Terdaftar",
-  CANCELLED: "Dibatalkan",
-  ACTIVE: "Aktif",
-  INACTIVE: "Nonaktif",
-  DRAF: "Draf",
-  DRAFT: "Draf",
-  SUSPENDED: "Ditangguhkan",
-  DIRECT_DELIVERY: "Kirim Langsung",
-  SHOWROOM_VISIT: "Kunjungan Showroom",
-  AVAILABLE: "Tersedia",
-  LIMITED: "Terbatas",
-  OUT_OF_STOCK: "Habis",
-  // Ditambahkan audit round 2 (LESSONS #28): nilai yang benar-benar ditulis DB
-  // untuk menonaktifkan staf/akun (status ENDED/DISABLED) dan untuk kebijakan
-  // akses (visibility_scope/edit_scope) tapi belum ada di tabel ini — tanpa
-  // baris ini kode Inggris bocor mentah ke Activity (LESSONS #13). Wording
-  // "Sesama partner" / "Cabang sendiri" disamakan dengan cabang/akun/page.tsx.
-  ENDED: "Berakhir",
-  DISABLED: "Dinonaktifkan",
-  OWN_BRANCH: "Cabang sendiri",
-  PARTNER_ALL_BRANCHES: "Sesama partner",
-  SELECTED_BRANCHES: "Cabang terpilih",
-  BRANCH_USER: "Pengguna Cabang",
-};
+function valueLabel(m: Messages, value: string): string | undefined {
+  const c = m.common;
+  const map: Record<string, string> = {
+    REGISTERED: c.orderStatusRegistered,
+    CANCELLED: c.orderStatusCancelled,
+    ACTIVE: c.statusActive,
+    INACTIVE: c.statusInactive,
+    DRAF: c.statusDraft,
+    DRAFT: c.statusDraft,
+    SUSPENDED: c.statusSuspended,
+    DIRECT_DELIVERY: c.fulfillmentDirect,
+    SHOWROOM_VISIT: c.fulfillmentShowroom,
+    AVAILABLE: c.stockAvailable,
+    LIMITED: c.stockLimited,
+    OUT_OF_STOCK: c.stockOutOfStock,
+    // Ditambahkan audit round 2 (LESSONS #28): nilai yang benar-benar ditulis DB
+    // untuk menonaktifkan staf/akun (status ENDED/DISABLED) dan untuk kebijakan
+    // akses (visibility_scope/edit_scope) tapi belum ada di tabel ini — tanpa
+    // baris ini kode Inggris bocor mentah ke Activity (LESSONS #13). Wording
+    // "Sesama partner" / "Cabang sendiri" disamakan dengan cabang/akun/page.tsx.
+    ENDED: c.statusEnded,
+    DISABLED: c.statusDisabled,
+    OWN_BRANCH: c.scopeOwnBranch,
+    PARTNER_ALL_BRANCHES: c.scopePartnerAll,
+    SELECTED_BRANCHES: c.scopeSelectedBranches,
+    BRANCH_USER: c.roleBranchUser,
+  };
+  return map[value];
+}
 
-const asLabel = (key: string, v: unknown) => {
+function asLabel(m: Messages, key: string, v: unknown): string {
   // Boolean mentah (mis. sanci_catalog_access.enabled) tidak boleh tampil
   // sebagai "true"/"false" — itu bahasa Inggris bocor ke UI (LESSONS #13).
-  if (typeof v === "boolean") return v ? "Ya" : "Tidak";
+  if (typeof v === "boolean") return v ? m.common.yes : m.common.no;
   // Uang tetap harus lewat formatIDR — angka mentah ("1500000") tidak
   // terbaca sebagai Rupiah oleh staf non-teknis (item H audit round 2).
+  // Rupiah tetap format id-ID di ketiga bahasa: itu mata uang nyatanya.
   if (key === "partner_purchase_amount" && typeof v === "number") return formatIDR(v);
   const s = String(v);
-  return VALUE_LABELS[s] ?? s;
-};
+  return valueLabel(m, s) ?? s;
+}
 
 // Kolom internal (id, UUID relasi, timestamp, kunci idempotency) tidak berarti
 // apa-apa bagi pengguna non-teknis — jangan pernah ditampilkan mentah (SPEC §69).
@@ -103,73 +128,76 @@ const SKIP = new Set([
   "photo_url",
 ]);
 
-// Kode aksi audit → kalimat sehari-hari (dipakai halaman Activity/History).
-export const ACTION_LABELS: Record<string, string> = {
-  ORDER_CREATED: "Pesanan dibuat",
-  ORDER_UPDATED: "Pesanan diubah",
-  ORDER_STATUS_CHANGED: "Status pesanan berubah",
-  ORDER_CANCELLED: "Pesanan dibatalkan",
-  ORDER_ATTRIBUTION_CORRECTED: "Atribusi cabang dikoreksi",
-  ORDER_CUSTOMER_ARRIVED: "Pelanggan tiba di SANCI",
-  ORDER_INTERNAL_NOTE_CREATED: "Catatan internal SANCI ditambahkan",
-  CUSTOMER_CREATED: "Pelanggan dibuat",
-  CUSTOMER_UPDATED: "Pelanggan diubah",
-  CUSTOMER_PHONE_CHANGED: "Nomor telepon pelanggan diubah",
-  PACKAGE_CREATED: "Package dibuat",
-  PACKAGE_UPDATED: "Package diubah",
-  PACKAGE_STATUS_CHANGED: "Status package berubah",
-  PRODUCT_CREATED: "Produk ditambahkan",
-  PRODUCT_UPDATED: "Produk diubah",
-  PRODUCT_STATUS_CHANGED: "Status produk berubah",
-  PRODUCT_DELETED: "Produk dihapus",
-  CATALOG_ACCESS_CREATED: "Akses katalog dibuka",
-  CATALOG_ACCESS_UPDATED: "Akses katalog diubah",
-  PARTNER_CREATED: "Partner dibuat",
-  PARTNER_UPDATED: "Partner diubah",
-  PARTNER_STATUS_CHANGED: "Status partner berubah",
-  BRANCH_CREATED: "Cabang dibuat",
-  BRANCH_UPDATED: "Cabang diubah",
-  BRANCH_STATUS_CHANGED: "Status cabang berubah",
-  STAFF_CREATED: "Staf ditambahkan",
-  STAFF_UPDATED: "Staf diubah",
-  STAFF_DEACTIVATED: "Staf dinonaktifkan",
+// Kode aksi audit → KUNCI kalimat di common.ts (dipakai halaman Activity).
+const ACTION_KEYS: Record<string, keyof Messages["common"]> = {
+  ORDER_CREATED: "auditOrderCreated",
+  ORDER_UPDATED: "auditOrderUpdated",
+  ORDER_STATUS_CHANGED: "auditOrderStatusChanged",
+  ORDER_CANCELLED: "auditOrderCancelled",
+  ORDER_ATTRIBUTION_CORRECTED: "auditOrderAttributionCorrected",
+  ORDER_CUSTOMER_ARRIVED: "auditOrderCustomerArrived",
+  ORDER_INTERNAL_NOTE_CREATED: "auditOrderInternalNote",
+  CUSTOMER_CREATED: "auditCustomerCreated",
+  CUSTOMER_UPDATED: "auditCustomerUpdated",
+  CUSTOMER_PHONE_CHANGED: "auditCustomerPhoneChanged",
+  PACKAGE_CREATED: "auditPackageCreated",
+  PACKAGE_UPDATED: "auditPackageUpdated",
+  PACKAGE_STATUS_CHANGED: "auditPackageStatusChanged",
+  PRODUCT_CREATED: "auditProductCreated",
+  PRODUCT_UPDATED: "auditProductUpdated",
+  PRODUCT_STATUS_CHANGED: "auditProductStatusChanged",
+  PRODUCT_DELETED: "auditProductDeleted",
+  CATALOG_ACCESS_CREATED: "auditCatalogAccessCreated",
+  CATALOG_ACCESS_UPDATED: "auditCatalogAccessUpdated",
+  PARTNER_CREATED: "auditPartnerCreated",
+  PARTNER_UPDATED: "auditPartnerUpdated",
+  PARTNER_STATUS_CHANGED: "auditPartnerStatusChanged",
+  BRANCH_CREATED: "auditBranchCreated",
+  BRANCH_UPDATED: "auditBranchUpdated",
+  BRANCH_STATUS_CHANGED: "auditBranchStatusChanged",
+  STAFF_CREATED: "auditStaffCreated",
+  STAFF_UPDATED: "auditStaffUpdated",
+  STAFF_DEACTIVATED: "auditStaffDeactivated",
   // fn_audit_row (migrasi 0001) memancarkan <PREFIX>_STATUS_CHANGED saat kolom
   // status berubah — bukan STAFF_DEACTIVATED / USER_DISABLED / dst. Tanpa label
   // ini, menonaktifkan staf / akun / penugasan menampilkan KODE MENTAH di layar
   // Aktivitas (SPEC §69). Label lama di atas dipertahankan (tidak berbahaya).
-  STAFF_STATUS_CHANGED: "Status staf berubah",
-  STAFF_ASSIGNMENT_CREATED: "Penugasan staf dibuat",
+  STAFF_STATUS_CHANGED: "auditStaffStatusChanged",
+  STAFF_ASSIGNMENT_CREATED: "auditStaffAssignmentCreated",
   // fn_audit_row (0010:558) memancarkan <PREFIX>_UPDATED, bukan _CHANGED —
   // STAFF_ASSIGNMENT_CHANGED di bawah adalah kode mati (tidak pernah ditulis
   // DB), dibiarkan agar tidak berbahaya kalau ada pemanggil lama.
-  STAFF_ASSIGNMENT_UPDATED: "Penugasan staf berubah",
-  STAFF_ASSIGNMENT_CHANGED: "Penugasan staf berubah",
-  STAFF_ASSIGNMENT_STATUS_CHANGED: "Status penugasan staf berubah",
-  USER_CREATED: "Akun dibuat",
-  USER_DISABLED: "Akun dinonaktifkan",
-  USER_REACTIVATED: "Akun diaktifkan kembali",
-  USER_STATUS_CHANGED: "Status akun berubah",
-  PERMISSION_CHANGED: "Izin akses diubah",
+  STAFF_ASSIGNMENT_UPDATED: "auditStaffAssignmentUpdated",
+  STAFF_ASSIGNMENT_CHANGED: "auditStaffAssignmentUpdated",
+  STAFF_ASSIGNMENT_STATUS_CHANGED: "auditStaffAssignmentStatusChanged",
+  USER_CREATED: "auditUserCreated",
+  USER_DISABLED: "auditUserDisabled",
+  USER_REACTIVATED: "auditUserReactivated",
+  USER_STATUS_CHANGED: "auditUserStatusChanged",
+  PERMISSION_CHANGED: "auditPermissionChanged",
 };
 
-export const ROLE_LABELS: Record<string, string> = {
-  PARTNER_USER: "Pengguna Cabang",
-  SANCI_ADMIN: "SANCI Admin",
+const ROLE_KEYS: Record<string, keyof Messages["common"]> = {
+  PARTNER_USER: "roleBranchUser",
+  SANCI_ADMIN: "roleSanciAdmin",
   // 0010:596 menulis 'SYSTEM' saat auth.uid() null (mis. proses server/trigger
   // tanpa sesi login) — tanpa label ini kode Inggris tampil mentah di Activity.
-  SYSTEM: "Sistem",
+  SYSTEM: "roleSystem",
 };
 
-export function formatAuditAction(action: string): string {
-  return ACTION_LABELS[action] ?? action;
+export function formatAuditAction(m: Messages, action: string): string {
+  const key = ACTION_KEYS[action];
+  return key ? m.common[key] : action;
 }
 
-export function formatActorRole(role: string | null): string {
+export function formatActorRole(m: Messages, role: string | null): string {
   if (!role) return "";
-  return ROLE_LABELS[role] ?? role;
+  const key = ROLE_KEYS[role];
+  return key ? m.common[key] : role;
 }
 
 export function formatAuditDiff(
+  m: Messages,
   before: Record<string, unknown> | null,
   after: Record<string, unknown> | null
 ): string[] {
@@ -185,14 +213,14 @@ export function formatAuditDiff(
     const a = after ? after[key] : undefined;
     if (JSON.stringify(b) === JSON.stringify(a)) continue;
 
-    const label = LABELS[key] || key;
+    const label = fieldLabel(m, key) || key;
     if (b === undefined || b === null) {
       if (a === null || a === "" || a === undefined) continue;
-      lines.push(`${label}: ${asLabel(key, a)}`);
+      lines.push(`${label}: ${asLabel(m, key, a)}`);
     } else if (a === undefined) {
-      lines.push(`${label}: ${asLabel(key, b)} (dihapus)`);
+      lines.push(`${label}: ${asLabel(m, key, b)} (${m.common.removed})`);
     } else {
-      lines.push(`${label}: ${asLabel(key, b)} → ${asLabel(key, a)}`);
+      lines.push(`${label}: ${asLabel(m, key, b)} → ${asLabel(m, key, a)}`);
     }
   }
   return lines;

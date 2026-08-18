@@ -1,15 +1,26 @@
-import { ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders-shared";
+import { orderStatusLabel, type OrderStatus } from "@/lib/orders-shared";
+import type { Messages } from "@/lib/i18n";
 
 const CLASS: Record<OrderStatus, string> = {
   REGISTERED: "chip ok",
   CANCELLED: "chip neutral",
 };
 
-/** Lencana status order, label selalu dari ORDER_STATUS_LABEL (satu sumber kebenaran). */
-export default function StatusBadge({ status }: { status: OrderStatus }) {
+/**
+ * Lencana status order, label selalu dari orderStatusLabel (satu sumber
+ * kebenaran). Menerima `messages` sebagai prop (bukan useMessages()) karena
+ * dipakai dari server component maupun client component.
+ */
+export default function StatusBadge({
+  status,
+  messages,
+}: {
+  status: OrderStatus;
+  messages: Messages;
+}) {
   return (
     <span className={CLASS[status] ?? "chip ok"}>
-      {ORDER_STATUS_LABEL[status] ?? status}
+      {orderStatusLabel(messages, status)}
     </span>
   );
 }

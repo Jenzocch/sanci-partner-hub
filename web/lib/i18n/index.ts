@@ -5,11 +5,7 @@
 
 import { cookies } from "next/headers";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, type Locale } from "./types";
-import { id, type Messages } from "./messages/id";
-import { en } from "./messages/en";
-import { zh } from "./messages/zh";
-
-const BUNDLES: Record<Locale, Messages> = { id, en, zh };
+import { MESSAGES, type Messages } from "./messages";
 
 export async function getLocale(): Promise<Locale> {
   // Cookie belum ada (pengguna baru) → Bahasa Indonesia, karena mayoritas
@@ -20,7 +16,7 @@ export async function getLocale(): Promise<Locale> {
 }
 
 export async function getMessages(): Promise<Messages> {
-  return BUNDLES[await getLocale()];
+  return MESSAGES[await getLocale()];
 }
 
 export type { Messages };

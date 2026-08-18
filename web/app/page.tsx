@@ -1,5 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getLocale, getMessages } from "@/lib/i18n";
+import { I18nProvider } from "@/lib/i18n/provider";
+import LocaleSwitcher from "@/lib/i18n/locale-switcher";
 import LoginForm from "./login-form";
 
 export const dynamic = "force-dynamic";
@@ -23,31 +26,35 @@ export default async function Home() {
       .select("id")
       .maybeSingle();
     if (pu) redirect("/cabang");
+  }
 
-    // Login berhasil tapi belum terdaftar di sistem — bukan error DB.
-    return (
+  const [locale, m] = await Promise.all([getLocale(), getMessages()]);
+
+  // Pemilih bahasa ada DI HALAMAN MASUK, bukan hanya di dalam aplikasi: orang
+  // yang tidak bisa membaca Bahasa Indonesia harus bisa mengganti bahasa
+  // SEBELUM masuk — kalau tidak, dia tidak akan pernah sampai ke dalam.
+  return (
+    <I18nProvider locale={locale} messages={m}>
       <main className="authwrap">
         <div className="authcard">
           <div className="wordmark serif">SANCI</div>
-          <h1>Akun belum terdaftar</h1>
-          <p className="sub">
-            Akun Anda berhasil masuk tetapi belum dihubungkan ke partner mana
-            pun. Hubungi SANCI Admin.
-          </p>
-          <LoginForm signOutOnly />
+          {user ? (
+            <>
+              {/* Login berhasil tapi belum terdaftar di sistem — bukan error DB. */}
+              <h1>{m.common.accountNotLinkedTitle}</h1>
+              <p className="sub">{m.common.accountNotLinkedBody}</p>
+              <LoginForm signOutOnly />
+            </>
+          ) : (
+            <>
+              <h1>{m.common.loginTitle}</h1>
+              <p className="sub">{m.common.loginSubtitle}</p>
+              <LoginForm />
+            </>
+          )}
+          <LocaleSwitcher />
         </div>
       </main>
-    );
-  }
-
-  return (
-    <main className="authwrap">
-      <div className="authcard">
-        <div className="wordmark serif">SANCI</div>
-        <h1>Partner Hub</h1>
-        <p className="sub">Masuk dengan akun yang dibuat oleh SANCI Admin.</p>
-        <LoginForm />
-      </div>
-    </main>
+    </I18nProvider>
   );
 }

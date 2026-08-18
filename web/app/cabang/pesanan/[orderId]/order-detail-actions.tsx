@@ -9,10 +9,12 @@ import DraftBanner from "@/lib/draft-banner";
 import {
   formatIDR,
   parseIDRInput,
-  FULFILLMENT_PATH_DESC,
-  FULFILLMENT_PATH_LABEL,
+  fulfillmentDesc,
+  fulfillmentLabel,
   type FulfillmentPath,
 } from "@/lib/orders-shared";
+import { useMessages } from "@/lib/i18n/provider";
+import type { Messages } from "@/lib/i18n";
 import { updateOrder, cancelOrder } from "../actions";
 
 export type StaffOption = { id: string; fullName: string; role: string };
@@ -21,12 +23,36 @@ export type PackageOption = { id: string; name: string };
 const PACKAGE_MANUAL = "__manual__";
 const FULFILLMENT_PATHS: FulfillmentPath[] = ["DIRECT_DELIVERY", "SHOWROOM_VISIT"];
 
-const CANCEL_REASONS = [
-  "Pelanggan membatalkan pembelian",
-  "Pesanan salah",
-  "Pesanan ganda",
-  "Lainnya",
-] as const;
+/**
+ * Kode stabil untuk pilihan alasan pembatalan — TIDAK berubah per bahasa.
+ * `value` = teks yang benar-benar disimpan ke DB (cancellation_reason),
+ * selalu Bahasa Indonesia terlepas dari bahasa layar staf yang membatalkan,
+ * supaya data lama & baru konsisten dan admin (yang belum tentu berganti
+ * bahasa) tetap membacanya sama. Hanya LABEL yang ditampilkan yang mengikuti
+ * bahasa aktif (lihat cancelReasonLabel di bawah) — ini murni pemisahan
+ * teks/tampilan, bukan perubahan pada apa yang tersimpan (LESSONS: tidak
+ * mengubah logika/nilai yang tersimpan).
+ */
+const CANCEL_REASON_CODES = ["customer_cancelled", "wrong_order", "duplicate_order", "other"] as const;
+type CancelReasonCode = (typeof CANCEL_REASON_CODES)[number];
+const CANCEL_REASON_VALUE: Record<CancelReasonCode, string> = {
+  customer_cancelled: "Pelanggan membatalkan pembelian",
+  wrong_order: "Pesanan salah",
+  duplicate_order: "Pesanan ganda",
+  other: "Lainnya",
+};
+function cancelReasonLabel(m: Messages, code: CancelReasonCode): string {
+  switch (code) {
+    case "customer_cancelled":
+      return m.cabang.cancelReasonCustomerCancelled;
+    case "wrong_order":
+      return m.cabang.cancelReasonWrongOrder;
+    case "duplicate_order":
+      return m.cabang.cancelReasonDuplicateOrder;
+    case "other":
+      return m.cabang.cancelReasonOther;
+  }
+}
 
 export default function OrderDetailActions({
   orderId,
@@ -58,16 +84,17 @@ export default function OrderDetailActions({
   extrasAvailable: boolean;
 }) {
   const router = useRouter();
+  const m = useMessages();
   const [modal, setModal] = useState<null | "edit" | "cancel">(null);
 
   return (
     <>
       <div className="btnrow">
         <button type="button" className="btn" onClick={() => setModal("edit")}>
-          Ubah Pesanan
+          {m.cabang.editOrderCta}
         </button>
         <button type="button" className="btn danger" onClick={() => setModal("cancel")}>
-          Batalkan Pesanan
+          {m.cabang.cancelOrderCta}
         </button>
       </div>
 
@@ -144,6 +171,7 @@ function EditOrderModal({
   const { submitting, begin, release } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);
+  const m = useMessages();
   // Kunci draf per orderId — draf pesanan lain tidak boleh tercampur (SPEC §73).
   const draft = useLocalDraft("order-edit", orderId, true);
 
@@ -187,6 +215,7 @@ function EditOrderModal({
 
     const out = await submitSafely({
       kind: "update",
+      messages: m,
       run: () =>
         updateOrder({
           orderId,
@@ -224,7 +253,7 @@ function EditOrderModal({
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true">
-        <h2>Ubah Pesanan</h2>
+        <h2>{m.cabang.editOrderCta}</h2>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <DraftBanner draft={draft.draft} onRestore={handleRestoreDraft} onDiscard={draft.discard} />
@@ -233,15 +262,15 @@ function EditOrderModal({
             <>
               <div style={{ marginBottom: 18 }}>
                 <label style={{ display: "block", fontSize: "var(--fs-sec)", fontWeight: 600, color: "var(--ink)", marginBottom: 7 }}>
-                  Jalur Pesanan
+                  {m.common.fulfillment}
                 </label>
                 <div className="radioset">
                   {FULFILLMENT_PATHS.map((p) => (
                     <label key={p}>
                       <input type="radio" name="fulfillment_path" value={p} defaultChecked={fulfillmentPath === p} />
                       <span>
-                        {FULFILLMENT_PATH_LABEL[p]}
-                        <div className="rd">{FULFILLMENT_PATH_DESC[p]}</div>
+                        {fulfillmentLabel(m, p)}
+                        <div className="rd">{fulfillmentDesc(m, p)}</div>
                       </span>
                     </label>
                   ))}
@@ -249,7 +278,7 @@ function EditOrderModal({
                 {errs.fulfillment_path && <div className="err-text">{errs.fulfillment_path}</div>}
               </div>
               <div className="field">
-                <label htmlFor="eo_amount">Total belanja pelanggan di toko (opsional)</label>
+                <label htmlFor="eo_amount">{m.cabang.purchaseAmountLabel}</label>
                 <input
                   id="eo_amount"
                   name="partner_purchase_amount"
@@ -260,54 +289,54 @@ function EditOrderModal({
                   onChange={handleAmountChange}
                 />
                 {errs.partner_purchase_amount && <div className="err-text">{errs.partner_purchase_amount}</div>}
-                <div className="hint">Membantu SANCI menyiapkan penawaran yang sesuai.</div>
+                <div className="hint">{m.cabang.purchaseAmountHint}</div>
               </div>
             </>
           )}
           {hasPackages ? (
             <div className={`field${errs.package_name ? " invalid" : ""}`}>
-              <label htmlFor="eo_package_id">Package *</label>
+              <label htmlFor="eo_package_id">{m.cabang.packageFieldLabel}</label>
               <select
                 id="eo_package_id"
                 name="package_id"
                 defaultValue={packageChoice}
                 onChange={(e) => setPackageChoice(e.target.value)}
               >
-                <option value="">— Pilih Package —</option>
+                <option value="">{m.cabang.selectPackagePlaceholder}</option>
                 {packages.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
-                <option value={PACKAGE_MANUAL}>Lainnya (ketik manual)</option>
+                <option value={PACKAGE_MANUAL}>{m.cabang.packageManualOption}</option>
               </select>
               {errs.package_name && <div className="err-text">{errs.package_name}</div>}
             </div>
           ) : null}
           {(!hasPackages || packageChoice === PACKAGE_MANUAL) && (
             <div className={`field${!hasPackages && errs.package_name ? " invalid" : ""}`}>
-              <label htmlFor="eo_package">Nama Package *</label>
+              <label htmlFor="eo_package">{m.cabang.packageNameFieldLabel}</label>
               <input id="eo_package" name="package_name" type="text" defaultValue={packageName} />
               {!hasPackages && errs.package_name && <div className="err-text">{errs.package_name}</div>}
             </div>
           )}
           <div className={`field${errs.sales_staff_id ? " invalid" : ""}`}>
-            <label htmlFor="eo_sales">Sales *</label>
+            <label htmlFor="eo_sales">{m.cabang.salesFieldLabel}</label>
             <select id="eo_sales" name="sales_staff_id" defaultValue={salesStaffId || ""}>
-              <option value="">— Pilih Sales —</option>
+              <option value="">{m.cabang.selectSalesPlaceholder}</option>
               {salesOptions.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.fullName} ({s.role})
                 </option>
               ))}
             </select>
-            {salesOptions.length === 0 && <div className="hint">Belum ada staf aktif di cabang ini.</div>}
+            {salesOptions.length === 0 && <div className="hint">{m.cabang.noActiveStaffHint}</div>}
             {errs.sales_staff_id && <div className="err-text">{errs.sales_staff_id}</div>}
           </div>
           <div className={`field${errs.pic_staff_id ? " invalid" : ""}`}>
-            <label htmlFor="eo_pic">PIC</label>
+            <label htmlFor="eo_pic">{m.cabang.picLabel}</label>
             <select id="eo_pic" name="pic_staff_id" defaultValue={picStaffId || ""}>
-              <option value="">— Tidak dipilih —</option>
+              <option value="">{m.cabang.notSelectedOption}</option>
               {picOptions.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.fullName} ({s.role})
@@ -317,15 +346,15 @@ function EditOrderModal({
             {errs.pic_staff_id && <div className="err-text">{errs.pic_staff_id}</div>}
           </div>
           <div className="field">
-            <label htmlFor="eo_notes">Catatan</label>
-            <textarea id="eo_notes" name="notes" defaultValue={notes || ""} placeholder="Opsional..." />
+            <label htmlFor="eo_notes">{m.common.notes}</label>
+            <textarea id="eo_notes" name="notes" defaultValue={notes || ""} placeholder={m.cabang.optionalPlaceholder} />
           </div>
           <div className="btnrow">
             <button type="button" className="btn" onClick={onClose} disabled={submitting}>
-              Batal
+              {m.common.cancel}
             </button>
             <button type="submit" className="btn primary lg block" disabled={submitting}>
-              {submitting ? "Menyimpan…" : "Simpan"}
+              {submitting ? m.common.saving : m.common.save}
             </button>
           </div>
         </form>
@@ -352,7 +381,8 @@ function CancelOrderModal({
   onCancelled: () => void;
 }) {
   const { submitting, begin, release } = useSubmitGuard();
-  const [reasonChoice, setReasonChoice] = useState("");
+  const m = useMessages();
+  const [reasonChoice, setReasonChoice] = useState<CancelReasonCode | "">("");
   const [customReason, setCustomReason] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
@@ -364,18 +394,21 @@ function CancelOrderModal({
 
     if (!reasonChoice) {
       release();
-      setErr("Pilih alasan pembatalan.");
+      setErr(m.cabang.errReasonRequired);
       return;
     }
-    const finalReason = reasonChoice === "Lainnya" ? customReason.trim() : reasonChoice;
+    // `value` yang disimpan ke DB selalu teks Indonesia kanonik (lihat catatan
+    // di CANCEL_REASON_VALUE) — bukan label yang sedang ditampilkan.
+    const finalReason = reasonChoice === "other" ? customReason.trim() : CANCEL_REASON_VALUE[reasonChoice];
     if (!finalReason) {
       release();
-      setErr("Alasan pembatalan wajib diisi.");
+      setErr(m.cabang.errCancelReasonRequired);
       return;
     }
 
     const out = await submitSafely({
       kind: "update",
+      messages: m,
       run: () => cancelOrder({ orderId, reason: finalReason }),
     });
 
@@ -396,47 +429,47 @@ function CancelOrderModal({
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true">
-        <h2>Batalkan Pesanan?</h2>
+        <h2>{m.cabang.cancelOrderConfirmTitle}</h2>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {err && <div className="banner bad">{err}</div>}
         <dl className="kv">
-          <dt>Order</dt>
+          <dt>{m.common.orderNumber}</dt>
           <dd className="code">{orderNumber}</dd>
-          <dt>Pelanggan</dt>
+          <dt>{m.common.customer}</dt>
           <dd>{customerName}</dd>
         </dl>
         <div className="field">
-          <label htmlFor="co_reason">Alasan *</label>
+          <label htmlFor="co_reason">{m.common.reason} *</label>
           <select
             id="co_reason"
             value={reasonChoice}
-            onChange={(e) => setReasonChoice(e.target.value)}
+            onChange={(e) => setReasonChoice(e.target.value as CancelReasonCode)}
           >
-            <option value="">— Pilih Alasan —</option>
-            {CANCEL_REASONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
+            <option value="">{m.cabang.selectReasonPlaceholder}</option>
+            {CANCEL_REASON_CODES.map((code) => (
+              <option key={code} value={code}>
+                {cancelReasonLabel(m, code)}
               </option>
             ))}
           </select>
         </div>
-        {reasonChoice === "Lainnya" && (
+        {reasonChoice === "other" && (
           <div className="field">
-            <label htmlFor="co_reason_other">Alasan Lainnya *</label>
+            <label htmlFor="co_reason_other">{m.cabang.otherReasonLabel}</label>
             <textarea
               id="co_reason_other"
               value={customReason}
               onChange={(e) => setCustomReason(e.target.value)}
-              placeholder="Tuliskan alasan pembatalan..."
+              placeholder={m.cabang.otherReasonPlaceholder}
             />
           </div>
         )}
         <div className="btnrow">
           <button type="button" className="btn" onClick={onClose} disabled={submitting}>
-            Kembali
+            {m.common.back}
           </button>
           <button type="button" className="btn danger lg block" onClick={onConfirm} disabled={submitting}>
-            {submitting ? "Membatalkan…" : "Batalkan Pesanan"}
+            {submitting ? m.cabang.cancellingOrder : m.cabang.cancelOrderCta}
           </button>
         </div>
       </div>

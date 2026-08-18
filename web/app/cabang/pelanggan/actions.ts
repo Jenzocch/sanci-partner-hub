@@ -15,8 +15,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { PESAN, safeWrite } from "@/lib/safe-write";
+import { pesan, safeWrite } from "@/lib/safe-write";
 import { isMissingTableError, normalizePhoneID } from "@/lib/orders-shared";
+import { getMessages, type Messages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 
@@ -49,14 +50,12 @@ async function getIdentity(supabase: SupabaseServerClient): Promise<IdentityOutc
   return { status: "ok", identity: { partnerId: pu.partner_id, branchId: pu.branch_id, userId: user.id } };
 }
 
-function identityErrorMessage(outcome: Extract<IdentityOutcome, { status: "no-user" | "load-error" }>): string {
-  return outcome.status === "load-error"
-    ? "Data akun gagal dimuat — coba lagi."
-    : "Sesi tidak valid. Muat ulang halaman.";
+function identityErrorMessage(
+  m: Messages,
+  outcome: Extract<IdentityOutcome, { status: "no-user" | "load-error" }>
+): string {
+  return outcome.status === "load-error" ? m.cabang.errAccountLoadRetry : m.cabang.errSessionInvalid;
 }
-
-const BELUM_DIIZINKAN_MSG =
-  "Belum diizinkan — migrasi database belum dijalankan atau Anda tidak punya akses.";
 
 export type UpdateCustomerResult = { data: { updated: true } } | { error: ActionError };
 
@@ -70,14 +69,16 @@ export async function updateCustomer(input: {
   province?: string;
   notes?: string;
 }): Promise<UpdateCustomerResult> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
-  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(idOutcome) } };
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
 
   const fullName = input.fullName.trim();
-  if (!fullName) return { error: { field: "full_name", message: "Nama lengkap wajib diisi." } };
+  if (!fullName) return { error: { field: "full_name", message: m.cabang.errFullNameRequired } };
   const normalized = normalizePhoneID(input.phone);
-  if (!normalized) return { error: { field: "phone", message: "Nomor telepon tidak valid." } };
+  if (!normalized) return { error: { field: "phone", message: m.cabang.errPhoneInvalid } };
 
   // Perubahan telepon dicatat DB lewat trigger audit (CUSTOMER_PHONE_CHANGED,
   // SPEC §35) begitu kolomnya beda dari sebelumnya — tidak ada yang perlu
@@ -106,14 +107,14 @@ export async function updateCustomer(input: {
     }
     if (isMissingTableError({ code: written.code })) {
       return {
-        error: { message: "Modul Pelanggan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin." },
+        error: { message: m.cabang.errCustomerModuleInactive },
       };
     }
     // "no row returned" = RLS menolak DIAM-DIAM (policy UPDATE migrasi 0008
     // belum ada, atau pelanggan ini bukan yang boleh kita ubah). Jangan pernah
     // dibaca sebagai sukses (LESSONS #7).
     if (written.detail === "no row returned") {
-      return { error: { message: BELUM_DIIZINKAN_MSG } };
+      return { error: { message: m.cabang.errNotAllowedMigration } };
     }
     return { error: { message: PESAN.serverSibuk } };
   }

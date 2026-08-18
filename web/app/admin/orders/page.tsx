@@ -1,30 +1,19 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
-  FULFILLMENT_PATH_LABEL,
-  ORDER_STATUS_LABEL,
+  fulfillmentLabel,
+  orderStatusLabel,
   displayPhoneID,
   isMissingTableError,
   normalizePhoneID,
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
+import { getMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 const LIST_LIMIT = 50;
-
-const STATUS_OPTIONS: { value: "ALL" | OrderStatus; label: string }[] = [
-  { value: "ALL", label: "Status: semua" },
-  { value: "REGISTERED", label: ORDER_STATUS_LABEL.REGISTERED },
-  { value: "CANCELLED", label: ORDER_STATUS_LABEL.CANCELLED },
-];
-
-const JALUR_OPTIONS: { value: "ALL" | FulfillmentPath; label: string }[] = [
-  { value: "ALL", label: "Jalur: semua" },
-  { value: "DIRECT_DELIVERY", label: FULFILLMENT_PATH_LABEL.DIRECT_DELIVERY },
-  { value: "SHOWROOM_VISIT", label: FULFILLMENT_PATH_LABEL.SHOWROOM_VISIT },
-];
 
 const ORDER_COLS =
   "id, order_number, customer_id, partner_id, branch_id, partner_sales_staff_id, package_name, status, created_at";
@@ -48,6 +37,17 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; jalur?: string }>;
 }) {
+  const m = await getMessages();
+  const STATUS_OPTIONS: { value: "ALL" | OrderStatus; label: string }[] = [
+    { value: "ALL", label: m.admin.filterStatusAll },
+    { value: "REGISTERED", label: m.common.orderStatusRegistered },
+    { value: "CANCELLED", label: m.common.orderStatusCancelled },
+  ];
+  const JALUR_OPTIONS: { value: "ALL" | FulfillmentPath; label: string }[] = [
+    { value: "ALL", label: m.admin.filterFulfillmentAll },
+    { value: "DIRECT_DELIVERY", label: m.common.fulfillmentDirect },
+    { value: "SHOWROOM_VISIT", label: m.common.fulfillmentShowroom },
+  ];
   const sp = await searchParams;
   const q = (sp.q || "").trim();
   const statusFilter: "ALL" | OrderStatus =
@@ -213,11 +213,9 @@ export default async function AdminOrdersPage({
     return (
       <div>
         <div className="worktop">
-          <h1>Pesanan Partner</h1>
+          <h1>{m.admin.navOrders}</h1>
         </div>
-        <div className="card emptybox">
-          Fitur pesanan belum aktif — migration database belum dijalankan.
-        </div>
+        <div className="card emptybox">{m.admin.ordersFeatureOff}</div>
       </div>
     );
   }
@@ -225,14 +223,14 @@ export default async function AdminOrdersPage({
   return (
     <div>
       <div className="worktop">
-        <h1>Pesanan Partner</h1>
+        <h1>{m.admin.navOrders}</h1>
       </div>
 
       <form className="searchrow wide" action="/admin/orders" method="GET">
         <input
           type="search"
           name="q"
-          placeholder="Cari nomor pesanan / nama customer / telepon…"
+          placeholder={m.admin.ordersSearchPlaceholder}
           defaultValue={q}
           className="search-input"
         />
@@ -253,17 +251,17 @@ export default async function AdminOrdersPage({
           </select>
         )}
         <button className="btn" type="submit">
-          Cari
+          {m.common.search}
         </button>
       </form>
 
       {queryErr ? (
         <div className="card" style={{ margin: 0 }}>
-          <div className="err">Daftar pesanan gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.common.errorLoad}</div>
         </div>
       ) : orderRows.length === 0 ? (
         <div className="card emptybox">
-          {q ? `Tidak ada pesanan yang cocok dengan "${q}".` : "Belum ada pesanan."}
+          {q ? m.admin.ordersEmptyFiltered.replace("{q}", q) : m.admin.ordersEmpty}
         </div>
       ) : (
         <div>
@@ -271,15 +269,15 @@ export default async function AdminOrdersPage({
             <table>
               <thead>
                 <tr>
-                  <th>Nomor Pesanan</th>
-                  <th>Customer</th>
-                  <th>Partner</th>
-                  <th>Cabang</th>
-                  <th>Paket</th>
-                  <th>Sales</th>
-                  <th>Status</th>
-                  {jalurAvailable && <th>Jalur</th>}
-                  <th>Dibuat</th>
+                  <th>{m.common.orderNumber}</th>
+                  <th>{m.admin.colCustomer}</th>
+                  <th>{m.common.partner}</th>
+                  <th>{m.common.branch}</th>
+                  <th>{m.common.package}</th>
+                  <th>{m.admin.colSales}</th>
+                  <th>{m.common.status}</th>
+                  {jalurAvailable && <th>{m.admin.colFulfillment}</th>}
+                  <th>{m.common.createdAt}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -310,13 +308,13 @@ export default async function AdminOrdersPage({
                       <td>{r.partner_sales_staff_id ? staffMap.get(r.partner_sales_staff_id) ?? "—" : "—"}</td>
                       <td>
                         <span className={`chip ${r.status === "REGISTERED" ? "ACTIVE" : "SUSPENDED"}`}>
-                          {ORDER_STATUS_LABEL[r.status]}
+                          {orderStatusLabel(m, r.status)}
                         </span>
                       </td>
                       {jalurAvailable && (
                         <td>
                           {jalurPath ? (
-                            <span className="chip accent">{FULFILLMENT_PATH_LABEL[jalurPath]}</span>
+                            <span className="chip accent">{fulfillmentLabel(m, jalurPath)}</span>
                           ) : (
                             "—"
                           )}
@@ -327,7 +325,7 @@ export default async function AdminOrdersPage({
                       </td>
                       <td className="ta-right">
                         <Link href={`/admin/orders/${r.id}`} className="linkbtn">
-                          Buka
+                          {m.admin.openBtn}
                         </Link>
                       </td>
                     </tr>
@@ -337,7 +335,9 @@ export default async function AdminOrdersPage({
             </table>
           </div>
           <div className="footnote">
-            Menampilkan {orderRows.length} terbaru{orderRows.length === LIST_LIMIT ? " (maks. 50)" : ""}.
+            {m.admin.ordersShowingCount
+              .replace("{n}", String(orderRows.length))
+              .replace("{cap}", orderRows.length === LIST_LIMIT ? m.admin.ordersShowingCap : "")}
           </div>
         </div>
       )}

@@ -6,7 +6,7 @@
  */
 
 import { createContext, useContext } from "react";
-import type { Messages } from "./messages/id";
+import type { Messages } from "./messages";
 import type { Locale } from "./types";
 
 type Ctx = { messages: Messages; locale: Locale };

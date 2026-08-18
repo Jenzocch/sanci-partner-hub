@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilCabangPage() {
+  const m = await getMessages();
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,7 +23,7 @@ export default async function ProfilCabangPage() {
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -43,10 +45,7 @@ export default async function ProfilCabangPage() {
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">
-            Data partner/cabang Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa
-            pengaturan akun dan izin cabang.
-          </div>
+          <div className="err">{m.cabang.errPartnerBranchLoad}</div>
         </div>
       </main>
     );
@@ -56,26 +55,26 @@ export default async function ProfilCabangPage() {
     <main className="pwrap">
       <div className="backrow">
         <a href="/cabang" className="linkbtn">
-          ← Beranda
+          {m.cabang.navBackHome}
         </a>
       </div>
-      <h2 className="mtitle">Profil Cabang</h2>
+      <h2 className="mtitle">{m.cabang.homeBranchProfile}</h2>
       <div className="card">
         <dl className="kv">
-          <dt>Partner</dt>
+          <dt>{m.common.partner}</dt>
           <dd>{partner.name}</dd>
-          <dt>Cabang</dt>
+          <dt>{m.common.branch}</dt>
           <dd>{branch.name}</dd>
-          <dt>Alamat</dt>
+          <dt>{m.common.address}</dt>
           <dd>{branch.address}</dd>
-          <dt>Kota</dt>
+          <dt>{m.common.city}</dt>
           <dd>{branch.city || "—"}</dd>
-          <dt>Provinsi</dt>
+          <dt>{m.common.province}</dt>
           <dd>{branch.province || "—"}</dd>
-          <dt>WhatsApp</dt>
+          <dt>{m.common.whatsapp}</dt>
           <dd>{branch.contact_phone || "—"}</dd>
         </dl>
-        <p className="footnote">Alamat atau kontak salah? Hubungi SANCI Admin untuk memperbarui.</p>
+        <p className="footnote">{m.cabang.profilFootnote}</p>
       </div>
     </main>
   );

@@ -17,22 +17,41 @@
  */
 
 import type { PostgrestSingleResponse } from "@supabase/supabase-js";
+import type { Messages } from "./i18n/messages";
 
 export const WRITE_TIMEOUT_MS = 15_000;
 export const LOOKUP_TIMEOUT_MS = 10_000;
 
-/** Semua teks untuk pengguna. Bahasa Indonesia sederhana, tanpa istilah teknis. */
-export const PESAN = {
-  offline:
-    "Tidak ada koneksi internet. Data yang Anda ketik masih ada di layar ini — sambungkan internet lalu tekan Simpan lagi.",
-  belumTersimpan:
-    "Koneksi terputus dan data BELUM tersimpan di server. Data yang Anda ketik masih ada di layar ini — tekan Simpan lagi.",
-  belumPastiBaru:
-    "Koneksi terputus sebelum server sempat menjawab, jadi belum bisa dipastikan tersimpan atau belum. Jangan isi ulang dari awal — cukup tekan Simpan lagi. Sistem memakai nomor permintaan yang sama, jadi data tidak akan tersimpan dua kali.",
-  belumPastiUbah:
-    "Koneksi terputus sebelum server sempat menjawab, jadi perubahan belum bisa dipastikan tersimpan. Tekan Simpan lagi — menyimpan perubahan yang sama dua kali tidak membuat data ganda.",
-  serverSibuk: "Tidak bisa menyimpan sekarang. Coba lagi sebentar lagi.",
-} as const;
+/**
+ * Semua teks jaringan untuk pengguna, dalam bahasa yang sedang dipakai.
+ *
+ * DULU ini konstanta `PESAN` berbahasa Indonesia. Sekarang teksnya hidup di
+ * lib/i18n/messages/common.ts (kunci `net*`) dan file ini hanya memberi nama
+ * pendek yang sama seperti dulu, supaya pemanggil cukup menambah satu baris:
+ *
+ *   // Server Action ("use server") — boleh membaca cookie sendiri:
+ *   const PESAN = pesan(await getMessages());
+ *   return { error: { message: PESAN.serverSibuk } };
+ *
+ *   // Komponen client:
+ *   const PESAN = pesan(useMessages());
+ *
+ * Kenapa fungsi dan bukan kunci mentah yang diterjemahkan pemanggil: Server
+ * Action mengembalikan `{ error: { message } }` yang langsung ditampilkan
+ * komponen. Kalau yang dikirim kunci, SETIAP komponen harus tahu cara
+ * menerjemahkannya — satu yang lupa = kode mentah di layar pengguna.
+ */
+export function pesan(m: Messages) {
+  return {
+    offline: m.common.netOffline,
+    belumTersimpan: m.common.netNotSaved,
+    belumPastiBaru: m.common.netUnsureCreate,
+    belumPastiUbah: m.common.netUnsureUpdate,
+    serverSibuk: m.common.netServerBusy,
+  } as const;
+}
+
+export type PesanJaringan = ReturnType<typeof pesan>;
 
 /* ------------------------------------------------------------------ *
  * Sisi server: membungkus panggilan Supabase
@@ -165,21 +184,28 @@ export type SafeSubmitNoLookup<R> = Extract<
 export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup: () => Promise<LookupResult>;
+  messages: Messages;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmit<R>>;
 export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup?: undefined;
+  messages: Messages;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmitNoLookup<R>>;
 export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup?: () => Promise<LookupResult>;
+  messages: Messages;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmit<R>> {
+  // `messages` WAJIB (bukan opsional dengan cadangan Bahasa Indonesia):
+  // pemanggil yang lupa harus ketahuan saat build, bukan muncul sebagai
+  // kalimat Indonesia di tengah layar berbahasa Mandarin (LESSONS #13).
+  const PESAN = pesan(opts.messages);
   const kind = opts.kind ?? (opts.lookup ? "create" : "update");
   const belumPasti = kind === "create" ? PESAN.belumPastiBaru : PESAN.belumPastiUbah;
 

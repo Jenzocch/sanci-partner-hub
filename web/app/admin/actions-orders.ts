@@ -15,15 +15,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { PESAN, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
+import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
+import { getMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
 
 const RPC_TIMEOUT_MS = 15_000;
 const TIMED_OUT = Symbol("timeout");
-
-const MIGRATION_MSG = "Fitur koreksi atribusi belum aktif — migrasi belum dijalankan.";
 
 /**
  * fulfillment_path/partner_purchase_amount/invoice_url/customer_arrived_at
@@ -38,11 +37,6 @@ function isMissingColumnError(code: string | undefined): boolean {
 function isMissingTable(code: string | undefined): boolean {
   return code === "42P01";
 }
-
-const FULFILLMENT_MIGRATION_MSG =
-  "Fitur jalur pesanan belum aktif — migrasi database belum dijalankan.";
-const NOTES_MIGRATION_MSG =
-  "Fitur catatan internal belum aktif — migrasi database belum dijalankan.";
 
 /**
  * Sengaja tidak memakai safeWrite() dari lib/safe-write.ts: safeWrite menolak
@@ -87,13 +81,15 @@ export async function correctOrderAttribution(
   newBranchId: string,
   reason: string
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const trimmedReason = reason.trim();
 
-  if (!newBranchId) return { error: { field: "branch_id", message: "Pilih cabang tujuan." } };
-  if (!trimmedReason) return { error: { field: "reason", message: "Alasan koreksi wajib diisi." } };
+  if (!newBranchId) return { error: { field: "branch_id", message: m.admin.correctAttributionBranchRequired } };
+  if (!trimmedReason) return { error: { field: "reason", message: m.admin.correctAttributionReasonRequired } };
   if (trimmedReason.length > 500) {
-    return { error: { field: "reason", message: "Alasan terlalu panjang (maksimal 500 karakter)." } };
+    return { error: { field: "reason", message: m.admin.correctAttributionReasonTooLong } };
   }
 
   const outcome = await callRpcSafely(
@@ -110,14 +106,14 @@ export async function correctOrderAttribution(
     }
     if (outcome.code === "42883") {
       // undefined_function: migrasi RPC belum dijalankan.
-      return { error: { message: MIGRATION_MSG } };
+      return { error: { message: m.admin.correctAttributionMigrationOff } };
     }
     // Jangan pernah meneruskan pesan RAISE EXCEPTION / error Postgres mentah ke
     // layar (SPEC §69) — termasuk penolakan bisnis seperti "cabang tujuan
     // bukan milik partner yang sama". Dropdown di UI sudah membatasi pilihan ke
     // cabang partner yang sama, jadi kasus ini seharusnya jarang; kalau tetap
     // terjadi (mis. data berubah di tab lain), pesan generik ini yang tampil.
-    return { error: { message: "Tidak bisa mengoreksi atribusi sekarang. Periksa cabang tujuan lalu coba lagi." } };
+    return { error: { message: m.admin.correctAttributionGenericFail } };
   }
 
   revalidatePath(`/admin/orders/${orderId}`);
@@ -139,6 +135,8 @@ export async function correctOrderAttribution(
 export async function markCustomerArrived(
   orderId: string
 ): Promise<ActionResult<{ customerArrivedAt: string }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
 
   const { data: order, error: fetchErr } = await supabase
@@ -148,12 +146,12 @@ export async function markCustomerArrived(
     .maybeSingle();
 
   if (fetchErr) {
-    if (isMissingColumnError(fetchErr.code)) return { error: { message: FULFILLMENT_MIGRATION_MSG } };
+    if (isMissingColumnError(fetchErr.code)) return { error: { message: m.admin.fulfillmentMigrationOffOrder } };
     return { error: { message: PESAN.serverSibuk } };
   }
-  if (!order) return { error: { message: "Pesanan tidak ditemukan." } };
+  if (!order) return { error: { message: m.admin.orderNotFound } };
   if (order.fulfillment_path !== "SHOWROOM_VISIT") {
-    return { error: { message: "Hanya pesanan jalur Kunjungan Showroom yang bisa ditandai tiba." } };
+    return { error: { message: m.admin.markArrivedWrongFulfillment } };
   }
   if (order.customer_arrived_at) {
     // Sudah ditandai (mis. tab lain) — idempotent, bukan error (LESSONS #21).
@@ -171,7 +169,7 @@ export async function markCustomerArrived(
 
   if (!written.ok) {
     if (written.reason === "db") {
-      if (isMissingColumnError(written.code)) return { error: { message: FULFILLMENT_MIGRATION_MSG } };
+      if (isMissingColumnError(written.code)) return { error: { message: m.admin.fulfillmentMigrationOffOrder } };
       // Kemungkinan tab lain sudah menandai duluan di antara cek dan tulis —
       // cek ulang sebelum melapor gagal, bukan langsung disebut error.
       const { data: recheck } = await supabase
@@ -182,7 +180,7 @@ export async function markCustomerArrived(
       if (recheck?.customer_arrived_at) {
         return { data: { customerArrivedAt: recheck.customer_arrived_at } };
       }
-      return { error: { message: "Tidak bisa menandai kedatangan sekarang. Coba lagi." } };
+      return { error: { message: m.admin.markArrivedFailed } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }
@@ -209,12 +207,14 @@ export async function addInternalNote(
   note: string,
   clientRequestId: string
 ): Promise<ActionResult<{ id: string; createdAt: string }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const trimmed = note.trim();
 
-  if (!trimmed) return { error: { field: "note", message: "Catatan tidak boleh kosong." } };
+  if (!trimmed) return { error: { field: "note", message: m.admin.internalNoteEmptyErr } };
   if (trimmed.length > 2000) {
-    return { error: { field: "note", message: "Catatan terlalu panjang (maksimal 2000 karakter)." } };
+    return { error: { field: "note", message: m.admin.internalNoteTooLong } };
   }
 
   const { data: existing, error: existingErr } = await supabase
@@ -223,7 +223,7 @@ export async function addInternalNote(
     .eq("client_request_id", clientRequestId)
     .maybeSingle();
   if (existingErr) {
-    if (isMissingTable(existingErr.code)) return { error: { message: NOTES_MIGRATION_MSG } };
+    if (isMissingTable(existingErr.code)) return { error: { message: m.admin.internalNoteFeatureOffAction } };
     return { error: { message: PESAN.serverSibuk } };
   }
   if (existing) {
@@ -250,7 +250,7 @@ export async function addInternalNote(
 
   if (!written.ok) {
     if (written.reason === "db") {
-      if (isMissingTable(written.code)) return { error: { message: NOTES_MIGRATION_MSG } };
+      if (isMissingTable(written.code)) return { error: { message: m.admin.internalNoteFeatureOffAction } };
       // Bentrok nomor permintaan = percobaan sebelumnya sudah mendarat (LESSONS #21).
       if (isRequestIdConflict(written)) {
         const again = await recheck();

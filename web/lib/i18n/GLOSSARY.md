@@ -54,6 +54,7 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Alasan | Alasan | 原因 | Reason |
 | Nonaktifkan | Nonaktifkan | 停用 | Deactivate |
 | Aktifkan | Aktifkan | 启用 | Activate |
+| Peran kerja staf | Peran | 角色 | Role |
 
 ## Aturan gaya per bahasa
 
@@ -108,5 +109,9 @@ SANCI 及各合作商名称、订单编号与各种代码。
 
 - Nama merek: SANCI, Golden Home, dan nama partner/cabang lain
 - Nomor pesanan (`GH-BSD-260817-0001`) dan kode partner/cabang/produk
-- "Invoice" dan "PIC" tetap dipakai di Bahasa Indonesia (sudah jadi kata
-  sehari-hari di sana), tapi DITERJEMAHKAN di 中文 (发票 / 负责人)
+- **Invoice** — di KETIGA bahasa, alasannya di atas
+- **WhatsApp** — di ketiga bahasa
+- **PIC** — tetap "PIC" di Bahasa Indonesia dan Inggris (sudah jadi kata
+  sehari-hari), tapi di 中文 diterjemahkan jadi **负责人**: singkatan Inggris
+  tiga huruf tidak langsung dimengerti pembaca Tiongkok, sedangkan "负责人"
+  justru lebih cepat dipahami — kebalikan dari kasus Invoice.

@@ -18,9 +18,13 @@
  *     sendiri). Bukan variabel modul, bukan singleton — begitu klien ini ada,
  *     tidak ada lagi RLS yang menjaga (LESSONS #5).
  *  3. Klien ini HANYA dipakai untuk operasi Auth Admin yang memang tidak
- *     mungkin lewat anon key: `auth.admin.createUser` dan pembatalannya
- *     (`auth.admin.deleteUser`). Penulisan tabel `public.*` TETAP memakai
+ *     mungkin lewat anon key: `auth.admin.createUser`, pembatalannya
+ *     (`auth.admin.deleteUser`), dan penggantian kata sandi
+ *     (`auth.admin.updateUserById`). Penulisan tabel `public.*` TETAP memakai
  *     klien sesi biasa supaya RLS tetap berlaku (pertahanan berlapis).
+ *     Catatan: kata sandi TIDAK bisa dibaca kembali lewat kunci ini pun —
+ *     yang tersimpan hanya sidik jarinya. Jangan pernah membuat kolom/tabel
+ *     berisi kata sandi yang bisa dibaca ulang untuk menyiasati itu.
  *  4. Nilai kuncinya tidak pernah di-log, tidak pernah dikembalikan ke
  *     pemanggil, dan tidak pernah masuk pesan error.
  *  5. Nama variabelnya sengaja TANPA awalan `NEXT_PUBLIC_`. Next.js hanya
@@ -29,7 +33,8 @@
  *
  * Kunci diisi di Vercel → Project → Settings → Environment Variables.
  * Selama belum diisi, `createAdminClient()` mengembalikan null dan fitur
- * pembuatan akun menjelaskan keadaannya alih-alih rusak (LESSONS #12).
+ * pembuatan akun serta penggantian kata sandi menjelaskan keadaannya alih-alih
+ * rusak (LESSONS #12).
  * ========================================================================== */
 
 import {
@@ -58,7 +63,7 @@ function assertServerOnly(): void {
 /**
  * Apakah kunci service_role sudah tersedia di server?
  *
- * Dipakai Server Component untuk memilih tampilan (form vs penjelasan).
+ * Dipakai Server Component untuk memilih tampilan (form/tombol vs penjelasan).
  * Hanya mengembalikan boolean — nilai kuncinya tidak pernah keluar dari sini.
  */
 export function isServiceRoleConfigured(): boolean {

@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 export default async function AkunSayaPage() {
+  const m = await getMessages();
   const supabase = await createClient();
   const {
     data: { user },
@@ -23,7 +25,7 @@ export default async function AkunSayaPage() {
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -39,10 +41,7 @@ export default async function AkunSayaPage() {
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">
-            Data partner/cabang Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa
-            pengaturan akun dan izin cabang.
-          </div>
+          <div className="err">{m.cabang.errPartnerBranchLoad}</div>
         </div>
       </main>
     );
@@ -55,34 +54,31 @@ export default async function AkunSayaPage() {
     .maybeSingle();
   const visLabel =
     pol?.visibility_scope === "PARTNER_ALL_BRANCHES"
-      ? `Sesama partner · ${pol.edit_scope === "PARTNER_ALL_BRANCHES" ? "Lihat + Edit" : "Lihat saja"}`
-      : "Cabang sendiri";
+      ? `${m.common.scopePartnerAll} · ${pol.edit_scope === "PARTNER_ALL_BRANCHES" ? m.cabang.homeAccessViewEdit : m.cabang.homeAccessViewOnly}`
+      : m.common.scopeOwnBranch;
 
   return (
     <main className="pwrap">
       <div className="backrow">
         <a href="/cabang" className="linkbtn">
-          ← Beranda
+          {m.cabang.navBackHome}
         </a>
       </div>
-      <h2 className="mtitle">Akun Saya</h2>
+      <h2 className="mtitle">{m.cabang.homeMyAccount}</h2>
       <div className="card">
         <dl className="kv">
-          <dt>Nama</dt>
+          <dt>{m.common.name}</dt>
           <dd>{pu.name}</dd>
-          <dt>Identitas login</dt>
+          <dt>{m.cabang.loginIdentityDt}</dt>
           <dd>
             {partner.name} · {branch.name}
           </dd>
-          <dt>Peran</dt>
+          <dt>{m.common.role}</dt>
           <dd>{pu.role}</dd>
-          <dt>Visibilitas</dt>
+          <dt>{m.common.visibilityScope}</dt>
           <dd>{visLabel}</dd>
         </dl>
-        <p className="footnote">
-          Identitas cabang Anda ditetapkan oleh SANCI — tidak ada pilihan ganti cabang. Akun dibuat
-          dan dikelola oleh SANCI Admin.
-        </p>
+        <p className="footnote">{m.cabang.akunFootnote}</p>
       </div>
     </main>
   );

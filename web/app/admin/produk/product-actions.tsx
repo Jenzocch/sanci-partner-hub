@@ -6,12 +6,14 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { STOCK_STATUS_LABEL, type SanciProductRow, type StockStatus } from "@/lib/catalog-shared";
+import { type SanciProductRow, type StockStatus } from "@/lib/catalog-shared";
+import { useMessages } from "@/lib/i18n/provider";
 import { setProductStatus, setProductStockStatus, updateProduct } from "../actions-products";
 import { unggahFotoProduk } from "./upload-product-photo";
 
 export default function ProductActions({ product }: { product: SanciProductRow }) {
   const router = useRouter();
+  const m = useMessages();
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -48,6 +50,7 @@ export default function ProductActions({ product }: { product: SanciProductRow }
           category: String(fd.get("category") || ""),
           description: String(fd.get("description") || ""),
         }),
+      messages: m,
     });
     if (out.status !== "ok") {
       release();
@@ -66,7 +69,7 @@ export default function ProductActions({ product }: { product: SanciProductRow }
     // (SPEC-style logo partner: kegagalan foto cuma peringatan).
     const berkas = fd.get("photo");
     if (berkas instanceof File && berkas.size > 0) {
-      setFotoMsg(await unggahFotoProduk(product.id, berkas));
+      setFotoMsg(await unggahFotoProduk(product.id, berkas, m));
     }
 
     setModal(null);
@@ -108,7 +111,7 @@ export default function ProductActions({ product }: { product: SanciProductRow }
           className="small muted"
           style={{ display: "block", marginBottom: 4 }}
         >
-          Status stok
+          {m.admin.productStockFieldLabel}
         </label>
         <select
           id={`stock_${product.id}`}
@@ -118,40 +121,40 @@ export default function ProductActions({ product }: { product: SanciProductRow }
           onChange={onStockChange}
           disabled={stockBusy}
         >
-          <option value="AVAILABLE">{STOCK_STATUS_LABEL.AVAILABLE}</option>
-          <option value="LIMITED">{STOCK_STATUS_LABEL.LIMITED}</option>
-          <option value="OUT_OF_STOCK">{STOCK_STATUS_LABEL.OUT_OF_STOCK}</option>
+          <option value="AVAILABLE">{m.common.stockAvailable}</option>
+          <option value="LIMITED">{m.common.stockLimited}</option>
+          <option value="OUT_OF_STOCK">{m.common.stockOutOfStock}</option>
         </select>
       </div>
 
       <div className="btnrow-inline">
         <button className="btn sm" onClick={openEdit}>
-          Ubah
+          {m.common.edit}
         </button>
         <button className="btn sm" onClick={onToggleStatus} disabled={statusBusy}>
-          {product.status === "ACTIVE" ? "Nonaktifkan" : "Aktifkan"}
+          {product.status === "ACTIVE" ? m.common.deactivate : m.common.activate}
         </button>
       </div>
 
       {modal === "edit" && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Ubah Produk</h2>
+            <h2>{m.admin.productEditModalTitle}</h2>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
             <form onSubmit={onEdit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
               <div className={`field${errs.name ? " invalid" : ""}`}>
-                <label htmlFor={`ep_name_${product.id}`}>Nama produk *</label>
+                <label htmlFor={`ep_name_${product.id}`}>{m.admin.productNameFieldLabel}</label>
                 <input id={`ep_name_${product.id}`} name="name" type="text" defaultValue={product.name} />
                 {errs.name && <div className="err-text">{errs.name}</div>}
               </div>
               <div className="field">
-                <label htmlFor={`ep_code_${product.id}`}>Kode</label>
+                <label htmlFor={`ep_code_${product.id}`}>{m.admin.productCodeFieldLabel}</label>
                 <input id={`ep_code_${product.id}`} name="code" type="text" defaultValue={product.code || ""} />
               </div>
               <div className="field">
-                <label htmlFor={`ep_cat_${product.id}`}>Kategori</label>
+                <label htmlFor={`ep_cat_${product.id}`}>{m.admin.productCategoryFieldLabel}</label>
                 <input
                   id={`ep_cat_${product.id}`}
                   name="category"
@@ -160,27 +163,25 @@ export default function ProductActions({ product }: { product: SanciProductRow }
                 />
               </div>
               <div className="field">
-                <label htmlFor={`ep_desc_${product.id}`}>Deskripsi</label>
+                <label htmlFor={`ep_desc_${product.id}`}>{m.common.description}</label>
                 <textarea id={`ep_desc_${product.id}`} name="description" defaultValue={product.description || ""} />
               </div>
               <div className="field">
-                <label htmlFor={`ep_photo_${product.id}`}>Foto (opsional)</label>
+                <label htmlFor={`ep_photo_${product.id}`}>{m.admin.productPhotoFieldLabel}</label>
                 <input
                   id={`ep_photo_${product.id}`}
                   name="photo"
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
                 />
-                <div className="hint">
-                  PNG, JPG, atau WebP. Maksimal 5 MB. Biarkan kosong kalau tidak ingin mengubah foto.
-                </div>
+                <div className="hint">{m.admin.productPhotoHintKeep}</div>
               </div>
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
-                  Batal
+                  {m.common.cancel}
                 </button>
                 <button type="submit" className="btn primary" disabled={submitting}>
-                  {submitting ? "Menyimpan…" : "Simpan"}
+                  {submitting ? m.common.saving : m.common.save}
                 </button>
               </div>
             </form>

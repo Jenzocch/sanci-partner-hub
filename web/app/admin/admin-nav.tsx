@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useMessages } from "@/lib/i18n/provider";
+import LocaleSwitcher from "@/lib/i18n/locale-switcher";
 
 export default function AdminNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const m = useMessages();
 
   async function signOut() {
     await createClient().auth.signOut();
@@ -27,16 +30,17 @@ export default function AdminNav() {
       {/* Urutan mengikuti logika pemakaian harian: pemantauan pesanan dulu,
           katalog produk, pengaturan partner setelahnya. */}
       <Link href="/admin/orders" className={`navlink${isOrders ? " on" : ""}`}>
-        Pesanan Partner
+        {m.admin.navOrders}
       </Link>
       <Link href="/admin/produk" className={`navlink${isProducts ? " on" : ""}`}>
-        Produk
+        {m.admin.navProducts}
       </Link>
       <Link href="/admin" className={`navlink${isPartners ? " on" : ""}`}>
-        Partner
+        {m.admin.navPartners}
       </Link>
+      <LocaleSwitcher />
       <button className="navlink bottom" onClick={signOut}>
-        Keluar
+        {m.common.signOut}
       </button>
     </nav>
   );

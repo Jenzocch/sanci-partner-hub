@@ -6,11 +6,13 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
+import { useMessages } from "@/lib/i18n/provider";
 import { createBranch } from "../../actions-branches";
 import { lookupByRequestId } from "../../actions-lookup";
 
 export default function AddBranchButton({ partnerId }: { partnerId: string }) {
   const router = useRouter();
+  const m = useMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -47,6 +49,7 @@ export default function AddBranchButton({ partnerId }: { partnerId: string }) {
           clientRequestId: rid,
         }),
       lookup: () => lookupByRequestId("branch", rid),
+      messages: m,
     });
     if (out.status === "confirmed") {
       draft.clear();
@@ -78,7 +81,7 @@ export default function AddBranchButton({ partnerId }: { partnerId: string }) {
   if (!open) {
     return (
       <button className="btn primary" onClick={openModal}>
-        + Tambah Cabang
+        {m.admin.branchAddBtn}
       </button>
     );
   }
@@ -86,49 +89,49 @@ export default function AddBranchButton({ partnerId }: { partnerId: string }) {
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
       <div className="modal" role="dialog" aria-modal="true">
-        <h2>Tambah Cabang</h2>
+        <h2>{m.admin.branchAddModalTitle}</h2>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.name ? " invalid" : ""}`}>
-            <label htmlFor="ab_name">Nama cabang *</label>
+            <label htmlFor="ab_name">{m.admin.branchNameFieldLabel}</label>
             <input id="ab_name" name="name" type="text" />
             {errs.name && <div className="err-text">{errs.name}</div>}
           </div>
           <div className={`field${errs.code ? " invalid" : ""}`}>
-            <label htmlFor="ab_code">Kode cabang *</label>
+            <label htmlFor="ab_code">{m.admin.branchCodeFieldLabel}</label>
             <input id="ab_code" name="code" type="text" style={{ textTransform: "uppercase" }} />
-            <div className="hint">Unik di dalam partner ini. Partner lain boleh pakai kode yang sama.</div>
+            <div className="hint">{m.admin.branchCodeHint}</div>
             {errs.code && <div className="err-text">{errs.code}</div>}
           </div>
           <div className={`field${errs.address ? " invalid" : ""}`}>
-            <label htmlFor="ab_addr">Alamat lengkap *</label>
+            <label htmlFor="ab_addr">{m.admin.branchAddressFieldLabel}</label>
             <textarea id="ab_addr" name="address" />
             {errs.address && <div className="err-text">{errs.address}</div>}
           </div>
           <div className="field">
-            <label htmlFor="ab_city">Kota</label>
+            <label htmlFor="ab_city">{m.common.city}</label>
             <input id="ab_city" name="city" type="text" />
           </div>
           <div className="field">
-            <label htmlFor="ab_prov">Provinsi</label>
+            <label htmlFor="ab_prov">{m.common.province}</label>
             <input id="ab_prov" name="province" type="text" />
           </div>
           <div className="field">
-            <label htmlFor="ab_contact">Narahubung</label>
+            <label htmlFor="ab_contact">{m.common.contactName}</label>
             <input id="ab_contact" name="contact_name" type="text" />
           </div>
           <div className="field">
-            <label htmlFor="ab_phone">WhatsApp</label>
+            <label htmlFor="ab_phone">{m.common.whatsapp}</label>
             <input id="ab_phone" name="contact_phone" type="tel" inputMode="tel" />
           </div>
           <div className="btnrow">
             <button type="button" className="btn" onClick={() => setOpen(false)}>
-              Batal
+              {m.common.cancel}
             </button>
             <button type="submit" className="btn primary" disabled={submitting}>
-              {submitting ? "Menyimpan…" : "Buat Cabang"}
+              {submitting ? m.common.saving : m.admin.branchCreateBtn}
             </button>
           </div>
         </form>

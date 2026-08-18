@@ -6,6 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
+import { useMessages } from "@/lib/i18n/provider";
 import { updateBranch, setBranchStatus } from "../../../../actions-branches";
 
 type Branch = {
@@ -21,6 +22,7 @@ type Branch = {
 
 export default function BranchActions({ branch }: { branch: Branch }) {
   const router = useRouter();
+  const m = useMessages();
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -56,6 +58,7 @@ export default function BranchActions({ branch }: { branch: Branch }) {
           contactName: String(fd.get("contact_name") || ""),
           contactPhone: String(fd.get("contact_phone") || ""),
         }),
+      messages: m,
     });
     if (out.status !== "ok") {
       release();
@@ -86,16 +89,16 @@ export default function BranchActions({ branch }: { branch: Branch }) {
     <>
       <div className="btnrow-inline">
         <button className="btn sm" onClick={openEdit}>
-          Ubah
+          {m.common.edit}
         </button>
         {branch.status === "ACTIVE" && (
           <button className="btn sm danger" onClick={onToggleStatus} disabled={submitting}>
-            Tangguhkan
+            {m.admin.branchSuspendBtn}
           </button>
         )}
         {branch.status === "SUSPENDED" && (
           <button className="btn sm" onClick={onToggleStatus} disabled={submitting}>
-            Aktifkan lagi
+            {m.admin.branchReactivateBtn}
           </button>
         )}
       </div>
@@ -103,43 +106,43 @@ export default function BranchActions({ branch }: { branch: Branch }) {
       {modal === "edit" && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Ubah Cabang</h2>
+            <h2>{m.admin.branchEditModalTitle}</h2>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
             <form onSubmit={onEdit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
               <div className={`field${errs.name ? " invalid" : ""}`}>
-                <label htmlFor="eb_name">Nama cabang *</label>
+                <label htmlFor="eb_name">{m.admin.branchNameFieldLabel}</label>
                 <input id="eb_name" name="name" type="text" defaultValue={branch.name} />
                 {errs.name && <div className="err-text">{errs.name}</div>}
               </div>
               <div className={`field${errs.address ? " invalid" : ""}`}>
-                <label htmlFor="eb_addr">Alamat lengkap *</label>
+                <label htmlFor="eb_addr">{m.admin.branchAddressFieldLabel}</label>
                 <textarea id="eb_addr" name="address" defaultValue={branch.address} />
                 {errs.address && <div className="err-text">{errs.address}</div>}
               </div>
               <div className="field">
-                <label htmlFor="eb_city">Kota</label>
+                <label htmlFor="eb_city">{m.common.city}</label>
                 <input id="eb_city" name="city" type="text" defaultValue={branch.city || ""} />
               </div>
               <div className="field">
-                <label htmlFor="eb_prov">Provinsi</label>
+                <label htmlFor="eb_prov">{m.common.province}</label>
                 <input id="eb_prov" name="province" type="text" defaultValue={branch.province || ""} />
               </div>
               <div className="field">
-                <label htmlFor="eb_contact">Narahubung</label>
+                <label htmlFor="eb_contact">{m.common.contactName}</label>
                 <input id="eb_contact" name="contact_name" type="text" defaultValue={branch.contact_name || ""} />
               </div>
               <div className="field">
-                <label htmlFor="eb_phone">WhatsApp</label>
+                <label htmlFor="eb_phone">{m.common.whatsapp}</label>
                 <input id="eb_phone" name="contact_phone" type="tel" defaultValue={branch.contact_phone || ""} />
               </div>
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
-                  Batal
+                  {m.common.cancel}
                 </button>
                 <button type="submit" className="btn primary" disabled={submitting}>
-                  {submitting ? "Menyimpan…" : "Simpan"}
+                  {submitting ? m.common.saving : m.common.save}
                 </button>
               </div>
             </form>

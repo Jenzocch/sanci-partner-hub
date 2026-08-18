@@ -5,9 +5,10 @@ import {
   displayPhoneID,
   formatIDR,
   isMissingTableError,
-  FULFILLMENT_PATH_LABEL,
+  fulfillmentLabel,
   type FulfillmentPath,
 } from "@/lib/orders-shared";
+import { getMessages } from "@/lib/i18n";
 import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
 import InvoiceSection from "./invoice-section";
@@ -143,6 +144,7 @@ export default async function PesananDetailPage({
 }: {
   params: Promise<{ orderId: string }>;
 }) {
+  const m = await getMessages();
   const { orderId } = await params;
   const supabase = await createClient();
   const {
@@ -163,7 +165,7 @@ export default async function PesananDetailPage({
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -195,9 +197,7 @@ export default async function PesananDetailPage({
       return (
         <main className="pwrap">
           <div className="card">
-            <div className="banner bad">
-              Modul Pesanan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.
-            </div>
+            <div className="banner bad">{m.cabang.errOrderModuleInactive}</div>
           </div>
         </main>
       );
@@ -205,9 +205,9 @@ export default async function PesananDetailPage({
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">Gagal memuat detail pesanan.</div>
+          <div className="err">{m.cabang.errOrderDetailLoadFailed}</div>
           <Link href={`/cabang/pesanan/${orderId}`} className="btn sm">
-            Coba Lagi
+            {m.common.retry}
           </Link>
         </div>
       </main>
@@ -276,17 +276,17 @@ export default async function PesananDetailPage({
     <main className="pwrap">
       <div className="backrow">
         <Link href="/cabang/pesanan" className="linkbtn">
-          ← Daftar Pesanan
+          {m.cabang.navBackOrders}
         </Link>
       </div>
 
       <div className="idcard">
-        <div className="overline">Partner Order</div>
+        <div className="overline">{m.cabang.partnerOrderLabel}</div>
         <h2>{partner?.name ?? "—"}</h2>
-        <div className="br">Cabang {branch?.name ?? "—"}</div>
+        <div className="br">{m.cabang.homeBranchLabel.replace("{name}", branch?.name ?? "—")}</div>
         {isOtherBranch && (
           <div className="banner info" style={{ marginTop: 10 }}>
-            Cabang lain — hanya lihat.
+            {m.cabang.otherBranchViewOnlyBanner}
           </div>
         )}
       </div>
@@ -297,15 +297,15 @@ export default async function PesananDetailPage({
             <span className="code" style={{ fontSize: "var(--fs-sec)" }}>
               {order.order_number}
             </span>
-            <StatusBadge status={order.status} />
+            <StatusBadge status={order.status} messages={m} />
           </div>
 
           {extrasState === "error" && (
             <div className="banner bad">
-              Bagian ini gagal dimuat — muat ulang halaman.
+              {m.common.errorSection}
               <div className="btnrow-inline">
                 <Link href={`/cabang/pesanan/${orderId}`} className="btn sm">
-                  Muat Ulang
+                  {m.cabang.reloadCta}
                 </Link>
               </div>
             </div>
@@ -313,8 +313,8 @@ export default async function PesananDetailPage({
 
           {extrasAvailable && extras.customerArrivedAt && (
             <div className="banner ok">
-              Pelanggan sudah tiba di SANCI —{" "}
-              {new Date(extras.customerArrivedAt).toLocaleString("id-ID", {
+              {m.cabang.customerArrivedPrefix}{" "}
+              {new Date(extras.customerArrivedAt).toLocaleString(m.common.dateLocale, {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -325,41 +325,41 @@ export default async function PesananDetailPage({
           )}
 
           <dl className="kv">
-            <dt>Pelanggan</dt>
-            <dd>{customer?.full_name ?? "Pelanggan tidak diketahui"}</dd>
-            <dt>WhatsApp</dt>
+            <dt>{m.common.customer}</dt>
+            <dd>{customer?.full_name ?? m.cabang.orderUnknownCustomer}</dd>
+            <dt>{m.common.whatsapp}</dt>
             <dd>{customer?.phone_normalized ? displayPhoneID(customer.phone_normalized) : "—"}</dd>
-            <dt>Package</dt>
+            <dt>{m.common.package}</dt>
             <dd>{order.package_name}</dd>
             {extrasAvailable && (
               <>
-                <dt>Jalur Pesanan</dt>
+                <dt>{m.common.fulfillment}</dt>
                 <dd>
                   {extras.fulfillmentPath ? (
-                    <span className="chip accent">{FULFILLMENT_PATH_LABEL[extras.fulfillmentPath]}</span>
+                    <span className="chip accent">{fulfillmentLabel(m, extras.fulfillmentPath)}</span>
                   ) : (
-                    <span className="chip neutral">Belum ditentukan</span>
+                    <span className="chip neutral">{m.cabang.notSetChip}</span>
                   )}
                 </dd>
-                <dt>Total Belanja di Toko</dt>
+                <dt>{m.common.storePurchase}</dt>
                 <dd>{extras.purchaseAmount != null ? formatIDR(extras.purchaseAmount) : "—"}</dd>
               </>
             )}
-            <dt>Sales</dt>
+            <dt>{m.cabang.salesDt}</dt>
             <dd>
               {sales?.full_name ?? "—"}
-              {sales && sales.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
+              {sales && sales.status !== "ACTIVE" && <span className="small muted"> ({m.common.statusInactive})</span>}
             </dd>
-            <dt>PIC</dt>
+            <dt>{m.cabang.picLabel}</dt>
             <dd>
               {pic?.full_name ?? "—"}
-              {pic && pic.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
+              {pic && pic.status !== "ACTIVE" && <span className="small muted"> ({m.common.statusInactive})</span>}
             </dd>
-            <dt>Catatan</dt>
+            <dt>{m.common.notes}</dt>
             <dd>{order.notes || "—"}</dd>
-            <dt>Dibuat</dt>
+            <dt>{m.common.createdAt}</dt>
             <dd>
-              {new Date(order.created_at).toLocaleString("id-ID", {
+              {new Date(order.created_at).toLocaleString(m.common.dateLocale, {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -376,16 +376,16 @@ export default async function PesananDetailPage({
 
         {order.status === "CANCELLED" && (
           <div className="banner" style={{ marginTop: 14 }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>Pesanan dibatalkan</div>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>{m.cabang.orderCancelledHeading}</div>
             {cancelInfoUnavailable ? (
-              <div>Info pembatalan belum tersedia (migrasi database belum dijalankan).</div>
+              <div>{m.cabang.cancelInfoUnavailableMsg}</div>
             ) : (
               <>
-                <div>Alasan: {cancelInfo?.cancellation_reason || "—"}</div>
+                <div>{m.common.reason}: {cancelInfo?.cancellation_reason || "—"}</div>
                 <div>
-                  Waktu:{" "}
+                  {m.cabang.cancelTimeLabel}:{" "}
                   {cancelInfo?.cancelled_at
-                    ? new Date(cancelInfo.cancelled_at).toLocaleString("id-ID", {
+                    ? new Date(cancelInfo.cancelled_at).toLocaleString(m.common.dateLocale, {
                         day: "numeric",
                         month: "long",
                         year: "numeric",
@@ -403,7 +403,7 @@ export default async function PesananDetailPage({
           <OrderDetailActions
             orderId={order.id}
             orderNumber={order.order_number}
-            customerName={customer?.full_name ?? "Pelanggan tidak diketahui"}
+            customerName={customer?.full_name ?? m.cabang.orderUnknownCustomer}
             packageName={order.package_name}
             packageId={currentPackageId}
             packages={packages}
@@ -418,8 +418,8 @@ export default async function PesananDetailPage({
         ) : (
           <p className="footnote">
             {order.status === "CANCELLED"
-              ? "Pesanan yang sudah dibatalkan tidak bisa diubah lagi."
-              : "Pesanan ini hanya bisa dilihat dari sisi cabang ini. Perubahan atau pembatalan dilakukan oleh cabang pemilik pesanan."}
+              ? m.cabang.orderCancelledReadonlyNote
+              : m.cabang.orderOtherBranchReadonlyNote}
           </p>
         )}
       </div>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getMessages } from "@/lib/i18n";
 
 type ActionError = { message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -13,13 +14,14 @@ export async function updatePolicy(
   partnerId: string,
   input: { visibilityScope: string; editScope: string }
 ): Promise<ActionResult<true>> {
+  const m = await getMessages();
   const supabase = await createClient();
 
   if (!VIS.includes(input.visibilityScope as (typeof VIS)[number])) {
-    return { error: { message: "Visibilitas tidak valid." } };
+    return { error: { message: m.admin.visibilityScopeInvalid } };
   }
   if (!EDIT.includes(input.editScope as (typeof EDIT)[number])) {
-    return { error: { message: "Cakupan edit tidak valid." } };
+    return { error: { message: m.admin.editScopeInvalid } };
   }
 
   const { error } = await supabase.from("partner_access_policies").upsert(
@@ -31,7 +33,7 @@ export async function updatePolicy(
     },
     { onConflict: "partner_id" }
   );
-  if (error) return { error: { message: "Tidak bisa menyimpan hak akses sekarang." } };
+  if (error) return { error: { message: m.admin.permSaveFailed } };
 
   revalidatePath(`/admin/partners/${partnerId}`);
   return { data: true };

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import SwRegister from "./sw-register";
+import { getLocale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "SANCI Partner Hub",
@@ -29,11 +30,19 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+/**
+ * `lang` mengikuti bahasa yang dipilih pengguna, bukan dipaku "id": pembaca
+ * layar melafalkan halaman dengan bahasa ini, dan tawaran terjemahan otomatis
+ * browser juga berpegang padanya. Halaman offline dirender statis, jadi
+ * cookie-nya kosong dan nilainya jatuh ke bahasa bawaan (id) — itu benar:
+ * berkasnya memang satu untuk semua orang.
+ */
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getLocale();
   return (
-    <html lang="id">
+    <html lang={locale}>
       <body>
         {children}
         <SwRegister />

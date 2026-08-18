@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
-  FULFILLMENT_PATH_LABEL,
+  fulfillmentLabel,
+  orderStatusLabel,
   displayPhoneID,
   formatIDR,
   isMissingTableError,
@@ -13,10 +14,9 @@ import CorrectAttributionButton, { type BranchOption } from "./correct-attributi
 import MarkArrivedButton from "./mark-arrived-button";
 import InternalNoteForm from "./internal-note-form";
 import { getInvoiceSignedUrl } from "../../actions-orders";
+import { getMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
-
-const MISSING_TABLE_MSG = "Modul Pesanan belum aktif di database (migrasi belum dijalankan).";
 
 type One<T> = T | T[] | null;
 function one<T>(v: One<T>): T | null {
@@ -167,6 +167,7 @@ export default async function AdminOrderDetailPage({
   params: Promise<{ orderId: string }>;
 }) {
   const { orderId } = await params;
+  const m = await getMessages();
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -186,21 +187,21 @@ export default async function AdminOrderDetailPage({
       return (
         <div>
           <div className="pagehead">
-            <h1>Pesanan</h1>
+            <h1>{m.common.order}</h1>
           </div>
-          <div className="card emptybox">{MISSING_TABLE_MSG}</div>
+          <div className="card emptybox">{m.admin.orderFeatureOff}</div>
         </div>
       );
     }
     return (
       <div>
         <div className="pagehead">
-          <h1>Pesanan</h1>
+          <h1>{m.common.order}</h1>
         </div>
         <div className="card">
-          <div className="err">Gagal memuat detail pesanan.</div>
+          <div className="err">{m.admin.orderDetailLoadFailed}</div>
           <Link href={`/admin/orders/${orderId}`} className="btn sm">
-            Coba Lagi
+            {m.common.retry}
           </Link>
         </div>
       </div>
@@ -260,26 +261,26 @@ export default async function AdminOrderDetailPage({
   return (
     <div>
       <div className="crumb">
-        <Link href="/admin/orders">Pesanan Partner</Link> / {order.order_number}
+        <Link href="/admin/orders">{m.admin.navOrders}</Link> / {order.order_number}
       </div>
       <div className="pagehead">
         <h1>{order.order_number}</h1>
         <span className={`chip ${order.status === "REGISTERED" ? "ACTIVE" : "SUSPENDED"}`} style={{ fontSize: 14, padding: "5px 14px" }}>
-          {order.status === "REGISTERED" ? "TERDAFTAR" : "DIBATALKAN"}
+          {orderStatusLabel(m, order.status)}
         </span>
       </div>
 
       {/* Attribution — harus sangat menonjol, bukan tersembunyi di bawah (SPEC §50). */}
       <div className="card accent">
-        <div className="overline">PARTNER ORDER</div>
-        <h2 style={{ fontSize: 21 }}>{partner?.name ?? "Partner tidak ditemukan"}</h2>
+        <div className="overline">{m.admin.orderOverline}</div>
+        <h2 style={{ fontSize: 21 }}>{partner?.name ?? m.admin.partnerUnknown}</h2>
         <div style={{ fontSize: 16, fontWeight: 650, color: "var(--accent-2)", marginTop: 2 }}>
-          Cabang {branch?.name ?? "tidak ditemukan"}
+          {m.admin.orderBranchPrefix.replace("{branch}", branch?.name ?? m.admin.branchUnknown)}
         </div>
         <div className="btnrow-inline">
           <CorrectAttributionButton
             orderId={order.id}
-            currentBranchName={branch?.name ?? "tidak ditemukan"}
+            currentBranchName={branch?.name ?? m.admin.branchUnknown}
             otherBranches={otherBranches}
           />
         </div>
@@ -287,90 +288,94 @@ export default async function AdminOrderDetailPage({
 
       <div className="cardgrid-two">
         <div className="card">
-          <h3 style={{ fontSize: 17, marginBottom: 12 }}>Customer</h3>
+          <h3 style={{ fontSize: 17, marginBottom: 12 }}>{m.admin.customerCardTitle}</h3>
           <dl className="kv">
-            <dt>Nama</dt>
-            <dd>{customer?.full_name ?? "Pelanggan tidak diketahui"}</dd>
-            <dt>Telepon</dt>
+            <dt>{m.common.name}</dt>
+            <dd>{customer?.full_name ?? m.admin.customerUnknown}</dd>
+            <dt>{m.common.phone}</dt>
             <dd>{customer?.phone_normalized ? displayPhoneID(customer.phone_normalized) : "—"}</dd>
-            <dt>WhatsApp</dt>
+            <dt>{m.common.whatsapp}</dt>
             <dd>{customer?.whatsapp || "—"}</dd>
           </dl>
         </div>
 
         <div className="card">
-          <h3 style={{ fontSize: 17, marginBottom: 12 }}>Pesanan</h3>
+          <h3 style={{ fontSize: 17, marginBottom: 12 }}>{m.admin.orderCardTitle}</h3>
           <dl className="kv">
-            <dt>Package</dt>
+            <dt>{m.common.package}</dt>
             <dd>
               {order.package_name}
               {packageDetail && packageDetail.status === "INACTIVE" && (
-                <span className="small muted"> (kode {packageDetail.code}, nonaktif)</span>
+                <span className="small muted">
+                  {m.admin.packageCodeInactive.replace("{code}", packageDetail.code)}
+                </span>
               )}
               {packageDetail && packageDetail.status === "ACTIVE" && (
-                <span className="small muted"> (kode {packageDetail.code})</span>
+                <span className="small muted">
+                  {m.admin.packageCodeActive.replace("{code}", packageDetail.code)}
+                </span>
               )}
             </dd>
-            <dt>Sales</dt>
+            <dt>{m.admin.colSales}</dt>
             <dd>
               {sales?.full_name ?? "—"}
-              {sales && sales.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
+              {sales && sales.status !== "ACTIVE" && <span className="small muted">{m.admin.personInactiveSuffix}</span>}
             </dd>
-            <dt>PIC</dt>
+            <dt>{m.admin.picLabel}</dt>
             <dd>
               {pic?.full_name ?? "—"}
-              {pic && pic.status !== "ACTIVE" && <span className="small muted"> (nonaktif)</span>}
+              {pic && pic.status !== "ACTIVE" && <span className="small muted">{m.admin.personInactiveSuffix}</span>}
             </dd>
             {fulfillmentResult.status === "missing-column" ? (
               <>
-                <dt>Jalur</dt>
-                <dd className="small muted">Migrasi belum dijalankan</dd>
+                <dt>{m.common.fulfillment}</dt>
+                <dd className="small muted">{m.admin.fulfillmentMigrationOff}</dd>
               </>
             ) : fulfillmentResult.status === "error" ? (
               <>
-                <dt>Jalur</dt>
+                <dt>{m.common.fulfillment}</dt>
                 <dd>
-                  <span className="err">Bagian ini gagal dimuat — muat ulang halaman.</span>{" "}
+                  <span className="err">{m.common.errorSection}</span>{" "}
                   <Link href={`/admin/orders/${order.id}`} className="btn sm">
-                    Coba Lagi
+                    {m.common.retry}
                   </Link>
                 </dd>
               </>
             ) : (
               <>
-                <dt>Jalur</dt>
+                <dt>{m.common.fulfillment}</dt>
                 <dd>
                   {fulfillment?.fulfillment_path ? (
-                    <span className="chip accent">{FULFILLMENT_PATH_LABEL[fulfillment.fulfillment_path]}</span>
+                    <span className="chip accent">{fulfillmentLabel(m, fulfillment.fulfillment_path)}</span>
                   ) : (
                     "—"
                   )}
                 </dd>
-                <dt>Total Belanja di Toko</dt>
+                <dt>{m.common.storePurchase}</dt>
                 <dd>
                   {fulfillment?.partner_purchase_amount != null
                     ? formatIDR(fulfillment.partner_purchase_amount)
-                    : "Belum dilaporkan"}
+                    : m.admin.fulfillmentReported}
                 </dd>
-                <dt>Invoice</dt>
+                <dt>{m.common.invoice}</dt>
                 <dd>
                   {fulfillment?.invoice_url ? (
                     invoiceUrl ? (
                       <a href={invoiceUrl} target="_blank" rel="noopener noreferrer" className="linkbtn">
-                        Lihat Invoice
+                        {m.admin.viewInvoiceBtn}
                       </a>
                     ) : (
-                      <span className="small muted">Invoice belum bisa dimuat.</span>
+                      <span className="small muted">{m.admin.invoiceNotLoadable}</span>
                     )
                   ) : (
-                    "Belum diunggah"
+                    m.admin.invoiceNotUploaded
                   )}
                 </dd>
               </>
             )}
-            <dt>Catatan</dt>
+            <dt>{m.common.notes}</dt>
             <dd>{order.notes || "—"}</dd>
-            <dt>Dibuat</dt>
+            <dt>{m.common.createdAt}</dt>
             <dd>
               {new Date(order.created_at).toLocaleString("id-ID", {
                 day: "numeric",
@@ -378,8 +383,8 @@ export default async function AdminOrderDetailPage({
                 year: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-              })}{" "}
-              · waktu server
+              })}
+              {m.admin.createdAtServerTimeSuffix}
             </dd>
           </dl>
 
@@ -388,21 +393,21 @@ export default async function AdminOrderDetailPage({
           {fulfillmentResult.status === "ok" && fulfillment?.fulfillment_path === "SHOWROOM_VISIT" && (
             fulfillment.customer_arrived_at ? (
               <div className="banner ok" style={{ marginTop: 14 }}>
-                <strong>Pelanggan tiba</strong>{" "}
+                <strong>{m.admin.customerArrivedLabel}</strong>{" "}
                 {new Date(fulfillment.customer_arrived_at).toLocaleString("id-ID", {
                   day: "numeric",
                   month: "long",
                   year: "numeric",
                   hour: "2-digit",
                   minute: "2-digit",
-                })}{" "}
-                · waktu server
+                })}
+                {m.admin.createdAtServerTimeSuffix}
               </div>
             ) : (
               <div className="btnrow-inline">
                 <MarkArrivedButton
                   orderId={order.id}
-                  customerName={customer?.full_name ?? "Pelanggan"}
+                  customerName={customer?.full_name ?? m.common.customer}
                   orderNumber={order.order_number}
                 />
               </div>
@@ -411,21 +416,21 @@ export default async function AdminOrderDetailPage({
 
           {order.status === "CANCELLED" && (
             <div className="banner" style={{ marginTop: 14 }}>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>Pesanan dibatalkan</div>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>{m.admin.orderCancelledTitle}</div>
               {cancelResult.status === "missing-column" ? (
-                <div>Info pembatalan belum tersedia (migrasi database belum dijalankan).</div>
+                <div>{m.admin.cancelInfoMigrationOff}</div>
               ) : cancelResult.status === "error" ? (
                 <div>
-                  <span className="err">Bagian ini gagal dimuat — muat ulang halaman.</span>{" "}
+                  <span className="err">{m.common.errorSection}</span>{" "}
                   <Link href={`/admin/orders/${order.id}`} className="btn sm">
-                    Coba Lagi
+                    {m.common.retry}
                   </Link>
                 </div>
               ) : (
                 <>
-                  <div>Alasan: {cancelResult.data?.cancellation_reason || "—"}</div>
+                  <div>{m.admin.cancelReasonPrefix}{cancelResult.data?.cancellation_reason || "—"}</div>
                   <div>
-                    Waktu:{" "}
+                    {m.admin.cancelTimePrefix}
                     {cancelResult.data?.cancelled_at
                       ? new Date(cancelResult.data.cancelled_at).toLocaleString("id-ID", {
                           day: "numeric",
@@ -448,16 +453,16 @@ export default async function AdminOrderDetailPage({
           layar admin (LESSONS #5/#6). Append-only: tidak ada tombol
           edit/hapus di mana pun pada kartu ini. */}
       <div className="card">
-        <h3 style={{ fontSize: 17, marginBottom: 4 }}>Catatan Internal SANCI</h3>
+        <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.admin.internalNoteCardTitle}</h3>
         <div className="banner warn" style={{ marginTop: 8 }}>
-          Hanya terlihat oleh SANCI — partner tidak bisa melihat bagian ini.
+          {m.admin.internalNoteVisibilityWarning}
         </div>
         {notesResult.unavailable ? (
-          <div className="emptybox">Fitur catatan internal belum aktif — migrasi database belum dijalankan.</div>
+          <div className="emptybox">{m.admin.internalNoteFeatureOff}</div>
         ) : (
           <>
             {notesResult.notes.length === 0 ? (
-              <div className="emptybox">Belum ada catatan internal untuk pesanan ini.</div>
+              <div className="emptybox">{m.admin.internalNoteEmpty}</div>
             ) : (
               <ul className="audit-list">
                 {notesResult.notes.map((n) => (
@@ -469,8 +474,8 @@ export default async function AdminOrderDetailPage({
                         year: "numeric",
                         hour: "2-digit",
                         minute: "2-digit",
-                      })}{" "}
-                      · waktu server
+                      })}
+                      {m.admin.createdAtServerTimeSuffix}
                     </span>
                     <div>{n.note}</div>
                   </li>
@@ -478,22 +483,19 @@ export default async function AdminOrderDetailPage({
               </ul>
             )}
             <InternalNoteForm orderId={order.id} />
-            <p className="footnote">
-              Catatan internal hanya bertambah. Salah tulis dikoreksi dengan menambah catatan baru, bukan
-              mengubah yang lama.
-            </p>
+            <p className="footnote">{m.admin.internalNoteFootnote}</p>
           </>
         )}
       </div>
 
       <div className="card">
-        <h3 style={{ fontSize: 17, marginBottom: 12 }}>Activity</h3>
+        <h3 style={{ fontSize: 17, marginBottom: 12 }}>{m.common.activity}</h3>
         {audit.length === 0 ? (
-          <div className="emptybox">Belum ada aktivitas tercatat untuk pesanan ini.</div>
+          <div className="emptybox">{m.admin.orderActivityEmpty}</div>
         ) : (
           <ul className="audit-list">
             {audit.map((a) => {
-              const diffLines = formatAuditDiff(a.before, a.after);
+              const diffLines = formatAuditDiff(m, a.before, a.after);
               // ORDER_ATTRIBUTION_CORRECTED: branch_id ada di daftar SKIP milik
               // formatAuditDiff (dianggap konteks, bukan nilai yang berubah) —
               // tapi untuk aksi ini justru itulah intinya (SPEC §64), jadi
@@ -502,16 +504,19 @@ export default async function AdminOrderDetailPage({
               const afterBranch = a.after?.branch_id ? String(a.after.branch_id) : null;
               const attributionLine =
                 a.action === "ORDER_ATTRIBUTION_CORRECTED" && (beforeBranch || afterBranch)
-                  ? `Cabang: ${beforeBranch ? branchNameById.get(beforeBranch) ?? beforeBranch : "—"} → ${
-                      afterBranch ? branchNameById.get(afterBranch) ?? afterBranch : "—"
-                    }`
+                  ? m.admin.attributionDiffLabel
+                      .replace("{before}", beforeBranch ? branchNameById.get(beforeBranch) ?? beforeBranch : "—")
+                      .replace("{after}", afterBranch ? branchNameById.get(afterBranch) ?? afterBranch : "—")
                   : null;
               return (
                 <li key={a.id}>
-                  <span className="act">{formatAuditAction(a.action)}</span>{" "}
-                  <span className="muted">· {formatActorRole(a.actor_role)}</span>
-                  <span className="ts">{new Date(a.created_at).toLocaleString("id-ID")} · waktu server</span>
-                  {a.reason && <div className="diff">Alasan: {a.reason}</div>}
+                  <span className="act">{formatAuditAction(m, a.action)}</span>{" "}
+                  <span className="muted">· {formatActorRole(m, a.actor_role)}</span>
+                  <span className="ts">
+                    {new Date(a.created_at).toLocaleString("id-ID")}
+                    {m.admin.createdAtServerTimeSuffix}
+                  </span>
+                  {a.reason && <div className="diff">{m.admin.reasonDiffPrefix}{a.reason}</div>}
                   {attributionLine && <div className="diff">{attributionLine}</div>}
                   {diffLines.length > 0 && (
                     <div className="diff">
@@ -525,9 +530,7 @@ export default async function AdminOrderDetailPage({
             })}
           </ul>
         )}
-        <p className="footnote">
-          Catatan audit hanya bertambah. Tidak ada yang bisa mengubah atau menghapusnya dari aplikasi.
-        </p>
+        <p className="footnote">{m.admin.auditFootnote}</p>
       </div>
     </div>
   );

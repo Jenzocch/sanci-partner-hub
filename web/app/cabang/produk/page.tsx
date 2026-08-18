@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
 import type { StockStatus } from "@/lib/catalog-shared";
+import { getMessages, type Messages } from "@/lib/i18n";
 import ProdukListClient, { type ProdukItem } from "./produk-list-client";
 
 export const dynamic = "force-dynamic";
@@ -18,17 +19,18 @@ type ProductQueryRow = {
   stock_status: StockStatus;
 };
 
-function BackRow() {
+function BackRow({ m }: { m: Messages }) {
   return (
     <div className="backrow">
       <Link href="/cabang" className="linkbtn">
-        ← Beranda
+        {m.cabang.navBackHome}
       </Link>
     </div>
   );
 }
 
 export default async function ProdukPage() {
+  const m = await getMessages();
   const supabase = await createClient();
   const {
     data: { user },
@@ -42,9 +44,9 @@ export default async function ProdukPage() {
   if (puError) {
     return (
       <main className="pwrap">
-        <BackRow />
+        <BackRow m={m} />
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -65,22 +67,20 @@ export default async function ProdukPage() {
     if (isMissingTableError(accessError)) {
       return (
         <main className="pwrap">
-          <BackRow />
+          <BackRow m={m} />
           <div className="card">
-            <div className="banner bad">
-              Modul Katalog Produk belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.
-            </div>
+            <div className="banner bad">{m.cabang.errCatalogModuleInactive}</div>
           </div>
         </main>
       );
     }
     return (
       <main className="pwrap">
-        <BackRow />
+        <BackRow m={m} />
         <div className="card">
-          <div className="err">Gagal memuat status katalog.</div>
+          <div className="err">{m.cabang.errCatalogStatusLoadFailed}</div>
           <Link href="/cabang/produk" className="btn sm">
-            Coba Lagi
+            {m.common.retry}
           </Link>
         </div>
       </main>
@@ -94,10 +94,10 @@ export default async function ProdukPage() {
   if (!catalogAccess?.enabled) {
     return (
       <main className="pwrap">
-        <BackRow />
-        <h2 className="mtitle">Produk SANCI</h2>
+        <BackRow m={m} />
+        <h2 className="mtitle">{m.cabang.homeProducts}</h2>
         <div className="card">
-          <div className="banner info">Katalog belum dibuka untuk toko Anda — hubungi SANCI.</div>
+          <div className="banner info">{m.cabang.catalogNotOpenedMsg}</div>
         </div>
       </main>
     );
@@ -116,22 +116,20 @@ export default async function ProdukPage() {
     if (isMissingTableError(productsError)) {
       return (
         <main className="pwrap">
-          <BackRow />
+          <BackRow m={m} />
           <div className="card">
-            <div className="banner bad">
-              Modul Katalog Produk belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.
-            </div>
+            <div className="banner bad">{m.cabang.errCatalogModuleInactive}</div>
           </div>
         </main>
       );
     }
     return (
       <main className="pwrap">
-        <BackRow />
+        <BackRow m={m} />
         <div className="card">
-          <div className="err">Gagal memuat daftar produk.</div>
+          <div className="err">{m.cabang.errProductListLoadFailed}</div>
           <Link href="/cabang/produk" className="btn sm">
-            Coba Lagi
+            {m.common.retry}
           </Link>
         </div>
       </main>
@@ -150,8 +148,8 @@ export default async function ProdukPage() {
 
   return (
     <main className="pwrap">
-      <BackRow />
-      <h2 className="mtitle">Produk SANCI</h2>
+      <BackRow m={m} />
+      <h2 className="mtitle">{m.cabang.homeProducts}</h2>
       <ProdukListClient items={items} />
     </main>
   );

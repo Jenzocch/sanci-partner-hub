@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { STOCK_STATUS_CHIP, STOCK_STATUS_LABEL, type StockStatus } from "@/lib/catalog-shared";
+import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
+import { useMessages } from "@/lib/i18n/provider";
 import styles from "./produk.module.css";
 
 export type ProdukItem = {
@@ -15,6 +16,7 @@ export type ProdukItem = {
 };
 
 export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
+  const m = useMessages();
   const [q, setQ] = useState("");
   const [kategori, setKategori] = useState<string | null>(null);
   const [selected, setSelected] = useState<ProdukItem | null>(null);
@@ -26,8 +28,8 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
     items.forEach((it) => {
       if (it.category) set.add(it.category);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "id"));
-  }, [items]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, m.common.dateLocale));
+  }, [items, m.common.dateLocale]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -46,7 +48,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
         <input
           className="search-input"
           type="search"
-          placeholder="Cari nama atau kategori produk..."
+          placeholder={m.cabang.produkSearchPlaceholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -59,7 +61,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
             className={`${styles.filterchip}${kategori === null ? ` ${styles.filterOn}` : ""}`}
             onClick={() => setKategori(null)}
           >
-            Semua
+            {m.cabang.filterAll}
           </button>
           {categories.map((c) => (
             <button
@@ -75,9 +77,9 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
       )}
 
       {items.length === 0 ? (
-        <div className="card emptybox">Belum ada produk di katalog.</div>
+        <div className="card emptybox">{m.cabang.noProductsYet}</div>
       ) : filtered.length === 0 ? (
-        <div className="card emptybox">Tidak ada produk yang cocok dengan pencarian.</div>
+        <div className="card emptybox">{m.cabang.noProductsMatchSearch}</div>
       ) : (
         <div className={styles.grid}>
           {filtered.map((it) => {
@@ -88,20 +90,20 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
                 type="button"
                 className={`${styles.card}${isOut ? ` ${styles.outofstock}` : ""}`}
                 onClick={() => setSelected(it)}
-                aria-label={`Lihat detail ${it.name}`}
+                aria-label={m.cabang.produkViewDetailAria.replace("{name}", it.name)}
               >
                 <div className={styles.photo}>
                   {it.photoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal), lihat catatan di lib/catalog-shared.ts
                     <img src={it.photoUrl} alt={it.name} loading="lazy" />
                   ) : (
-                    <div className={styles.placeholder}>Tidak ada foto</div>
+                    <div className={styles.placeholder}>{m.cabang.noPhotoPlaceholder}</div>
                   )}
                 </div>
                 <div className={styles.body}>
                   <div className={styles.name}>{it.name}</div>
                   {it.category && <div className={styles.cat}>{it.category}</div>}
-                  <span className={STOCK_STATUS_CHIP[it.stockStatus]}>{STOCK_STATUS_LABEL[it.stockStatus]}</span>
+                  <span className={STOCK_STATUS_CHIP[it.stockStatus]}>{stockStatusLabel(m, it.stockStatus)}</span>
                 </div>
               </button>
             );
@@ -111,13 +113,13 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
 
       {selected && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSelected(null)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label={`Detail ${selected.name}`}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label={m.cabang.produkDetailAria.replace("{name}", selected.name)}>
             <div className={styles.detailphoto}>
               {selected.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal), lihat catatan di lib/catalog-shared.ts
                 <img src={selected.photoUrl} alt={selected.name} />
               ) : (
-                <div className={styles.placeholder}>Tidak ada foto</div>
+                <div className={styles.placeholder}>{m.cabang.noPhotoPlaceholder}</div>
               )}
             </div>
             <h2>{selected.name}</h2>
@@ -125,7 +127,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
               <div className="row">
                 {selected.code && <span className="code">{selected.code}</span>}
                 <span className={STOCK_STATUS_CHIP[selected.stockStatus]}>
-                  {STOCK_STATUS_LABEL[selected.stockStatus]}
+                  {stockStatusLabel(m, selected.stockStatus)}
                 </span>
               </div>
               {selected.category && <div className="muted small">{selected.category}</div>}
@@ -134,7 +136,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
             </div>
             <div className="btnrow">
               <button type="button" className="btn" onClick={() => setSelected(null)}>
-                Tutup
+                {m.common.close}
               </button>
             </div>
           </div>

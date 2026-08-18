@@ -8,14 +8,19 @@ import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { compressImage, PRESET_LOGO } from "@/lib/compress-image";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+import { useMessages } from "@/lib/i18n/provider";
+import type { Messages } from "@/lib/i18n";
 import { updatePartner, setPartnerStatus, deleteDraftPartner, setPartnerLogo } from "../../actions";
 
-/**
- * Aturan logo (SPEC §41): kegagalan logo TIDAK PERNAH menggagalkan penyimpanan
- * data partner. Urutannya selalu: simpan data partner dulu → baru unggah logo.
- * Kalau logo gagal, pengguna diberi peringatan, bukan pesan gagal simpan.
- */
-const LOGO_GAGAL = "Logo gagal diunggah — data partner tetap tersimpan.";
+function statusLabel(m: Messages, s: string): string {
+  const map: Record<string, string> = {
+    ACTIVE: m.common.statusActive,
+    DRAFT: m.common.statusDraft,
+    SUSPENDED: m.common.statusSuspended,
+    INACTIVE: m.common.statusInactive,
+  };
+  return map[s] ?? s;
+}
 
 type Partner = {
   id: string;
@@ -34,6 +39,7 @@ export default function PartnerActions({
   canActivate: boolean;
 }) {
   const router = useRouter();
+  const m = useMessages();
   const [modal, setModal] = useState<null | "edit" | "deactivate" | "delete">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -62,15 +68,14 @@ export default function PartnerActions({
    * Tidak pernah melempar error — pemanggil tidak boleh ikut gagal karenanya.
    */
   async function unggahLogo(file: File): Promise<string | null> {
-    // Preset logo dipilih eksplisit (walau ini default compressImage) supaya
-    // niatnya jelas dibaca di lokasi pemanggilan — perilakunya tidak berubah.
-    const kecil = await compressImage(file, PRESET_LOGO);
-    if (!kecil.ok) return `${LOGO_GAGAL} ${kecil.message}`;
+    const kecil = await compressImage(file, PRESET_LOGO, m);
+    if (!kecil.ok) return `${m.admin.logoUploadFailed} ${kecil.message}`;
 
     const path = `${partner.id}/logo.webp`;
     const out = await submitSafely({
       kind: "update",
       timeoutMs: 30_000,
+      messages: m,
       run: async () => {
         const supabase = createBrowserSupabase();
         // upsert: satu partner satu logo. Mengulang unggahan yang sama aman.
@@ -92,7 +97,7 @@ export default function PartnerActions({
       },
     });
 
-    if (out.status !== "ok" || out.result === false) return LOGO_GAGAL;
+    if (out.status !== "ok" || out.result === false) return m.admin.logoUploadFailed;
     return null;
   }
 
@@ -112,6 +117,7 @@ export default function PartnerActions({
           contactName: String(fd.get("contact_name") || ""),
           contactPhone: String(fd.get("contact_phone") || ""),
         }),
+      messages: m,
     });
     if (out.status !== "ok") {
       // Jawaban server tidak sampai — perubahan TIDAK boleh disebut tersimpan.
@@ -133,7 +139,7 @@ export default function PartnerActions({
     // Apa pun hasilnya, penyimpanan tetap dihitung berhasil (SPEC §41).
     const berkas = fd.get("logo");
     if (berkas instanceof File && berkas.size > 0) {
-      let peringatan: string | null = LOGO_GAGAL;
+      let peringatan: string | null = m.admin.logoUploadFailed;
       try {
         peringatan = await unggahLogo(berkas);
       } catch {
@@ -200,28 +206,28 @@ export default function PartnerActions({
         <div className="banner warn">
           {logoMsg}{" "}
           <button type="button" className="linkbtn" onClick={() => setLogoMsg(null)}>
-            Tutup
+            {m.admin.closeBtn}
           </button>
         </div>
       )}
 
       <div className="btnrow-inline">
         <button className="btn sm" onClick={() => openModal("edit")}>
-          Ubah
+          {m.common.edit}
         </button>
         {partner.status === "ACTIVE" && (
           <button className="btn sm" onClick={onSuspend} disabled={submitting}>
-            Tangguhkan
+            {m.admin.partnerSuspendBtn}
           </button>
         )}
         {partner.status === "SUSPENDED" && (
           <button className="btn sm" onClick={onReactivate} disabled={submitting}>
-            Aktifkan lagi
+            {m.admin.partnerReactivateBtn}
           </button>
         )}
         {(partner.status === "ACTIVE" || partner.status === "SUSPENDED") && (
           <button className="btn sm danger" onClick={() => openModal("deactivate")}>
-            Akhiri kerja sama
+            {m.admin.partnerEndPartnershipBtn}
           </button>
         )}
         {partner.status === "DRAFT" && (
@@ -232,7 +238,7 @@ export default function PartnerActions({
               openModal("delete");
             }}
           >
-            Hapus draf
+            {m.admin.partnerDeleteDraftBtn}
           </button>
         )}
       </div>
@@ -240,11 +246,11 @@ export default function PartnerActions({
       {partner.status === "DRAFT" && (
         <div className="stack" style={{ marginTop: 16 }}>
           <button className="btn primary" onClick={onActivate} disabled={!canActivate || submitting}>
-            Aktifkan partner
+            {m.admin.partnerActivateBtn}
           </button>
           {!canActivate && (
             <div className="hint small muted">
-              Lengkapi semua syarat aktivasi untuk mengaktifkan.
+              {m.admin.partnerActivateHint}
             </div>
           )}
         </div>
@@ -253,18 +259,18 @@ export default function PartnerActions({
       {modal === "edit" && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Ubah Partner</h2>
+            <h2>{m.admin.partnerEditModalTitle}</h2>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
             <form onSubmit={onEdit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
               <div className={`field${errs.name ? " invalid" : ""}`}>
-                <label htmlFor="ep_name">Nama partner *</label>
+                <label htmlFor="ep_name">{m.admin.partnerNameFieldLabel}</label>
                 <input id="ep_name" name="name" type="text" defaultValue={partner.name} />
                 {errs.name && <div className="err-text">{errs.name}</div>}
               </div>
               <div className={`field${errs.code ? " invalid" : ""}`}>
-                <label htmlFor="ep_code">Kode partner *</label>
+                <label htmlFor="ep_code">{m.admin.partnerCodeFieldLabel}</label>
                 <input
                   id="ep_code"
                   name="code"
@@ -275,13 +281,13 @@ export default function PartnerActions({
                 />
                 <div className="hint">
                   {locked
-                    ? `Kode terkunci selama partner ${partner.status}.`
-                    : "2–8 karakter, A–Z 0–9 dan tanda hubung."}
+                    ? m.admin.partnerCodeLockedHint.replace("{status}", statusLabel(m, partner.status))
+                    : m.admin.partnerCodeHint}
                 </div>
                 {errs.code && <div className="err-text">{errs.code}</div>}
               </div>
               <div className="field">
-                <label htmlFor="ep_contact">Narahubung</label>
+                <label htmlFor="ep_contact">{m.common.contactName}</label>
                 <input
                   id="ep_contact"
                   name="contact_name"
@@ -290,7 +296,7 @@ export default function PartnerActions({
                 />
               </div>
               <div className="field">
-                <label htmlFor="ep_phone">WhatsApp</label>
+                <label htmlFor="ep_phone">{m.common.whatsapp}</label>
                 <input
                   id="ep_phone"
                   name="contact_phone"
@@ -299,24 +305,21 @@ export default function PartnerActions({
                 />
               </div>
               <div className="field">
-                <label htmlFor="ep_logo">Logo (opsional)</label>
+                <label htmlFor="ep_logo">{m.admin.partnerLogoFieldLabel}</label>
                 <input
                   id="ep_logo"
                   name="logo"
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
                 />
-                <div className="hint">
-                  PNG, JPG, atau WebP. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim.
-                  Biarkan kosong kalau tidak ingin mengubah logo.
-                </div>
+                <div className="hint">{m.admin.partnerLogoHint}</div>
               </div>
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
-                  Batal
+                  {m.common.cancel}
                 </button>
                 <button type="submit" className="btn primary" disabled={submitting}>
-                  {submitting ? "Menyimpan…" : "Simpan"}
+                  {submitting ? m.common.saving : m.common.save}
                 </button>
               </div>
             </form>
@@ -327,16 +330,14 @@ export default function PartnerActions({
       {modal === "deactivate" && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Akhiri kerja sama dengan {partner.name}?</h2>
-            <p style={{ marginBottom: 6 }}>
-              Status menjadi <b>NONAKTIF</b>. Semua cabang, staf, dan riwayat tetap tersimpan.
-            </p>
+            <h2>{m.admin.partnerDeactivateModalTitle.replace("{name}", partner.name)}</h2>
+            <p style={{ marginBottom: 6 }}>{m.admin.partnerDeactivateBody}</p>
             <div className="btnrow">
               <button type="button" className="btn" onClick={closeModal}>
-                Batal
+                {m.common.cancel}
               </button>
               <button type="button" className="btn danger" onClick={onDeactivateConfirm} disabled={submitting}>
-                {submitting ? "Menyimpan…" : "Akhiri kerja sama"}
+                {submitting ? m.common.saving : m.admin.partnerDeactivateConfirmBtn}
               </button>
             </div>
           </div>
@@ -346,11 +347,11 @@ export default function PartnerActions({
       {modal === "delete" && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>Hapus {partner.name}?</h2>
+            <h2>{m.admin.partnerDeleteModalTitle.replace("{name}", partner.name)}</h2>
             {errs._form && <div className="banner bad">{errs._form}</div>}
             <div className="field">
               <label htmlFor="del_code">
-                Ketik <span className="code">{partner.code}</span> untuk menghapus permanen
+                {m.admin.partnerDeleteFieldLabel.replace("{code}", partner.code)}
               </label>
               <input
                 id="del_code"
@@ -362,10 +363,10 @@ export default function PartnerActions({
             </div>
             <div className="btnrow">
               <button type="button" className="btn" onClick={closeModal}>
-                Batal
+                {m.common.cancel}
               </button>
               <button type="button" className="btn danger" onClick={onDeleteConfirm} disabled={submitting}>
-                {submitting ? "Menghapus…" : "Hapus permanen"}
+                {submitting ? m.admin.partnerDeletingBtn : m.admin.partnerDeletePermanentBtn}
               </button>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
+import { useMessages } from "@/lib/i18n/provider";
 import { createStaff } from "../../../admin/actions-staff";
 import { lookupByRequestId } from "../../../admin/actions-lookup";
 
@@ -19,6 +20,7 @@ export default function AddStaffButton({
   branchName: string;
 }) {
   const router = useRouter();
+  const m = useMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -43,6 +45,7 @@ export default function AddStaffButton({
     const fd = new FormData(e.currentTarget);
     const rid = requestId.current!;
     const out = await submitSafely({
+      messages: m,
       run: () =>
         createStaff(branchId, {
           fullName: String(fd.get("full_name") || ""),
@@ -81,33 +84,37 @@ export default function AddStaffButton({
   if (!open) {
     return (
       <button className="btn primary" onClick={openModal}>
-        + Tambah Staf
+        {m.cabang.addStaffCta}
       </button>
     );
   }
 
+  const [branchNotePre, branchNotePost] = m.cabang.staffBranchAutoNote.split("{branch}");
+
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
       <div className="modal" role="dialog" aria-modal="true">
-        <h2>Tambah Staf</h2>
+        <h2>{m.cabang.addStaffModalTitle}</h2>
         <div className="banner info">
-          Cabang: <b>{branchName}</b> — otomatis dari halaman ini, tidak bisa dipilih.
+          {branchNotePre}
+          <b>{branchName}</b>
+          {branchNotePost}
         </div>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.full_name ? " invalid" : ""}`}>
-            <label htmlFor="cas_name">Nama lengkap *</label>
+            <label htmlFor="cas_name">{m.common.fullName} *</label>
             <input id="cas_name" name="full_name" type="text" />
             {errs.full_name && <div className="err-text">{errs.full_name}</div>}
           </div>
           <div className="field">
-            <label htmlFor="cas_phone">Telepon</label>
+            <label htmlFor="cas_phone">{m.common.phone}</label>
             <input id="cas_phone" name="phone" type="tel" inputMode="tel" />
           </div>
           <div className="field">
-            <label htmlFor="cas_role">Peran *</label>
+            <label htmlFor="cas_role">{m.common.role} *</label>
             <select id="cas_role" name="role" defaultValue="Sales">
               {ROLES.map((r) => (
                 <option key={r} value={r}>
@@ -115,14 +122,14 @@ export default function AddStaffButton({
                 </option>
               ))}
             </select>
-            <div className="hint">Peran bisnis di toko — terpisah dari hak akses login sistem.</div>
+            <div className="hint">{m.cabang.roleFieldHint}</div>
           </div>
           <div className="btnrow">
             <button type="button" className="btn" onClick={() => setOpen(false)}>
-              Batal
+              {m.common.cancel}
             </button>
             <button type="submit" className="btn primary lg block" disabled={submitting}>
-              {submitting ? "Menyimpan…" : "Tambah Staf"}
+              {submitting ? m.common.saving : m.cabang.addStaffModalTitle}
             </button>
           </div>
         </form>

@@ -2,16 +2,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ORDER_STATUS_LABEL, displayPhoneID, type OrderStatus } from "@/lib/orders-shared";
+import { orderStatusLabel, displayPhoneID, type OrderStatus } from "@/lib/orders-shared";
+import { useMessages } from "@/lib/i18n/provider";
+import type { Messages } from "@/lib/i18n";
 import StatusBadge from "./status-badge";
 
 /** Filter status (SPEC §97) — "Semua" tetap menampilkan Dibatalkan, tidak boleh hilang dari pencarian. */
 type StatusFilter = "ALL" | OrderStatus;
-const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: "ALL", label: "Semua" },
-  { value: "REGISTERED", label: ORDER_STATUS_LABEL.REGISTERED },
-  { value: "CANCELLED", label: ORDER_STATUS_LABEL.CANCELLED },
-];
+function statusFilters(m: Messages): { value: StatusFilter; label: string }[] {
+  return [
+    { value: "ALL", label: m.cabang.filterAll },
+    { value: "REGISTERED", label: orderStatusLabel(m, "REGISTERED") },
+    { value: "CANCELLED", label: orderStatusLabel(m, "CANCELLED") },
+  ];
+}
 
 export type OrderListItem = {
   id: string;
@@ -26,9 +30,9 @@ export type OrderListItem = {
   branchName: string;
 };
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, dateLocale: string): string {
   try {
-    return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    return new Date(iso).toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" });
   } catch {
     return iso;
   }
@@ -45,6 +49,8 @@ export default function OrderListClient({
   ownBranchId: string;
   crossBranchVisible: boolean;
 }) {
+  const m = useMessages();
+  const STATUS_FILTERS = statusFilters(m);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
@@ -65,18 +71,16 @@ export default function OrderListClient({
   if (errorKind === "missing_table") {
     return (
       <div className="card">
-        <div className="banner bad">
-          Modul Pesanan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.
-        </div>
+        <div className="banner bad">{m.cabang.errOrderModuleInactive}</div>
       </div>
     );
   }
   if (errorKind === "other") {
     return (
       <div className="card">
-        <div className="err">Gagal memuat daftar pesanan.</div>
+        <div className="err">{m.cabang.errOrderListLoadFailed}</div>
         <Link href="/cabang/pesanan" className="btn sm">
-          Coba Lagi
+          {m.common.retry}
         </Link>
       </div>
     );
@@ -88,7 +92,7 @@ export default function OrderListClient({
         <input
           className="search-input"
           type="search"
-          placeholder="Cari nama, telepon, atau nomor order..."
+          placeholder={m.cabang.orderSearchPlaceholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -108,26 +112,26 @@ export default function OrderListClient({
       </div>
 
       {items.length === 0 ? (
-        <div className="card emptybox">Belum ada pesanan tercatat di cabang ini.</div>
+        <div className="card emptybox">{m.cabang.noOrdersYet}</div>
       ) : filtered.length === 0 && q ? (
-        <div className="card emptybox">Tidak ada pesanan yang cocok dengan pencarian &quot;{q}&quot;.</div>
+        <div className="card emptybox">{m.cabang.noOrdersMatchSearch.replace("{q}", q)}</div>
       ) : filtered.length === 0 ? (
-        <div className="card emptybox">Tidak ada pesanan dengan status ini.</div>
+        <div className="card emptybox">{m.cabang.noOrdersWithStatus}</div>
       ) : (
         <div className="cardlist">
           {filtered.map((it) => (
             <Link key={it.id} href={`/cabang/pesanan/${it.id}`} className="reccard">
               <div className="rc-top">
                 <span className="code">{it.orderNumber}</span>
-                <StatusBadge status={it.status} />
+                <StatusBadge status={it.status} messages={m} />
               </div>
               <div className="rc-title">{it.customerName}</div>
               <div className="rc-sub">
-                {it.customerPhone ? displayPhoneID(it.customerPhone) : "tanpa telepon"} · {it.packageName}
+                {it.customerPhone ? displayPhoneID(it.customerPhone) : m.cabang.noPhoneNumber} · {it.packageName}
               </div>
               <div className="rc-meta">
-                Sales {it.salesName || "—"} · {formatDate(it.createdAt)}
-                {crossBranchVisible && it.branchId !== ownBranchId && " · Cabang lain — hanya lihat"}
+                {m.cabang.orderListSalesLabel.replace("{name}", it.salesName || "—")} · {formatDate(it.createdAt, m.common.dateLocale)}
+                {crossBranchVisible && it.branchId !== ownBranchId && m.cabang.orderListOtherBranchViewOnly}
               </div>
               <span className="rc-arrow" aria-hidden="true">&rsaquo;</span>
             </Link>

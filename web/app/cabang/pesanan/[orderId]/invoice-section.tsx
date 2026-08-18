@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
+import { useMessages } from "@/lib/i18n/provider";
 import { getOrderInvoiceSignedUrl } from "../actions";
 import { INVOICE_ACCEPT, unggahInvoice } from "../invoice-upload";
 
@@ -27,6 +28,7 @@ export default function InvoiceSection({
   canManage: boolean;
 }) {
   const router = useRouter();
+  const m = useMessages();
   const [url, setUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">(hasInvoice ? "loading" : "idle");
   const { submitting, begin, release } = useSubmitGuard();
@@ -61,7 +63,7 @@ export default function InvoiceSection({
     if (!file) return;
     if (!begin()) return;
     setUploadMsg(null);
-    const msg = await unggahInvoice(orderId, file);
+    const msg = await unggahInvoice(m, orderId, file);
     release();
     if (msg) {
       setUploadMsg(msg);
@@ -78,20 +80,20 @@ export default function InvoiceSection({
   return (
     <div className="stack" style={{ marginTop: 14 }}>
       <div className="sectiontitle" style={{ marginTop: 0 }}>
-        Invoice
+        {m.common.invoice}
       </div>
       {uploadMsg && <div className="banner warn">{uploadMsg}</div>}
-      {!hasInvoice && <p className="hint">Belum ada invoice diunggah.</p>}
-      {hasInvoice && status === "loading" && <p className="hint">Memuat invoice…</p>}
+      {!hasInvoice && <p className="hint">{m.cabang.noInvoiceYet}</p>}
+      {hasInvoice && status === "loading" && <p className="hint">{m.cabang.loadingInvoice}</p>}
       {hasInvoice && status === "error" && (
-        <p className="hint">Invoice tidak bisa dimuat sekarang — muat ulang halaman.</p>
+        <p className="hint">{m.cabang.errInvoiceLoadFailed}</p>
       )}
       {hasInvoice && url && isImage && (
         <a href={url} target="_blank" rel="noreferrer">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={url}
-            alt="Invoice"
+            alt={m.common.invoice}
             style={{
               maxWidth: 220,
               maxHeight: 220,
@@ -105,12 +107,12 @@ export default function InvoiceSection({
       )}
       {hasInvoice && url && !isImage && (
         <a href={url} target="_blank" rel="noreferrer" className="btn sm">
-          Buka Invoice (PDF)
+          {m.cabang.openInvoicePdfCta}
         </a>
       )}
       {canManage && (
         <div className="field" style={{ marginBottom: 0, maxWidth: 360 }}>
-          <label htmlFor="invoice_replace">{hasInvoice ? "Ganti Invoice" : "Unggah Invoice"}</label>
+          <label htmlFor="invoice_replace">{hasInvoice ? m.cabang.replaceInvoiceLabel : m.cabang.uploadInvoiceLabel}</label>
           <input
             id="invoice_replace"
             type="file"
@@ -118,7 +120,7 @@ export default function InvoiceSection({
             onChange={onFileChange}
             disabled={submitting}
           />
-          <div className="hint">PNG, JPG, WebP, atau PDF. Maksimal 5 MB.</div>
+          <div className="hint">{m.cabang.invoiceFileHintShort}</div>
         </div>
       )}
     </div>

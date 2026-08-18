@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getMessages } from "@/lib/i18n";
 import AddStaffButton from "./add-staff-button";
 import StaffActions from "./staff-actions";
 
@@ -12,6 +13,7 @@ export default async function CabangStaffPage({
 }: {
   params: Promise<{ branchId: string }>;
 }) {
+  const m = await getMessages();
   const { branchId } = await params;
   const supabase = await createClient();
   const {
@@ -32,7 +34,7 @@ export default async function CabangStaffPage({
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -54,9 +56,7 @@ export default async function CabangStaffPage({
     return (
       <main className="pwrap">
         <div className="card">
-          <div className="err">
-            Data partner Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa pengaturan akun.
-          </div>
+          <div className="err">{m.cabang.errPartnerLoad}</div>
         </div>
       </main>
     );
@@ -87,13 +87,13 @@ export default async function CabangStaffPage({
     <main className="pwrap">
       <div className="backrow">
         <a href="/cabang" className="linkbtn">
-          ← Beranda
+          {m.cabang.navBackHome}
         </a>
       </div>
-      <h2 className="mtitle">Staf — {branch.name}</h2>
+      <h2 className="mtitle">{m.cabang.staffPageTitle.replace("{name}", branch.name)}</h2>
       {!isOwnBranch && (
         <div className="banner info">
-          Cabang {partner.name} lainnya. {canEdit ? "Anda bisa mengubahnya (kebijakan Lihat + Edit)." : "Lihat saja."}
+          {m.cabang.staffOtherBranchNote.replace("{name}", partner.name)} {canEdit ? m.cabang.staffCanEditNote : m.cabang.staffViewOnlyNote}
         </div>
       )}
 
@@ -104,7 +104,7 @@ export default async function CabangStaffPage({
       )}
 
       {activeStaff.length === 0 ? (
-        <div className="card emptybox">Belum ada staf terdaftar di cabang ini.</div>
+        <div className="card emptybox">{m.cabang.noStaffRegistered}</div>
       ) : (
         activeStaff.map((s) => {
           const a = assignByStaff.get(s.id)!;
@@ -112,10 +112,10 @@ export default async function CabangStaffPage({
             <div key={s.id} className="staffcard">
               <div className="row1">
                 <span className="nm">{s.full_name}</span>
-                <span className="chip ACTIVE">AKTIF</span>
+                <span className="chip ACTIVE">{m.common.statusActive.toUpperCase()}</span>
               </div>
               <div className="rl">
-                {a.role} · {s.phone || "tanpa telepon"}
+                {a.role} · {s.phone || m.cabang.noPhoneNumber}
               </div>
               {canEdit ? (
                 <div className="ops">
@@ -126,7 +126,7 @@ export default async function CabangStaffPage({
               ) : (
                 <div className="ops">
                   <button className="btn sm" disabled>
-                    Lihat saja
+                    {m.cabang.homeAccessViewOnly}
                   </button>
                 </div>
               )}

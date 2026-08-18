@@ -6,11 +6,13 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
+import { useMessages } from "@/lib/i18n/provider";
 import { createPackage } from "../../actions-packages";
 import { lookupByRequestId } from "../../actions-lookup";
 
 export default function AddPackageButton({ partnerId }: { partnerId: string }) {
   const router = useRouter();
+  const m = useMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -48,6 +50,7 @@ export default function AddPackageButton({ partnerId }: { partnerId: string }) {
           clientRequestId: rid,
         }),
       lookup: () => lookupByRequestId("package", rid),
+      messages: m,
     });
     if (out.status === "confirmed") {
       draft.clear();
@@ -77,7 +80,7 @@ export default function AddPackageButton({ partnerId }: { partnerId: string }) {
   if (!open) {
     return (
       <button className="btn primary" onClick={openModal}>
-        + Tambah Package
+        {m.admin.packageAddBtn}
       </button>
     );
   }
@@ -85,32 +88,32 @@ export default function AddPackageButton({ partnerId }: { partnerId: string }) {
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
       <div className="modal" role="dialog" aria-modal="true">
-        <h2>Tambah Package</h2>
+        <h2>{m.admin.packageAddModalTitle}</h2>
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.name ? " invalid" : ""}`}>
-            <label htmlFor="ap_name">Nama package *</label>
+            <label htmlFor="ap_name">{m.admin.packageNameFieldLabel}</label>
             <input id="ap_name" name="name" type="text" />
             {errs.name && <div className="err-text">{errs.name}</div>}
           </div>
           <div className={`field${errs.code ? " invalid" : ""}`}>
-            <label htmlFor="ap_code">Kode package *</label>
+            <label htmlFor="ap_code">{m.admin.packageCodeFieldLabel}</label>
             <input id="ap_code" name="code" type="text" style={{ textTransform: "uppercase" }} />
-            <div className="hint">Unik di dalam partner ini. Partner lain boleh pakai kode yang sama.</div>
+            <div className="hint">{m.admin.packageCodeHint}</div>
             {errs.code && <div className="err-text">{errs.code}</div>}
           </div>
           <div className="field">
-            <label htmlFor="ap_desc">Deskripsi</label>
-            <textarea id="ap_desc" name="description" placeholder="Opsional..." />
+            <label htmlFor="ap_desc">{m.admin.packageDescFieldLabel}</label>
+            <textarea id="ap_desc" name="description" placeholder={`${m.common.optional}...`} />
           </div>
           <div className="btnrow">
             <button type="button" className="btn" onClick={closeModal}>
-              Batal
+              {m.common.cancel}
             </button>
             <button type="submit" className="btn primary" disabled={submitting}>
-              {submitting ? "Menyimpan…" : "Buat Package"}
+              {submitting ? m.common.saving : m.admin.packageCreateBtn}
             </button>
           </div>
         </form>

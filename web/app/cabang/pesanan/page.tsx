@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
+import { getMessages } from "@/lib/i18n";
 import OrderListClient, { type OrderListItem } from "./order-list-client";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ function one<T>(v: T | T[] | null): T | null {
 }
 
 export default async function PesananListPage() {
+  const m = await getMessages();
   const supabase = await createClient();
   const {
     data: { user },
@@ -41,7 +43,7 @@ export default async function PesananListPage() {
     return (
       <main className="page">
         <div className="card">
-          <div className="err">Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div>
+          <div className="err">{m.cabang.errAccountLoad}</div>
         </div>
       </main>
     );
@@ -80,7 +82,7 @@ export default async function PesananListPage() {
       packageName: o.package_name,
       status: o.status,
       createdAt: o.created_at,
-      customerName: customer?.full_name ?? "Pelanggan tidak diketahui",
+      customerName: customer?.full_name ?? m.cabang.orderUnknownCustomer,
       customerPhone: customer?.phone_normalized ?? "",
       salesName: sales?.full_name ?? null,
       branchId: o.branch_id,
@@ -92,15 +94,15 @@ export default async function PesananListPage() {
     <main className="pwrap">
       <div className="backrow">
         <Link href="/cabang" className="linkbtn">
-          ← Beranda
+          {m.cabang.navBackHome}
         </Link>
       </div>
       <div className="worktop">
         <h2 className="mtitle" style={{ marginBottom: 0 }}>
-          Daftar Pesanan
+          {m.cabang.homeOrders}
         </h2>
         <Link href="/cabang/pesanan/baru" className="btn primary sm">
-          + Pesanan Baru
+          {m.cabang.homeNewOrder}
         </Link>
       </div>
       <OrderListClient items={items} errorKind={errorKind} ownBranchId={pu.branch_id} crossBranchVisible={crossBranchVisible} />

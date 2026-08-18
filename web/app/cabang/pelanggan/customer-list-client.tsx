@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { displayPhoneID, normalizePhoneID } from "@/lib/orders-shared";
+import { useMessages } from "@/lib/i18n/provider";
 
 export type CustomerListItem = {
   id: string;
@@ -18,6 +19,7 @@ export default function CustomerListClient({
   items: CustomerListItem[];
   errorKind: "missing_table" | "other" | null;
 }) {
+  const m = useMessages();
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
@@ -37,18 +39,16 @@ export default function CustomerListClient({
   if (errorKind === "missing_table") {
     return (
       <div className="card">
-        <div className="banner bad">
-          Modul Pelanggan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.
-        </div>
+        <div className="banner bad">{m.cabang.errCustomerModuleInactive}</div>
       </div>
     );
   }
   if (errorKind === "other") {
     return (
       <div className="card">
-        <div className="err">Gagal memuat daftar pelanggan.</div>
+        <div className="err">{m.cabang.errCustomerListLoadFailed}</div>
         <Link href="/cabang/pelanggan" className="btn sm">
-          Coba Lagi
+          {m.common.retry}
         </Link>
       </div>
     );
@@ -60,23 +60,23 @@ export default function CustomerListClient({
         <input
           className="search-input"
           type="search"
-          placeholder="Cari nama atau telepon..."
+          placeholder={m.cabang.customerSearchPlaceholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
       </div>
 
       {items.length === 0 ? (
-        <div className="card emptybox">Belum ada pelanggan tercatat.</div>
+        <div className="card emptybox">{m.cabang.noCustomersYet}</div>
       ) : filtered.length === 0 ? (
-        <div className="card emptybox">Tidak ada pelanggan yang cocok dengan pencarian &quot;{q}&quot;.</div>
+        <div className="card emptybox">{m.cabang.noCustomersMatchSearch.replace("{q}", q)}</div>
       ) : (
         <div className="cardlist">
           {filtered.map((it) => (
             <Link key={it.id} href={`/cabang/pelanggan/${it.id}`} className="reccard">
               <div className="rc-title">{it.fullName}</div>
-              <div className="rc-sub">{it.phoneNormalized ? displayPhoneID(it.phoneNormalized) : "tanpa telepon"}</div>
-              <div className="rc-meta">{it.orderCount} Pesanan</div>
+              <div className="rc-sub">{it.phoneNormalized ? displayPhoneID(it.phoneNormalized) : m.cabang.noPhoneNumber}</div>
+              <div className="rc-meta">{m.cabang.customerOrderCount.replace("{n}", String(it.orderCount))}</div>
               <span className="rc-arrow" aria-hidden="true">&rsaquo;</span>
             </Link>
           ))}

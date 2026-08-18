@@ -3,6 +3,7 @@
 import { compressImage, PRESET_PRODUK } from "@/lib/compress-image";
 import { submitSafely } from "@/lib/safe-write";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+import type { Messages } from "@/lib/i18n";
 import { setProductPhoto } from "../actions-products";
 
 /**
@@ -19,8 +20,11 @@ import { setProductPhoto } from "../actions-products";
  * ditambahkan (LESSONS #22 + migration 0010 §7): path yang sama + isi
  * berkas berubah = tanpa penanda versi, admin yang ganti foto akan tetap
  * melihat foto lama dari cache/CDN dan menyimpulkan gagal simpan.
+ *
+ * Teks peringatannya hidup di lib/i18n/messages/admin.ts (kunci
+ * `photoUploadFailed`) — pemanggil menyerahkan `Messages` miliknya sendiri
+ * (komponen client, jadi selalu lewat `useMessages()`).
  */
-export const FOTO_PRODUK_GAGAL = "Foto gagal diunggah — data produk tetap tersimpan.";
 
 /**
  * Mengembalikan null kalau berhasil, atau teks peringatan kalau gagal. Tidak
@@ -28,10 +32,10 @@ export const FOTO_PRODUK_GAGAL = "Foto gagal diunggah — data produk tetap ters
  * produk sudah dipastikan tersimpan lebih dulu (aturan sama dengan logo
  * partner: foto adalah langkah terakhir, kegagalannya cuma peringatan).
  */
-export async function unggahFotoProduk(productId: string, file: File): Promise<string | null> {
+export async function unggahFotoProduk(productId: string, file: File, messages: Messages): Promise<string | null> {
   // Foto produk: sisi 1280 px supaya tajam di grid katalog + foto besar detail, bukan 512 px logo.
-  const kecil = await compressImage(file, PRESET_PRODUK);
-  if (!kecil.ok) return `${FOTO_PRODUK_GAGAL} ${kecil.message}`;
+  const kecil = await compressImage(file, PRESET_PRODUK, messages);
+  if (!kecil.ok) return `${messages.admin.photoUploadFailed} ${kecil.message}`;
 
   const tipe = kecil.blob.type || "image/webp";
   const path = `${productId}/foto`;
@@ -39,6 +43,7 @@ export async function unggahFotoProduk(productId: string, file: File): Promise<s
   const out = await submitSafely({
     kind: "update",
     timeoutMs: 30_000,
+    messages,
     run: async () => {
       const supabase = createBrowserSupabase();
       const { error } = await supabase.storage.from("product-photos").upload(path, kecil.blob, {
@@ -56,6 +61,6 @@ export async function unggahFotoProduk(productId: string, file: File): Promise<s
     },
   });
 
-  if (out.status !== "ok" || out.result === false) return FOTO_PRODUK_GAGAL;
+  if (out.status !== "ok" || out.result === false) return messages.admin.photoUploadFailed;
   return null;
 }
