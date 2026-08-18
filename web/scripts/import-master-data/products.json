@@ -1,0 +1,1692 @@
+[
+  {
+    "code": "WMRC611-180",
+    "name": "SANCI Soft Bed 099 WMRC611-180",
+    "category": "Bedstead",
+    "description": "SANCI Vista Luxe – Nuansa: Mewah Kontemporer dengan Headboard Tinggi Ber-Tufting. Cocok Untuk: Kamar Tidur Utama (Master Bedroom) bergaya modern glamor atau hotel butik yang mengutamakan kemewahan visual.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "WMRC611-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC539-180",
+    "name": "SANCI Soft Bed Simba WMRC539-180",
+    "category": "Bedstead",
+    "description": "SANCI Diamond Form 180 – Nuansa: Klasik Mewah dengan Sentuhan Diamond. Cocok Untuk: Interior klasik modern yang mengutamakan kemewahan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC539-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC563-180",
+    "name": "SANCI Soft Bed 2367 WMRC563-180",
+    "category": "Bedstead",
+    "description": "SANCI Milano Luxe – Nuansa: Keanggunan Italia yang Ramping dan Elegan. Cocok Untuk: Apartemen atau kamar tidur bergaya Skandinavia/kontemporer yang mengutamakan garis desain bersih dan kesan luas.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC563-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC220-180",
+    "name": "SANCI Soft Bed 2611 WMRC220-180",
+    "category": "Bedstead",
+    "description": "SANCI Classic Luxe – Nuansa: Elegan Abadi yang Tak Lekang Waktu. Cocok Untuk: Berbagai konsep kamar tidur, dari minimalis hingga klasik modern.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC220-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC291-180",
+    "name": "SANCI Soft Bed 2215 WMRC291-180",
+    "category": "Bedstead",
+    "description": "SANCI Diamond Quilt – Nuansa: Kemewahan Klasik dengan Tekstur Berlian (Diamond Quilt). Cocok Untuk: Kamar tidur bergaya elegan, klasik modern, atau mereka yang menyukai detail tekstur yang kaya dan menonjol.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC291-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC801-180",
+    "name": "SANCI Soft Bed 2025 WMRC801-180",
+    "category": "Bedstead",
+    "description": "SANCI Ribbon Form – Nuansa: Minimalis dengan Garis Vertikal Modern. Cocok Untuk: Interior Japandi, modern, dan Scandinavian.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC801-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC625-180",
+    "name": "SANCI Soft Bed 2551 WMRC625-180",
+    "category": "Bedstead",
+    "description": "SANCI Purity Rest – Nuansa: Ketenteraman dan Kesederhanaan (Zen/Japandi). Cocok Untuk: Kamar tidur yang mengutamakan suasana tenang, santai, dan gaya minimalis yang timeless.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "WMRC625-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "TG-8123-180",
+    "name": "SANCI Soft Bed TG-8123 180",
+    "category": "Bedstead",
+    "description": "SANCI Soft Diamond – Nuansa: Mewah dan Nyaman dengan Detail Diamond. Cocok Untuk: Kamar tidur bergaya modern premium dan hotel.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "TG-8123-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "TG-8233-180",
+    "name": "SANCI Soft Bed TG-8233 180",
+    "category": "Bedstead",
+    "description": "SANCI Urban Loft – Nuansa: Modern Premium dengan Detail Box Tufted. Cocok Untuk: Apartemen dan kamar tidur kontemporer yang mengutamakan desain simpel namun berkelas.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "TG-8233-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC650-180",
+    "name": "SANCI Soft Bed 2338 WMRC650-180",
+    "category": "Bedstead",
+    "description": "SANCI Soft Diamond Split – Nuansa: Modern Modular dengan Headboard Terpisah. Cocok Untuk: Ruangan dengan kebutuhan penempatan yang fleksibel atau pasangan yang ingin membagi fungsi/visual pada sisi ranjang.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC650-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC323-180",
+    "name": "SANCI Soft Bed 2276 WMRC323-180",
+    "category": "Bedstead",
+    "description": "SANCI Wave Ribbons – Nuansa: Gerakan Alami dan Tekstur Bergelombang. Cocok Untuk: Kamar tidur yang ingin memasukkan elemen lembut, organik, dan sentuhan desain interior yang artsy.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC323-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC628-180",
+    "name": "SANCI Soft Bed WMRC628-180",
+    "category": "Bedstead",
+    "description": "SANCI Quadra Beige – Nuansa: Ketenangan Modern dengan Pola Kotak (Quadra) yang Lembut. Cocok Untuk: Kamar tidur bergaya minimalis atau Japandi yang mengutamakan tekstur terstruktur dan warna-warna netral yang menenangkan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC628-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC621-180",
+    "name": "SANCI Soft Bed 2566 WMRC621-180",
+    "category": "Bedstead",
+    "description": "SANCI Soft Bed 2566 – Nuansa: Mewah dengan Headboard Statement. Cocok Untuk: Master bedroom yang ingin menjadi pusat perhatian.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC621-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC599-180",
+    "name": "SANCI Stone Bed WMRC599-180",
+    "category": "Bedstead",
+    "description": "SANCI Alcantara Signature – Nuansa: Premium dengan Karakter Eksklusif. Cocok Untuk: Interior mewah yang mengutamakan kenyamanan dan estetika.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC599-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC518-120",
+    "name": "SANCI Floating Bed 2267 120",
+    "category": "Bedstead",
+    "description": "SANCI Modern Soft Luxe 120 – Nuansa: Minimalis Modern dengan Sentuhan Lembut. Cocok Untuk: Apartemen dan rumah bergaya modern sederhana.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "WMRC518-120.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC518-160",
+    "name": "SANCI Floating Bed 2267 160",
+    "category": "Bedstead",
+    "description": "SANCI Modern Soft Luxe 160 – Nuansa: Minimalis Modern dengan Sentuhan Lembut. Cocok Untuk: Apartemen dan rumah bergaya modern sederhana.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "WMRC518-160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMRC518-180",
+    "name": "SANCI Floating Bed 2267 180",
+    "category": "Bedstead",
+    "description": "SANCI Modern Soft Luxe 180 – Nuansa: Minimalis Modern dengan Sentuhan Lembut. Cocok Untuk: Apartemen dan rumah bergaya modern sederhana.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC518-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ST08-CD-R180",
+    "name": "SANCI Mattress ST08 - CD",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST.08 – Kasur Premium Dual Firmness dengan Smart Segmented Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 3,
+    "image_file": "ST08-CD-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ST08-AC-R200",
+    "name": "SANCI Mattress ST08 - AC",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST.08 – Kasur Premium Dual Firmness dengan Smart Segmented Support",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST08-AC-R200.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ST08-BC-R160",
+    "name": "SANCI Mattress ST08 - BC ROLL",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST.08 – Kasur Premium Dual Firmness dengan Smart Segmented Support",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST08-BC-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ST08-AB-R180",
+    "name": "SANCI Mattress ST08 - AB",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST08 – Kasur Premium Dual Firmness dengan Smart Segmented Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ST08-AB-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ST08-BE-R160",
+    "name": "SANCI Mattress ST08 - BE ROLL",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST.08 – Kasur Premium Dual Firmness dengan Smart Segmented Support",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST08-BE-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ST08-DD-R160",
+    "name": "SANCI Mattress ST08 - DD ROLL",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST.08 – Kasur Premium Dual Firmness dengan Smart Segmented Support",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST08-DD-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ST08-CE-R180",
+    "name": "SANCI Mattress ST08 - CE",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST.08 – Kasur Premium Dual Firmness dengan Smart Segmented Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ST08-CE-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ST08-BE-R200",
+    "name": "SANCI Mattress ST08 - BE",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST.08 – Kasur Premium Dual Firmness dengan Smart Segmented Support",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST08-BE-R200.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM600-R180",
+    "name": "SANCI Mattress WM600 R180",
+    "category": "SANCI Mattress",
+    "description": "SANCI WM600 – Kasur Spring Bed Premium Waterfoam Nyaman & Anti Kempes",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 30,
+    "image_file": "WM600-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM600-R160",
+    "name": "SANCI Mattress WM600 R160",
+    "category": "SANCI Mattress",
+    "description": "SANCI WM600 – Kasur Spring Bed Premium Waterfoam Nyaman & Anti Kempes",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 29,
+    "image_file": "WM600-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM600-R120",
+    "name": "SANCI Mattress WM600 R120",
+    "category": "SANCI Mattress",
+    "description": "SANCI WM600 – Kasur Spring Bed Premium Waterfoam Nyaman & Anti Kempes",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 8,
+    "image_file": "WM600-R120.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM601-R180",
+    "name": "SANCI Mattress WM601 R180",
+    "category": "SANCI Mattress",
+    "description": "SANCI WM601 – Kasur Spring Bed Premium Waterfoam Nyaman & Anti Kempes",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 29,
+    "image_file": "WM601-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM601-R160",
+    "name": "SANCI Mattress WM601 R160",
+    "category": "SANCI Mattress",
+    "description": "SANCI WM601 – Kasur Spring Bed Premium Waterfoam Nyaman & Anti Kempes",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 27,
+    "image_file": "WM601-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM601-R120",
+    "name": "SANCI Mattress WM601 R120",
+    "category": "SANCI Mattress",
+    "description": "SANCI WM601 – Kasur Spring Bed Premium Waterfoam Nyaman & Anti Kempes",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 8,
+    "image_file": "WM601-R120.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "TG016-180",
+    "name": "SANCI Mattress TG016 180",
+    "category": "SANCI Mattress",
+    "description": "SANCI TG016 – Kasur Premium Temperature-Control dengan Cooling & Warmth System",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "TG016-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ML01-R180",
+    "name": "SANCI Mattress ML01 180",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML01 – Kasur Premium Breathable dengan Ergonomic Back Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 3,
+    "image_file": "ML01-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ML01-R160",
+    "name": "SANCI Mattress ML01 160",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML01 – Kasur Premium Breathable dengan Ergonomic Back Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 5,
+    "image_file": "ML01-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ML01-R120",
+    "name": "SANCI Mattress ML01 120",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML01 – Kasur Premium Breathable dengan Ergonomic Back Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 4,
+    "image_file": "ML01-R120.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WZ06BC-R180",
+    "name": "SANCI Mattress WZ06BC R180",
+    "category": "SANCI Mattress",
+    "description": "SANCI WZ06BC – Kasur Premium Orthopedic Smart Core Tech & Spinal Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 3,
+    "image_file": "WZ06BC-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WZ06BC-R160",
+    "name": "SANCI Mattress WZ06BC R160",
+    "category": "SANCI Mattress",
+    "description": "SANCI WZ06BC – Kasur Premium Orthopedic Smart Core Tech & Spinal Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 3,
+    "image_file": "WZ06BC-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WZ06BC-R120",
+    "name": "SANCI Mattress WZ06BC R120",
+    "category": "SANCI Mattress",
+    "description": "SANCI WZ06BC – Kasur Premium Orthopedic Smart Core Tech & Spinal Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "WZ06BC-R120.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WZ07-R180",
+    "name": "SANCI Mattress WZ07 R180",
+    "category": "SANCI Mattress",
+    "description": "SANCI WZ07 – Kasur Premium Floral Scent dengan Waterfoam & Pocket Spring Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 3,
+    "image_file": "WZ07-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WZ07-R160",
+    "name": "SANCI Mattress WZ07 R160",
+    "category": "SANCI Mattress",
+    "description": "SANCI WZ07 – Kasur Premium Floral Scent dengan Waterfoam & Pocket Spring Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WZ07-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WZ07",
+    "name": "SANCI Mattress WZ07 R200",
+    "category": "SANCI Mattress",
+    "description": "SANCI WZ07 – Kasur Premium Floral Scent dengan Waterfoam & Pocket Spring Support",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WZ07.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "MT011-R160",
+    "name": "SANCI Mattress MT011 R160",
+    "category": "SANCI Mattress",
+    "description": "MT011 – Nuansa: Nyaman, Simpel, dan Fungsional. Cocok Untuk: Pengguna yang menginginkan matras praktis dengan kenyamanan untuk penggunaan sehari-hari.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 5,
+    "image_file": "MT011-R160.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ML03-R180",
+    "name": "SANCI Mattress ML03-180",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML03 – Kasur Water Foam Multi-Layer dengan Cooling Silk Surface",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 3,
+    "image_file": "ML03-R180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "Wenjie 180",
+    "name": "SANCI Mattress Wenjie",
+    "category": "SANCI Mattress",
+    "description": "SANCI Wenjie – Kasur Premium Adjustable Position dengan Silent Motor & Luxury Airflow Comfort",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "Wenjie 180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "Zunjie",
+    "name": "SANCI Mattress Zunjie",
+    "category": "SANCI Mattress",
+    "description": "SANCI Zunjie – Kasur Premium Water Foam Adjustable Position dengan Silent Motor & Hygienic Comfort",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 4,
+    "image_file": "Zunjie.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "AONA-180",
+    "name": "SANCI Electric Bed AONA 180",
+    "category": "SANCI Mattress",
+    "description": "AONA Electric Bed – Nuansa: Teknologi Modern dengan Kenyamanan Premium. Cocok Untuk: Pengguna yang menginginkan posisi tidur fleksibel untuk beristirahat, membaca, maupun bersantai.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "AONA-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "CE-279-180",
+    "name": "SANCI Bed CE-279 180",
+    "category": "Bedstead",
+    "description": "SANCI Modern Cushion – Nuansa: Simpel, Hangat, dan Berkelas. Cocok Untuk: Hunian modern maupun minimalis yang menginginkan suasana nyaman.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "CE-279-180.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CY2339",
+    "name": "SANCI Dining Chair ZY-CY2339",
+    "category": "Dining Chair",
+    "description": "SANCI Willow Wing – Bentuk Sandaran Melengkung Estetik, memberikan pelukan nyaman yang sempurna untuk pengalaman bersantap mewah.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-CY2339.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CY2335",
+    "name": "SANCI Dining Chair ZY-CY2335",
+    "category": "Dining Chair",
+    "description": "SANCI Metro Grip – Desain Minimalis Kontemporer, ideal untuk tampilan ruang makan modern dan efisien.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-CY2335.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CY2336",
+    "name": "SANCI Dining Chair ZY-CY2336",
+    "category": "Dining Chair",
+    "description": "SANCI Veloce Comfort – Kursi dengan Postur Cepat dan Ramping, menghadirkan kenyamanan ergonomis tanpa mengorbankan gaya.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-CY2336.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CY2337",
+    "name": "SANCI Dining Chair ZY-CY2337",
+    "category": "Dining Chair",
+    "description": "SANCI Quadro Base – Bentuk Kubus Geometris yang Kokoh, fondasi visual yang kuat dan timeless untuk meja makan Anda.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-CY2337.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CY2338",
+    "name": "SANCI Dining Chair ZY-CY2338",
+    "category": "Dining Chair",
+    "description": "SANCI Pleat Luxe – Kursi Makan Mewah dengan Aksen Lipit Lembut, Material Premium, dan Dukungan Ergonomis untuk Pengalaman Bersantap Elegan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-CY2338.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CY2326",
+    "name": "SANCI Dining Chair ZY-CY2326",
+    "category": "Dining Chair",
+    "description": "SANCI Tallon Back – Sandaran Punggung Tinggi yang Mendominasi, menawarkan dukungan punggung superior dan siluet yang anggun.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-CY2326.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CY2325",
+    "name": "SANCI Dining Chair ZY-CY2325",
+    "category": "Dining Chair",
+    "description": "SANCI Wing Curve – Kurva Bersayap yang Unik, menggabungkan desain artistik dan rasa duduk yang lembut serta suportif.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-CY2325.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-Y936",
+    "name": "SANCI Dining Chair ZY-Y936",
+    "category": "Dining Chair",
+    "description": "SANCI Padded Dining Chair – Bingkai solid dengan bantalan yang nyaman dengan desain klasik, memberikan kesan natural dan airy dengan sandaran lembut untuk kenyamanan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 18,
+    "image_file": "ZY-Y936.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "TM-CY2038",
+    "name": "SANCI Dining Chair TM-CY2038",
+    "category": "Dining Chair",
+    "description": "SANCI Pleat Curve – Bentuk Melengkung Ergonomis dengan Bantalan Ramping, menciptakan harmoni antara desain organik dan dukungan yang stabil.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "TM-CY2038.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-Y954",
+    "name": "SANCI Dining Chair ZY-Y954",
+    "category": "Dining Chair",
+    "description": "SANCI Banded Back – Sandaran Punggung Tinggi dengan Aksen Garis Horizontal (Banded), menawarkan siluet modern dan elegan untuk ruang makan kontemporer.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-Y954.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-Y2348",
+    "name": "SANCI Dining Chair ZY-Y2348",
+    "category": "Dining Chair",
+    "description": "SANCI Cognac Dome – Siluet Bulat Dome yang Mengundang, menghadirkan nuansa cognac mewah dengan bantalan tebal dan suportif.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-Y2348.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM-CY08",
+    "name": "SANCI Dining Chair WM-CY08",
+    "category": "Dining Chair",
+    "description": "SANCI Horizon Handle – Desain Sandaran yang Ramping dan Minimalis, memadukan estetika garis lurus dengan fungsionalitas pegangan horizontal.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "WM-CY08.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM-CY05",
+    "name": "SANCI Dining Chair WM-CY05",
+    "category": "Dining Chair",
+    "description": "SANCI Modern Curve Chair – Nuansa: Elegansi Kontemporer dengan Lekukan yang Anggun. Cocok Untuk: Ruang makan dan area living bergaya modern premium maupun soft luxury.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "WM-CY05.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM-CY01",
+    "name": "SANCI Dining Chair WM-CY01",
+    "category": "Dining Chair",
+    "description": "SANCI Lite Tan – Siluet Ramping dan Minimalis, kursi makan dengan desain bersih berwarna tan yang lembut, ideal untuk suasana lapang dan modern.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "WM-CY01.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-C-15",
+    "name": "SANCI Side Table ZY-C-15",
+    "category": "Side Table",
+    "description": "SANCI Noir Arch – Meja Samping Bergaya Modern dengan Paduan Marble dan Siluet Melengkung, cocok ditempatkan di ruang tamu elegan, ruang keluarga modern, atau samping sofa sebagai aksen premium.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ZY-C-15.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-C-18",
+    "name": "SANCI Side Table ZY-C-18",
+    "category": "Side Table",
+    "description": "SANCI Glacier Edge – Meja Samping Minimalis dengan Desain Ramping dan Permukaan Marble Putih, ideal untuk ruang kerja bersih, ruang tamu minimalis, atau kamar tidur sebagai side table mewah.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-C-18.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CZ9070",
+    "name": "SANCI Dining Table ZY-CZ9070",
+    "category": "Dining Table",
+    "description": "SANCI Axis Dining Table – Nuansa: Kemewahan Modern dengan Proporsi Simetris. Cocok Untuk: Ruang makan bergaya contemporary dan modern luxury yang mengutamakan tampilan rapi serta elegan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CZ9070.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CZ9076",
+    "name": "SANCI Dining Table ZY-CZ9076",
+    "category": "Dining Table",
+    "description": "SANCI Sculpt Dining Table – Nuansa: Statement Design dengan Sentuhan Artistik. Cocok Untuk: Interior contemporary dan luxury yang menjadikan furnitur sebagai pusat perhatian.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CZ9076.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM-CZ16",
+    "name": "SANCI Dining Table WM-CZ16",
+    "category": "Dining Table",
+    "description": "SANCI Essence Dining Table – Nuansa: Elegansi Timeless dengan Garis yang Bersih. Cocok Untuk: Ruang makan bergaya Scandinavian, Japandi, maupun modern kontemporer.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WM-CZ16.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CT552",
+    "name": "SANCI Table ZY-CT552",
+    "category": "Dining Table",
+    "description": "SANCI Rotunda – Meja Makan Marmer Bulat dengan Kaki Pedestal Kokoh. Nuansa yang Cocok: Ruang makan bergaya klasik modern atau elegan, ideal untuk menciptakan suasana bersantap yang intim dan hangat.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CT552.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CZ6021",
+    "name": "SANCI Dining Table ZY-CZ6021",
+    "category": "Dining Table",
+    "description": "SANCI Prisma Square – Meja Makan Marmer Persegi yang Extendable. Nuansa yang Cocok Ruang makan formal kontemporer, sangat fungsional untuk acara besar, menggabungkan kemewahan marmer dan kepraktisan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CZ6021.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CZ9073",
+    "name": "SANCI Dining Table ZY-CZ9073",
+    "category": "Dining Table",
+    "description": "SANCI Horizon Set – Meja Makan Marmer Persegi Panjang dengan Kaki Blok Horizontal. Nuansa yang Cocok: Ruang makan modern minimalis atau industrial, desain ini memberikan kesan lebar, clean, dan tegas.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CZ9073.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "TM-CJ2006M / TM-CJ2006N",
+    "name": "SANCI Side Table TM-CJ2006 Set",
+    "category": "Side Table",
+    "description": "SANCI Grand Flute – Meja Kopi Artistik dengan Siluet Mangkuk Lebar dan Detail Fluted, cocok untuk ruang tamu estetik, area lounge, atau ruang pamer bergaya modern-organik.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 4,
+    "image_file": "TM-CJ2006M-TM-CJ2006N.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CJ1000",
+    "name": "SANCI Side Table ZY-CJ1000",
+    "category": "Side Table",
+    "description": "SANCI Harmony Split – Meja Kopi Berkonsep Dua Material dengan Desain Terbagi Unik, cocok untuk ruang tamu modern, ruang keluarga minimalis, atau ruang sosial bergaya kontemporer.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CJ1000.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-BJ505",
+    "name": "SANCI Side Table ZY-BJ505",
+    "category": "Side Table",
+    "description": "SANCI Wave Ribbons – Meja Samping dengan Struktur Melengkung Berlapis Rapi, cocok ditempatkan di ruang tamu estetik, area lounge, atau sebagai meja dekoratif di sudut ruangan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-BJ505.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CJ8873",
+    "name": "SANCI Side Table ZY-CJ8873",
+    "category": "Side Table",
+    "description": "SANCI Noir Block – Meja Kopi Berdesain Blok Kokoh dengan Permukaan Marble Gelap, ideal untuk ruang tamu kontemporer, ruang keluarga maskulin, atau area resepsi premium.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CJ8873.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM-CJ08",
+    "name": "SANCI Side Table WM-CJ08",
+    "category": "Side Table",
+    "description": "SANCI Eclipse Gold – Set Meja Samping dengan Aksen Emas dan Bentuk Dual-Circle, ideal untuk ruang tamu glam, ruang keluarga estetik, atau sudut dekoratif di kamar tidur.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WM-CJ08.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CJ3321",
+    "name": "SANCI Side Table ZY-CJ3321",
+    "category": "Side Table",
+    "description": "SANCI Modena Set – Set Meja Samping Modern dengan Siluet Ringkas dan Finishing Premium, ideal untuk ruang tamu, ruang baca, atau area kamar tidur dengan gaya clean-modern.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CJ3321.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CJ2348",
+    "name": "SANCI Side Table ZY-CJ2348",
+    "category": "Side Table",
+    "description": "SANCI Orbit Hide – Meja Kopi Bulat dengan Kompartemen Tersembunyi yang Praktis, ideal untuk ruang keluarga, ruang tamu kecil, atau apartemen modern yang membutuhkan fungsi ekstra.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-CJ2348.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "TM-DG2038",
+    "name": "SANCI TV Cabinet TM-DG2038",
+    "category": "TV Cabinet",
+    "description": "SANCI Curva Slim – Credenza Ramp­ing dengan Lengkungan Halus dan Top Marble, cocok untuk ruang TV modern, ruang makan elegan, atau lorong rumah yang ingin tampil premium.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "TM-DG2038.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM-DG15",
+    "name": "SANCI TV Cabinet WM-DG15",
+    "category": "TV Cabinet",
+    "description": "SANCI Linear TV Cabinet – Nuansa: Desain linear dengan top marmer elegan yang menghadirkan tampilan modern, rapi, dan timeless. Cocok Untuk: Ruang keluarga, entertainment room, maupun apartemen premium.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WM-DG15.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-CG866",
+    "name": "SANCI Side Table ZY-CG866",
+    "category": "Side Table",
+    "description": "SANCI Grande Chest – Drawer Besar dengan Finishing Kayu Hangat dan Desain Bersih, cocok untuk kamar tidur utama, walk-in closet, atau ruang tamu berkonsep natural.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-CG866.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "X-2217",
+    "name": "SANCI Sofa X-2217",
+    "category": "Leisure Sofa",
+    "description": "SANCI Orbit Lounge – Kursi Lounge Berputar dengan Dudukan Super Empuk yang memberikan pengalaman relaks maksimal, sempurna untuk ruang keluarga, area santai, ruang hiburan, atau home office.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "X-2217.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "LC-001",
+    "name": "SANCI Zero Gravity Massage Sofa LC-001",
+    "category": "Sofa",
+    "description": "SANCI Apex Recline – Kursi Recliner Ergonomis dengan Desain Futuristik dan mekanisme rebahan halus, sangat cocok untuk ruang TV, ruang keluarga, ruang meditasi, atau sudut istirahat di kamar tidur.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "LC-001.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-6881",
+    "name": "SANCI Sofa ZY-6881",
+    "category": "Sofa",
+    "description": "SANCI Loft Sectional – Sofa Potongan Modular Besar, Ideal untuk Fleksibilitas Penataan Ruang Keluarga Luas.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ZY-6881.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-8693",
+    "name": "SANCI Sofa ZY-8693",
+    "category": "Sofa",
+    "description": "SANCI Taupe L-Relax – Sofa Sudut (L-Shape) yang Luas, Sempurna untuk Zona Bersantai dan Nonton Film di Rumah.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-8693.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-8695",
+    "name": "SANCI Sofa ZY-8695",
+    "category": "Sofa",
+    "description": "SANCI Cognac L-Prime – Sofa Sudut (L-Shape) Utama, Cocok Sebagai Titik Fokus Mewah di Ruang Tamu Formal.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-8695.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-8690",
+    "name": "SANCI Sofa ZY-8690",
+    "category": "Sofa",
+    "description": "SANCI Motion L – Sofa Sudut Recliner Otomatis, Dirancang Khusus untuk Kenyamanan Maksimal di Ruang Keluarga Modern.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZY-8690.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-8885",
+    "name": "SANCI Sofa Kulit ZY-8885 (C-Grade)",
+    "category": "Sofa",
+    "description": "SANCI Tufted Motion – Sofa Recliner Modular dengan Sandaran Beraksen Tufting, Ideal untuk Kenyamanan Pribadi di Ruang Santai.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ZY-8885.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WM-CJ15",
+    "name": "SANCI TV Cabinet WM-CJ15",
+    "category": "TV Cabinet",
+    "description": "SANCI Frame TV Cabinet – Nuansa: Desain Modern dengan Garis yang Bersih. Cocok Untuk: Interior yang mengutamakan tampilan rapi dan penyimpanan yang praktis.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WM-CJ15.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "882",
+    "name": "SANCI Bedside Table 882",
+    "category": "Bedside Table",
+    "description": "SANCI Mellow Duo – Meja Samping Minimalis Dua Laci dengan Warna Netral yang Menenangkan. Cocok ditempatkan di kamar tidur, ruang tamu, atau sudut baca untuk menghadirkan sentuhan clean & cozy.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 4,
+    "image_file": "882.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "883",
+    "name": "SANCI Bedside Table 883",
+    "category": "Bedside Table",
+    "description": "SANCI Sterling Gray – Meja Samping Abu Modern dengan Garis Desain Futuristik. Cocok ditempatkan di kamar tidur modern, ruang kerja minimalis, atau ruang tamu bergaya industrial untuk menghadirkan kesan sleek dan kontemporer.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 4,
+    "image_file": "883.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "658",
+    "name": "SANCI Bedside Table 658",
+    "category": "Bedside Table",
+    "description": "SANCI Deep Moss – Meja Samping Hijau Gelap dengan Aksen Premium. Sempurna untuk kamar tidur elegan, ruang tamu kontemporer, atau area lounge eksklusif, memberikan sentuhan mewah dan karakter kuat pada ruangan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 4,
+    "image_file": "658.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "630",
+    "name": "SANCI Bedside Table 630",
+    "category": "Bedside Table",
+    "description": "SANCI Sage Pop – Meja Samping Hijau Sage dengan Desain Clean dan Sentuhan Segar. Ideal untuk kamar tidur bernuansa Japandi, ruang tamu Scandinavian, atau kamar remaja yang mengusung estetika modern dan fresh.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 6,
+    "image_file": "630.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "885",
+    "name": "SANCI Bedside Table 885",
+    "category": "Bedside Table",
+    "description": "SANCI Retro Post – Meja Samping Cokelat Retro dengan Nuansa Hangat dan Timeless. Pas untuk kamar tidur klasik-modern, ruang baca homey, atau ruang tamu bertema vintage, memberikan sentuhan cozy yang penuh karakter.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 6,
+    "image_file": "885.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMSF336",
+    "name": "SANCI Sectional Sofa WMSF336",
+    "category": "Leisure Sofa",
+    "description": "SANCI Moonbeam – Sofa Melengkung (Curved) Berbentuk Unik, Cocok untuk Menciptakan Area Sosial yang Hangat dan Intim.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMSF336.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZY-8900",
+    "name": "Sanci Sofa Kulit ZY-8900 (C-Grade)",
+    "category": "Leisure Sofa",
+    "description": "SANCI Blockhaus – Sofa Modular Berbentuk Blok Kotak, Memberikan Tampilan Kontemporer Kuat untuk Ruang Tamu Minimalis.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZY-8900.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMX002",
+    "name": "SANCI Leisure Chair WMX002",
+    "category": "Leisure Chair",
+    "description": "SANCI Verona Lounge – Kursi Lounge Bergaya Kontemporer dengan Siluet Melengkung yang Elegan, cocok ditempatkan di ruang tamu modern, sudut baca, kamar tidur utama, maupun area lobi kecil yang membutuhkan sentuhan estetik.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "WMX002.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "WMX001",
+    "name": "SANCI Leisure Chair WMX001",
+    "category": "Leisure Chair",
+    "description": "SANCI Terracotta Dot – Kursi Aksen Ikonik dengan Bentuk Bundar Unik yang menghadirkan karakter artistik, ideal untuk ruang tamu estetik, ruang kreatif, kamar tidur, atau lounge pribadi yang ingin tampil unik dan hangat.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMX001.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "ZT-003",
+    "name": "SANCI Dressing Table ZT-003",
+    "category": "Dressing Table",
+    "description": "SANCI Arc Mirror – Meja Rias dengan Cermin Melengkung dan Kursi Pendamping, cocok untuk kamar tidur utama, dressing area, atau studio kecantikan modern.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ZT-003.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "PZ-A",
+    "name": "SANCI Functional Pillow A",
+    "category": "SANCI Pillow",
+    "description": "Bantal SANCI Premium – Bantal Tidur Nyaman (Water Foam)",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 6,
+    "image_file": "PZ-A.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "PZ-B",
+    "name": "SANCI Functional Pillow B",
+    "category": "SANCI Pillow",
+    "description": "Bantal SANCI Premium – Bantal Tidur Nyaman (Water Foam)",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 18,
+    "image_file": "PZ-B.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "PZ-C",
+    "name": "SANCI Functional Pillow C",
+    "category": "SANCI Pillow",
+    "description": "Bantal SANCI Premium – Bantal Tidur Nyaman (Water Foam)",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 10,
+    "image_file": "PZ-C.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "PZ-D",
+    "name": "SANCI Functional Pillow D",
+    "category": "SANCI Pillow",
+    "description": "Bantal SANCI Premium – Bantal Tidur Nyaman (Water Foam)",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 15,
+    "image_file": "PZ-D.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "PZ-E",
+    "name": "SANCI Functional Pillow E",
+    "category": "SANCI Pillow",
+    "description": "Bantal SANCI Premium – Bantal Tidur Nyaman (Water Foam)",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 4,
+    "image_file": "PZ-E.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "PR-C",
+    "name": "SANCI Regular Pillow C",
+    "category": "SANCI Pillow",
+    "description": "Bantal SANCI Regular – Bantal Tidur Nyaman (Memory Foam)",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 110,
+    "image_file": "PR-C.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "PR-D",
+    "name": "SANCI Regular Pillow D",
+    "category": "SANCI Pillow",
+    "description": "Bantal SANCI Regular – Bantal Tidur Nyaman (Memory Foam)",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 119,
+    "image_file": "PR-D.webp",
+    "source": "Master_data.xlsx"
+  },
+  {
+    "code": "CE-SF7001",
+    "name": "SANCI SOFA FREE MAN CE-SF7001",
+    "category": "Dining Table",
+    "description": "SANCI Modular Sectional Sofa – Nuansa: Desain modular yang mewah dengan garis modern untuk menghadirkan kenyamanan dan fleksibilitas dalam satu kesatuan. Cocok Untuk: Ruang keluarga, villa, apartemen premium, maupun executive lounge.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "CE-SF7001.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CE-CZ5001",
+    "name": "SANCI Dining Table CE-CZ5001",
+    "category": "Dining Table",
+    "description": "SANCI White Marble Dining Table – Nuansa: Permukaan marmer yang elegan dipadukan dengan desain kaki meja modern untuk menghadirkan kesan mewah dan timeless. Cocok Untuk: Ruang makan modern, apartemen premium, maupun area dining hospitality.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CE-CZ5001.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CE-CZ5002",
+    "name": "SANCI Dining Table CE-CZ5002",
+    "category": "Dining Table",
+    "description": "SANCI Ash Marble Dining Table – Nuansa: Motif marmer abu-abu yang elegan dengan sentuhan modern untuk menciptakan suasana makan yang hangat dan berkelas. Cocok Untuk: Ruang makan modern, apartemen premium, maupun luxury residence.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CE-CZ5002.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ZY-CZ9065",
+    "name": "SANCI Dining Table ZY-CZ9065",
+    "category": "Dining Table",
+    "description": "SANCI Obsidian Dining Table – Nuansa: Siluet tegas dengan permukaan marmer hitam yang menghadirkan kesan mewah dan kontemporer. Cocok Untuk: Hunian modern, apartemen premium, maupun executive dining room.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ZY-CZ9065.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "TM-CJ910B",
+    "name": "SANCI Coffee Table TM-CJ910B",
+    "category": "Side Table",
+    "description": "SANCI Oval Coffee Table – Nuansa: Kehangatan Alami dengan Elegansi Kontemporer. Cocok Untuk: Ruang keluarga bergaya Japandi, Scandinavian, maupun modern premium.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "TM-CJ910B.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "TM-CJ123",
+    "name": "SANCI Coffee Table TM-CJ123",
+    "category": "Side Table",
+    "description": "SANCI Nexus Coffee Table – Nuansa: Elegansi Kontemporer dengan Aksen Batu Alam. Cocok Untuk: Ruang keluarga bergaya modern luxury dan contemporary yang mengutamakan desain berkarakter.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "TM-CJ123.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "TM-CY9020",
+    "name": "SANCI Dining Chair TM-CY9020",
+    "category": "Dining Chair",
+    "description": "SANCI Contour Chair – Nuansa: Elegansi Kontemporer dengan Siluet Organik. Cocok Untuk: Ruang makan modern, contemporary, maupun soft luxury yang mengutamakan kenyamanan dan estetika.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 10,
+    "image_file": "TM-CY9020.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "WMRC539-160",
+    "name": "SANCI Soft Bed Simba WMRC539-160",
+    "category": "Bedstead",
+    "description": "SANCI Diamond Form 160 – Nuansa: Klasik Mewah dengan Sentuhan Diamond. Cocok Untuk: Interior klasik modern yang mengutamakan kemewahan.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "WMRC539-160.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "MT-RC899",
+    "name": "SANCI Soft Bed MT-RC899",
+    "category": "Bedstead",
+    "description": "SANCI Soft Bed – Nuansa: Modern Minimalis yang Timeless. Cocok Untuk: Berbagai konsep hunian dengan desain bersih dan elegan.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "MT-RC899.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "MT-RC881",
+    "name": "SANCI Soft Bed MT-RC881",
+    "category": "Bedstead",
+    "description": "SANCI Soft Bed Beige – Nuansa: Hangat, Natural, dan Menenangkan. Cocok Untuk: Interior Japandi, Scandinavian, dan modern minimalis.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "MT-RC881.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "WMRC583",
+    "name": "SANCI Soft Bed WMRC583",
+    "category": "Bedstead",
+    "description": "SANCI Soft Bed Pink – Nuansa: Manis, Unik, dan Playful. Cocok Untuk: Kamar anak, remaja, atau interior bergaya feminin modern.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "WMRC583.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "PBF-01",
+    "name": "SANCI butterfly Pillow (water foam)",
+    "category": "SANCI Pillow",
+    "description": "Silver",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 5,
+    "image_file": "PBF-01.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "PBF-02",
+    "name": "SANCI butterfly Pillow (water foam)",
+    "category": "SANCI Pillow",
+    "description": "Gold",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 5,
+    "image_file": "PBF-02.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "PBF-03",
+    "name": "SANCI butterfly Pillow (water foam)",
+    "category": "SANCI Pillow",
+    "description": "Taupe",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 10,
+    "image_file": "PBF-03.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ZBJ-2505",
+    "name": "SANCI Side Table ZBJ-2505",
+    "category": "Side Table",
+    "description": "SANCI Eclipse Table – Desain top meja berbentuk lingkaran dengan kombinasi warna kontras yang elegan, menghadirkan karakter modern yang menarik perhatian.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZBJ-2505.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ZBJ-2502",
+    "name": "SANCI Side Table ZBJ-2502",
+    "category": "Side Table",
+    "description": "SANCI Orbit Bistro Table – Top meja bundar yang timeless dipadukan dengan konstruksi kaki yang stabil, ideal untuk area café, dining, maupun ruang santai.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZBJ-2502.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CE-X121",
+    "name": "SANCI Leisure Chair CE-X121",
+    "category": "Chair",
+    "description": "SANCI Crab Leisure Chair – Nuansa: Siluet artistik dengan lekukan organik yang menghadirkan kenyamanan sekaligus menjadi statement piece di dalam ruangan. Cocok Untuk: Living room modern, lounge, reading corner, maupun area hospitality bergaya kontemporer.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "CE-X121.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CE-SF7021",
+    "name": "Sanci Sofa CE-SF7021",
+    "category": "Sofa",
+    "description": "SANCI Modular Sofa with Side Table – Nuansa: Elegan, fungsional, dan modern dengan side table terintegrasi. Cocok Untuk: Ruang keluarga, apartemen, maupun executive lounge.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CE-SF7021.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ZSF-7118",
+    "name": "Sanci Sofa ZSF-7118",
+    "category": "Sofa",
+    "description": "SANCI Smart Recliner Sofa Bed – Nuansa: Sofa elektrik dengan remote yang menghadirkan kenyamanan maksimal dalam satu sentuhan. Cocok Untuk: Home theater, ruang keluarga, maupun area santai modern.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZSF-7118.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "Wenjie 160",
+    "name": "SANCI Mattress Wenjie",
+    "category": "SANCI Mattress",
+    "description": "SANCI Wenjie 160 – Kasur Premium Adjustable Position dengan Silent Motor & Luxury Airflow Comfort",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "Wenjie 160.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ST016",
+    "name": "SANCI Mattress ST016",
+    "category": "SANCI Mattress",
+    "description": "SANCI ST016 Mattress – Nuansa: Kasur premium dengan cover biru gelap yang elegan serta pilihan custom tingkat kenyamanan sisi kiri dan kanan. Cocok Untuk: Pasangan maupun pengguna yang menginginkan kenyamanan sesuai preferensi.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "ST016.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ZCY-5108",
+    "name": "SANCI Lounge Chair ZCY-5108",
+    "category": "Chair",
+    "description": "SANCI Fabric Lounge Chair – Nuansa: Minimalis dan nyaman dengan balutan fabric yang lembut. Cocok Untuk: Living room, reading corner, maupun lounge modern.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZCY-5108.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ZCY-5109",
+    "name": "SANCI Dining Chair ZCY-5109",
+    "category": "Chair",
+    "description": "SANCI Fabric Dining Chair – Nuansa: Elegan dengan dudukan fabric yang nyaman untuk penggunaan sehari-hari. Cocok Untuk: Ruang makan, café, maupun area hospitality.",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 2,
+    "image_file": "ZCY-5109.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CT001-90",
+    "name": "SANCI Divan CT001 -90",
+    "category": "Divan",
+    "description": "Premium Hotel Divan dengan kain pelapis anti-virus, konstruksi rangka kayu yang kokoh, serta lapisan anti-slip pada bagian bawah untuk meningkatkan stabilitas. Dilengkapi dengan 4 kaki penyangga yang kuat, tersedia pilihan warna custom dan opsi penyesuaian tinggi",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CT001-90.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CT001-150",
+    "name": "SANCI Divan CT001 -150",
+    "category": "Divan",
+    "description": "Premium Hotel Divan dengan kain pelapis anti-virus, konstruksi rangka kayu yang kokoh, serta lapisan anti-slip pada bagian bawah untuk meningkatkan stabilitas. Dilengkapi dengan 4 kaki penyangga yang kuat, tersedia pilihan warna custom dan opsi penyesuaian tinggi",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CT001-150.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CT001-180",
+    "name": "SANCI Divan CT001-180",
+    "category": "Divan",
+    "description": "Premium Hotel Divan dengan kain pelapis anti-virus, konstruksi rangka kayu yang kokoh, serta lapisan anti-slip pada bagian bawah untuk meningkatkan stabilitas. Dilengkapi dengan 4 kaki penyangga yang kuat, tersedia pilihan warna custom dan opsi penyesuaian tinggi",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CT001-180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CT001-200",
+    "name": "SANCI Divan CT001-200",
+    "category": "Divan",
+    "description": "Premium Hotel Divan dengan kain pelapis anti-virus, konstruksi rangka kayu yang kokoh, serta lapisan anti-slip pada bagian bawah untuk meningkatkan stabilitas. Dilengkapi dengan 4 kaki penyangga yang kuat, tersedia pilihan warna custom dan opsi penyesuaian tinggi",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CT001-200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ST01-R90",
+    "name": "SANCI Mattress ST01 R90",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST01-R90.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ST01-R150",
+    "name": "SANCI Mattress ST01 R150",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST01-R150.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ST01-R180",
+    "name": "SANCI Mattress ST01 R180",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST01-R180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ST01-R200",
+    "name": "SANCI Mattress ST01 R200",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ST01-R200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML02-R90",
+    "name": "SANCI Mattress ML02 R90",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Permukaan mattress dengan nuansa warna gelap untuk tampilan yang lebih bersih dan membantu mengurangi noda yang terlihat\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML02-R90.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML02-R150",
+    "name": "SANCI Mattress ML02 R150",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Permukaan mattress dengan nuansa warna gelap untuk tampilan yang lebih bersih dan membantu mengurangi noda yang terlihat\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML02-R150.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML02-R180",
+    "name": "SANCI Mattress ML02 R180",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Permukaan mattress dengan nuansa warna gelap untuk tampilan yang lebih bersih dan membantu mengurangi noda yang terlihat\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML02-R180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML02-R200",
+    "name": "SANCI Mattress ML02 R200",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Permukaan mattress dengan nuansa warna gelap untuk tampilan yang lebih bersih dan membantu mengurangi noda yang terlihat\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML02-R200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML03-R90",
+    "name": "SANCI Mattress ML03 R90-110",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML03 – Kasur Water Foam Multi-Layer dengan Cooling Silk Surface",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML03-R90.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML03-R150",
+    "name": "SANCI Mattress ML03 R150",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML03 – Kasur Water Foam Multi-Layer dengan Cooling Silk Surface",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML03-R150.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML03-R200",
+    "name": "SANCI Mattress ML03 R200",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML03 – Kasur Water Foam Multi-Layer dengan Cooling Silk Surface",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML03-R200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX01-R90-110",
+    "name": "SANCI Mattress CX01 R90-110",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain bergaya hotel premium dengan permukaan putih dan panel samping hitam yang elegan\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX01-R90-110.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX01-R150",
+    "name": "SANCI Mattress CX01 R150",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain bergaya hotel premium dengan permukaan putih dan panel samping hitam yang elegan\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX01-R150.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX01-R180",
+    "name": "SANCI Mattress CX01 R180",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain bergaya hotel premium dengan permukaan putih dan panel samping hitam yang elegan\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX01-R180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX01-R200",
+    "name": "SANCI Mattress CX01 R200",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain bergaya hotel premium dengan permukaan putih dan panel samping hitam yang elegan\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX01-R200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX02-R90-110",
+    "name": "SANCI Mattress CX02 R90-110",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain premium ala hotel dengan permukaan hitam untuk perawatan yang lebih mudah\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX02-R90-110.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX02-R150",
+    "name": "SANCI Mattress CX02 R150",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain premium ala hotel dengan permukaan hitam untuk perawatan yang lebih mudah\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX02-R150.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX02-R180",
+    "name": "SANCI Mattress CX02 R180",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain premium ala hotel dengan permukaan hitam untuk perawatan yang lebih mudah\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX02-R180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX02-R200",
+    "name": "SANCI Mattress CX02 R200",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain premium ala hotel dengan permukaan hitam untuk perawatan yang lebih mudah\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX02-R200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX03-R90-110",
+    "name": "SANCI Mattress CX03 R90-110",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain bergaya hotel premium dengan permukaan putih elegan dan detail aksen biru untuk tampilan yang lebih segar dan futuristik\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX03-R90-110.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX03-R150",
+    "name": "SANCI Mattress CX03 R150",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain bergaya hotel premium dengan permukaan putih elegan dan detail aksen biru untuk tampilan yang lebih segar dan futuristik\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX03-R150.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX03-R180",
+    "name": "SANCI Mattress CX03 R180",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain bergaya hotel premium dengan permukaan putih elegan dan detail aksen biru untuk tampilan yang lebih segar dan futuristik\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX03-R180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CX03-R200",
+    "name": "SANCI Mattress CX03 R200",
+    "category": "SANCI Mattress",
+    "description": "- Tinggi mattress dapat disesuaikan (25cm – 35cm)\n- Menggunakan finishing kain polyester premium anti-virus\n- Desain bergaya hotel premium dengan permukaan putih elegan dan detail aksen biru untuk tampilan yang lebih segar dan futuristik\n- Lapisan quilting foam lembut setebal 0.7cm\n- Dilengkapi 1000 polyfiber comfort padding untuk kenyamanan ekstra\n- Lapisan high-density foam setebal 2cm untuk menopang tubuh dengan lebih optimal\n- Water foam support layer untuk meningkatkan kestabilan dan kenyamanan\n- Sistem smart pocket spring 22cm (2.0mm) untuk memberikan dukungan tubuh yang lebih baik\n- Dilengkapi cotton comfort layer dan penguat non-woven fabric yang dirancang khusus untuk kenyamanan hotel, daya tahan tinggi, serta distribusi tekanan tubuh yang lebih merata",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CX03-R200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML03-R120",
+    "name": "SANCI Mattress ML03 R120",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML03 – Kasur Water Foam Multi-Layer dengan Cooling Silk Surface",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML03-R120.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "ML03-R160",
+    "name": "SANCI Mattress ML03 R160",
+    "category": "SANCI Mattress",
+    "description": "SANCI ML03 – Kasur Water Foam Multi-Layer dengan Cooling Silk Surface",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "ML03-R160.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "MT-RC881 DSS180",
+    "name": "SANCI Divan Slat Series MT-RC881-180",
+    "category": "Bedstead",
+    "description": "Divan rangka super kuat, kaki metal solid anti-karat, \ndan pelapis PU Leather halus, tersedia pilihan warna, \ndirancang dengan sistem sambungan presisi \n tanpa bunyi berderit, tidur lebih tenang setiap malam",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "MT-RC881 DSS180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "MT-RC881 DSS160",
+    "name": "SANCI Divan Slat Series MT-RC881-160",
+    "category": "Bedstead",
+    "description": "Divan rangka super kuat, kaki metal solid anti-karat, \ndan pelapis PU Leather halus, tersedia pilihan warna, \ndirancang dengan sistem sambungan presisi \n tanpa bunyi berderit, tidur lebih tenang setiap malam",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "MT-RC881 DSS160.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "MT-RC881 DSS120",
+    "name": "SANCI Divan Slat Series MT-RC881-120",
+    "category": "Bedstead",
+    "description": "Divan rangka super kuat, kaki metal solid anti-karat, \ndan pelapis PU Leather halus, tersedia pilihan warna, \ndirancang dengan sistem sambungan presisi \n tanpa bunyi berderit, tidur lebih tenang setiap malam",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "MT-RC881 DSS120.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "YSF7202",
+    "name": "SANCI Sofa YSF 7202",
+    "category": "Sofa",
+    "description": "Kain fabric premium bertekstur halus dengan banyak pilihan warna netral yang timeless,\ndengan arm table berbahan marmer hitam alami \n elegan sekaligus praktis sebagai tempat meletakkan minuman atau dekorasi.",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "YSF7202.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "Wenjie 200",
+    "name": "SANCI Mattress Wenjie",
+    "category": "SANCI Mattress",
+    "description": "SANCI Wenjie 160 – Kasur Premium Adjustable Position dengan Silent Motor & Luxury Airflow Comfort",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 1,
+    "image_file": "Wenjie 200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "Zunjie 200",
+    "name": "SANCI Mattress Zunjie",
+    "category": "SANCI Mattress",
+    "description": "SANCI Zunjie – Kasur Premium Water Foam Adjustable Position dengan Silent Motor & Hygienic Comfort",
+    "stock_status": "AVAILABLE",
+    "source_stock_qty": 4,
+    "image_file": "Zunjie 200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CE-RC3018 160",
+    "name": "SANCI Frood Bed",
+    "category": "Bedstead",
+    "description": "Kain fabric premium bertekstur halus dengan banyak pilihan warna netral yang timeless,",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CE-RC3018 160.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CE-RC3018 180",
+    "name": "SANCI Frood Bed",
+    "category": "Bedstead",
+    "description": "size 245*213*98cm\nKain fabric premium bertekstur halus dengan banyak pilihan warna netral yang timeless,",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CE-RC3018 180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "CE-RC3018 200",
+    "name": "SANCI Frood Bed",
+    "category": "Bedstead",
+    "description": "Kain fabric premium bertekstur halus dengan banyak pilihan warna netral yang timeless,",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "CE-RC3018 200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "SC-TG Supermoon 160",
+    "name": "SANCI TG Supermoon",
+    "category": "Bedstead",
+    "description": "Kain fabric premium bertekstur halus dengan banyak pilihan warna netral yang timeless,",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "SC-TG Supermoon 160.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "SC-TG Supermoon 180",
+    "name": "SANCI TG Supermoon",
+    "category": "Bedstead",
+    "description": "size 226*190*91cm\nKain fabric premium bertekstur halus dengan banyak pilihan warna netral yang timeless,",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "SC-TG Supermoon 180.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "SC-TG Supermoon 200",
+    "name": "SANCI TG Supermoon",
+    "category": "Bedstead",
+    "description": "Kain fabric premium bertekstur halus dengan banyak pilihan warna netral yang timeless,",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "SC-TG Supermoon 200.webp",
+    "source": "Master_Data2.xlsx"
+  },
+  {
+    "code": "SC-T Horizon Sofa",
+    "name": "SANCI T Horizon Sofa",
+    "category": "Sofa",
+    "description": "Kain fabric premium bertekstur halus dengan banyak pilihan warna netral yang timeless,",
+    "stock_status": "OUT_OF_STOCK",
+    "source_stock_qty": 0,
+    "image_file": "SC-T Horizon Sofa.webp",
+    "source": "Master_Data2.xlsx"
+  }
+]

@@ -127,6 +127,24 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 | P2-24 | 目錄開關（每 Partner） | `UNVERIFIED` | Partner 詳情頁權限分頁的「Katalog Produk SANCI」toggle；無列＝關（fail-closed——選配功能與 0006 的核心路徑 fail-open 相反，刻意）；audit 記 CATALOG_ACCESS_* |
 | P2-25 | 目錄瀏覽（cabang `/cabang/produk`） | `UNVERIFIED` | 手機照片網格＋搜尋＋kategori 篩選＋詳情 modal；缺貨灰化照常顯示（誠實告知）；「未開通」（提示聯繫 SANCI）與「空目錄」分開顯示；INACTIVE 產品對分店即時消失；零價格 |
 
+### 產品目錄初始資料匯入（2026-08-18，Jenzo 提供 Master_data.xlsx + Master_Data2.xlsx）
+
+169 筆產品（104 + 65）＋照片，來源是兩份 Excel 主檔。匯入工具在
+`web/scripts/import-master-data/`（`run.mjs` + 已整理好的 `products.json` +
+已壓縮照片），**尚未實際寫入資料庫**——這個 session 的沙盒環境沒有真的
+Supabase 憑證，需要 Jenzo 在自己電腦上跑一次（步驟見該資料夾 README.md）。
+
+匯入時的決策：
+- 價格欄位（PRICE/UNIT、HARGA LAMA）完全不匯入，遵守 0010 的「零價格」鐵律。
+- Excel「Stock di Easy」→ `stock_status`：0 → Habis，其餘 → Tersedia（Excel
+  沒有「Terbatas」的資料可對應，之後要人工調整）。
+- 兩份 Excel 對同一類別的命名不一致（"Mattress" vs "SANCI Mattress"、
+  "Pillow" vs "SANCI Pillow"）——已統一成含 SANCI 字首的版本，避免分店端
+  分類篩選（依字串完全比對分組）被拆成兩組。
+- 照片用跟 Admin → Produk 手動上傳完全相同的規格壓縮（PRESET_PRODUK：長邊
+  1280px、WebP 品質 0.82），46 MB 原始照片壓到約 4.6 MB。
+- 用 `code`（DB 唯一鍵）做 upsert，重複執行安全，不會產生重複產品。
+
 ### Audit round 3（安全＋正確性全面審計，2026-08-17）
 
 Jenzo 指示「認真 audit」。四領域分工,安全與正確性兩塊由 Opus 完成(UI/UX 與效能兩塊首輪遭額度中斷,**尚未補跑**)。
