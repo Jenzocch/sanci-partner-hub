@@ -37,6 +37,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
       if (kategori && it.category !== kategori) return false;
       if (!needle) return true;
       if (it.name.toLowerCase().includes(needle)) return true;
+      if (it.code && it.code.toLowerCase().includes(needle)) return true;
       if (it.category && it.category.toLowerCase().includes(needle)) return true;
       return false;
     });
