@@ -18,12 +18,13 @@ tanpa perlu membaca SQL-nya.
 | 0009 | `0009_fulfillment_invoice_arrival.sql` | Irisan keempat: 5 kolom baru di `partner_orders` (jalur pesanan, total belanja, invoice, penanda pelanggan tiba), tabel `order_internal_notes` khusus admin & append-only, bucket **privat** `order-invoices` + RLS-nya. |
 | 0010 | `0010_sanci_product_catalog.sql` | Irisan kelima: Katalog Produk SANCI — tabel `sanci_products` (tanpa harga, stok hanya STATUS), saklar visibilitas per partner `sanci_catalog_access` (**fail-closed**: tanpa baris = tertutup), gerbang `fn_catalog_enabled()`, bucket **publik** `product-photos` + RLS-nya. |
 | 0011 | `0011_audit_hardening.sql` | Pengerasan audit round 3, seluruhnya di lapisan database: **P2** `fn_check_order_refs` akhirnya ikut memeriksa `customer_id` (pelanggan partner lain tidak lagi bisa ditautkan lewat API), **P3** `sanci_catalog_access.enabled` DEFAULT `true` → `false`, **P3** `invoice_url` wajib menunjuk folder pesanannya sendiri (trigger `trg_order_invoice_path`). |
+| 0012 | `0012_package_product_components.sql` | Irisan keenam: isi Package — tabel `partner_package_items` (produk + jumlah di dalam sebuah Package, FK sungguhan ke `sanci_products`), menutup penundaan SPEC §23. Admin kelola penuh, partner **hanya baca** isi paketnya sendiri. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `PACKAGE_ITEM`. |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -41,7 +42,9 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 | 0006 | tidak ada — 0006 hanya menulis dua helper, dan sejak 0007 isi 0001 sudah sama. |
 | 0008 | `fn_check_order_refs` **berhenti memeriksa pemilik pelanggan** (lubang P2 milik 0011 terbuka lagi — pemeriksaan paket sendiri selamat karena 0008 memang memuatnya); `fn_audit_row` kehilangan tambahan 0009 (ARRIVED / INTERNAL_NOTE) dan 0010 (PRODUCT / CATALOG_ACCESS). |
 | 0009 | `fn_audit_row` kehilangan tambahan 0010 saja (PRODUCT / CATALOG_ACCESS). |
-| 0010 | tidak ada — 0010 tidak mendefinisikan ulang apa pun milik 0011. DEFAULT `enabled` **tidak** kembali ke `true`: `create table if not exists` tidak dijalankan lagi pada tabel yang sudah ada. |
+| 0010 | `fn_audit_row` kehilangan tambahan 0012 (awalan `PACKAGE_ITEM` **dan** pencarian partner lewat paket induknya). DEFAULT `enabled` **tidak** kembali ke `true`: `create table if not exists` tidak dijalankan lagi pada tabel yang sudah ada, dan 0010 tetap tidak mendefinisikan ulang apa pun milik 0011. |
+| 0011 | tidak ada — 0011 tidak mendefinisikan ulang `fn_audit_row` (dinyatakan lewat komentar di dalam berkasnya) maupun apa pun milik 0012. |
+| 0012 | tidak ada — 0012 adalah berkas terakhir dalam rantai. Versi `fn_audit_row` miliknya memuat SELURUH perilaku 0004+0005+0008+0009+0010, jadi menjalankannya paling akhir justru **memulihkan** seluruh pemetaan yang sempat tertimpa berkas lama. |
 
 Khusus lubang P2 (`fn_check_order_refs` tanpa pemeriksaan pelanggan): ia TIDAK
 menghasilkan satu pun pesan error atau gejala di layar. Yang terjadi hanyalah
@@ -66,14 +69,22 @@ kerusakannya persis begini:
 | `SANCI_PRODUCTS_STATUS_CHANGED` | `PRODUCT_STATUS_CHANGED` |
 | `SANCI_CATALOG_ACCESS_UPDATED` | `CATALOG_ACCESS_UPDATED` |
 | `PARTNER_ORDERS_UPDATED` (kalau yang diulang 0001) | `ORDER_UPDATED` |
+| `PARTNER_PACKAGE_ITEMS_CREATED` (kalau yang diulang 0001–0010) | `PACKAGE_ITEM_CREATED` |
 
 Kode mentah itu akan tampil apa adanya kepada pembacanya karena
 `web/lib/audit-format.ts` tidak punya labelnya. Perbaikannya satu langkah:
 jalankan ulang berkas TERAKHIR. Sebaliknya — dan ini sengaja — versi
-`fn_audit_row` di 0010 memuat SELURUH perilaku 0004+0005+0008+0009, jadi
-menjalankan 0010 paling akhir juga **memulihkan** pemetaan yang sempat tertimpa
+`fn_audit_row` di 0012 memuat SELURUH perilaku 0004+0005+0008+0009+0010, jadi
+menjalankan 0012 paling akhir juga **memulihkan** pemetaan yang sempat tertimpa
 berkas lama. Untuk `fn_check_order_refs` yang memulihkan adalah 0011, jadi
-langkah pemulihannya tetap: **0010 lalu 0011.**
+langkah pemulihannya tetap: **0011 lalu 0012.**
+
+Satu akibat tambahan yang khusus milik `partner_package_items`: selain awalannya,
+yang ikut hilang adalah pencarian `partner_id` lewat paket induknya. Baris
+auditnya tetap tercatat, tapi kolom `partner_id`-nya kosong — sehingga kejadian
+itu **menghilang dari layar Aktivitas yang disaring per partner**, bukan sekadar
+tampil dengan nama yang salah. Bentuk kerusakan yang sama persis pernah diukur
+untuk `order_internal_notes` di 0009.
 
 Dua hal yang **tidak** ikut rusak, supaya tidak ditakuti tanpa perlu:
 
@@ -90,22 +101,25 @@ cocokkan lagi angka di tabel bawah — itu satu-satunya bukti (LESSONS #7 & #16;
 ## Angka verifikasi yang diharapkan
 
 Kolom **fresh** = nilai saat berkas itu dijalankan pertama kali dalam rantai.
-Kolom **setelah 0011** = nilai kalau blok verifikasi berkas itu dijalankan ulang
+Kolom **setelah 0012** = nilai kalau blok verifikasi berkas itu dijalankan ulang
 pada database yang sudah lengkap. Nilai yang **berubah** ditandai `→`.
 
 ### 0001
-| Cek | fresh | setelah 0011 |
+| Cek | fresh | setelah 0012 |
 |---|---|---|
 | TABLES | 9 | 9 |
-| RLS_ENABLED | 9 | 9 → **16** (+customers, partner_orders, partner_order_counters, partner_packages, order_internal_notes, sanci_products, sanci_catalog_access) |
-| POLICIES | 19 | 19 → **35** (+6 dari 0004, +1 dari 0005, +3 dari 0008, +2 dari 0009, +4 dari 0010) |
-| TRIGGERS | 12 | 12 → **24** (+5 dari 0004, +2 dari 0005, +3 dari 0008, +1 dari 0009, +0 dari 0010, +1 dari 0011) |
+| RLS_ENABLED | 9 | 9 → **17** (+customers, partner_orders, partner_order_counters, partner_packages, order_internal_notes, sanci_products, sanci_catalog_access, partner_package_items) |
+| POLICIES | 19 | 19 → **37** (+6 dari 0004, +1 dari 0005, +3 dari 0008, +2 dari 0009, +4 dari 0010, +2 dari 0012) |
+| TRIGGERS | 12 | 12 → **27** (+5 dari 0004, +2 dari 0005, +3 dari 0008, +1 dari 0009, +0 dari 0010, +1 dari 0011, +3 dari 0012) |
 
 `TRIGGERS` di 0001 hanya menghitung tabel berawalan `partner%`, jadi kedua
 trigger `order_internal_notes` dan kelima trigger kedua tabel katalog TIDAK ikut
 terhitung di sini — yang bertambah dari 0009 hanya `trg_order_arrival` pada
 `partner_orders`, 0010 tidak menambah apa pun ke angka ini, dan 0011 menambah
-`trg_order_invoice_path` (juga pada `partner_orders`).
+`trg_order_invoice_path` (juga pada `partner_orders`). Ketiga trigger 0012
+JUSTRU ikut terhitung, karena `partner_package_items` berawalan `partner%` —
+beda dari `order_internal_notes`. Ketiga angka ini sudah diukur pada Postgres 16
+lokal, bukan diperkirakan.
 
 ### 0003
 | Cek | fresh | setelah 0011 |
@@ -338,6 +352,40 @@ Empat angka yang paling menentukan, dan kenapa:
   `fn_check_order_refs` sudah dicabut 0007 dan `CREATE OR REPLACE` di 0011
   mempertahankannya — angka ini membuktikannya, bukan mengandaikannya.
 
+### 0012
+| Cek | nilai |
+|---|---|
+| PACKAGE_ITEM_TABLE / PACKAGE_ITEM_UNIQUE / PACKAGE_ITEM_QTY_CHECK | 1 / 1 / 1 |
+| PACKAGE_ITEM_RLS / PACKAGE_ITEM_POLICIES | 1 / 2 |
+| PACKAGE_ITEM_PARTNER_WRITE_POLICIES | **0** |
+| PACKAGE_ITEM_TRIGGERS | 3 |
+| PACKAGE_ITEM_FK_PRODUCT_RESTRICT / PACKAGE_ITEM_FK_PRODUCT_NOT_CASCADE | **1** / **0** |
+| PACKAGE_ITEM_FK_PACKAGE_CASCADE | **1** |
+| PACKAGE_ITEM_INDEXES | 2 |
+| AUDIT_PACKAGE_ITEM / AUDIT_PACKAGE_ITEM_PARTNER_LOOKUP | 1 / 1 |
+| AUDIT_KEEP_0010_PRODUCT / AUDIT_KEEP_0010_CATALOG | 1 / 1 |
+| AUDIT_KEEP_0009_ARRIVED / AUDIT_KEEP_0009_NOTE | 1 / 1 |
+| AUDIT_KEEP_0008_PKG / AUDIT_KEEP_0008_PHONE / AUDIT_KEEP_0008_ATTR | 1 / 1 / 1 |
+| AUDIT_KEEP_0005 / AUDIT_KEEP_0004 | 1 / 1 |
+| REFS_CHECK_CUSTOMER | **1** |
+
+Tiga angka yang paling menentukan, dan kenapa:
+
+* `PACKAGE_ITEM_PARTNER_WRITE_POLICIES` **wajib 0**. Tidak boleh ada satu pun
+  policy tulis yang bisa bernilai benar tanpa `fn_is_admin()`. Kalau menjadi 1,
+  pengguna cabang bisa menyusun ulang isi Package milik SANCI — dan seluruh
+  gagasan "Package dikurasi SANCI" (SPEC §21) runtuh tanpa satu pun pesan error.
+* `PACKAGE_ITEM_FK_PRODUCT_RESTRICT` **wajib 1** dan
+  `PACKAGE_ITEM_FK_PRODUCT_NOT_CASCADE` **wajib 0**. Keduanya diperiksa terpisah
+  dengan sengaja: yang diperiksa adalah huruf `confdeltype` sesungguhnya
+  (`r` bukan `c`). Kalau suatu hari FK-nya lahir sebagai CASCADE, menghapus satu
+  produk akan diam-diam mengosongkan baris isi paket di mana pun produk itu
+  dipakai — tanpa ada yang memutuskannya.
+* `REFS_CHECK_CUSTOMER` **wajib 1**. Diperiksa ulang di sini karena 0012 adalah
+  berkas TERAKHIR dalam rantai: kalau angkanya 0, berarti 0004 atau 0008 sempat
+  dijalankan ulang sesudah 0011 dan lubang P2 tanpa gejala itu terbuka lagi
+  (penjelasan lengkapnya di bagian 0011 di atas).
+
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 
 `phone_normalized` dihitung Server Action (`normalizePhoneID()`), bukan SQL —
@@ -433,3 +481,23 @@ Empat batas milik 0011, semuanya sudah diukur, bukan dugaan:
    perlu diketahui pembaca skrip lama: perintah seperti
    `insert into sanci_catalog_access (partner_id) select id from partners`
    sekarang menghasilkan saklar TERTUTUP untuk semua, bukan terbuka.
+
+Tiga batas milik 0012:
+
+1. **Isi Package belum terlihat di sisi cabang.** Policy `ppi_partner_read`
+   sudah mengizinkannya di lapisan basis data (dan sudah diuji: pengguna cabang
+   Partner A membaca isi paketnya sendiri, dan mendapat 0 baris untuk paket
+   Partner B), tapi layarnya sengaja BELUM dibuat — irisan ini admin-only.
+   Membuka policy lebih dulu adalah keputusan sadar: aturan bacanya ikut diuji
+   sekarang, saat konteksnya masih segar, bukan ditambahkan tergesa-gesa nanti.
+2. **Isi Package TIDAK dibekukan ke dalam pesanan.** `partner_orders` masih
+   menunjuk paket lewat `package_id`, dan `package_name` tetap teks bebas yang
+   membekukan NAMA saat pesanan dibuat (catatan kompatibilitas 0008). Kalau isi
+   sebuah paket diubah hari ini, pesanan LAMA yang menunjuk paket itu akan ikut
+   terbaca dengan isi yang BARU. Membekukan isi per pesanan butuh tabel
+   tersendiri dan merupakan keputusan tersendiri — jangan ditambal ke tabel ini.
+3. **`quantity` tidak punya batas atas.** CHECK-nya hanya `> 0`; `integer`
+   menampung sampai 2.147.483.647. Salah ketik seperti `1000` bukan `100` akan
+   diterima basis data apa adanya. Formulirnya memakai `type="number" min="1"`,
+   tapi itu lapisan UI — kalau suatu hari batas nyata dibutuhkan (mis. maksimum
+   999 per baris), tempatnya di CHECK constraint, bukan hanya di formulir.

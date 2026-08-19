@@ -46,6 +46,7 @@ function fieldLabel(m: Messages, key: string): string | undefined {
     category: c.category,
     stock_status: c.stockStatus,
     enabled: c.catalogAccess,
+    quantity: c.quantity,
   };
   return map[key];
 }
@@ -126,6 +127,11 @@ const SKIP = new Set([
   "customer_arrived_by",
   "customer_arrived_at",
   "photo_url",
+  // Ditambahkan slice 6 (0012): product_id adalah UUID relasi ke sanci_products,
+  // perlakuannya sama dengan customer_id / package_id di atas. Nama produknya
+  // sudah terbaca di layar Isi Package; UUID-nya tidak berarti apa-apa bagi
+  // pembaca non-teknis dan tidak boleh bocor ke Aktivitas (SPEC §69).
+  "product_id",
 ]);
 
 // Kode aksi audit → KUNCI kalimat di common.ts (dipakai halaman Activity).
@@ -143,6 +149,11 @@ const ACTION_KEYS: Record<string, keyof Messages["common"]> = {
   PACKAGE_CREATED: "auditPackageCreated",
   PACKAGE_UPDATED: "auditPackageUpdated",
   PACKAGE_STATUS_CHANGED: "auditPackageStatusChanged",
+  // 0012 — isi Package. Tabel partner_package_items tidak punya kolom status,
+  // jadi hanya tiga aksi generik ini yang bisa muncul.
+  PACKAGE_ITEM_CREATED: "auditPackageItemAdded",
+  PACKAGE_ITEM_UPDATED: "auditPackageItemUpdated",
+  PACKAGE_ITEM_DELETED: "auditPackageItemRemoved",
   PRODUCT_CREATED: "auditProductCreated",
   PRODUCT_UPDATED: "auditProductUpdated",
   PRODUCT_STATUS_CHANGED: "auditProductStatusChanged",

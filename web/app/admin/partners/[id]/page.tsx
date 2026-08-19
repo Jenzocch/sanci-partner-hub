@@ -287,7 +287,12 @@ export default async function PartnerDetailPage({
                         <span className={`chip ${p.status}`}>{statusLabel(m, p.status)}</span>
                       </td>
                       <td className="ta-right">
-                        <PackageActions pkg={p} />
+                        <div className="btnrow-inline" style={{ marginTop: 0 }}>
+                          <Link className="btn sm" href={`/admin/partners/${id}/packages/${p.id}`}>
+                            {m.admin.packageItemsLink}
+                          </Link>
+                          <PackageActions pkg={p} />
+                        </div>
                       </td>
                     </tr>
                   ))}

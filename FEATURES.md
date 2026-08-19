@@ -212,6 +212,26 @@ Supabase 憑證，需要 Jenzo 在自己電腦上跑一次（步驟見該資料�
 - Package 本輪用 `partner_orders.package_name`（自由文字）呈現，**不建立** `partner_packages` 主檔表（SPEC §21）。理由：先讓分店填得出訂單，Package 主檔管理 UI 留到下一切片，避免第一刀範圍過大；`package_name` 之後要接管理表不會動到既有資料（改天加 `package_id` nullable 欄位即可）。
 - Cancel Order（§41–43）、Order/Customer Edit（§33–37）、Attribution Correction（§16）**全部留到下一切片**——本輪分店端唯讀，降低第一次上線的權限面。
 
+### Phase 2 第六切片（Package 產品組成，2026-08-19，Jenzo 指示）
+
+Jenzo 要求補做 `docs/SPEC-PHASE2.md` §23 當初**明文延後**的那一塊：「現在 Package 只需要：名稱/Code/基本描述/狀態。不要現在做：Package Product Components，因為產品選品會在下一 Phase。」該前提在 0010（`sanci_products`，169 筆真實產品含照片）落地後已消失，這一刀就是把它補上。
+
+在此之前，admin 只能把產品代碼**打進 `description` 自由文字欄**當作變通。代價是：打錯的代碼沒有任何人會發現、已下架的產品仍「留在」套裝裡、而且「哪些套裝用到產品 X」這個問題**完全無法回答**。改用真外鍵之後，這三件事從「不建議」變成「做不到」。
+
+| # | 功能 | 狀態 | 對應 SPEC-PHASE2 章節 | 備註 |
+|---|---|---|---|---|
+| P2-26 | Package 內容維護（admin） | `UNVERIFIED` | §23 | 新頁 `/admin/partners/[id]/packages/[packageId]`：現有內容列表（縮圖／名稱／代碼／數量可改／刪除需二次確認）＋加入產品（名稱/代碼即時搜尋、已在套裝內的產品自動從候選中排除、數量預設 1）。Partner 詳情頁 Package 分頁每列新增「Isi Package」連結。套裝以 `id`＋`partner_id` **雙條件**載入，別家套裝一律 `notFound()`（不用泛用 id 查詢，避免以錯誤訊息差異試探他人套裝是否存在） |
+| P2-27 | `partner_package_items` 資料表 | `UNVERIFIED` | §23 | `unique(package_id, product_id)`（同一產品最多一列，加量＝改數量不是加第二列）＋`check(quantity > 0)`（0 不是「沒有」，不要就刪列）；`package_id` **CASCADE**、`product_id` **RESTRICT**——兩者刻意不同：內容屬於套裝生命週期，但產品消失不該無聲刪掉套裝內容行（且兩者實務上都不硬刪，LESSONS #4）。三個 trigger 比照 `partner_packages`；audit 前綴 `PACKAGE_ITEM` |
+| P2-28 | 內容讀取權限（DB 層） | `UNVERIFIED` | §21, §23 | `ppi_admin_all`（admin 全權）＋`ppi_partner_read`（partner **只讀**自己套裝的內容，理由同 0008 的 `pkg_partner_read`：套裝本身既然讀得到，內容讀不到就沒有意義）。**分店零寫入 policy**，以負面斷言 `PACKAGE_ITEM_PARTNER_WRITE_POLICIES 0` 驗證。分店端「看得到內容」的畫面**本輪刻意不做**（見下方已知邊界） |
+| P2-29 | 三語系文案＋Activity 標籤 | `UNVERIFIED` | §69 | `common.ts` 加 `quantity` 與三句 `auditPackageItem*`；`admin.ts` 加 13 個鍵×三語。`audit-format.ts` 依 LESSONS #28 補齊：`product_id` 進 `SKIP`（UUID 不得外流到 Activity）、`quantity` 進欄位標籤表、三個 `PACKAGE_ITEM_*` 進 `ACTION_KEYS`——否則 Activity 會直接印出原始碼與 UUID |
+
+**Migration `0012_package_product_components.sql` 狀態**：`UNVERIFIED`（**尚未在 production 執行**）— 本機 Postgres 16 完整重放 `0001→0003→0004→0005→0006→0007→0008→0009→0010→0011→0012` 後：驗證區塊 23 項全數符合期望（含三個關鍵負面／型別斷言 `PACKAGE_ITEM_PARTNER_WRITE_POLICIES 0`、`PACKAGE_ITEM_FK_PRODUCT_NOT_CASCADE 0`、`PACKAGE_ITEM_FK_PRODUCT_RESTRICT 1`，以及八個 audit 保留斷言與 `REFS_CHECK_CUSTOMER 1`）；行為測試 13/13 PASS（admin 增改刪、partner 讀自己 1 列／讀別家 0 列、partner 寫入三種全被擋、unique 擋重複、quantity 0 與負數皆被 CHECK 擋、產品 FK RESTRICT 實測擋下刪除、套裝 FK CASCADE 實測連帶清除）；冪等連跑 3 次 `pg_dump -s` 零漂移；`fn_audit_row` 回歸實測 `PRODUCT_CREATED`／`PRODUCT_STATUS_CHANGED`／`CATALOG_ACCESS_UPDATED`／`PACKAGE_CREATED`／`ORDER_CUSTOMER_ARRIVED` 全部照舊，新增三個 `PACKAGE_ITEM_*` 正確帶出 partner、branch 為 null（套裝屬 partner 層級）。⚠️ **0012 後 0001 檔尾數字變為 RLS_ENABLED 17 / POLICIES 37 / TRIGGERS 27**（已本機實測，非推估；`partner_package_items` 以 `partner%` 開頭所以三個 trigger 會被 0001 的計數納入，與 `order_internal_notes` 不同）。typecheck ✓ eslint ✓ build ✓（`/offline` 仍為 `○` 靜態預渲染）。
+
+**本切片刻意不做（已知邊界，非遺漏）**：
+- **分店端看不到套裝內容**。`ppi_partner_read` 已在 DB 層允許，也已實測（自家 1 列／別家 0 列），但畫面本輪不做——這一刀是 admin-only。先開 policy 是刻意的：讀取規則趁上下文還新鮮時一起測掉，而不是下輪匆促補上。
+- **套裝內容不隨訂單快照凍結**。訂單仍以 `package_id` 指向套裝，`package_name` 維持 0008 的自由文字快照（凍結的是**名稱**）。今天改套裝內容，昨天的舊訂單讀到的會是**新內容**。要凍結內容需要另一張表，是另一個決定，不要往這張表上補。
+- **`quantity` 無上限**。CHECK 只有 `> 0`；打錯成 1000 資料庫照收。真要限制（例如每列最多 999）該寫進 CHECK constraint，不是只擋在表單。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

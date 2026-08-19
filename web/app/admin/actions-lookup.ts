@@ -11,6 +11,7 @@ const TABLES = {
   branch: "partner_branches",
   staff: "partner_staff",
   package: "partner_packages",
+  packageItem: "partner_package_items",
   product: "sanci_products",
   internalNote: "order_internal_notes",
 } as const;

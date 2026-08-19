@@ -150,6 +150,14 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **教訓**：平行 agent 改共用底層模組的簽名時，**收工判準不是「我改的檔案 typecheck 過」，是「清掉 tsbuildinfo 快取後對整個 `web/` 跑一次 `tsc --noEmit` + `next build` 都過」**——尤其當任務描述本身就提到「另一個 agent 那邊還有殘留」時，那正是提示要立刻做整合驗證，不要假設對方會自己收尾。
 - **順帶補的洞**：`compress-image.ts` 的 `pesanKompres()` 一開始完全獨立於 `Messages`（直接回傳印尼文字串），三語系翻完admin/cabang兩側的 UI 文字後，這個檔案不會被任何一個「翻譯 UI 文字」agent 摸到——它是*邏輯*檔，不是頁面。壓縮失敗（格式錯、太大、讀不出來）這種邊界情境的訊息最容易被三語系上線漏掉，因為平時測試路徑根本不會走到失敗分支。
 
+### 32. 容器被回收時，HEAD 可能完全正常而只有「工作目錄＋索引」被還原到舊 commit——LESSONS #14 教的 `git log origin/main..HEAD` 這時是綠的，看不出任何異常〔本專案 2026-08-19，Package 內容切片開工當下踩到〕
+- **情境**：接手任務要在 `partner_packages`／`sanci_products`／`audit-format.ts` 上加東西，結果整個 `supabase/migrations/` 只剩 0001–0003，`web/lib/i18n/` 整個不存在，`docs/SPEC-PHASE2.md` 也不見了。
+- **實況**：`git status` 有 **249 個已 staged 的刪除（`D`）＋44 個修改**；工作目錄內容與 33 個 commit 之前的 `ddf1b36` **逐位元組完全相同**，而 `HEAD` 卻好端端停在 `b3f21ff`＝`origin/main`。
+- **為什麼 #14 抓不到**：#14 的處方是「先對 git 實況」——但它預設 HEAD 會跑到舊 commit。這次 HEAD 是**對的**，`git log origin/main..HEAD` 回傳空、`git rev-parse HEAD` 等於 origin/main，兩個檢查全綠。真正的異常只在 `git status` 裡。**另外一個同源徵兆**：`node_modules` 只裝了 26 個頂層套件（`npx eslint` 直接 `ERR_MODULE_NOT_FOUND`），`npm ci` 補裝回 320 個。
+- **危險在哪**：這種狀態下如果直接照任務描述動工，會得出「規格說的檔案不存在」的錯誤結論，然後**在 33 個 commit 前的舊樹上重建那些檔案**——產出的 commit 會把整個專案倒退回舊版再加上新功能，diff 巨大到沒人看得出來哪裡錯了。這正是 #14 最後一句「不要在舊樹上疊分歧版本」講的災難，只是入口不同。
+- **修法**：確認**沒有東西會遺失**再還原，三個條件缺一不可：① `git merge-base --is-ancestor <那個 commit> HEAD` 為真（內容永久留在歷史裡）；② `git status --porcelain -uall` 沒有 untracked 檔案；③ `git stash list` 是空的。三項都成立時工作目錄裡沒有任何獨一無二的東西，`git reset --hard HEAD` 是零損失的。順手 `git tag` 標一下那個 commit 更保險。
+- **教訓**：**開工前的 git 健檢要看 `git status`，不能只看 `git log`／HEAD。**「HEAD 是對的」不等於「檔案是對的」——工作目錄、索引、HEAD 是三個可以各自被弄壞的東西。判斷還原安不安全的標準也不是「看起來像垃圾」，而是**能不能證明這些內容在別處還在**；能證明就放心還原，不能證明就先問，不要憑感覺刪。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
