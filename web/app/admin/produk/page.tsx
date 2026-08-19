@@ -14,7 +14,7 @@ function isMissingTableErr(err: { code?: string } | null): boolean {
 export default async function ProdukPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; stock?: string }>;
+  searchParams: Promise<{ q?: string; stock?: string; kategori?: string }>;
 }) {
   const m = await getMessages();
   const STOCK_OPTIONS: { value: "ALL" | StockStatus; label: string }[] = [
@@ -27,6 +27,7 @@ export default async function ProdukPage({
   const q = (sp.q || "").trim().toLowerCase();
   const stockFilter: "ALL" | StockStatus =
     sp.stock === "AVAILABLE" || sp.stock === "LIMITED" || sp.stock === "OUT_OF_STOCK" ? sp.stock : "ALL";
+  const categoryFilter = (sp.kategori || "").trim();
 
   const supabase = await createClient();
   const { data: products, error } = await supabase
@@ -49,12 +50,21 @@ export default async function ProdukPage({
   }
 
   const allRows = (products ?? []) as SanciProductRow[];
+
+  // Daftar kategori diambil dari data yang sudah termuat, bukan query
+  // terpisah — kategori hanyalah nilai teks bebas pada sanci_products, sama
+  // seperti pola di sisi cabang (produk-list-client.tsx).
+  const categories = Array.from(new Set(allRows.map((p) => p.category).filter((c): c is string => !!c))).sort(
+    (a, b) => a.localeCompare(b, m.common.dateLocale)
+  );
+
   const rows = allRows.filter((p) => {
     if (q) {
       const hit = p.name.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q);
       if (!hit) return false;
     }
     if (stockFilter !== "ALL" && p.stock_status !== stockFilter) return false;
+    if (categoryFilter && p.category !== categoryFilter) return false;
     return true;
   });
 
@@ -80,6 +90,16 @@ export default async function ProdukPage({
             </option>
           ))}
         </select>
+        {categories.length > 0 && (
+          <select name="kategori" defaultValue={categoryFilter} className="filter-select">
+            <option value="">{m.admin.filterCategoryAll}</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
         <button className="btn" type="submit">
           {m.common.search}
         </button>
@@ -91,7 +111,11 @@ export default async function ProdukPage({
         </div>
       ) : rows.length === 0 ? (
         <div className="card emptybox">
-          {allRows.length === 0 ? m.admin.produkEmpty : m.admin.produkEmptyFiltered.replace("{q}", sp.q || "")}
+          {allRows.length === 0
+            ? m.admin.produkEmpty
+            : q
+              ? m.admin.produkEmptyFiltered.replace("{q}", sp.q || "")
+              : m.admin.produkEmptyFilteredCategory}
         </div>
       ) : (
         <div

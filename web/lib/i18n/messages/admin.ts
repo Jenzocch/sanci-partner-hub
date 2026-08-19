@@ -350,8 +350,10 @@ const id = {
   // ---- Katalog Produk SANCI (produk/page.tsx dan seterusnya) ----
   produkSearchPlaceholder: "Cari nama / kode produk…",
   filterStockAll: "Stok: semua",
+  filterCategoryAll: "Kategori: semua",
   produkEmpty: "Belum ada produk.",
   produkEmptyFiltered: 'Tidak ada produk yang cocok dengan "{q}".',
+  produkEmptyFilteredCategory: "Tidak ada produk di kategori ini.",
   produkFootnote: "Produk nonaktif tidak terlihat oleh partner.",
   productNoPhoto: "Tanpa foto",
   productStockFieldLabel: "Status stok",
@@ -779,8 +781,10 @@ const en = {
 
   produkSearchPlaceholder: "Search product name / code…",
   filterStockAll: "Stock: all",
+  filterCategoryAll: "Category: all",
   produkEmpty: "No products yet.",
   produkEmptyFiltered: 'No products match "{q}".',
+  produkEmptyFilteredCategory: "No products in this category.",
   produkFootnote: "Inactive products are not visible to partners.",
   productNoPhoto: "No photo",
   productStockFieldLabel: "Stock status",
@@ -1163,8 +1167,10 @@ const zh = {
 
   produkSearchPlaceholder: "搜索产品名称 / 编号…",
   filterStockAll: "库存：全部",
+  filterCategoryAll: "分类：全部",
   produkEmpty: "暂无产品。",
   produkEmptyFiltered: "没有符合“{q}”的产品。",
+  produkEmptyFilteredCategory: "这个分类下暂无产品。",
   produkFootnote: "已停用的产品对合作商不可见。",
   productNoPhoto: "暂无照片",
   productStockFieldLabel: "库存状态",
