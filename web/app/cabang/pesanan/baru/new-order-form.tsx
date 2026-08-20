@@ -14,6 +14,7 @@ import {
   fulfillmentLabel,
   type FulfillmentPath,
 } from "@/lib/orders-shared";
+import { readCalcHandoff, clearCalcHandoff, type CalcHandoff } from "@/lib/calculator-shared";
 import {
   createCustomerAndOrder,
   createCustomerOnly,
@@ -21,6 +22,7 @@ import {
   lookupCustomerRequestId,
   lookupOrderRequestId,
   searchCustomerByPhone,
+  setOrderOfferBranch,
   type OrderCreated,
 } from "../actions";
 import { INVOICE_ACCEPT, unggahInvoice } from "../invoice-upload";
@@ -76,6 +78,23 @@ export default function NewOrderForm({
   const [orderResult, setOrderResult] = useState<OrderCreated | null>(null);
   const [customerResult, setCustomerResult] = useState<FoundCustomer | null>(null);
   const [invoiceMsg, setInvoiceMsg] = useState<string | null>(null);
+
+  // Hand-off dari Kalkulator Penawaran (/cabang/kalkulator, sekali pakai lewat
+  // localStorage — lihat lib/calculator-shared.ts). TIDAK PERNAH diterapkan
+  // diam-diam (sama prinsip dengan draf: pengguna yang memutuskan, SPEC §58) —
+  // staf harus menekan "Gunakan angka ini" dulu. `calcApply` hanya menandai
+  // NIAT; penerapan rantai diskon sungguhan ke order_sanci_offers baru terjadi
+  // SETELAH pesanan berhasil dibuat (lihat applyCalcHandoff di bawah), dan
+  // tetap lewat setOrderOfferBranch yang sama dengan OfferSection — jalur itu
+  // tetap menegakkan RLS/trigger can_edit_offer/can_discount 0014/0015 seperti
+  // biasa; kalkulatornya saja yang bebas izin, bukan jalur tulis ini.
+  const [calcHandoff, setCalcHandoff] = useState<CalcHandoff | null>(null);
+  const [calcApply, setCalcApply] = useState(false);
+  const [calcOutcomeMsg, setCalcOutcomeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    setCalcHandoff(readCalcHandoff());
+  }, []);
 
   const hasPackages = packages.length > 0;
   // Select TIDAK dikontrol React (defaultValue, bukan value) — sama seperti pola
@@ -150,6 +169,53 @@ export default function NewOrderForm({
     if (el) el.value = value;
   }
 
+  /** Staf menekan "Gunakan angka ini" pada banner hand-off Kalkulator. */
+  function handleUseCalcHandoff() {
+    if (!calcHandoff) return;
+    setFieldValue("partner_purchase_amount", formatIDR(calcHandoff.subtotal));
+    setCalcApply(true);
+  }
+  /** Staf menekan "Abaikan" — buang hand-off sepenuhnya, tidak ada yang dipakai. */
+  function handleDismissCalcHandoff() {
+    clearCalcHandoff();
+    setCalcHandoff(null);
+    setCalcApply(false);
+  }
+
+  /**
+   * Dipanggil SETELAH pesanan berhasil dibuat (kedua jalur sukses di
+   * onSubmitOrder). Best-effort murni — sama pola dengan copyPackageItemsToOrder
+   * di actions.ts: kegagalan di sini TIDAK PERNAH membatalkan pesanan yang
+   * sudah tersimpan, hanya dilaporkan lewat calcOutcomeMsg supaya staf tahu
+   * (LESSONS #10, jangan diam-diam menelan kegagalan sebagian). Hand-off
+   * selalu dihapus sesudahnya (sekali pakai) terlepas dari hasilnya.
+   */
+  async function applyCalcHandoffIfNeeded(orderId: string) {
+    if (!calcApply || !calcHandoff) return;
+    const out = await submitSafely({
+      kind: "update",
+      messages: m,
+      run: () =>
+        setOrderOfferBranch(
+          orderId,
+          String(calcHandoff.subtotal),
+          "",
+          "",
+          calcHandoff.discountPcts.map(String),
+          calcHandoff.markupPct == null ? "" : String(calcHandoff.markupPct),
+          String(calcHandoff.cashDiscount)
+        ),
+    });
+    const applied = out.status === "ok" && !("error" in out.result);
+    setCalcOutcomeMsg({
+      ok: applied,
+      text: applied ? m.cabang.calcHandoffAppliedOk : m.cabang.calcHandoffAppliedFailed,
+    });
+    clearCalcHandoff();
+    setCalcHandoff(null);
+    setCalcApply(false);
+  }
+
   /**
    * Prefill shipping_address dari alamat pelanggan (0014) — HANYA kalau
    * field itu masih kosong (LESSONS #1: draf/isian yang sudah diketik
@@ -193,6 +259,12 @@ export default function NewOrderForm({
     setNetMsg(null);
     setPartialMsg(null);
     setInvoiceMsg(null);
+    setCalcOutcomeMsg(null);
+    // Hand-off (kalau ada) sudah dikonsumsi (dipakai atau diabaikan) sebelum
+    // sampai di sini — pesanan berikutnya di sesi form yang sama TIDAK boleh
+    // diam-diam memakai angka kalkulator yang sudah dipakai untuk pesanan lain.
+    setCalcHandoff(readCalcHandoff());
+    setCalcApply(false);
     requestIdRef.current = crypto.randomUUID();
     const form = draft.formRef.current;
     if (form) form.reset();
@@ -315,6 +387,7 @@ export default function NewOrderForm({
       requestIdRef.current = null;
       if (summary.status === "found") {
         await withInvoice(out.id);
+        await applyCalcHandoffIfNeeded(out.id);
         setOrderResult({ ...summary.order, customerId: foundCustomer?.id ?? "" });
         setPhase("order_success");
       } else {
@@ -347,6 +420,7 @@ export default function NewOrderForm({
     draft.clear();
     requestIdRef.current = null;
     await withInvoice(res.data.id);
+    await applyCalcHandoffIfNeeded(res.data.id);
     setOrderResult(res.data);
     setPhase("order_success");
   }
@@ -357,6 +431,9 @@ export default function NewOrderForm({
         <div className="banner ok">{m.cabang.orderCreatedBanner}</div>
         {invoiceMsg && <div className="banner warn">{invoiceMsg}</div>}
         {orderResult.itemsCopyWarning && <div className="banner warn">{orderResult.itemsCopyWarning}</div>}
+        {calcOutcomeMsg && (
+          <div className={`banner ${calcOutcomeMsg.ok ? "ok" : "warn"}`}>{calcOutcomeMsg.text}</div>
+        )}
         <dl className="kv">
           <dt>{m.common.orderNumber}</dt>
           <dd className="code">{orderResult.orderNumber}</dd>
@@ -423,6 +500,26 @@ export default function NewOrderForm({
       {partialMsg && <div className="banner bad">{partialMsg}</div>}
       {errs._form && <div className="banner bad">{errs._form}</div>}
       <DraftBanner draft={draft.draft} onRestore={handleRestoreDraft} onDiscard={draft.discard} />
+
+      {calcHandoff && !calcApply && (
+        <div className="banner info">
+          {m.cabang.calcHandoffBanner
+            .replace("{n}", String(calcHandoff.itemQty))
+            .replace("{subtotal}", formatIDR(calcHandoff.subtotal))
+            .replace("{final}", formatIDR(calcHandoff.finalAmount))}
+          <p className="small muted" style={{ marginTop: 6, marginBottom: 0 }}>
+            {m.cabang.calcHandoffScopeHint}
+          </p>
+          <div className="btnrow-inline">
+            <button type="button" className="btn sm primary" onClick={handleUseCalcHandoff}>
+              {m.cabang.calcHandoffApplyCta}
+            </button>
+            <button type="button" className="btn sm" onClick={handleDismissCalcHandoff}>
+              {m.cabang.calcHandoffDismissCta}
+            </button>
+          </div>
+        </div>
+      )}
 
       <form ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
         <h3 style={{ fontSize: "var(--fs-h3)", marginBottom: 10 }}>{m.common.customer}</h3>

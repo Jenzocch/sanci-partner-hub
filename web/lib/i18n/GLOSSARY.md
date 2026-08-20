@@ -42,6 +42,7 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Syarat pembayaran (teks bebas) | Kondisi Pembayaran | 付款条件 | Payment condition |
 | Alamat tujuan kirim satu pesanan | Alamat Pengiriman | 收货地址 | Shipping address |
 | Daftar produk/baris di dalam satu pesanan | Isi Pesanan | 订单明细 | Order items |
+| Alat hitung penawaran cepat, ephemeral, tanpa gerbang izin (2026-08-20) | Kalkulator Penawaran | 方案计算器 | Offer Calculator |
 | Rantai diskon % tingkat pesanan (0015) | Diskon | 折扣 | Discount |
 | Persentase kenaikan setelah diskon (0015) | Markup | 加成 | Markup |
 | Potongan tunai flat, dikurangi terakhir (0015) | Potongan Tunai | 现金折让 | Cash discount |

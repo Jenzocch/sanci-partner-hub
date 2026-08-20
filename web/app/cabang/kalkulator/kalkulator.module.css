@@ -1,0 +1,173 @@
+/* Kalkulator Penawaran (/cabang/kalkulator). Scoped CSS Module — bukan
+   globals.css, sama alasan dengan produk.module.css: slice ini hanya
+   menyentuh web/app/cabang/**. Semua warna/radius/shadow/tap-target tetap
+   memakai token STYLE CONTRACT (var(--surface) dkk), CSS Module hanya
+   melokalkan NAMA KELAS. Grid foto & placeholder SENGAJA dicopy dari
+   produk.module.css (bukan di-share) supaya kedua halaman boleh berubah
+   independen nanti tanpa saling mematahkan. */
+
+/* ── Grid produk (tab "Produk") — sama pola dengan produk.module.css,
+   plus overlay badge jumlah keranjang. ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+@media (min-width: 600px) {
+  .grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+}
+@media (min-width: 900px) {
+  .grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.card:hover { background: var(--surface2); box-shadow: var(--shadow); }
+.card:active { transform: scale(.99); }
+/* Produk yang sudah di keranjang — pinggiran navy supaya kelihatan sekilas
+   tanpa harus baca badge angkanya (dua penanda, bukan cuma warna). */
+.card.inCart { border-color: var(--accent); }
+
+.photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface2);
+  overflow: hidden;
+  flex: none;
+}
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--faint); font-size: var(--fs-caption);
+  text-align: center; line-height: var(--lh-tight); padding: 8px;
+}
+
+/* Badge "×N di keranjang" — pojok kanan atas foto, di atas gambar. */
+.cartBadge {
+  position: absolute; top: 8px; right: 8px; z-index: 1;
+}
+
+.body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.name { font-size: var(--fs-sec); font-weight: 650; line-height: var(--lh-tight); color: var(--ink); overflow-wrap: anywhere; }
+.metaRow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.filterchip {
+  min-height: 36px; padding: 7px 14px; border-radius: var(--r-pill);
+  font-size: var(--fs-caption); font-weight: 650;
+  background: var(--off-bg); color: var(--off); border: none;
+  white-space: nowrap;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.filterchip:hover { background: var(--surface3); }
+.filterOn { background: var(--accent-soft); color: var(--accent-2); }
+
+/* ── Keranjang (tab "Keranjang") ── */
+.cartLine {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+}
+.cartLine:last-child { border-bottom: none; }
+.lineThumb {
+  width: 56px; height: 56px; flex: none; border-radius: var(--r-md);
+  overflow: hidden; background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--faint); font-size: 10px; text-align: center; line-height: 1.2; padding: 2px;
+}
+.lineThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lineBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.lineName { font-size: var(--fs-sec); font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
+.lineControls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.priceField { flex: 1; min-width: 130px; }
+.priceField label, .qtyField label {
+  display: block; font-size: var(--fs-caption); color: var(--ink2); margin-bottom: 4px; font-weight: 600;
+}
+.priceField input {
+  width: 100%; min-height: var(--tap); padding: 9px 12px;
+  border: 1px solid var(--line2); border-radius: var(--r-sm);
+  font-size: var(--fs-input); background: var(--surface); color: var(--ink);
+}
+.qtyField { display: flex; flex-direction: column; }
+.stepper { display: flex; align-items: center; gap: 6px; }
+.stepBtn {
+  width: var(--tap); height: var(--tap); flex: none;
+  border-radius: var(--r-sm); border: 1px solid var(--line2);
+  background: var(--surface2); color: var(--ink);
+  font-size: 20px; font-weight: 650; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--dur) var(--ease);
+}
+.stepBtn:hover { background: var(--surface3); }
+.stepBtn:active { transform: scale(.96); }
+.qtyInput {
+  width: 64px; min-height: var(--tap); text-align: center;
+  border: 1px solid var(--line2); border-radius: var(--r-sm);
+  font-size: var(--fs-input); font-variant-numeric: tabular-nums;
+  background: var(--surface); color: var(--ink);
+}
+.lineFooter {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.lineSubtotal { font-size: var(--fs-sec); font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ── Breakdown "好計算" — subtotal → diskon → markup → akhir, satu blok
+   yang bisa dijelaskan ke pelanggan sambil membangun angkanya. ── */
+.breakdown {
+  background: var(--surface2); border-radius: var(--r-md);
+  padding: 14px 16px; margin: 4px 0 16px;
+}
+.breakdownRow {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 5px 0; font-size: var(--fs-sec); color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+}
+.breakdownRow.final {
+  border-top: 1px solid var(--line2); margin-top: 4px; padding-top: 10px;
+  font-size: var(--fs-h3); font-weight: 700; color: var(--ink);
+}
+
+/* ── Bar total sticky — "客人看" nomor besar, terus terlihat walau daftar
+   produk di-scroll. Fixed (bukan sticky) supaya konsisten di kedua tab. ── */
+.stickyBar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  background: var(--surface); border-top: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+@supports (backdrop-filter:blur(1px)) and (color:color-mix(in srgb,red,blue)){
+  .stickyBar {
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+  }
+}
+.stickyLeft { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.stickyCount { font-size: var(--fs-caption); color: var(--ink2); }
+.stickyTotal {
+  font-size: calc(var(--fs-h3) + 2px); font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.stickyBtn { flex: none; }
+
+/* Ruang di bawah halaman supaya konten terakhir tidak ketutup stickyBar. */
+.bottomSpacer { height: 84px; }
+@media (max-width: 479px) {
+  .stickyTotal { font-size: var(--fs-h3); }
+}

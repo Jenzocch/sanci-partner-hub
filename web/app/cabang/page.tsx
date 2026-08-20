@@ -118,6 +118,15 @@ export default async function CabangHome() {
             <span className="arrow" aria-hidden="true">&rsaquo;</span>
           </Link>
         )}
+        {/* Sama gerbang dengan Produk SANCI (baris tabel sanci_catalog_access
+            ada, terlepas dari enabled) — kalkulator ini pakai katalog yang
+            sama, halaman itu sendiri yang menjelaskan kalau belum dibuka. */}
+        {produkVisible && (
+          <Link href="/cabang/kalkulator" className="biglink">
+            <span className="lbl">{m.cabang.homeCalculator}</span>
+            <span className="arrow" aria-hidden="true">&rsaquo;</span>
+          </Link>
+        )}
         {myBranch && (
           <Link href={`/cabang/staff/${myBranch.id}`} className="biglink">
             <span className="lbl">{m.cabang.homeStaff}</span>

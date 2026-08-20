@@ -275,6 +275,61 @@ const id = {
   cabangOfferCashInvalid: "Nilai potongan tunai tidak valid.",
   cabangOfferFinalNegative: "Kombinasi diskon/markup/potongan tunai menghasilkan nilai akhir negatif. Periksa kembali nilainya.",
   cabangOfferNoPermissionDiscount: "Toko Anda belum diizinkan mengatur diskon — hubungi SANCI Admin.",
+
+  // Kalkulator Penawaran (/cabang/kalkulator) — owner brief 2026-08-20. DUA
+  // penyimpangan sengaja dari halaman lain (didokumentasikan di page.tsx +
+  // FEATURES.md): tanpa gerbang izin can_discount/can_edit_offer, dan tidak
+  // menulis apa pun ke database selagi dipakai (murni localStorage).
+  homeCalculator: "Kalkulator Penawaran",
+  calcPageTitle: "Kalkulator Penawaran",
+  calcIntroNote:
+    "Alat hitung cepat untuk dipakai langsung di depan pelanggan. Tidak ada yang tersimpan ke sistem sampai Anda " +
+    "menekan \"Buat Pesanan\" — dan rantai diskon di sini bisa dipakai semua cabang, terlepas dari izin diskon pada " +
+    "pesanan sungguhan.",
+  calcTabProducts: "Produk",
+  calcTabCart: "Keranjang ({n})",
+  calcCartCardTitle: "Keranjang",
+  calcAddToCartAria: "Tambah {name} ke keranjang",
+  calcCartEmpty: "Keranjang masih kosong — pilih produk untuk mulai menghitung penawaran.",
+  calcGoToProductsCta: "Pilih Produk",
+  calcUnitPriceLabel: "Harga satuan (Rp)",
+  calcQtyLabel: "Jumlah",
+  calcRemoveLineCta: "Hapus",
+  calcRemoveLineAria: "Hapus {name} dari keranjang",
+  calcDiscountSectionTitle: "Diskon, Markup & Potongan Tunai",
+  calcDiscountHint:
+    "Setiap diskon dihitung berurutan dari subtotal (bukan dijumlahkan). Markup dihitung setelah semua diskon. " +
+    "Potongan tunai dikurangi paling akhir.",
+  calcDiscountFieldLabel: "Diskon {n} (%)",
+  calcDiscountAddBtn: "+ Tambah Diskon",
+  calcDiscountRemoveBtn: "Hapus",
+  calcMarkupFieldLabel: "Markup (%)",
+  calcCashFieldLabel: "Potongan Tunai (Rp)",
+  calcBreakdownSubtotal: "Subtotal",
+  calcBreakdownAfterDiscount: "Setelah Diskon",
+  calcBreakdownAfterMarkup: "Setelah Markup",
+  calcConvertCta: "Buat Pesanan",
+  calcConvertScopeNote:
+    "\"Buat Pesanan\" membawa subtotal & rantai diskon ke pesanan baru. Daftar produk dan harga per baris TIDAK " +
+    "otomatis masuk ke pesanan — sistem belum mendukung input item manual saat membuat pesanan.",
+  calcClearCartCta: "Kosongkan",
+  calcClearCartConfirm: "Kosongkan seluruh keranjang kalkulator?",
+  calcFooterItemCount: "{n} barang",
+  calcFooterAria: "{n} barang, total {amount} — ketuk untuk buka keranjang",
+
+  // Hand-off Kalkulator → Pesanan Baru (lihat lib/calculator-shared.ts:
+  // CalcHandoff, sekali pakai lewat localStorage).
+  calcHandoffBanner: "Dari Kalkulator Penawaran: {n} barang · Subtotal {subtotal} · Total Akhir {final}.",
+  calcHandoffApplyCta: "Gunakan angka ini",
+  calcHandoffDismissCta: "Abaikan",
+  calcHandoffScopeHint:
+    "Ini akan mengisi \"Total belanja pelanggan\" dengan subtotal dari kalkulator. Rantai diskonnya otomatis " +
+    "diterapkan ke Penawaran SANCI setelah pesanan ini berhasil dibuat (kalau toko Anda punya izin diskon). " +
+    "Daftar produk & harga per baris dari kalkulator TIDAK ikut — masukkan manual di Isi Pesanan bila perlu.",
+  calcHandoffAppliedOk: "Rantai diskon dari Kalkulator Penawaran berhasil diterapkan ke Penawaran SANCI pesanan ini.",
+  calcHandoffAppliedFailed:
+    "Pesanan berhasil dibuat, tapi rantai diskon dari Kalkulator Penawaran belum bisa otomatis diterapkan — toko " +
+    "Anda mungkin belum punya izin diskon. Masukkan manual di halaman pesanan ini, atau hubungi SANCI Admin.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -522,6 +577,61 @@ const en = {
   cabangOfferCashInvalid: "That cash discount value is not valid.",
   cabangOfferFinalNegative: "This combination of discount/markup/cash discount produces a negative final price. Please check the values.",
   cabangOfferNoPermissionDiscount: "Your store isn't allowed to set discounts yet — contact SANCI Admin.",
+
+  // Offer Calculator (/cabang/kalkulator) — owner brief 2026-08-20. Two
+  // deliberate exceptions from other screens (documented in page.tsx +
+  // FEATURES.md): no can_discount/can_edit_offer gate, and nothing is
+  // written to the database while it's in use (localStorage only).
+  homeCalculator: "Offer Calculator",
+  calcPageTitle: "Offer Calculator",
+  calcIntroNote:
+    "A quick calculator for use right in front of the customer. Nothing is saved to the system until you press " +
+    "\"Create Order\" — and the discount chain here can be used by every branch, regardless of discount " +
+    "permissions on real orders.",
+  calcTabProducts: "Products",
+  calcTabCart: "Cart ({n})",
+  calcCartCardTitle: "Cart",
+  calcAddToCartAria: "Add {name} to cart",
+  calcCartEmpty: "Cart is empty — pick products to start pricing an offer.",
+  calcGoToProductsCta: "Pick products",
+  calcUnitPriceLabel: "Unit price (Rp)",
+  calcQtyLabel: "Quantity",
+  calcRemoveLineCta: "Remove",
+  calcRemoveLineAria: "Remove {name} from cart",
+  calcDiscountSectionTitle: "Discount, Markup & Cash Discount",
+  calcDiscountHint:
+    "Each discount is applied in order from the subtotal (not added together). Markup is applied after all " +
+    "discounts. Cash discount is subtracted last.",
+  calcDiscountFieldLabel: "Discount {n} (%)",
+  calcDiscountAddBtn: "+ Add discount",
+  calcDiscountRemoveBtn: "Remove",
+  calcMarkupFieldLabel: "Markup (%)",
+  calcCashFieldLabel: "Cash discount (Rp)",
+  calcBreakdownSubtotal: "Subtotal",
+  calcBreakdownAfterDiscount: "After discount",
+  calcBreakdownAfterMarkup: "After markup",
+  calcConvertCta: "Create order",
+  calcConvertScopeNote:
+    "\"Create order\" carries the subtotal & discount chain into a new order. The product list and per-line " +
+    "prices are NOT carried over automatically — order creation doesn't support manual item entry yet.",
+  calcClearCartCta: "Clear",
+  calcClearCartConfirm: "Clear the whole calculator cart?",
+  calcFooterItemCount: "{n} items",
+  calcFooterAria: "{n} items, total {amount} — tap to open the cart",
+
+  // Calculator → New order hand-off (see lib/calculator-shared.ts:
+  // CalcHandoff, one-shot via localStorage).
+  calcHandoffBanner: "From the Offer Calculator: {n} items · Subtotal {subtotal} · Final total {final}.",
+  calcHandoffApplyCta: "Use these numbers",
+  calcHandoffDismissCta: "Dismiss",
+  calcHandoffScopeHint:
+    "This fills \"Customer's total purchase\" with the calculator's subtotal. The discount chain is applied " +
+    "automatically to the SANCI Offer once this order is created (if your store has discount permission). The " +
+    "calculator's product list and per-line prices are NOT carried over — enter them manually in Order Items if needed.",
+  calcHandoffAppliedOk: "The Offer Calculator's discount chain was applied to this order's SANCI Offer.",
+  calcHandoffAppliedFailed:
+    "The order was created, but the Offer Calculator's discount chain couldn't be applied automatically — your " +
+    "store may not have discount permission yet. Enter it manually on this order's page, or contact SANCI Admin.",
 } satisfies Shape;
 
 const zh = {
@@ -756,6 +866,57 @@ const zh = {
   cabangOfferCashInvalid: "现金折让数值无效。",
   cabangOfferFinalNegative: "这个折扣/加成/现金折让组合会得出负数的最终金额，请检查数值。",
   cabangOfferNoPermissionDiscount: "您的门店还没有设置折扣的权限 —— 请联系 SANCI 管理员。",
+
+  // 方案计算器(/cabang/kalkulator)—— owner 2026-08-20 拍板。跟其他页面比
+  // 有两个刻意的例外(page.tsx 和 FEATURES.md 都有说明):不设
+  // can_discount/can_edit_offer 权限门槛,而且使用期间完全不写入数据库
+  // (只存在浏览器 localStorage)。
+  homeCalculator: "方案计算器",
+  calcPageTitle: "方案计算器",
+  calcIntroNote:
+    "快速计算工具,可以直接在客户面前使用。在您按下\"创建订单\"之前,这里的任何内容都不会保存到系统 —— " +
+    "而且这里的折扣链所有门店都能用,跟真实订单的折扣权限无关。",
+  calcTabProducts: "产品",
+  calcTabCart: "购物车({n})",
+  calcCartCardTitle: "购物车",
+  calcAddToCartAria: "把{name}加入购物车",
+  calcCartEmpty: "购物车还是空的 —— 选择产品开始计算方案。",
+  calcGoToProductsCta: "选择产品",
+  calcUnitPriceLabel: "单价(Rp)",
+  calcQtyLabel: "数量",
+  calcRemoveLineCta: "删除",
+  calcRemoveLineAria: "从购物车删除{name}",
+  calcDiscountSectionTitle: "折扣、加成与现金折让",
+  calcDiscountHint: "每笔折扣按顺序从小计开始计算(不是直接相加)。加成在所有折扣之后计算。现金折让最后扣除。",
+  calcDiscountFieldLabel: "折扣 {n}(%)",
+  calcDiscountAddBtn: "+ 添加折扣",
+  calcDiscountRemoveBtn: "删除",
+  calcMarkupFieldLabel: "加成(%)",
+  calcCashFieldLabel: "现金折让(Rp)",
+  calcBreakdownSubtotal: "小计",
+  calcBreakdownAfterDiscount: "折扣后",
+  calcBreakdownAfterMarkup: "加成后",
+  calcConvertCta: "创建订单",
+  calcConvertScopeNote:
+    "\"创建订单\"会把小计和折扣链带入新订单。计算器里的产品清单和每行单价不会自动进入订单 —— 目前系统还不支持" +
+    "在创建订单时手动输入品项。",
+  calcClearCartCta: "清空",
+  calcClearCartConfirm: "清空整个计算器购物车?",
+  calcFooterItemCount: "{n}件",
+  calcFooterAria: "{n}件,总计{amount} —— 点击打开购物车",
+
+  // 计算器 → 新建订单的交接(见 lib/calculator-shared.ts 的 CalcHandoff,
+  // 一次性,透过 localStorage)。
+  calcHandoffBanner: "来自方案计算器:{n}件 · 小计{subtotal} · 最终金额{final}。",
+  calcHandoffApplyCta: "使用这些数字",
+  calcHandoffDismissCta: "忽略",
+  calcHandoffScopeHint:
+    "这会把计算器的小计填入\"客户在店内的消费总额\"。订单创建成功后,折扣链会自动应用到 SANCI 方案金额" +
+    "(如果您的门店有折扣权限)。计算器里的产品清单和每行单价不会带过来 —— 需要的话请到订单明细手动输入。",
+  calcHandoffAppliedOk: "方案计算器的折扣链已成功应用到这笔订单的 SANCI 方案金额。",
+  calcHandoffAppliedFailed:
+    "订单已经创建成功,但方案计算器的折扣链无法自动应用 —— 您的门店可能还没有折扣权限。请在这笔订单页面手动" +
+    "输入,或联系 SANCI 管理员。",
 } satisfies Shape;
 
 export const cabang = { id, en, zh };
