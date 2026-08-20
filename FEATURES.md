@@ -512,8 +512,11 @@ WhatsApp／業務同事的記憶）匯入 `customers`，**硬性要求**：匯�
 | P2-60 | 一次性匯入腳本 `web/scripts/import-customers/`（36 筆，跑一次） | `UNVERIFIED` | 沿用 `import-master-data/` 的所有慣例（同樣兩種登入方式、同樣「在自己電腦跑，不進部署」的框架）；`normalizePhoneID()` 從 `web/lib/orders-shared.ts` **逐字**搬過來（不是重寫，是複製）；2 筆 `phone: null`（Ibu Swanny、Mina）依 schema NOT NULL 規定**跳過**，腳本結尾明確列出姓名；電話裡帶括號備註的（例："087875714156 (Ibu Alin-agent properti)"）先拆出括號內文字轉存進 `notes`，剩下的數字再正規化；去重靠 `phone_normalized`：找到既有列只補**空欄位**（不覆蓋人已經編輯過的值），沒找到才 INSERT，`created_via_partner_id`/`created_via_branch_id` 皆寫 NULL——這就是硬性要求生效的地方 |
 | P2-61 | `integrations/sheets-so-filler/Code.gs`：Q2（Code Customer）改為照抄 `customer_code` | `UNVERIFIED` | 舊版固定清空 Q2（"系統沒有客戶代碼"這句話現在過期了）；改成有 `customer_code` 就寫，沒有就照舊清空；連帶處理 0017 尚未執行時的優雅降級（PostgREST 對整個 SELECT 回 42703，跟 0014 的 `shipping_address` 是同一種症狀，用同一套「先試最寬、被拒就拿掉那個欄位重試」邏輯，這次擴充成兩個獨立可選欄位而不是一個） |
 
-**Migration `0017_customer_code_email.sql` 狀態**：**`UNVERIFIED`（本機驗證通
-過，production 尚未執行）** — 本機 Postgres 16 完整重放 `0001→…→0016→0017`
+**Migration `0017_customer_code_email.sql` 狀態**：**`VERIFIED`(production)** —
+2026-08-20 Jenzo 執行成功並回貼驗證結果，**24 項數字與期望完全相符**（含
+`CUSTOMER_EMAIL_UNIQUE 0`〔刻意不設唯一〕、`CUSTOMER_POLICIES 4`〔RLS 完全
+未變動〕、十三個 audit 保留斷言全 1）。本機 Postgres 16 完整重放
+`0001→…→0016→0017`
 後：驗證區塊 **24 項全數符合期望**（含關鍵斷言 `CUSTOMER_CODE_UNIQUE_PARTIAL
 1`、`CUSTOMER_EMAIL_UNIQUE 0`、`CUSTOMER_POLICIES 4`——這一項是 RLS 完全未變
 的直接證據，以及十三個 `AUDIT_KEEP_*`/`REFS_CHECK_CUSTOMER` 保留斷言全
