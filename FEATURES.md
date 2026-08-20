@@ -497,6 +497,78 @@ CJK 殘留，零新增命中（既有註解裡的中文字屬本輪之前就存�
   待 Jenzo 在 Supabase SQL Editor 貼上 `0016_order_documents.sql` 全文執行，
   回貼 46 項驗證結果核對後方可升級為 `VERIFIED(production)`。
 
+### Phase 2 第十一切片（客戶資料匯入，2026-08-20）
+
+Owner 指示（"客戶資料也進去"）：把 36 筆舊有客戶資料（來源在系統之外——Excel／
+WhatsApp／業務同事的記憶）匯入 `customers`，**硬性要求**：匯入的客戶**分店完
+全看不到**。這條硬性要求不是靠新機制做到的——`created_via_partner_id`/
+`created_via_branch_id` = NULL 這個組合，配上系統從 0004/0007 就存在的 RLS，
+本來就等於「零分店 policy 命中，只有 admin 看得到」，本切片只是驗證這個既有
+機制真的擋得住，沒有新造輪子。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-59 | Migration `0017_customer_code_email.sql`：`customers` 新增 `customer_code`/`email`（DB 層） | `UNVERIFIED` | 兩個新欄位，皆 nullable、皆有 blank-guard CHECK（`sanci_products_code_not_blank` 同款式）；`customer_code` 額外有 partial UNIQUE index（`where customer_code is not null`）——**先查過 36 筆真實匯入資料再決定加**（零重複才加，不是照抄 0010 的慣例不查就加），`email` 刻意沒有 unique；`fn_audit_row` **完全沒有重新定義**（自 0015 以來第二次），因為沒有新表——`customers` 早在 0004 就對到 `CUSTOMER` 前綴，`to_jsonb(new)/(old)` 會自動帶出新欄位；`customers` 的 RLS **一個字都沒動**，硬性要求靠的是既有的 `c_partner_read`（0007），不是本次新加的東西 |
+| P2-60 | 一次性匯入腳本 `web/scripts/import-customers/`（36 筆，跑一次） | `UNVERIFIED` | 沿用 `import-master-data/` 的所有慣例（同樣兩種登入方式、同樣「在自己電腦跑，不進部署」的框架）；`normalizePhoneID()` 從 `web/lib/orders-shared.ts` **逐字**搬過來（不是重寫，是複製）；2 筆 `phone: null`（Ibu Swanny、Mina）依 schema NOT NULL 規定**跳過**，腳本結尾明確列出姓名；電話裡帶括號備註的（例："087875714156 (Ibu Alin-agent properti)"）先拆出括號內文字轉存進 `notes`，剩下的數字再正規化；去重靠 `phone_normalized`：找到既有列只補**空欄位**（不覆蓋人已經編輯過的值），沒找到才 INSERT，`created_via_partner_id`/`created_via_branch_id` 皆寫 NULL——這就是硬性要求生效的地方 |
+| P2-61 | `integrations/sheets-so-filler/Code.gs`：Q2（Code Customer）改為照抄 `customer_code` | `UNVERIFIED` | 舊版固定清空 Q2（"系統沒有客戶代碼"這句話現在過期了）；改成有 `customer_code` 就寫，沒有就照舊清空；連帶處理 0017 尚未執行時的優雅降級（PostgREST 對整個 SELECT 回 42703，跟 0014 的 `shipping_address` 是同一種症狀，用同一套「先試最寬、被拒就拿掉那個欄位重試」邏輯，這次擴充成兩個獨立可選欄位而不是一個） |
+
+**Migration `0017_customer_code_email.sql` 狀態**：**`UNVERIFIED`（本機驗證通
+過，production 尚未執行）** — 本機 Postgres 16 完整重放 `0001→…→0016→0017`
+後：驗證區塊 **24 項全數符合期望**（含關鍵斷言 `CUSTOMER_CODE_UNIQUE_PARTIAL
+1`、`CUSTOMER_EMAIL_UNIQUE 0`、`CUSTOMER_POLICIES 4`——這一項是 RLS 完全未變
+的直接證據，以及十三個 `AUDIT_KEEP_*`/`REFS_CHECK_CUSTOMER` 保留斷言全
+1——證明 `fn_audit_row` 真的沒被碰過，不是宣稱）；行為測試 **6/6 PASS**
+（`supabase/test-harness/50_behavior_0017.sql`：`customer_code`/`email` 填空
+字串皆被 CHECK 擋下；兩筆 `customer_code` 都是 NULL 可以共存；兩筆
+`customer_code` 都填同一個值被 unique index 擋下；**匯入形狀的客戶
+（`created_via_partner_id`/`created_via_branch_id` 皆 NULL、沒有任何訂單）
+admin 看得到、分店帳號讀到零筆**——這是本切片的核心，不是附帶測試）；冪等連
+跑 3 次 `pg_dump -s`（濾除 `\restrict`/`\unrestrict` 雜訊，LESSONS #33）**零
+漂移**，24 項驗證數字第 3 次重跑後逐字相同。0001/0004/0005/0008/0009/0010/
+0011/0012/0013/0014/0015/0016 十二個舊檔尾**一個數字都沒變**（已逐一實
+測）。typecheck ✓ eslint ✓ build ✓（`/offline` 仍 `○` 靜態預渲染——這一刀只
+碰 SQL + 一個 `.gs` 檔，跟 web/** typecheck 完全無關，符合預期的 no-op 佐
+證，同 0015 的紀律）。
+
+**匯入腳本狀態說明（誠實邊界）**：這個 sandbox 環境**沒有真實 Supabase 憑
+證**（不像 0016 之前的每一刀，這次連 `.env.local` 都沒有指向真專案），所以
+`web/scripts/import-customers/run.mjs` **實際上不可能在這裡真的跑一次**。
+已完成的驗證僅限於：①程式碼審閱（比對 `normalizePhoneID` 逐字相同、比對
+`import-master-data/run.mjs` 慣例）；②本機 Postgres 16 harness 的 schema/RLS
+層驗證（上面 24 項 + 6 項行為測試，證明資料庫這一側完全準備好接收這個腳本的
+寫入）；③抽離腳本核心邏輯（電話正規化／括號備註拆分／依 `phone_normalized`
+去重＋補空欄位）成純 JavaScript 在 Node 裡模擬跑過全部 36 筆資料（無網路、無
+資料庫）——**模擬結果**：34 筆電話可正規化（2 筆 `phone: null` 照樣跳過）、
+**發現資料本身有 1 組真實重複**（"Ibu Rosemary" 用同一支電話出現兩次，
+`A/26-NS/017` 與 `A/26-NS/028`）——去重邏輯正確地把兩筆併成 1 筆客戶，模擬
+出的最終數字是 **33 筆新建 + 1 筆「已完整無需更動」+ 2 筆跳過 = 36**。**真
+的把資料寫進 Supabase 這一步，只有 Jenzo 用他自己的憑證在自己電腦上跑才能
+驗證**——這條界線寫在 `web/scripts/import-customers/README.md` 開頭。
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **`customer_code` 的 partial unique index 只驗證過目前這 36 筆資料**——不
+  是「證明了系統設計上永遠唯一」，是「這批真實資料裡沒有重複，所以現在加上
+  是安全的」。如果哪天真的需要兩個客戶共用一個代碼，這個 index 要用新的
+  migration 明講原因撤掉，不能悄悄放寬。
+- **「匯入客戶分店看不到」完全靠寫入者自律，不是 schema 強制**——0017 沒有
+  加任何 CHECK/trigger 強迫 `created_via_partner_id`/`created_via_branch_id`
+  必須是 NULL；這兩個欄位本來就可以被任何 admin 寫入任何值。硬性要求成立是
+  因為匯入腳本每次都明確寫 NULL，不是資料庫層面不可能被打破的保證。
+- **UI 完全沒有變動**——沒有任何畫面能顯示/編輯 `customer_code`/`email`
+  （包括 Admin 客戶列表/詳情頁）。Owner 這次只要求資料進去，沒有要求畫面跟
+  著改；如果之後要在畫面上看到這兩個欄位，是另一個切片。
+- **`web/lib/audit-format.ts` 沒有改動**——依 LESSONS #28 的判斷標準（actor
+  UUID／storage path／內部鍵才需要 SKIP，enum／boolean 才需要 LABELS）逐項
+  檢查過：`customer_code`/`email` 都是應該原樣顯示給人看的業務文字欄位，不
+  是需要隱藏或翻譯的那一類，所以這個檔案本來就不需要動——不是漏做。
+- **production 尚未執行本 migration，匯入腳本也尚未實際跑過**——所有驗證數
+  字皆本機 Postgres 16 測得（schema/RLS 這一側）+ Node 純邏輯模擬（腳本邏輯
+  這一側）。待 Jenzo 依序：①在 Supabase SQL Editor 貼上
+  `0017_customer_code_email.sql` 全文執行，回貼 24 項驗證結果核對；②在自己
+  電腦用 `web/scripts/import-customers/README.md` 的兩種憑證方式之一跑
+  `run.mjs`，回貼結尾摘要（新建/更新/已完整/跳過的筆數）核對——兩步驟缺一
+  不可，跟 `import-master-data/` 的兩步驟交接模式完全一致。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
@@ -516,3 +588,5 @@ CJK 殘留，零新增命中（既有註解裡的中文字屬本輪之前就存�
 - [ ] Jenzo 部署後用手機實際測「加到主畫面」＋離線開啟已看過的頁面，確認 PWA #23 的 Service Worker 真的生效（本環境只驗證到路由本身有回應，見上方 #23）
 - [ ] Jenzo 用真帳號登入後，在 1366/1440/1920（desktop）與 360/390/430（mobile）檢查 `/admin`、`/admin/partners/[id]`、`/cabang` 系列頁（本環境已截圖驗證登入頁與 offline 頁在全部寬度無橫向捲動，但這兩頁不吃 sidebar/table/身份卡 規則，見 #20–22）
 - [ ] 之後依 SPEC §90 順序實作（Tests → Security test → Offline test → Self audit → Final verification）
+- [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0017_customer_code_email.sql`**（阻塞 P2-59 標為 VERIFIED；回貼 24 項驗證結果核對，見該檔頭部）
+- [ ] **Jenzo 在自己電腦跑 `web/scripts/import-customers/run.mjs`**（阻塞 P2-60 標為 VERIFIED；需先完成上一步；照 README.md 兩種憑證方式擇一，回貼結尾摘要——期望新建 33／已完整 1／跳過無電話 2）

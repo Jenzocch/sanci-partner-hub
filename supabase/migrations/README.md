@@ -23,12 +23,13 @@ tanpa perlu membaca SQL-nya.
 | 0014 | `0014_permissions_items_shipping.sql` | Irisan kedelapan: 2 flag izin (`can_view_offer`/`can_edit_offer`) di `partner_access_policies` yang MEMBUKA akses cabang ke `order_sanci_offers` miliknya sendiri (3 policy SELECT/INSERT/UPDATE baru — evolusi janji 0013 §4); `dp_amount`/`payment_condition` di `order_sanci_offers`; tabel BARU `order_items` (snapshot isi pesanan per baris + catatan/warna/ukuran, disalin otomatis dari isi Package saat pesanan dibuat, boleh diedit cabang selama pesanan aktif — harga per baris digerbangi `can_edit_offer` lewat trigger); `partner_orders.shipping_address` (selalu bisa diedit, TIDAK masuk daftar beku 0005). Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_ITEM`. **Sengaja TIDAK membangun** rantai perhitungan diskon/markup/potongan-tunai yang direncanakan awal — bentrok langsung dengan `GLOSSARY.md`/`FEATURES.md` yang ditulis di commit yang sama (0013) yang menyatakan sistem ini tidak menghitung diskon; lihat kepala berkas 0014 untuk penjelasan lengkap. |
 | 0015 | `0015_order_discount_chain.sql` | Irisan kesembilan: konflik 0013/0014 SUDAH diputuskan owner (2026-08-20, FEATURES.md §"衝突已裁決") — rantai diskon TINGKAT PESANAN sekarang DIBANGUN. 4 kolom baru di `order_sanci_offers`: `discount_pcts` (jsonb, array % berurutan, maks 6, divalidasi trigger), `markup_pct` (opsional, CHECK 0–100), `cash_discount` (default 0, CHECK ≥0), `final_amount` (WAJIB, DIHITUNG trigger BEFORE INSERT/UPDATE — TIDAK PERNAH dipercaya dari client). Constraint `dp_amount<=amount` (0014) DIGANTI `dp_amount<=final_amount`. Flag izin ketiga `can_discount` di `partner_access_policies` (DEFAULT false) + trigger gerbang baru (`fn_guard_order_offer_discount_fields`) — can_discount adalah gerbang TAMBAHAN di ATAS can_edit_offer (RLS 0014 TIDAK diubah), bukan flag sejajar; matriks lengkap di kepala berkas §6. `fn_audit_row` **TIDAK didefinisikan ulang** — migrasi PERTAMA sejak 0009 yang tidak menyentuhnya (tidak ada tabel baru, kolom baru otomatis ikut lewat `to_jsonb`). |
 | 0016 | `0016_order_documents.sql` | Irisan kesepuluh: dokumen penjualan per-pesanan — Sales Order (SO)/Surat Jalan (DO)/Invoice dibangkitkan di dalam sistem. Owner menolak desain naif "tiga tampilan dari satu order" (原話: "每個的日期不同, 內容跟件數在so,do 不同,invoice 也不同") — dokumen adalah ENTITAS sendiri. 2 tabel BARU: `order_documents` (satu baris = satu dokumen, `doc_number` unik dihitung SERVER ACTION bukan trigger, `doc_date`/`notes` sendiri-sendiri) dan `order_document_items` (baris isi, menunjuk `order_items` + kuantitas KHUSUS dokumen ini, `unique(document_id,order_item_id)`). Guard over-shipment (`fn_guard_document_item_overship`, BEFORE INSERT/UPDATE): DO dan INVOICE masing-masing punya kuota TERPISAH terhadap `order_items.quantity`; SO dilewati (snapshot penuh). RLS admin-only PENUH (`for all`), nol policy cabang di kedua tabel. Dua RPC SECURITY DEFINER (`fn_create_order_document`, `fn_replace_order_document_items`) membungkus insert/replace header+baris dalam SATU transaksi supaya guard over-shipment dan "dokumen tanpa isi karena separuh gagal" tidak pernah terjadi bersamaan. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_DOCUMENT` (satu-hop lewat `order_id`) dan `ORDER_DOCUMENT_ITEM` (DUA-hop lewat `document_id→order_documents.order_id`). |
+| 0017 | `0017_customer_code_email.sql` | Irisan kesebelas: impor 36 pelanggan lama ("客戶資料也進去", owner 2026-08-20) — 2 kolom BARU pada `customers` yang SUDAH ADA: `customer_code` (text, partial UNIQUE `where customer_code is not null` — DITAMBAHKAN, bukan dilewati, karena 36 baris data nyata diperiksa dan nol duplikat) dan `email` (text, TANPA unique). Kedua kolom dapat blank-guard CHECK (pola `sanci_products_code_not_blank`). **TIDAK ADA tabel baru** — `customers` sudah dipetakan ke awalan `CUSTOMER` sejak 0004, jadi `fn_audit_row` **TIDAK didefinisikan ulang** (migrasi KEDUA sejak 0009 yang begitu, setelah 0015) dan **RLS `customers` TIDAK disentuh sama sekali** (nol `create policy`/`drop policy`) — syarat keras owner "pelanggan impor tidak boleh terlihat cabang" dipenuhi murni oleh skrip impor (`created_via_partner_id`/`created_via_branch_id` = NULL) memakai mekanisme RLS yang SUDAH ADA sejak 0004/0007, dibuktikan lewat `supabase/test-harness/50_behavior_0017.sql`. |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015 → 0016`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -52,7 +53,8 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 | 0013 | `fn_audit_row` kehilangan tambahan 0014 (awalan `ORDER_ITEM` dan pencarian partner/branch lewat pesanannya) dan 0016 (awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM`). **Selain itu**, `order_sanci_offers` juga kehilangan TIGA policy cabang baru milik 0014 (`oso_partner_read`/`_insert`/`_update` — `DROP POLICY IF EXISTS oso_admin_all` di 0013 tidak menyentuh nama policy itu, tapi 0013 juga tidak MEMBUATNYA lagi, jadi kalau 0014 belum pernah dijalankan ulang sesudahnya, urutan asli tetap aman; risiko hanya muncul kalau 0013 dijalankan ulang SETELAH 0014 sempat berjalan tanpa 0014 ikut dijalankan ulang lagi — lihat catatan ⚠️ di blok verifikasi 0014). Awalan `ORDER_OFFER` miliknya sendiri **tetap ada**. |
 | 0014 | **Sudah diukur di Postgres 16 lokal, bukan diperkirakan**: `order_sanci_offers_dp_le_amount_check` (constraint LAMA milik 0014 sendiri, `dp_amount<=amount`) **muncul KEMBALI** berdampingan dengan `order_sanci_offers_dp_le_final_check` (constraint BARU milik 0015, `dp_amount<=final_amount`) — 0014 §2 memakai `if not exists (select … where conname = 'order_sanci_offers_dp_le_amount_check')` untuk idempotensi, dan begitu 0015 sudah pernah men-DROP constraint itu, kondisi "belum ada" jadi BENAR lagi sehingga 0014 MEMBUATNYA ULANG. Akibatnya KEDUA constraint aktif bersamaan: kalau `final_amount` lebih BESAR dari `amount` (markup > jumlah diskon), constraint lama yang sudah seharusnya digantikan diam-diam kembali membatasi DP ke `amount`, menolak nilai DP yang SAH menurut aturan 0015 (`dp<=final_amount`) tanpa satu pun peringatan di layar Aktivitas. `fn_audit_row` JUGA kehilangan tambahan 0016 (awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM`) — 0014 sama sekali tidak tahu kedua tabel itu ada. **Yang TIDAK ikut rusak** (diukur eksplisit, bukan diasumsikan): kedua trigger 0015 (`trg_order_offer_discount_guard`, `trg_order_offer_final_compute`), ketiga policy `oso_partner_*`, dan struktur/RLS/RPC `order_documents`/`order_document_items` (0016 tidak mendefinisikan ulang atau menyentuh satu pun dari semuanya — hanya `fn_audit_row` yang bersinggungan). **Pemulihan**: jalankan ulang 0015 sekali lagi untuk memulihkan constraint `dp_le_*` (constraint lama ter-DROP kembali, hanya `dp_le_final_check` yang tersisa — diverifikasi: re-run persis skenario ini menghasilkan tepat satu constraint `dp_le_*`), lalu jalankan ulang **0016** sekali lagi untuk memulihkan `fn_audit_row` (satu-satunya berkas yang memuat awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM`, 0015 tidak menyentuhnya). **Pemulihan untuk kasus 0013 dijalankan ulang** (baris di atas): jalankan ulang 0014 lalu 0016 — 0014 memulihkan ketiga policy `oso_partner_*` dan awalan `ORDER_ITEM` (fungsi `fn_audit_row` versi 0014 tetap identik dengan versi dasar 0015/0016, jadi menjalankan ulang 0014 di sini tidak mengubah pemetaan aksi 0004–0014 apa pun), lalu 0016 memulihkan awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` yang ikut hilang saat 0014 dijalankan ulang. |
 | 0015 | tidak ada untuk struktur/RLS/RPC 0016 (0015 tidak menyentuhnya) — tapi karena 0015 juga tidak mendefinisikan ulang `fn_audit_row`, menjalankan ulang 0015 SENDIRIAN tidak mengubah pemetaan aksi apa pun (baik untung maupun rugi). Versi `fn_audit_row` yang berlaku SEKARANG adalah dari 0016 (bukan lagi 0014), yang memuat SELURUH perilaku 0004+0005+0008+0009+0010+0012+0013+0014 DITAMBAH `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` — jadi kalau berkas LAMA mana pun dijalankan ulang, pemulihan pemetaan aksi sekarang selalu **0016** (bukan lagi 0014), kecuali constraint `dp_le_*` yang tetap milik 0015 (lihat baris 0014 di atas untuk kombinasi keduanya). |
-| 0016 | tidak ada — 0016 adalah berkas terakhir dalam rantai saat ini. |
+| 0016 | tidak ada untuk 0017 (0017 tidak mendefinisikan ulang apa pun milik 0016 — lihat baris 0017 di bawah untuk kenapa) — tapi karena 0016 SENDIRI mendefinisikan ulang `fn_audit_row`, menjalankan ulang 0016 di atas rantai penuh (termasuk 0017) tetap memulihkan pemetaan aksi ke versi 0016 (identik dengan versi yang berlaku sejak awal, `customer_code`/`email` ikut otomatis lewat `to_jsonb` seperti dijelaskan di kepala berkas 0017 §4 — TIDAK ada yang hilang). |
+| 0017 | tidak ada untuk struktur/RLS/policy tabel mana pun (0017 tidak membuat tabel, tidak mendefinisikan ulang policy, dan tidak mendefinisikan ulang `fn_audit_row`) — 0017 adalah berkas terakhir dalam rantai saat ini. Karena 0017 tidak mendefinisikan ulang `fn_audit_row`, menjalankan ulang 0017 SENDIRIAN tidak mengubah pemetaan aksi apa pun (baik untung maupun rugi); pemulih TERAKHIR untuk `fn_audit_row` tetap **0016** (lihat baris 0016 di atas), sama seperti pola 0015 setelah 0014. |
 
 Khusus lubang P2 (`fn_check_order_refs` tanpa pemeriksaan pelanggan): ia TIDAK
 menghasilkan satu pun pesan error atau gejala di layar. Yang terjadi hanyalah
@@ -623,6 +625,56 @@ langsung — `prosrc like '%ORDER_DOCUMENT%'` berubah dari `true` ke `false`);
 menjalankan ulang **0016 sekali lagi** memulihkannya sepenuhnya (angka kembali
 `true`, dan seluruh 46 baris verifikasi tetap sama seperti run pertama).
 
+### 0017
+
+| Cek | nilai |
+|---|---|
+| CUSTOMER_CODE_COL | 1 |
+| CUSTOMER_CODE_TYPE | `text` |
+| CUSTOMER_CODE_NOT_BLANK | 1 |
+| CUSTOMER_CODE_UNIQUE_PARTIAL | **1** ← DITAMBAHKAN sengaja: 36 baris data nyata diperiksa, nol duplikat |
+| CUSTOMER_EMAIL_COL | 1 |
+| CUSTOMER_EMAIL_TYPE | `text` |
+| CUSTOMER_EMAIL_NOT_BLANK | 1 |
+| CUSTOMER_EMAIL_UNIQUE | **0** ← WAJIB 0: sengaja TIDAK unique |
+| CUSTOMER_POLICIES | **4** ← WAJIB TETAP 4 sejak 0008: bukti RLS `customers` tidak berubah |
+| CUSTOMER_RLS_ENABLED | 1 |
+| AUDIT_KEEP_0014_ITEM / AUDIT_KEEP_0013_OFFER | 1 / 1 |
+| AUDIT_KEEP_0012_PKG_ITEM / AUDIT_KEEP_0012_PKG_LOOKUP | 1 / 1 |
+| AUDIT_KEEP_0010_PRODUCT / AUDIT_KEEP_0010_CATALOG | 1 / 1 |
+| AUDIT_KEEP_0009_ARRIVED / AUDIT_KEEP_0009_NOTE | 1 / 1 |
+| AUDIT_KEEP_0008_PKG / AUDIT_KEEP_0008_PHONE / AUDIT_KEEP_0008_ATTR | 1 / 1 / 1 |
+| AUDIT_KEEP_0005 / AUDIT_KEEP_0004 | 1 / 1 |
+| REFS_CHECK_CUSTOMER | **1** |
+
+24 baris total, semua sudah diukur di Postgres 16 lokal (bukan diperkirakan;
+replay penuh `0001→…→0016→0017`) — lihat blok verifikasi lengkap di kepala
+berkas `0017_customer_code_email.sql` untuk penjelasan tiap angka. Angka
+AUDIT_KEEP_*/REFS_CHECK_CUSTOMER (14 baris) **TIDAK bertambah maupun
+berkurang** dari daftar 0016 — sengaja diperiksa ulang tanpa perubahan sebagai
+bukti langsung bahwa `fn_audit_row` benar-benar tidak disentuh berkas ini.
+Idempotensi diverifikasi terpisah: 0017 dijalankan ulang 3× di atas rantai
+penuh, `pg_dump -s` (disaring dari noise `\restrict`/`\unrestrict`, LESSONS
+#33) menghasilkan **nol diff** setiap kali, dan ke-24 angka di atas tetap sama
+persis pada percobaan ke-3.
+
+Angka blok verifikasi berkas LAMA setelah 0017 — SUDAH DIUKUR di Postgres 16
+lokal: **tidak ada satu angka pun yang berubah**, di blok mana pun (0001
+termasuk — TABLES/RLS_ENABLED/POLICIES/TRIGGERS tetap 9/21/48/27). 0017 tidak
+membuat tabel baru, tidak mendefinisikan ulang fungsi/policy milik berkas
+mana pun sebelumnya, dan tidak menyentuh RLS `customers` — hanya menambah dua
+kolom + dua constraint + satu index baru pada tabel yang sudah ada sejak
+0004. Perilaku (bukan cuma struktur) dibuktikan lewat
+`supabase/test-harness/50_behavior_0017.sql`, 6/6 PASS: string kosong ditolak
+untuk `customer_code` dan `email` (blank-guard CHECK sungguhan menolak, bukan
+cuma dideklarasikan); dua pelanggan ber-`customer_code` NULL hidup
+berdampingan (index partial tidak salah menganggap NULL=NULL); dua pelanggan
+dengan `customer_code` SAMA yang keduanya TERISI ditolak unique index; dan
+yang paling penting — pelanggan berbentuk hasil impor (`created_via_partner_
+id`/`created_via_branch_id` NULL, tanpa order) TERLIHAT admin tapi
+menghasilkan **NOL baris** untuk pengguna cabang, membuktikan klaim §3 kepala
+berkas 0017 secara perilaku, bukan cuma dibaca dari teks SQL.
+
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 
 `phone_normalized` dihitung Server Action (`normalizePhoneID()`), bukan SQL —
@@ -894,3 +946,33 @@ Lima batas milik 0016, semuanya sudah diukur, bukan dugaan:
    hanya `> 0`, dan guard over-shipment (§3) membatasi TOTAL lintas dokumen
    bertipe sama, bukan satu baris tunggal — satu baris tunggal boleh
    sebesar sisa kuota yang masih ada.
+
+Tiga batas milik 0017, semuanya sudah diukur, bukan dugaan:
+
+1. **Partial unique index `customers_customer_code_key` HANYA sudah diverifikasi
+   terhadap 36 baris data impor yang ada saat berkas ini ditulis.** Kalau di
+   masa depan Jenzo benar-benar butuh dua pelanggan berbagi satu kode (belum
+   pernah terjadi di data yang ada), index ini harus DI-DROP oleh migrasi
+   lanjutan dengan alasan tertulis, bukan dilonggarkan diam-diam — DB akan
+   menolak percobaan menulis kode duplikat dengan kode error `23505` (lihat
+   `customers_customer_code_key` di pesan errornya), bukan pesan yang
+   ramah-pengguna; Server Action mana pun yang menulis kolom ini di masa
+   depan wajib menangkap itu (pola sama seperti `sanci_products_code_key`,
+   LESSONS #21/#27).
+2. **`email` TIDAK punya unique constraint sama sekali** (disengaja — owner
+   tidak memintanya, dan email bukan identitas pelanggan sistem ini, sama
+   seperti telepon SPEC §9). Dua pelanggan boleh punya email yang sama persis
+   tanpa satu pun peringatan database.
+3. **Kepatuhan pada syarat "pelanggan impor tidak terlihat cabang" murni
+   tanggung jawab PENULIS baris (skrip impor/Server Action), bukan
+   dipaksakan skema.** Migration ini TIDAK menambah CHECK/trigger yang
+   memaksa `created_via_partner_id`/`created_via_branch_id` bernilai NULL
+   untuk baris tertentu — kolom mana pun boleh diisi partner/branch kapan
+   saja lewat jalur yang sudah ada sejak 0004 (`c_partner_insert`, yang justru
+   MEWAJIBKAN keduanya terisi untuk INSERT dari sesi cabang). Baris hasil
+   impor tetap NULL karena `web/scripts/import-customers/run.mjs` menuliskan
+   NULL secara eksplisit setiap kali — kalau skrip lain di masa depan
+   menyalin pelanggan-pelanggan ini dan lupa membawa NULL itu, RLS tidak akan
+   mencegahnya (silent, sama seperti setiap kolom lain di tabel ini yang
+   ditulis lewat sesi admin — `c_admin_all` mengizinkan admin menulis apa
+   pun).

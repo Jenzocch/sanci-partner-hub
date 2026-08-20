@@ -1,0 +1,326 @@
+[
+ {
+  "name": "Ibu Julina",
+  "phone": "08121312098",
+  "address": "Komplek Mutiara Duta Blok B No. 2/3",
+  "email": null,
+  "customer_code": "A/25-C/001",
+  "source": "dari Tim Komisaris",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Ibu Phin-Phin",
+  "phone": "081289367776",
+  "address": "Bekasi",
+  "email": null,
+  "customer_code": "A/25-M/002",
+  "source": "dari Tim Komisaris",
+  "sales": "Amenni"
+ },
+ {
+  "name": "Ka Sindya",
+  "phone": "089637090035",
+  "address": "Jl. Jembatan Gambang 2 No. 72, Penjagalan, Penjaringan",
+  "email": null,
+  "customer_code": "A/25-C/003",
+  "source": "dari Tim Komisaris",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Ka Wenny",
+  "phone": "083872189521",
+  "address": null,
+  "email": null,
+  "customer_code": "A/25-C/004",
+  "source": "dari Tim Komisaris",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Bpk Ahan Grisenda",
+  "phone": "0811540938",
+  "address": null,
+  "email": null,
+  "customer_code": "A/25-NS/005",
+  "source": "dari Tim Komisaris",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Ibu Ay",
+  "phone": "081287959299",
+  "address": null,
+  "email": null,
+  "customer_code": "A/25-AL/006",
+  "source": "dari Tim Komisaris",
+  "sales": "Alina"
+ },
+ {
+  "name": "Ibu Lina",
+  "phone": "08567826035",
+  "address": null,
+  "email": null,
+  "customer_code": "A/25-AL/007",
+  "source": "dari Tim Komisaris",
+  "sales": "Alina"
+ },
+ {
+  "name": "Ibu Lian",
+  "phone": "081311142003",
+  "address": "Jl. Kampung Sawah No 9, Kel. Jatimulya",
+  "email": null,
+  "customer_code": "A/25-M/008",
+  "source": "dari Tim Komisaris",
+  "sales": "Amenni"
+ },
+ {
+  "name": "Bpk Troy Ricardo",
+  "phone": "08111901150",
+  "address": "Kencana Loka Blok J3, Tangerang Selatan",
+  "email": null,
+  "customer_code": "A/25-M/009",
+  "source": "dari Tim Komisaris",
+  "sales": "Amenni"
+ },
+ {
+  "name": "Ibu Cornelia Mita Devi",
+  "phone": "081949494925",
+  "address": "Jl. Taman Pinang No.40, Jakarta Selatan",
+  "email": null,
+  "customer_code": "A/25-C/010",
+  "source": "dari Tim Komisaris",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Bpk. Abing / Ibu Liya",
+  "phone": "085216080606",
+  "address": "Gusti Permata 5 Blok F No. 12 tpi 2 Sebelah Kos Paulus",
+  "email": null,
+  "customer_code": "A/25-NS/011",
+  "source": "dari Tim Komisaris",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Ibu Violin",
+  "phone": "081297978627",
+  "address": "Jl. Mazda 4 Blok S No. 66",
+  "email": null,
+  "customer_code": "A/25-C/012",
+  "source": "dari Tim Komisaris",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Bpk Frans",
+  "phone": "087719930888",
+  "address": "Perumahan Casa Jardin, Cluster Blok Bromelia 5 No. 28, Daan Mogot, Jakarta Barat",
+  "email": null,
+  "customer_code": "A/25-NS/013",
+  "source": "dari Tim Komisaris",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Ibu Jessica",
+  "phone": "081370439792",
+  "address": "Jl. Agung Permai 20-9, Blok C1.32 Sunter Agung Tanjung Priok Jakarta Utara",
+  "email": null,
+  "customer_code": "C/25-NS/014",
+  "source": "Visit Langsung",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Bpk Heri Wibowo",
+  "phone": "08128036924",
+  "address": "Sektor 1E, Jl. Kelapa sawit 6 blok BE4/2, pakulonan barat, Gading Serpong, Tangerang",
+  "email": null,
+  "customer_code": "D/25-C/015",
+  "source": "Tim Marketing",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Bapak Ivan Hansen",
+  "phone": "089690787436",
+  "address": "Greenlake City Cluster Australia 1 No 9, Petir, Kec. Cipondoh, Kota Tangerang, Banten 15147",
+  "email": null,
+  "customer_code": "C/25-NS/016",
+  "source": "Visit Langsung",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Ibu Rosemary",
+  "phone": "08124692888",
+  "address": "Osaka Residence, Kosambi (PIK 2) Tangerang Regency, Banten",
+  "email": null,
+  "customer_code": "A/26-NS/017",
+  "source": "dari Tim Komisaris",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Ibu Liesong",
+  "phone": "08128054001",
+  "address": "Lippo Cikarang",
+  "email": null,
+  "customer_code": "A/26-NS/018",
+  "source": "dari Tim Komisaris",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Ibu Dea Zulfa",
+  "phone": "081293135846",
+  "address": "Jl. AL-Barkah No.72, RT02/RW10, Sawah Lama, Kec. Ciputat, Kota Tangerang Selatan, Banten",
+  "email": null,
+  "customer_code": "E/26-KEN/019",
+  "source": "Tim Sosial Media",
+  "sales": "Ken"
+ },
+ {
+  "name": "Ibu Swanny",
+  "phone": null,
+  "address": "Seberang RS. THT Ciranjang, Jl. Ciranjang No.21, Jakarta 12180",
+  "email": null,
+  "customer_code": "D/26-C/020",
+  "source": "Tim Marketing",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Bpk Susanto",
+  "phone": "628128123939",
+  "address": "Jl. Komplek Mutiara Duta Blok.B No.2/3 Depok",
+  "email": null,
+  "customer_code": "A/26-C/021",
+  "source": "dari Tim Komisaris",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Bpk Benny",
+  "phone": "6287885859088",
+  "address": "Casa Jardin Residence Blok I No. 7 SOHO, Jl. Daan Mogot KM 11 Kedaung Kali Angke, Cengkaren, Jakarta",
+  "email": null,
+  "customer_code": "A/26-M/022",
+  "source": "dari Tim Komisaris",
+  "sales": "Amenni"
+ },
+ {
+  "name": "Ibu Helen",
+  "phone": "0816-1380-085",
+  "address": "Jakarta",
+  "email": null,
+  "customer_code": "A/26-NS/023",
+  "source": "dari Tim Komisaris",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Pak Adi Chandra",
+  "phone": "62 813-4446-8888",
+  "address": "Papua",
+  "email": null,
+  "customer_code": "C/26-S/025",
+  "source": "Visit Langsung",
+  "sales": "Serly"
+ },
+ {
+  "name": "Ibu Sirin",
+  "phone": "62 821-3816-1100",
+  "address": "Jakarta",
+  "email": null,
+  "customer_code": "B/26-C/026",
+  "source": "B2B",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Smopi Experience",
+  "phone": "62 822-1888-3006",
+  "address": "Tebet, Jakarta Selatan",
+  "email": null,
+  "customer_code": "D/26-M/027",
+  "source": "Tim Marketing",
+  "sales": "Amenni"
+ },
+ {
+  "name": "Ibu Rosemary",
+  "phone": "08124692888",
+  "address": "To be confirmed",
+  "email": null,
+  "customer_code": "A/26-NS/028",
+  "source": "dari Tim Komisaris",
+  "sales": "Nini San"
+ },
+ {
+  "name": "Bapak Mahkota",
+  "phone": "087875714156 (Ibu Alin-agent properti)",
+  "address": "Soho Orchard Boulevard  Jl. M.H. Thamrin Blok B No.7 PIK2, Salembaran, Kec. Kosambi, Kabupaten Tangerang, Banten",
+  "email": null,
+  "customer_code": "A/26-M/029",
+  "source": "dari Tim Komisaris",
+  "sales": "Amenni"
+ },
+ {
+  "name": "Raditya Dika",
+  "phone": "62 857-7581-3590",
+  "address": "Jl. Jeruk Purut Buntu No.67B, RT.6/RW.3, Cilandak Tim., Ps. Minggu, Kota Jakarta Selatan, Daerah Khusus Ibukota Jakarta 12560",
+  "email": null,
+  "customer_code": "D/26-S/030",
+  "source": "Tim Marketing",
+  "sales": "Serly"
+ },
+ {
+  "name": "Gabriella Ekaputri",
+  "phone": "62 821-1334-3324",
+  "address": "Apartemen Izzara, Jl. TB Simatupang No.Kav.16, RT.2/RW.2, Cilandak Tim., Kec. Cilandak, Jakarta Selatan, DKI Jakarta",
+  "email": null,
+  "customer_code": "E/26-C/031",
+  "source": "Tim Sosial Media",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Mina",
+  "phone": null,
+  "address": "Jakarta Barat",
+  "email": null,
+  "customer_code": "A/26-M/032",
+  "source": "dari Tim Komisaris",
+  "sales": "Amenni"
+ },
+ {
+  "name": "Arlene",
+  "phone": "082277082989",
+  "address": "Jl. H. Anif, Sampali, Kec. Percut Sei Tuan, Kabupaten Deli Serdang, Sumatera Utara 20371",
+  "email": null,
+  "customer_code": "A/26-C/033",
+  "source": "dari Tim Komisaris",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Dennis",
+  "phone": "62 818-0821-8280",
+  "address": "Taman Resort Mediterania Blok C9G, Pantai Indah Kapuk, Penjaringan, 14460",
+  "email": null,
+  "customer_code": "C/26-S/034",
+  "source": "Visit Langsung",
+  "sales": "Serly"
+ },
+ {
+  "name": "Eric C Handoko",
+  "phone": "62 821-1028-1029",
+  "address": "Jalan camar permai 4, No 32A, Pantai Indah Kapuk",
+  "email": "ec_handoko@yahoo.com",
+  "customer_code": "C/26-C/035",
+  "source": "Visit Langsung",
+  "sales": "Cherlie"
+ },
+ {
+  "name": "Silvi Rinta",
+  "phone": "082311112486",
+  "address": "Perumahan Springhill Garden , Jalan Gerbera no 12 . Kecamatan Pakis Kelurahan Mangliawan, Malang",
+  "email": "silviafauzi1505@gmail.com",
+  "customer_code": "E/26-S/036",
+  "source": "Tim Sosial Media",
+  "sales": "Serly"
+ },
+ {
+  "name": "Anne",
+  "phone": "08128208828",
+  "address": "Pantai mutiara townhouse blok ac no 4",
+  "email": null,
+  "customer_code": "C/26-M/037",
+  "source": "Visit Langsung",
+  "sales": "Amenni"
+ }
+]

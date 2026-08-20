@@ -142,6 +142,10 @@ function runFill_(ui) {
     warnings.push('Kolom alamat pengiriman pesanan (shipping_address) belum ada di sistem ' +
       '(migrasi 0014 belum dijalankan) — S9 diisi dari alamat data pelanggan kalau ada.');
   }
+  if (order._hasCustomerCode === false) {
+    warnings.push('Kolom kode pelanggan (customer_code) belum ada di sistem ' +
+      '(migrasi 0017 belum dijalankan) — Q2 dikosongkan seperti sebelumnya.');
+  }
   if (order.status === 'CANCELLED') {
     warnings.push('⚠ Pesanan ini berstatus DIBATALKAN di sistem — cek dulu ke admin sebelum ' +
       'dipakai membuat SO/DO/Invoice.');
@@ -241,12 +245,14 @@ function restHeaders_(cfg, token, extra) {
 // ── Mengambil satu pesanan ──────────────────────────────────
 
 /**
- * shipping_address (kolom migrasi 0014) diminta di SELECT yang SAMA dengan
- * pesanan itu sendiri — kalau 0014 belum dijalankan, PostgREST menolak
- * SELURUH permintaan ini (kolom tidak dikenal, HTTP 400 + kode 42703), bukan
- * cuma kolom itu yang kosong. Jadi dicoba dulu DENGAN shipping_address; kalau
- * ditolak karena kolom itu, diulang TANPA kolom itu — supaya kolom lain tetap
- * terbaca walau 0014 belum jalan (pola sama dengan sheets-orders/Code.gs).
+ * shipping_address (kolom migrasi 0014) dan customers.customer_code (kolom
+ * migrasi 0017) diminta di SELECT yang SAMA dengan pesanan itu sendiri —
+ * kalau salah satu migrasinya belum dijalankan, PostgREST menolak SELURUH
+ * permintaan ini (kolom tidak dikenal, HTTP 400 + kode 42703), bukan cuma
+ * kolom itu yang kosong. Jadi dicoba dulu DENGAN keduanya; fetchOrder_ di
+ * bawah melepas satu-per-satu kolom yang ternyata belum ada dan mengulang,
+ * supaya kolom lain tetap terbaca walau salah satu migrasi belum jalan (pola
+ * sama dengan sheets-orders/Code.gs).
  *
  * `sales:partner_sales_staff_id(full_name)` memakai nama alias "sales", PERSIS
  * pola yang sudah dipakai app (web/app/cabang/pesanan/page.tsx dan
@@ -255,27 +261,44 @@ function restHeaders_(cfg, token, extra) {
  * partner_orders punya DUA foreign key ke partner_staff (sales DAN pic) dan
  * PostgREST butuh itu untuk tahu FK mana yang dimaksud.
  */
-function ordersSelect_(includeShipping) {
+function ordersSelect_(includeShipping, includeCustomerCode) {
   return 'id,order_number,package_name,status,notes,fulfillment_path,created_at,' +
     (includeShipping ? 'shipping_address,' : '') +
-    'customers:customer_id(full_name,phone,phone_normalized,address,city,province),' +
+    'customers:customer_id(full_name,phone,phone_normalized,address,city,province' +
+    (includeCustomerCode ? ',customer_code' : '') + '),' +
     'sales:partner_sales_staff_id(full_name)';
 }
 
+/**
+ * Dua kolom opsional (shipping_address milik 0014, customer_code milik 0017)
+ * dilepas SATU PER SATU sampai permintaan diterima — bukan langsung dua-duanya
+ * sekaligus, supaya kalau ternyata cuma SATU migrasi yang belum jalan, kolom
+ * dari migrasi yang SUDAH jalan tetap ikut terbaca. Paling banyak 3 percobaan
+ * (keduanya ada → satu dilepas → keduanya dilepas).
+ */
 function fetchOrder_(cfg, token, orderNumber) {
   var includeShipping = true;
-  var res = fetchOrderRaw_(cfg, token, ordersSelect_(true), orderNumber);
-  if (res.status === 'missing-column') {
-    includeShipping = false;
-    res = fetchOrderRaw_(cfg, token, ordersSelect_(false), orderNumber);
+  var includeCustomerCode = true;
+  for (var attempt = 0; attempt < 3; attempt++) {
+    var res = fetchOrderRaw_(cfg, token, ordersSelect_(includeShipping, includeCustomerCode), orderNumber);
+    if (res.status === 'missing-shipping') {
+      includeShipping = false;
+      continue;
+    }
+    if (res.status === 'missing-customer-code') {
+      includeCustomerCode = false;
+      continue;
+    }
+    if (res.status === 'error') {
+      throw new Error('Gagal membaca pesanan (HTTP ' + res.code + '): ' + res.body);
+    }
+    if (!res.rows || !res.rows.length) return null;
+    var order = res.rows[0];
+    order._hasShipping = includeShipping;
+    order._hasCustomerCode = includeCustomerCode;
+    return order;
   }
-  if (res.status === 'error') {
-    throw new Error('Gagal membaca pesanan (HTTP ' + res.code + '): ' + res.body);
-  }
-  if (!res.rows || !res.rows.length) return null;
-  var order = res.rows[0];
-  order._hasShipping = includeShipping;
-  return order;
+  throw new Error('Gagal membaca pesanan: kolom yang diminta terus ditolak server setelah beberapa percobaan.');
 }
 
 function fetchOrderRaw_(cfg, token, select, orderNumber) {
@@ -289,7 +312,10 @@ function fetchOrderRaw_(cfg, token, select, orderNumber) {
   var code = res.getResponseCode();
   var text = res.getContentText();
   if (code === 400 && text.indexOf('42703') >= 0 && text.indexOf('shipping_address') >= 0) {
-    return { status: 'missing-column' };
+    return { status: 'missing-shipping' };
+  }
+  if (code === 400 && text.indexOf('42703') >= 0 && text.indexOf('customer_code') >= 0) {
+    return { status: 'missing-customer-code' };
   }
   if (code !== 200) {
     return { status: 'error', code: code, body: text };
@@ -391,13 +417,18 @@ function fillHeader_(sheet, order, offer, docNumber, warnings) {
 
   sheet.getRange('Q1').setValue(docNumber);
 
-  // Q2 (Code Customer): sistem TIDAK punya kode pelanggan setara. Sel ini
-  // normalnya jadi kunci XLOOKUP ke tab "Data Customer" untuk mengisi S1/S7/
-  // S8/S9 — tapi keempat sel itu di bawah ini DITULIS LANGSUNG sebagai nilai
-  // literal (lihat komentar S1 di bawah), jadi Q2 tidak lagi punya peran
-  // fungsional untuk pesanan sistem. Dikosongkan supaya tidak ada kode lama
-  // (dari tab yang diduplikasi) yang menyesatkan pembaca.
-  sheet.getRange('Q2').setValue('');
+  // Q2 (Code Customer): sejak migrasi 0017, sistem PUNYA kode pelanggan
+  // (customers.customer_code, diisi lewat impor data pelanggan lama atau
+  // manual admin) — ditulis apa adanya kalau ada. Sel ini normalnya jadi
+  // kunci XLOOKUP ke tab "Data Customer" untuk mengisi S1/S7/S8/S9, tapi
+  // keempat sel itu di bawah ini DITULIS LANGSUNG sebagai nilai literal
+  // (lihat komentar S1 di bawah), jadi Q2 tidak berperan fungsional untuk
+  // pesanan sistem — nilainya murni informasi rujukan silang ke sistem
+  // (dan tetap dikosongkan kalau pelanggan pesanan ini tidak punya kode, atau
+  // kalau migrasi 0017 belum dijalankan — lihat _hasCustomerCode di atas —
+  // supaya tidak ada kode lama dari tab yang diduplikasi yang menyesatkan
+  // pembaca).
+  sheet.getRange('Q2').setValue((customer && customer.customer_code) || '');
 
   var tglSo = toDateOrBlank_(order.created_at);
   if (tglSo) sheet.getRange('Q3').setValue(tglSo);
