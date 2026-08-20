@@ -232,6 +232,31 @@ Jenzo 要求補做 `docs/SPEC-PHASE2.md` §23 當初**明文延後**的那一塊
 - **套裝內容不隨訂單快照凍結**。訂單仍以 `package_id` 指向套裝，`package_name` 維持 0008 的自由文字快照（凍結的是**名稱**）。今天改套裝內容，昨天的舊訂單讀到的會是**新內容**。要凍結內容需要另一張表，是另一個決定，不要往這張表上補。
 - **`quantity` 無上限**。CHECK 只有 `> 0`；打錯成 1000 資料庫照收。真要限制（例如每列最多 999）該寫進 CHECK constraint，不是只擋在表單。
 
+### Phase 2 第七切片（SANCI 方案金額 + Google 試算表單向鏡像，2026-08-20，Jenzo 定案）
+
+Jenzo 今天拍板兩件相連的事。第一件：分店下單後，SANCI 會**逐筆人工決定**要給客戶什麼方案，這個決定目前靠 WhatsApp 傳，有寫下來的話是塞在 `order_internal_notes` 的自由文字裡（「Invoice 2,5jt → kasih diskon 10%」）。**一個數字被存成句子，就不能加總、不能比較、不能匯出**——這一刀就是給它一個真正的數字欄位。第二件：Jenzo 想在 Google 試算表上看訂單，所以做一個每 15 分鐘跑一次的單向鏡像。
+
+owner 對可見度的原話是「Admin 填，先只有 SANCI 看得到」。「**先**」這個字決定了整個資料結構：金額**不是**加在 `partner_orders` 上的欄位，而是獨立一張表。原因是 Postgres 的 RLS 是**列級**不是欄級——`partner_orders` 的列從 0004 起就已經對分店開放（`o_partner_read`），任何加在那一列上的欄位，分店只要打 `?select=*` 就拿得到，UI 藏起來完全沒用（LESSONS #5）。做成獨立表、對分店一條 policy 都不給，往後真要開放給分店看，改的是**加一條 SELECT policy**，不是搬欄位、不是遷資料。
+
+| # | 功能 | 狀態 | 對應 SPEC-PHASE2 章節 | 備註 |
+|---|---|---|---|---|
+| P2-30 | `order_sanci_offers` 資料表 | `UNVERIFIED` | §16 延伸 | `order_id` 直接當 **PRIMARY KEY**（一張訂單一個生效金額，寫入天然是 `on conflict (order_id) do update` 的冪等 upsert）。**刻意沒有 `client_request_id`**：靠自然鍵 upsert 的表，重送同一個值得到的是一模一樣的列，冪等來自表的形狀本身；硬加反而多一個 23505 要分辨（理由同 0010 的 `sanci_catalog_access`）。`amount` 型別 **`numeric(15,2)`**，與 `partner_purchase_amount` **完全一致**（同一個畫面並排顯示、同一個 `parseIDRInput()` 輸入，型別不一致遲早出現「這邊收得下、隔壁欄位吐 22003」）。`amount NOT NULL`＋`>= 0`：「不給方案」是**刪掉那一列**，不是存 0（0 是「金額為零的方案」，兩種狀態要有兩種形狀） |
+| P2-31 | 讀寫權限（DB 層） | `UNVERIFIED` | §16, §32–34 | 只有 `oso_admin_all` 一條 policy。**分店零 policy，連 SELECT 都沒有**，以負面斷言 `OFFER_NONADMIN_POLICIES 0` 驗證。與 `order_internal_notes`（0009）刻意不同的地方是這裡用 `for all`（admin 可改可刪）——備註是「某個時間點的記錄」不該事後修飾，方案金額是「當下生效的值」，打錯要能改、決定不報要能刪；歷史完整性靠 `audit_logs` 保證，不靠禁止寫入 |
+| P2-32 | Admin UI（訂單詳細頁） | `UNVERIFIED` | §16, §69 | 在「Catatan Internal SANCI」卡片上方新增獨立卡片（同一個信任區）。獨立查詢載入而**不用 embed**：embed 會在 0013 還沒跑時把**整頁**訂單查詢一起打死（LESSONS #12），而且 embed 字串只有執行期才知道對不對（LESSONS #24）。輸入框即時套千分位（與分店下單表單同一個 `handleAmountChange` 手法）；「刪除方案金額」是**獨立按鈕**不是「存空值」 |
+| P2-33 | Server Action | `UNVERIFIED` | §16 | `setOrderOffer()` 走 `parseIDRInput()` 在**伺服器端重算**（不信瀏覽器算好的數字，LESSONS #6）＋ `safeWrite` upsert `{ onConflict: "order_id" }`；`clearOrderOffer()` 刻意**不加 `.single()`**（刪一個本來就不存在的列不是失敗，是目標狀態已達成，LESSONS #21）。42P01 一律翻成「功能尚未啟用」而非原始錯誤（LESSONS #12）。`revalidatePath` 用**路由樣板**形式 `"/admin/orders/[orderId]", "page"`——把真 id 內插進去是比對不到任何東西的（0012 已踩過） |
+| P2-34 | 三語系文案＋Activity 標籤 | `UNVERIFIED` | §69 | `common.ts` 加 `sanciOffer` 與三句 `auditOrderOffer*`；`admin.ts` 加 18 個鍵×三語。`audit-format.ts` 依 LESSONS #28 補齊三件事：`ORDER_OFFER_*` 三個動作標籤、`amount` 進欄位標籤表**並走 `formatIDR`**（否則 Activity 上出現裸數字 `1500000`）、以及 **`order_id` 補進 `SKIP`**——順手修掉一個既有的洩漏：0009 的 `ORDER_INTERNAL_NOTE_CREATED` 從上線起就一直把 `order_id` 的原始 UUID 印在 Activity 上，因為當初沒回頭巡這個檔案 |
+| P2-35 | Google 試算表單向鏡像 | `UNVERIFIED` | — | `integrations/sheets-orders/`：`Code.gs`（可直接貼的 Apps Script）＋繁中操作手冊。**一個合作商一個分頁**，以 A 欄「訂單編號」upsert，只寫 A..K 十一欄、**L 欄以後永不觸碰**（那是使用者自己加備註的地方）、**永不刪列**（取消的訂單只是狀態變 Dibatalkan）。用**專用 sync 帳號 + anon key**，檔頭寫明**絕不可用 service_role**。`order_sanci_offers` 走**第二個請求**而非 embed：0013 沒跑時只是該欄空白，不會整份表拉不到資料 |
+
+**Migration `0013_order_offer_amount.sql` 狀態**：`UNVERIFIED`(production) — **尚待 Jenzo 在 Supabase SQL Editor 執行**。本機 Postgres 16 完整重放 `0001→0003→0004→0005→0006→0007→0008→0009→0010→0011→0012→0013` 後：驗證區塊 **27 項全數符合期望**（含四個關鍵負面／型別斷言 `OFFER_NONADMIN_POLICIES 0`、`OFFER_NO_CLIENT_REQUEST_ID 0`、`OFFER_FK_NOT_CASCADE 0`、`OFFER_AMOUNT_TYPE numeric(15,2)`，以及十一個 audit 保留斷言＋`REFS_CHECK_CUSTOMER 1`）；行為測試 **40/40 PASS**（admin 增改刪、upsert 同一 `order_id` 只有一列、`created_by` 由 trigger 帶入、`updated_at` 走 `trg_touch`、amount −1 與 null 被擋、amount 0 被接受、**分店讀自己訂單的方案金額 0 列**、分店 insert 被 RLS 擋、update/delete 影響 0 列、anon 0 列、FK RESTRICT 實測擋下刪訂單、`ORDER_OFFER_CREATED/UPDATED/DELETED` 三個動作都帶出正確的 partner **與** branch、`before`/`after` 帶出新舊金額、分店讀不到 `audit_logs`）；`fn_audit_row` 回歸實測 `PACKAGE_CREATED`／`PRODUCT_CREATED`／`PRODUCT_STATUS_CHANGED`／`CATALOG_ACCESS_UPDATED`／`PACKAGE_ITEM_CREATED`（partner 正確、branch 仍為 null）／`ORDER_CUSTOMER_ARRIVED`／`ORDER_INTERNAL_NOTE_CREATED`／`ORDER_CANCELLED`／`CUSTOMER_PHONE_CHANGED` 全部照舊，且零筆裸表名動作碼；冪等連跑 3 次 `pg_dump -s` 零漂移。⚠️ **0013 後 0001 檔尾數字變為 RLS_ENABLED 18 / POLICIES 38，但 TRIGGERS 仍是 27**（已本機實測，非推估；`order_sanci_offers` 以 `order_` 開頭，三個 trigger 不會被 0001 的 `partner%` 計數納入，與 `order_internal_notes` 相同、與 `partner_package_items` 相反）。0004/0005/0009/0010/0011/0012 六個檔尾**一個數字都沒變**（已逐一實測）。亂序重跑實測：0012 最後跑會掉 `ORDER_OFFER` 但**保住** `PACKAGE_ITEM`；0010 最後跑兩個都掉；**單跑一次 0013 全部復原**。typecheck ✓ eslint ✓ build ✓（`/offline` 仍為 `○` 靜態預渲染）。
+
+**本切片刻意不做（已知邊界，非遺漏）**：
+- **分店／合作商看不到方案金額**。這是 owner 當下的決定（「先只有 SANCI 看得到」），不是技術限制。要開放的話是**加一條 SELECT policy**，資料結構不用動——這正是當初不把它做成 `partner_orders` 欄位的理由。
+- **產品目錄永遠不放價格**。這條 0010 的鐵律**完全沒有被鬆動**。這裡存的是「針對某一筆訂單、由人決定的成交／方案金額」，不是產品定價。兩者差在：一個綁 `order_id`，一個會綁 `product_id`——後者這個系統裡不存在，也不會有。往後做 audit 的人請不要把這一刀誤判成違反零價格規則。
+- **系統不算任何東西**。不比對 `partner_purchase_amount`、不算折扣%、沒有任何定價規則（沿用 0009 訂下的硬邊界）。數字是人打的，意思是人定的。
+- **試算表是單向的**。表上改任何格子都不會回寫系統，也永遠不會自動刪列。要雙向同步是另一個決定（而且要先想清楚衝突怎麼解），不要往這支腳本上補。
+- **方案金額不隨訂單快照凍結**。跟 0012 的套裝內容一樣：它是「目前生效的值」，改了就是改了，`audit_logs` 留完整前後值。要凍結需要另一張表。
+- **訂單詳細頁的 Activity 分頁看不到 `ORDER_OFFER_*`**。那個查詢過濾 `entity_type='partner_orders'`，而這些列是 `order_sanci_offers`——跟 0009 的內部備註完全一樣的情形，不是壞掉。要看在**合作商 Activity** 和**分店 Activity** 兩個分頁（0013 刻意把 `partner_id` 和 `branch_id` 都填好就是為了這個）。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

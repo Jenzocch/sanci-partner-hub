@@ -47,6 +47,12 @@ function fieldLabel(m: Messages, key: string): string | undefined {
     stock_status: c.stockStatus,
     enabled: c.catalogAccess,
     quantity: c.quantity,
+    // 0013 — order_sanci_offers.amount. Nama kolomnya generik ("amount"), tapi
+    // hanya SATU tabel di seluruh skema yang punya kolom bernama persis itu:
+    // sudah diperiksa dengan menghitung kolom ber-"amount" di database lengkap
+    // (0001→0013) dan yang muncul hanya `partner_purchase_amount` (nama lain)
+    // dan `amount` milik tabel ini. Jadi pemetaan ini tidak bisa salah sasaran.
+    amount: c.sanciOffer,
   };
   return map[key];
 }
@@ -89,7 +95,16 @@ function asLabel(m: Messages, key: string, v: unknown): string {
   // Uang tetap harus lewat formatIDR — angka mentah ("1500000") tidak
   // terbaca sebagai Rupiah oleh staf non-teknis (item H audit round 2).
   // Rupiah tetap format id-ID di ketiga bahasa: itu mata uang nyatanya.
-  if (key === "partner_purchase_amount" && typeof v === "number") return formatIDR(v);
+  //
+  // `amount` (0013, order_sanci_offers) ikut di sini dengan alasan yang sama.
+  // Kolomnya `numeric(15,2)` sehingga to_jsonb() menghasilkan ANGKA JSON, bukan
+  // teks — sudah diperiksa dengan jsonb_typeof() di Postgres 16 lokal, jadi
+  // penjaga `typeof v === "number"` di bawah memang menangkapnya. Kalau suatu
+  // hari tabel LAIN memakai nama kolom `amount`, mata uangnya harus tetap
+  // Rupiah atau baris ini harus dipersempit — lihat catatan di fieldLabel().
+  if ((key === "partner_purchase_amount" || key === "amount") && typeof v === "number") {
+    return formatIDR(v);
+  }
   const s = String(v);
   return valueLabel(m, s) ?? s;
 }
@@ -132,6 +147,14 @@ const SKIP = new Set([
   // sudah terbaca di layar Isi Package; UUID-nya tidak berarti apa-apa bagi
   // pembaca non-teknis dan tidak boleh bocor ke Aktivitas (SPEC §69).
   "product_id",
+  // Ditambahkan slice 7 (0013): `order_id` adalah UUID relasi ke partner_orders,
+  // perlakuannya sama dengan customer_id / package_id / product_id di atas.
+  // Ia SUDAH bocor sebelum ini — setiap baris ORDER_INTERNAL_NOTE_CREATED
+  // (0009) menampilkan "order_id: 3fa85f64-…" mentah di layar Aktivitas, karena
+  // daftar ini tidak pernah ikut diperbarui waktu tabel itu lahir. Persis pola
+  // LESSONS #28. Nomor pesanannya sudah terbaca di judul halaman detail
+  // pesanan; UUID-nya tidak berarti apa-apa bagi pembacanya.
+  "order_id",
 ]);
 
 // Kode aksi audit → KUNCI kalimat di common.ts (dipakai halaman Activity).
@@ -143,6 +166,13 @@ const ACTION_KEYS: Record<string, keyof Messages["common"]> = {
   ORDER_ATTRIBUTION_CORRECTED: "auditOrderAttributionCorrected",
   ORDER_CUSTOMER_ARRIVED: "auditOrderCustomerArrived",
   ORDER_INTERNAL_NOTE_CREATED: "auditOrderInternalNote",
+  // 0013 — nilai penawaran SANCI per pesanan. Tabel order_sanci_offers tidak
+  // punya kolom status, jadi hanya tiga aksi generik ini yang bisa muncul.
+  // "Diisi" dan "diubah" sengaja dibedakan: yang pertama adalah keputusan baru,
+  // yang kedua adalah koreksi/negosiasi ulang atas keputusan yang sudah ada.
+  ORDER_OFFER_CREATED: "auditOrderOfferSet",
+  ORDER_OFFER_UPDATED: "auditOrderOfferUpdated",
+  ORDER_OFFER_DELETED: "auditOrderOfferRemoved",
   CUSTOMER_CREATED: "auditCustomerCreated",
   CUSTOMER_UPDATED: "auditCustomerUpdated",
   CUSTOMER_PHONE_CHANGED: "auditCustomerPhoneChanged",

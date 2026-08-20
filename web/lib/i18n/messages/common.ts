@@ -118,6 +118,10 @@ const id = {
   endDate: "Tanggal Berakhir",
   cancellationReason: "Alasan Pembatalan",
   storePurchase: "Total Belanja di Toko",
+  // 0013 — nilai kesepakatan yang SANCI putuskan untuk satu pesanan. Bukan
+  // harga produk (katalog tetap tanpa harga) dan bukan belanja pelanggan di
+  // toko mitra (itu storePurchase di atas) — tiga angka berbeda.
+  sanciOffer: "Penawaran SANCI",
   catalogAccess: "Akses Katalog",
   removed: "dihapus",
 
@@ -129,6 +133,9 @@ const id = {
   auditOrderAttributionCorrected: "Atribusi cabang dikoreksi",
   auditOrderCustomerArrived: "Pelanggan tiba di SANCI",
   auditOrderInternalNote: "Catatan internal SANCI ditambahkan",
+  auditOrderOfferSet: "Penawaran SANCI diisi",
+  auditOrderOfferUpdated: "Penawaran SANCI diubah",
+  auditOrderOfferRemoved: "Penawaran SANCI dihapus",
   auditCustomerCreated: "Pelanggan dibuat",
   auditCustomerUpdated: "Pelanggan diubah",
   auditCustomerPhoneChanged: "Nomor telepon pelanggan diubah",
@@ -308,6 +315,7 @@ const en = {
   endDate: "End date",
   cancellationReason: "Cancellation reason",
   storePurchase: "Store purchase",
+  sanciOffer: "SANCI offer",
   catalogAccess: "Catalog access",
   removed: "removed",
 
@@ -318,6 +326,9 @@ const en = {
   auditOrderAttributionCorrected: "Branch attribution corrected",
   auditOrderCustomerArrived: "Customer arrived at SANCI",
   auditOrderInternalNote: "SANCI internal note added",
+  auditOrderOfferSet: "SANCI offer set",
+  auditOrderOfferUpdated: "SANCI offer changed",
+  auditOrderOfferRemoved: "SANCI offer removed",
   auditCustomerCreated: "Customer added",
   auditCustomerUpdated: "Customer edited",
   auditCustomerPhoneChanged: "Customer phone number changed",
@@ -486,6 +497,7 @@ const zh = {
   endDate: "结束日期",
   cancellationReason: "取消原因",
   storePurchase: "店内消费金额",
+  sanciOffer: "SANCI 方案金额",
   catalogAccess: "产品目录权限",
   removed: "已删除",
 
@@ -496,6 +508,9 @@ const zh = {
   auditOrderAttributionCorrected: "分店归属已更正",
   auditOrderCustomerArrived: "客户已到 SANCI",
   auditOrderInternalNote: "已添加 SANCI 内部备注",
+  auditOrderOfferSet: "已填写 SANCI 方案金额",
+  auditOrderOfferUpdated: "SANCI 方案金额已修改",
+  auditOrderOfferRemoved: "SANCI 方案金额已删除",
   auditCustomerCreated: "客户已创建",
   auditCustomerUpdated: "客户已修改",
   auditCustomerPhoneChanged: "客户电话已修改",

@@ -13,6 +13,7 @@ import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit
 import CorrectAttributionButton, { type BranchOption } from "./correct-attribution-button";
 import MarkArrivedButton from "./mark-arrived-button";
 import InternalNoteForm from "./internal-note-form";
+import OrderOfferForm from "./order-offer-form";
 import { getInvoiceSignedUrl } from "../../actions-orders";
 import { getMessages } from "@/lib/i18n";
 
@@ -151,6 +152,41 @@ async function fetchInternalNotes(
   return { notes: (data ?? []) as InternalNoteRow[], unavailable: false };
 }
 
+/**
+ * order_sanci_offers (migration 0013) — tabel BARU, jadi degradasinya 42P01
+ * (tabel hilang), bukan 42703 (kolom hilang). Admin-only lewat RLS; halaman ini
+ * tidak menambah pengecekan role sendiri (zero-trust dari DB, bukan dari UI —
+ * LESSONS #5/#6).
+ *
+ * SENGAJA query TERPISAH, bukan embed `order_sanci_offers(amount)` di dalam
+ * query utama. Dua alasan, keduanya sudah pernah dibayar di proyek ini:
+ *   1. Kalau tabelnya belum ada (kode naik lebih dulu daripada SQL), embed akan
+ *      menggagalkan SELURUH query pesanan — halaman detailnya mati total, bukan
+ *      cuma bagian penawaran yang turun ke pesan degradasi (LESSONS #12).
+ *   2. Kebenaran string embed hanya terbukti saat DIJALANKAN, tidak pernah saat
+ *      typecheck/build (LESSONS #24) — jadi bentuk yang bisa gagal diam-diam
+ *      dihindari kalau ada bentuk yang tidak bisa.
+ * Pola ini sama dengan fetchInternalNotes di atas.
+ */
+async function fetchOrderOffer(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<ColumnFetch<number | null>> {
+  const { data, error } = await supabase
+    .from("order_sanci_offers")
+    .select("amount")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  // "missing-column" dipakai ulang di sini untuk arti "fiturnya belum aktif" —
+  // yang membedakannya dari "error" adalah pesan yang tampil, dan keduanya
+  // memang tidak boleh dirender sama seperti "belum diisi" (LESSONS #10).
+  if (error) return { status: isMissingTableError(error) ? "missing-column" : "error" };
+  const amount = (data as { amount: number | string | null } | null)?.amount ?? null;
+  // numeric(15,2) bisa sampai ke sini sebagai string tergantung versi driver;
+  // Number() sekali di sini supaya formatIDR tidak pernah menerima teks.
+  return { status: "ok", data: amount === null ? null : Number(amount) };
+}
+
 type AuditRow = {
   id: number;
   action: string;
@@ -216,14 +252,16 @@ export default async function AdminOrderDetailPage({
   const sales = one(order.sales);
   const pic = one(order.pic);
 
-  const [cancelResult, packageIdResult, fulfillmentResult, notesResult] = await Promise.all([
-    order.status === "CANCELLED"
-      ? fetchCancelInfo(supabase, order.id)
-      : Promise.resolve<ColumnFetch<CancelInfo | null>>({ status: "ok", data: null }),
-    fetchPackageId(supabase, order.id),
-    fetchFulfillmentInfo(supabase, order.id),
-    fetchInternalNotes(supabase, order.id),
-  ]);
+  const [cancelResult, packageIdResult, fulfillmentResult, notesResult, offerResult] =
+    await Promise.all([
+      order.status === "CANCELLED"
+        ? fetchCancelInfo(supabase, order.id)
+        : Promise.resolve<ColumnFetch<CancelInfo | null>>({ status: "ok", data: null }),
+      fetchPackageId(supabase, order.id),
+      fetchFulfillmentInfo(supabase, order.id),
+      fetchInternalNotes(supabase, order.id),
+      fetchOrderOffer(supabase, order.id),
+    ]);
   const packageId = packageIdResult.status === "ok" ? packageIdResult.data : null;
   const packageDetail = packageId ? await fetchPackageDetail(supabase, packageId) : null;
 
@@ -446,6 +484,45 @@ export default async function AdminOrderDetailPage({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Penawaran SANCI (0013) — zona kepercayaan yang SAMA dengan Catatan
+          Internal di bawahnya, karena itu diletakkan berdampingan: keduanya
+          data SANCI-saja yang menempel pada satu pesanan. Yang menutupnya
+          adalah RLS (tabel terpisah tanpa satu pun policy untuk cabang), BUKAN
+          kartu ini — kalau suatu hari kartu ini dihapus, angkanya tetap
+          tertutup (LESSONS #5). Salinan i18n-nya menyebutkan hal itu secara
+          eksplisit kepada admin; itu disengaja, bukan basa-basi. */}
+      <div className="card">
+        <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.admin.orderOfferCardTitle}</h3>
+        <div className="banner warn" style={{ marginTop: 8 }}>
+          {m.admin.orderOfferVisibilityWarning}
+        </div>
+        {offerResult.status === "missing-column" ? (
+          <div className="emptybox">{m.admin.orderOfferFeatureOff}</div>
+        ) : offerResult.status === "error" ? (
+          <div style={{ marginTop: 10 }}>
+            <span className="err">{m.common.errorSection}</span>{" "}
+            <Link href={`/admin/orders/${order.id}`} className="btn sm">
+              {m.common.retry}
+            </Link>
+          </div>
+        ) : (
+          <>
+            <dl className="kv" style={{ marginTop: 10 }}>
+              <dt>{m.common.sanciOffer}</dt>
+              <dd>
+                {offerResult.data == null ? (
+                  <span className="small muted">{m.admin.orderOfferEmpty}</span>
+                ) : (
+                  <strong>{formatIDR(offerResult.data)}</strong>
+                )}
+              </dd>
+            </dl>
+            <OrderOfferForm orderId={order.id} currentAmount={offerResult.data} />
+            <p className="footnote">{m.admin.orderOfferFootnote}</p>
+          </>
+        )}
       </div>
 
       {/* Catatan Internal SANCI — partner TIDAK PERNAH melihat kartu ini;

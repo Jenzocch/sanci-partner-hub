@@ -158,6 +158,24 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：確認**沒有東西會遺失**再還原，三個條件缺一不可：① `git merge-base --is-ancestor <那個 commit> HEAD` 為真（內容永久留在歷史裡）；② `git status --porcelain -uall` 沒有 untracked 檔案；③ `git stash list` 是空的。三項都成立時工作目錄裡沒有任何獨一無二的東西，`git reset --hard HEAD` 是零損失的。順手 `git tag` 標一下那個 commit 更保險。
 - **教訓**：**開工前的 git 健檢要看 `git status`，不能只看 `git log`／HEAD。**「HEAD 是對的」不等於「檔案是對的」——工作目錄、索引、HEAD 是三個可以各自被弄壞的東西。判斷還原安不安全的標準也不是「看起來像垃圾」，而是**能不能證明這些內容在別處還在**；能證明就放心還原，不能證明就先問，不要憑感覺刪。
 
+### 33. `pg_dump -s` 的輸出**每次都不一樣**——冪等驗證用它直接 diff 會穩定報出假的 schema drift〔本專案 2026-08-20，0013 冪等測試當下踩到〕
+- **情境**：本專案驗證 migration 冪等的標準做法是「同一份 SQL 連跑三次，每次 `pg_dump -s` 後跟基準 diff，要求零差異」（0012 就是這樣驗的）。0013 照做，結果三次**全部**報 DRIFT。
+- **實況**：差異只有兩行，而且長這樣——
+  ```
+  5c5
+  < \restrict Pk15FtdK8Zg7txm51xwTNkfiO1MFAfPgYXyJVhffnrDfnrtCcAv16xZloZ3s55E
+  ---
+  > \restrict k6LKT9LIFHOCEc3jP8EoBCn9RauqE2MMn8PzbdmyBY5zVWM0u1DXuEFbINtCtVi
+  ```
+  `\restrict` / `\unrestrict` 是新版 pg_dump（本機為 16.13）加的安全機制，**每次執行都重新亂數產生一組 token**。它跟資料庫內容一點關係都沒有。真正的 schema 一個位元都沒變。
+- **危險在哪**：這是**假陽性**，而且是會一直重現的那種。看到 DRIFT 的人有兩條錯路：① 以為 migration 真的不冪等，回頭去「修」一個不存在的問題（很可能把好好的 `create ... if not exists` 改壞）；② 反過來，因為「每次都這樣，應該沒事」而養成忽略 DRIFT 的習慣——那就等於整個冪等驗證從此形同虛設，下次真的漂移時也不會有人發現。第二條比第一條更貴。
+- **修法**：diff 前把這兩行濾掉，而且要**明講理由**，不要默默 `grep -v`：
+  ```bash
+  diff <(grep -v '^\\\(un\)\?restrict ' dump0.sql) <(grep -v '^\\\(un\)\?restrict ' dumpN.sql)
+  ```
+  濾掉之後 0013 三次重跑確實是零差異，冪等成立。
+- **教訓**：**驗證工具本身的輸出也可能有雜訊，「diff 不為空」不等於「東西變了」——先看差異的內容是什麼，再決定它代表什麼。** 這跟 LESSONS #7（成功訊息不是證據）是同一枚硬幣的反面：#7 說不要輕信綠燈，這一條說不要輕信紅燈。兩邊的正確動作一樣——**去看實際內容**，而不是看訊號的顏色。順帶一提，濾除規則要寫成「只濾掉這兩個已知的 pg_dump 標記」，不能寫成寬鬆的模式，否則哪天真的 drift 落在被濾掉的範圍裡就永遠看不到了。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

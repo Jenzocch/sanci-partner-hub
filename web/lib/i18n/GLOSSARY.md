@@ -35,6 +35,7 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Belanja di toko mitra | Total Belanja di Toko | 店内消费金额 | Store Purchase |
 | Pelanggan sudah datang | Pelanggan Tiba | 客户已到店 | Customer Arrived |
 | Catatan khusus SANCI | Catatan Internal | 内部备注 | Internal Note |
+| Nilai penawaran SANCI per pesanan | Penawaran SANCI | SANCI 方案金额 | SANCI Offer |
 | Kepemilikan pesanan | Atribusi | 归属 | Attribution |
 | Hak akses | Hak Akses | 权限 | Access |
 | — hanya cabang sendiri | Cabang sendiri | 仅本店 | Own branch |
@@ -101,6 +102,12 @@ perintah pendek.
 
 以下词在三种语言里都保持原样:Invoice、WhatsApp、PIC(印尼语界面)、
 SANCI 及各合作商名称、订单编号与各种代码。
+
+**"Penawaran SANCI" bukan "harga"** (owner 拍板 2026-08-20)：这是 SANCI 针对
+**某一笔订单**手工决定的方案金额，跟产品目录没有关系——产品目录永远不放价格
+(0010 的铁律)。所以三种语言都不用"Harga / Price / 价格"这类词，避免有人
+误以为系统里开始有产品定价了。同理也不叫"Diskon / Discount / 折扣"：
+系统不计算折扣，只记录人决定的那个数字。
 
 **English** — plain English, not enterprise jargon. "Add Staff", not
 "Create Personnel Record". Sentence case for buttons and labels.

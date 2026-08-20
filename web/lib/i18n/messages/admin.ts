@@ -480,6 +480,36 @@ const id = {
   internalNoteEmptyErr: "Catatan tidak boleh kosong.",
   internalNoteTooLong: "Catatan terlalu panjang (maksimal 2000 karakter).",
   internalNoteFeatureOffAction: "Fitur catatan internal belum aktif — migrasi belum dijalankan.",
+
+  // ---- Penawaran SANCI (0013 — order-offer-form.tsx + halaman detail) ----
+  // Kalimat visibilitas di bawah SENGAJA menyebut "lewat API", bukan cuma
+  // "tidak terlihat": yang menutupnya adalah RLS, dan admin perlu tahu bahwa
+  // jaminannya sungguhan — bukan sekadar layar yang disembunyikan.
+  orderOfferCardTitle: "Penawaran SANCI",
+  orderOfferVisibilityWarning:
+    "Hanya terlihat oleh SANCI. Partner dan cabang tidak bisa melihat angka ini sama sekali — " +
+    "bukan hanya disembunyikan di layar, tapi ditolak oleh basis data.",
+  orderOfferFeatureOff: "Fitur penawaran SANCI belum aktif — migrasi database belum dijalankan.",
+  orderOfferEmpty: "Belum ada penawaran SANCI untuk pesanan ini.",
+  orderOfferFootnote:
+    "Angka ini keputusan SANCI untuk pesanan ini saja, bukan harga produk. Setiap pengisian, " +
+    "perubahan, dan penghapusan tercatat di Activity beserta nilai lama dan barunya.",
+  orderOfferSetBtn: "Isi Penawaran",
+  orderOfferEditBtn: "Ubah Penawaran",
+  orderOfferModalTitle: "Penawaran SANCI",
+  orderOfferModalDesc:
+    "Isi nilai penawaran yang SANCI berikan untuk pesanan ini. Kosongkan artinya belum diputuskan; " +
+    "kalau SANCI memutuskan tidak memberi penawaran, pakai tombol Hapus Penawaran — bukan angka 0 " +
+    "(0 berarti penawaran senilai nol Rupiah).",
+  orderOfferFieldLabel: "Nilai penawaran (Rp)",
+  orderOfferPlaceholder: "Contoh: 1.500.000",
+  orderOfferSaveBtn: "Simpan Penawaran",
+  orderOfferClearBtn: "Hapus Penawaran",
+  orderOfferClearingBtn: "Menghapus…",
+  orderOfferClearConfirm:
+    "Hapus nilai penawaran untuk pesanan ini? Nilai terakhirnya tetap tercatat di Activity.",
+  orderOfferInvalid: "Nilai penawaran tidak valid. Isi angka Rupiah, contoh: 1.500.000.",
+  orderOfferFeatureOffAction: "Fitur penawaran SANCI belum aktif — migrasi belum dijalankan.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -918,6 +948,32 @@ const en = {
   internalNoteEmptyErr: "The note cannot be empty.",
   internalNoteTooLong: "The note is too long (maximum 2000 characters).",
   internalNoteFeatureOffAction: "The internal note feature is not active yet — the migration has not been run.",
+
+  orderOfferCardTitle: "SANCI offer",
+  orderOfferVisibilityWarning:
+    "Visible to SANCI only. Partners and branches cannot see this amount at all — " +
+    "it is not merely hidden on screen, the database refuses it.",
+  orderOfferFeatureOff: "The SANCI offer feature is not active yet — the database migration has not been run.",
+  orderOfferEmpty: "No SANCI offer for this order yet.",
+  orderOfferFootnote:
+    "This amount is SANCI's decision for this order only, not a product price. Every entry, " +
+    "change, and removal is recorded in Activity together with the old and new values.",
+  orderOfferSetBtn: "Set offer",
+  orderOfferEditBtn: "Change offer",
+  orderOfferModalTitle: "SANCI offer",
+  orderOfferModalDesc:
+    "Enter the offer SANCI gives for this order. Leaving it unset means not decided yet; " +
+    "if SANCI decides not to make an offer, use Remove offer — not the number 0 " +
+    "(0 means an offer worth zero Rupiah).",
+  orderOfferFieldLabel: "Offer amount (Rp)",
+  orderOfferPlaceholder: "Example: 1,500,000",
+  orderOfferSaveBtn: "Save offer",
+  orderOfferClearBtn: "Remove offer",
+  orderOfferClearingBtn: "Removing…",
+  orderOfferClearConfirm:
+    "Remove the offer amount for this order? The last value stays recorded in Activity.",
+  orderOfferInvalid: "That offer amount is not valid. Enter a Rupiah number, for example 1,500,000.",
+  orderOfferFeatureOffAction: "The SANCI offer feature is not active yet — the migration has not been run.",
 } satisfies Shape;
 
 const zh = {
@@ -1315,6 +1371,27 @@ const zh = {
   internalNoteEmptyErr: "备注不能为空。",
   internalNoteTooLong: "备注过长（最多 2000 个字符）。",
   internalNoteFeatureOffAction: "内部备注功能尚未启用 —— 迁移脚本还没有执行。",
+
+  orderOfferCardTitle: "SANCI 方案金额",
+  orderOfferVisibilityWarning:
+    "仅 SANCI 可见。合作商和分店完全看不到这个金额 —— 不只是界面上隐藏，数据库层面就会拒绝。",
+  orderOfferFeatureOff: "SANCI 方案金额功能尚未启用 —— 数据库迁移脚本还没有执行。",
+  orderOfferEmpty: "该订单暂无 SANCI 方案金额。",
+  orderOfferFootnote:
+    "这个金额只是 SANCI 针对本订单的决定，不是产品价格。每次填写、修改、删除都会连同修改前后的数值记录在操作记录里。",
+  orderOfferSetBtn: "填写方案金额",
+  orderOfferEditBtn: "修改方案金额",
+  orderOfferModalTitle: "SANCI 方案金额",
+  orderOfferModalDesc:
+    "填写 SANCI 为这笔订单提供的方案金额。留空表示还没决定；如果 SANCI 决定不提供方案，请用「删除方案金额」按钮，不要填 0（0 表示金额为零的方案）。",
+  orderOfferFieldLabel: "方案金额（Rp）",
+  orderOfferPlaceholder: "示例：1.500.000",
+  orderOfferSaveBtn: "保存方案金额",
+  orderOfferClearBtn: "删除方案金额",
+  orderOfferClearingBtn: "删除中…",
+  orderOfferClearConfirm: "确定删除该订单的方案金额？最后一次的数值仍会保留在操作记录里。",
+  orderOfferInvalid: "方案金额不正确。请填写印尼盾数字，例如 1.500.000。",
+  orderOfferFeatureOffAction: "SANCI 方案金额功能尚未启用 —— 迁移脚本还没有执行。",
 } satisfies Shape;
 
 export const admin = { id, en, zh };

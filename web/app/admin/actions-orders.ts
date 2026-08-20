@@ -16,6 +16,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
+import { parseIDRInput } from "@/lib/orders-shared";
 import { getMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
@@ -275,6 +276,126 @@ export async function addInternalNote(
 
   revalidatePath(`/admin/orders/${orderId}`);
   return { data: { id: String(written.data.id), createdAt: written.data.created_at } };
+}
+
+/**
+ * Nilai penawaran SANCI per pesanan (`order_sanci_offers`, migration 0013) —
+ * HANYA SANCI Admin, baca maupun tulis. Pengguna cabang mendapat NOL baris dari
+ * tabel ini lewat RLS; layar yang menyembunyikannya hanya kosmetik dan bukan
+ * itu yang melindunginya (LESSONS #5).
+ *
+ * Bentuknya upsert dengan kunci alami `order_id` — satu pesanan, satu nilai
+ * yang berlaku. Karena itu tabelnya SENGAJA tidak punya client_request_id:
+ * mengirim nilai yang sama dua kali di jaringan lemah menghasilkan baris yang
+ * sama persis, jadi idempotensinya datang dari bentuk tabelnya sendiri, bukan
+ * dari nomor permintaan (alasan lengkapnya di §1 berkas 0013).
+ */
+
+/**
+ * Kolom DB-nya `numeric(15,2)` (0013, disamakan dengan partner_purchase_amount
+ * milik 0009) → paling besar Rp 9.999.999.999.999, sedangkan parseIDRInput()
+ * masih menerima sampai Rp 99.999.999.999.999. Diperiksa di sini supaya upsert
+ * tidak pernah sampai memicu 22003 dari Postgres — pengguna tidak boleh melihat
+ * kode error mentah (catatan eksplisit yang sama di 0009 dan 0013).
+ */
+const MAX_OFFER_AMOUNT = 9_999_999_999_999;
+
+export async function setOrderOffer(
+  orderId: string,
+  amountRaw: string
+): Promise<ActionResult<{ amount: number }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  // Angka dihitung ULANG di server dari teks mentah lewat parseIDRInput —
+  // satu-satunya sumber kebenaran (lib/orders-shared.ts). Nilai yang sudah
+  // diformat/dihitung di browser tidak dipercaya (LESSONS #6).
+  const amount = parseIDRInput(amountRaw.trim());
+  if (amount === null || amount > MAX_OFFER_AMOUNT) {
+    return { error: { field: "amount", message: m.admin.orderOfferInvalid } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("order_sanci_offers")
+      .upsert({ order_id: orderId, amount }, { onConflict: "order_id" })
+      .select("amount")
+      .single()
+  );
+
+  if (!written.ok) {
+    if (written.reason === "db") {
+      if (isMissingTable(written.code)) return { error: { message: m.admin.orderOfferFeatureOffAction } };
+      return { error: { message: PESAN.serverSibuk } };
+    }
+    // Respons hilang. Upsert berkunci order_id aman diulang, tapi JANGAN
+    // menyebutnya berhasil tanpa bukti (LESSONS #2/#7) — tanyakan status
+    // sebenarnya ke server, dan hanya lapor sukses kalau nilainya memang sudah
+    // yang dimaksud.
+    const { data: recheck, error: recheckErr } = await supabase
+      .from("order_sanci_offers")
+      .select("amount")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    if (!recheckErr && recheck && Number(recheck.amount) === amount) {
+      revalidatePath("/admin/orders/[orderId]", "page");
+      return { data: { amount } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+
+  // Rute dinamis WAJIB memakai bentuk TEMPLATE ("[orderId]") + tipe "page",
+  // bukan alamat dengan id sungguhan disisipkan: Next.js mencocokkan string ini
+  // dengan pola rute, sehingga `/admin/orders/<uuid>` tidak cocok dengan apa pun
+  // dan cache-nya tidak pernah disegarkan (pola yang sudah dipakai
+  // actions-package-items.ts sejak 0012).
+  revalidatePath("/admin/orders/[orderId]", "page");
+  return { data: { amount: Number(written.data.amount) } };
+}
+
+/**
+ * "SANCI memutuskan TIDAK memberi penawaran" harus bisa dinyatakan, dan
+ * bentuknya adalah MENGHAPUS barisnya — bukan menyimpan 0. Nol adalah tawaran
+ * senilai nol rupiah; tidak adanya baris berarti tidak ada tawaran. Dua keadaan
+ * berbeda harus punya bentuk berbeda (prinsip yang sama dengan `quantity > 0`
+ * di 0012, dan ditegakkan di 0013 lewat `amount not null`).
+ *
+ * Sengaja TANPA `.single()`: menghapus baris yang memang sudah tidak ada bukan
+ * kegagalan, melainkan keadaan yang diinginkan sudah tercapai (mis. tab lain
+ * sudah menghapusnya duluan). `.single()` akan menerjemahkannya menjadi error
+ * dan menyuruh pengguna mencoba lagi selamanya — persis pola LESSONS #21.
+ */
+export async function clearOrderOffer(orderId: string): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  const removed = await safeWrite(
+    supabase.from("order_sanci_offers").delete().eq("order_id", orderId).select("order_id")
+  );
+
+  if (!removed.ok) {
+    if (removed.reason === "db") {
+      if (isMissingTable(removed.code)) return { error: { message: m.admin.orderOfferFeatureOffAction } };
+      return { error: { message: PESAN.serverSibuk } };
+    }
+    // Respons hilang: tanyakan keadaan sebenarnya, jangan menghapus lagi
+    // buta-buta dan jangan menebak (LESSONS #2).
+    const { data: recheck, error: recheckErr } = await supabase
+      .from("order_sanci_offers")
+      .select("order_id")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    if (!recheckErr && !recheck) {
+      revalidatePath("/admin/orders/[orderId]", "page");
+      return { data: true };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+
+  revalidatePath("/admin/orders/[orderId]", "page");
+  return { data: true };
 }
 
 const INVOICE_BUCKET = "order-invoices";
