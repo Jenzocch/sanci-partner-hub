@@ -21,12 +21,13 @@ tanpa perlu membaca SQL-nya.
 | 0012 | `0012_package_product_components.sql` | Irisan keenam: isi Package — tabel `partner_package_items` (produk + jumlah di dalam sebuah Package, FK sungguhan ke `sanci_products`), menutup penundaan SPEC §23. Admin kelola penuh, partner **hanya baca** isi paketnya sendiri. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `PACKAGE_ITEM`. |
 | 0013 | `0013_order_offer_amount.sql` | Irisan ketujuh: nilai penawaran SANCI per pesanan — tabel `order_sanci_offers` (satu baris per pesanan, `order_id` sebagai PRIMARY KEY sehingga penulisannya upsert idempoten). **Khusus admin SANCI, baca maupun tulis**; pengguna cabang nol akses, SELECT sekalipun — ditegakkan RLS, bukan disembunyikan layar. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_OFFER`. |
 | 0014 | `0014_permissions_items_shipping.sql` | Irisan kedelapan: 2 flag izin (`can_view_offer`/`can_edit_offer`) di `partner_access_policies` yang MEMBUKA akses cabang ke `order_sanci_offers` miliknya sendiri (3 policy SELECT/INSERT/UPDATE baru — evolusi janji 0013 §4); `dp_amount`/`payment_condition` di `order_sanci_offers`; tabel BARU `order_items` (snapshot isi pesanan per baris + catatan/warna/ukuran, disalin otomatis dari isi Package saat pesanan dibuat, boleh diedit cabang selama pesanan aktif — harga per baris digerbangi `can_edit_offer` lewat trigger); `partner_orders.shipping_address` (selalu bisa diedit, TIDAK masuk daftar beku 0005). Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_ITEM`. **Sengaja TIDAK membangun** rantai perhitungan diskon/markup/potongan-tunai yang direncanakan awal — bentrok langsung dengan `GLOSSARY.md`/`FEATURES.md` yang ditulis di commit yang sama (0013) yang menyatakan sistem ini tidak menghitung diskon; lihat kepala berkas 0014 untuk penjelasan lengkap. |
+| 0015 | `0015_order_discount_chain.sql` | Irisan kesembilan: konflik 0013/0014 SUDAH diputuskan owner (2026-08-20, FEATURES.md §"衝突已裁決") — rantai diskon TINGKAT PESANAN sekarang DIBANGUN. 4 kolom baru di `order_sanci_offers`: `discount_pcts` (jsonb, array % berurutan, maks 6, divalidasi trigger), `markup_pct` (opsional, CHECK 0–100), `cash_discount` (default 0, CHECK ≥0), `final_amount` (WAJIB, DIHITUNG trigger BEFORE INSERT/UPDATE — TIDAK PERNAH dipercaya dari client). Constraint `dp_amount<=amount` (0014) DIGANTI `dp_amount<=final_amount`. Flag izin ketiga `can_discount` di `partner_access_policies` (DEFAULT false) + trigger gerbang baru (`fn_guard_order_offer_discount_fields`) — can_discount adalah gerbang TAMBAHAN di ATAS can_edit_offer (RLS 0014 TIDAK diubah), bukan flag sejajar; matriks lengkap di kepala berkas §6. `fn_audit_row` **TIDAK didefinisikan ulang** — migrasi PERTAMA sejak 0009 yang tidak menyentuhnya (tidak ada tabel baru, kolom baru otomatis ikut lewat `to_jsonb`). |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -48,7 +49,8 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 | 0011 | tidak ada — 0011 tidak mendefinisikan ulang `fn_audit_row` (dinyatakan lewat komentar di dalam berkasnya) maupun apa pun milik 0012/0013/0014. |
 | 0012 | `fn_audit_row` kehilangan tambahan 0013 (awalan `ORDER_OFFER`) dan 0014 (awalan `ORDER_ITEM`), termasuk pencarian partner/branch lewat pesanan untuk keduanya. Awalan `PACKAGE_ITEM` miliknya sendiri **tetap ada** (sudah diukur satu per satu di Postgres 16 lokal). |
 | 0013 | `fn_audit_row` kehilangan tambahan 0014 SAJA — awalan `ORDER_ITEM` dan pencarian partner/branch lewat pesanannya. **Selain itu**, `order_sanci_offers` juga kehilangan TIGA policy cabang baru milik 0014 (`oso_partner_read`/`_insert`/`_update` — `DROP POLICY IF EXISTS oso_admin_all` di 0013 tidak menyentuh nama policy itu, tapi 0013 juga tidak MEMBUATNYA lagi, jadi kalau 0014 belum pernah dijalankan ulang sesudahnya, urutan asli tetap aman; risiko hanya muncul kalau 0013 dijalankan ulang SETELAH 0014 sempat berjalan tanpa 0014 ikut dijalankan ulang lagi — lihat catatan ⚠️ di blok verifikasi 0014). Awalan `ORDER_OFFER` miliknya sendiri **tetap ada**. |
-| 0014 | tidak ada — 0014 adalah berkas terakhir dalam rantai. Versi `fn_audit_row` miliknya memuat SELURUH perilaku 0004+0005+0008+0009+0010+0012+0013, jadi menjalankannya paling akhir justru **memulihkan** seluruh pemetaan yang sempat tertimpa berkas lama. **Pemulihan untuk kasus 0013 dijalankan ulang** (baris di atas): jalankan ulang 0014 sekali lagi — ketiga policy `oso_partner_*` dan awalan `ORDER_ITEM` kembali utuh. |
+| 0014 | **Sudah diukur di Postgres 16 lokal, bukan diperkirakan**: `order_sanci_offers_dp_le_amount_check` (constraint LAMA milik 0014 sendiri, `dp_amount<=amount`) **muncul KEMBALI** berdampingan dengan `order_sanci_offers_dp_le_final_check` (constraint BARU milik 0015, `dp_amount<=final_amount`) — 0014 §2 memakai `if not exists (select … where conname = 'order_sanci_offers_dp_le_amount_check')` untuk idempotensi, dan begitu 0015 sudah pernah men-DROP constraint itu, kondisi "belum ada" jadi BENAR lagi sehingga 0014 MEMBUATNYA ULANG. Akibatnya KEDUA constraint aktif bersamaan: kalau `final_amount` lebih BESAR dari `amount` (markup > jumlah diskon), constraint lama yang sudah seharusnya digantikan diam-diam kembali membatasi DP ke `amount`, menolak nilai DP yang SAH menurut aturan 0015 (`dp<=final_amount`) tanpa satu pun peringatan di layar Aktivitas. **Yang TIDAK ikut rusak** (diukur eksplisit, bukan diasumsikan): kedua trigger 0015 (`trg_order_offer_discount_guard`, `trg_order_offer_final_compute`), ketiga policy `oso_partner_*`, dan `fn_audit_row` — 0014 tidak mendefinisikan ulang atau menyentuh satu pun dari ketiganya. **Pemulihan**: jalankan ulang 0015 sekali lagi — constraint lama ter-DROP kembali, hanya `dp_le_final_check` yang tersisa (diverifikasi: re-run persis skenario ini menghasilkan tepat satu constraint `dp_le_*`). **Pemulihan untuk kasus 0013 dijalankan ulang** (baris di atas): jalankan ulang 0014 sekali lagi — ketiga policy `oso_partner_*` dan awalan `ORDER_ITEM` kembali utuh (fungsi `fn_audit_row` versi 0014 tetap identik dengan versi yang dipakai 0015, jadi menjalankan ulang 0014 di sini tidak mengubah pemetaan aksi apa pun). |
+| 0015 | tidak ada — 0015 adalah berkas terakhir dalam rantai saat ini. Versi `fn_audit_row` yang berlaku (dari 0014, TIDAK didefinisikan ulang oleh 0015) memuat SELURUH perilaku 0004+0005+0008+0009+0010+0012+0013+0014, jadi kalau berkas LAMA mana pun dijalankan ulang lalu diikuti 0014 (bukan 0015 — 0015 tidak menyentuh `fn_audit_row` sama sekali), pemetaan aksinya tetap pulih lewat mekanisme 0014 yang sudah dijelaskan di baris atas. Yang HANYA dipulihkan oleh 0015 sendiri adalah baris di atas (constraint `dp_le_*` kalau 0014 sempat dijalankan ulang sesudah 0015). |
 
 Khusus lubang P2 (`fn_check_order_refs` tanpa pemeriksaan pelanggan): ia TIDAK
 menghasilkan satu pun pesan error atau gejala di layar. Yang terjadi hanyalah
@@ -496,18 +498,68 @@ BARU ini (4 / 3), bukan angka lama (1 / 0) di berkas 0013.
 Dua hal lain yang perlu diketahui pembaca berkas ini:
 
 * **Fitur diskon/markup/potongan-tunai yang direncanakan awal SENGAJA TIDAK
-  dibangun.** Bentrok langsung dengan `GLOSSARY.md` §"Penawaran SANCI bukan
-  harga" dan `FEATURES.md` §"Phase 2 irisan ketujuh" — keduanya ditulis di
-  commit 0013 (satu hari sebelum berkas ini) dan secara eksplisit menyatakan
-  sistem ini tidak menghitung diskon apa pun. Membangunnya di atas keputusan
-  yang baru saja dibuat, tanpa konfirmasi ulang, berisiko membangun sesuatu
-  yang justru baru saja diputuskan TIDAK diinginkan — lihat penjelasan lengkap
-  di kepala berkas 0014. Yang dibangun sebagai gantinya (`dp_amount`,
+  dibangun DI SINI (0014).** Bentrok langsung dengan `GLOSSARY.md` §"Penawaran
+  SANCI bukan harga" dan `FEATURES.md` §"Phase 2 irisan ketujuh" — keduanya
+  ditulis di commit 0013 (satu hari sebelum berkas ini) dan secara eksplisit
+  menyatakan sistem ini tidak menghitung diskon apa pun. Membangunnya di atas
+  keputusan yang baru saja dibuat, tanpa konfirmasi ulang, berisiko membangun
+  sesuatu yang justru baru saja diputuskan TIDAK diinginkan — lihat penjelasan
+  lengkap di kepala berkas 0014. Yang dibangun sebagai gantinya (`dp_amount`,
   `payment_condition`) murni pencatatan, bukan perhitungan.
+  **⚠️ Konflik ini kemudian DIPUTUSKAN owner (2026-08-20) — lihat 0015 di
+  bawah.** GLOSSARY.md/FEATURES.md sudah disinkronkan; kalimat di atas
+  ditinggalkan APA ADANYA sebagai jejak keputusan pada saat 0014 ditulis
+  (migration yang sudah/akan dijalankan tidak diedit retroaktif).
 * **`can_discount` (flag izin ketiga yang diminta rencana awal) TIDAK
-  dibangun** — konsekuensi langsung dari poin di atas: tidak ada mesin
-  hitung diskon untuk diberi izin. Hanya DUA flag (`can_view_offer`,
-  `can_edit_offer`) yang dibangun.
+  dibangun DI SINI (0014)** — konsekuensi langsung dari poin di atas. Dibangun
+  di 0015 sebagai gerbang TAMBAHAN di atas `can_edit_offer`, bukan flag
+  sejajar — lihat penjelasan lengkap di kepala berkas 0015 §6.
+
+### 0015
+
+| Cek | nilai |
+|---|---|
+| CAN_DISCOUNT_COL / CAN_DISCOUNT_DEFAULT_FALSE | 1 / **1** |
+| DISCOUNT_PCTS_COL / DISCOUNT_PCTS_TYPE / DISCOUNT_PCTS_NOT_NULL | 1 / `jsonb` / 1 |
+| DISCOUNT_DEFAULT_EMPTY_ARRAY | **1** |
+| MARKUP_PCT_COL / MARKUP_PCT_CHECK | 1 / 1 |
+| CASH_DISCOUNT_COL / CASH_DEFAULT_ZERO / CASH_DISCOUNT_CHECK | 1 / **1** / 1 |
+| FINAL_AMOUNT_COL / FINAL_NOT_NULL | 1 / **1** |
+| FINAL_AMOUNT_TYPE | `numeric(15,2)` |
+| DP_LE_AMOUNT_CHECK_GONE | **0** ← WAJIB 0: constraint lama 0014 sudah diganti |
+| DP_LE_FINAL_CHECK | **1** |
+| COMPUTE_TRIGGER_EXISTS / DISCOUNT_GUARD_TRIGGER_EXISTS | 1 / 1 |
+| OFFER_TRIGGERS | **5** ← ⚠ BERUBAH dari 3 (0013/0014) |
+| DISCOUNT_GUARD_EXEC_PUBLIC | **0** (LESSONS #26) |
+| AUDIT_KEEP_0014_ITEM / AUDIT_KEEP_0013_OFFER | 1 / 1 |
+| AUDIT_KEEP_0012_PKG_ITEM / AUDIT_KEEP_0012_PKG_LOOKUP | 1 / 1 |
+| AUDIT_KEEP_0010_PRODUCT / AUDIT_KEEP_0010_CATALOG | 1 / 1 |
+| AUDIT_KEEP_0009_ARRIVED / AUDIT_KEEP_0009_NOTE | 1 / 1 |
+| AUDIT_KEEP_0008_PKG / AUDIT_KEEP_0008_PHONE / AUDIT_KEEP_0008_ATTR | 1 / 1 / 1 |
+| AUDIT_KEEP_0005 / AUDIT_KEEP_0004 | 1 / 1 |
+| REFS_CHECK_CUSTOMER | **1** |
+
+34 baris total, semua sudah diukur di Postgres 16 lokal (bukan diperkirakan) —
+lihat blok verifikasi lengkap di kepala berkas `0015_order_discount_chain.sql`
+untuk penjelasan tiap angka.
+
+⚠️ **`OFFER_TRIGGERS` (3 → 5) BERUBAH dari angka yang ditulis di 0013/0014.**
+Sama seperti pola `OFFER_POLICIES`/`OFFER_NONADMIN_POLICIES` di atas — 0013 dan
+0014 sendiri TIDAK diedit, jadi komentar di kedua berkas itu tetap berbunyi "3"
+selamanya; begitu 0015 menjadi berkas terakhir dalam rantai, angka
+sesungguhnya menjadi 5 (dua trigger baru: `trg_order_offer_discount_guard`,
+`trg_order_offer_final_compute`). Siapa pun yang mencocokkan angka 0013/0014
+pada database yang SUDAH punya 0015 WAJIB memakai angka BARU ini (5), bukan
+angka lama (3).
+
+Angka blok verifikasi berkas LAMA setelah 0015 — SUDAH DIUKUR di Postgres 16
+lokal: **hanya blok 0013 yang berubah** (`OFFER_TRIGGERS` 3 → 5, dijelaskan di
+atas; SEMUA angka lain di blok 0013 tetap). Blok 0001 TIDAK berubah satu angka
+pun (`RLS_ENABLED`/`POLICIES`/`TRIGGERS` tetap 19/46/27 — 0015 tidak membuat
+tabel atau policy baru, dan kedua trigger barunya ada di tabel berawalan
+`order_` yang TIDAK ikut terhitung blok 0001, persis pola `order_sanci_offers`/
+`order_items` sebelumnya). Blok 0004/0005/0008/0009/0010/0011/0012/0014 TIDAK
+berubah satu angka pun.
 
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 
@@ -660,11 +712,13 @@ Empat batas milik 0013, semuanya sudah diukur, bukan dugaan:
 
 Lima batas milik 0014, semuanya sudah diukur, bukan dugaan:
 
-1. **Tidak ada mesin hitung diskon/markup/potongan-tunai apa pun.** Ini
-   keputusan SADAR, bukan kelalaian — lihat penjelasan panjang di kepala
-   berkas 0014 dan `web/lib/i18n/GLOSSARY.md`. `dp_amount`/`payment_condition`/
-   `order_items.unit_price`/`line_discount` semuanya angka/teks yang diketik
-   manusia, basis data tidak menghitung apa pun dari nilai-nilai itu.
+1. **⚠️ SUPERSEDED oleh 0015 untuk BAGIAN "tidak ada mesin hitung diskon".**
+   Tetap benar untuk `dp_amount`/`payment_condition`/`order_items.unit_price`/
+   `line_discount` — semuanya TETAP angka/teks yang diketik manusia, basis
+   data TIDAK menghitung apa pun dari nilai-nilai itu (batas ini tidak
+   berubah). Yang BERUBAH: `order_sanci_offers` sekarang PUNYA rantai diskon
+   tingkat pesanan yang DIHITUNG database (`discount_pcts`/`markup_pct`/
+   `cash_discount` → `final_amount`) — lihat "Batas milik 0015" di bawah.
 2. **Isi Package TIDAK dibekukan ulang kalau pesanan diedit sesudahnya.**
    Salinan ke `order_items` terjadi SEKALI saat pesanan dibuat (best-effort).
    Kalau isi Package induknya berubah BESOK, baris `order_items` pesanan yang
@@ -693,3 +747,41 @@ Lima batas milik 0014, semuanya sudah diukur, bukan dugaan:
    bermasalah). Tidak ada kehilangan data diam-diam (mekanisme partial yang
    sudah ada tetap melapor jujur), hanya kurang presisi soal kolom mana yang
    sebenarnya gagal.
+
+Enam batas milik 0015, semuanya sudah diukur, bukan dugaan:
+
+1. **Diskon PER-BARIS (`order_items.unit_price`/`line_discount`) TIDAK ikut
+   berubah.** Keduanya TETAP angka absolut yang diketik manusia — rantai
+   diskon di berkas ini murni TINGKAT PESANAN (`order_sanci_offers`). Tidak
+   ada rencana menyatukan keduanya; nama kolomnya sengaja dibedakan dari awal
+   (`line_discount` vs `discount_pcts`) supaya tidak pernah tertukar.
+2. **`can_discount` adalah gerbang TAMBAHAN di ATAS `can_edit_offer`, BUKAN
+   flag sejajar.** RLS `oso_partner_insert`/`oso_partner_update` (0014) TIDAK
+   diubah berkas ini — tetap mensyaratkan `can_edit_offer` untuk SELURUH
+   baris. Partner dengan `can_discount=true` tapi `can_edit_offer=false`
+   mendapat NOL baris tertulis (RLS menolak sebelum trigger sempat
+   dievaluasi) — diuji eksplisit di test-harness (T8). Ini keputusan SADAR
+   (lihat kepala berkas 0015 §6/§7 untuk penjelasan penuh kenapa melebarkan
+   RLS akan membuka celah), bukan bug.
+3. **Tidak ada pembulatan otomatis di luar `cash_discount`.** "去尾数"
+   (membulatkan ke angka bersih) dilakukan MANUSIA dengan mengisi
+   `cash_discount` sampai `final_amount` jadi angka yang diinginkan — basis
+   data tidak menebak atau membulatkan sendiri kapan pun.
+4. **`discount_pcts` tidak punya batas atas selain 6 elemen dan rentang
+   (0,100) per elemen** — tidak ada aturan bisnis seperti "total diskon tidak
+   boleh lebih dari X%"; enam diskon 99% masing-masing SAH secara validasi
+   (walau hasilnya, digabung markup/cash, mungkin kena penjaga
+   `final_amount < 0` kalau kombinasinya ekstrem).
+5. **`final_amount` TIDAK divalidasi terhadap `partner_purchase_amount`.**
+   Sama seperti batas 0013 untuk `amount` — basis data tidak membandingkan
+   nilai penawaran/harga akhir dengan belanja pelanggan di toko, dan tidak
+   punya aturan penetapan harga apa pun di luar rumus rantai diskon itu
+   sendiri.
+6. **Backfill `final_amount` untuk baris LAMA hanya valid karena kolom
+   diskon BARU SAJA mendapat nilai bawaannya di migrasi yang SAMA.** Kalau
+   suatu hari seseorang menulis migrasi lanjutan yang mengubah DEFAULT
+   `discount_pcts`/`markup_pct`/`cash_discount` SEBELUM backfill 0015 pernah
+   berjalan (skenario yang seharusnya tidak mungkin karena 0015 sudah
+   dijalankan di production sebelum migrasi mana pun berikutnya), asumsi
+   "backfill = amount" di kepala berkas 0015 §3 perlu ditinjau ulang — tidak
+   berlaku otomatis untuk skema yang berbeda.

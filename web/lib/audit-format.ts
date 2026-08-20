@@ -71,8 +71,30 @@ function fieldLabel(m: Messages, key: string): string | undefined {
     custom_size: c.customSize,
     unit_price: c.unitPrice,
     line_discount: c.lineDiscount,
+    // 0015 — rantai diskon tingkat pesanan (order_sanci_offers). discount_pcts
+    // dirender lewat cabang KHUSUS di formatDiff() di bawah (bukan asLabel()
+    // biasa — ia array jsonb, bukan skalar), tapi tetap perlu label KOLOMnya
+    // di sini supaya baris diffnya punya judul. markup_pct/cash_discount/
+    // final_amount adalah skalar biasa (lihat GLOSSARY.md §"订单层级的折扣链
+    //计算" — kata "Diskon" DIIZINKAN di sini, beda dari line_discount di atas).
+    discount_pcts: c.discountPcts,
+    markup_pct: c.markupPct,
+    cash_discount: c.cashDiscount,
+    final_amount: c.finalAmount,
   };
   return map[key];
+}
+
+/**
+ * discount_pcts (jsonb array, mis. [8, 10]) TIDAK bisa lewat asLabel() biasa —
+ * itu bukan skalar. Dirender "8% + 10%" (rantai kosong → "-"), meniru cara
+ * manusia membaca rantai persen berurutan (0015 GLOSSARY.md: multiplikatif,
+ * bukan dijumlah — tapi TAMPILANNYA tetap "+" karena itu bagaimana pengguna
+ * MENULISKAN daftarnya, bukan klaim bahwa efeknya penjumlahan).
+ */
+function discountChainLabel(v: unknown): string {
+  if (!Array.isArray(v) || v.length === 0) return "-";
+  return v.map((n) => `${n}%`).join(" + ");
 }
 
 // Nilai enum internal → bahasa sehari-hari.
@@ -107,9 +129,18 @@ function valueLabel(m: Messages, value: string): string | undefined {
 }
 
 function asLabel(m: Messages, key: string, v: unknown): string {
+  // 0015 — discount_pcts adalah ARRAY jsonb (mis. [8, 10]), bukan skalar.
+  // Diperiksa PALING AWAL karena `typeof [] === "object"`, bukan salah satu
+  // cabang di bawah — tanpa ini array akan jatuh ke String(v) dan tampil
+  // sebagai "8,10" mentah alih-alih "8% + 10%".
+  if (key === "discount_pcts" && Array.isArray(v)) return discountChainLabel(v);
   // Boolean mentah (mis. sanci_catalog_access.enabled) tidak boleh tampil
   // sebagai "true"/"false" — itu bahasa Inggris bocor ke UI (LESSONS #13).
   if (typeof v === "boolean") return v ? m.common.yes : m.common.no;
+  // markup_pct (0015) adalah persentase TUNGGAL, bukan Rupiah — "%" ditambahkan
+  // langsung, tidak lewat formatIDR (beda perlakuan dari amount/cash_discount
+  // di bawah yang memang uang).
+  if (key === "markup_pct" && typeof v === "number") return `${v}%`;
   // Uang tetap harus lewat formatIDR — angka mentah ("1500000") tidak
   // terbaca sebagai Rupiah oleh staf non-teknis (item H audit round 2).
   // Rupiah tetap format id-ID di ketiga bahasa: itu mata uang nyatanya.
@@ -120,12 +151,16 @@ function asLabel(m: Messages, key: string, v: unknown): string {
   // penjaga `typeof v === "number"` di bawah memang menangkapnya. Kalau suatu
   // hari tabel LAIN memakai nama kolom `amount`, mata uangnya harus tetap
   // Rupiah atau baris ini harus dipersempit — lihat catatan di fieldLabel().
+  // cash_discount/final_amount (0015) ikut daftar ini dengan alasan yang sama
+  // persis — keduanya numeric(15,2), keduanya Rupiah sungguhan.
   if (
     (key === "partner_purchase_amount" ||
       key === "amount" ||
       key === "dp_amount" ||
       key === "unit_price" ||
-      key === "line_discount") &&
+      key === "line_discount" ||
+      key === "cash_discount" ||
+      key === "final_amount") &&
     typeof v === "number"
   ) {
     return formatIDR(v);

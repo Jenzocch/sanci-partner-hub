@@ -169,27 +169,88 @@ async function fetchInternalNotes(
  *      dihindari kalau ada bentuk yang tidak bisa.
  * Pola ini sama dengan fetchInternalNotes di atas.
  */
-type OfferInfo = { amount: number; dpAmount: number; paymentCondition: string | null } | null;
+type OfferInfo = {
+  amount: number;
+  dpAmount: number;
+  paymentCondition: string | null;
+  discountPcts: number[];
+  markupPct: number | null;
+  cashDiscount: number;
+  finalAmount: number;
+} | null;
 async function fetchOrderOffer(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string
 ): Promise<ColumnFetch<OfferInfo>> {
+  // discount_pcts/markup_pct/cash_discount/final_amount (migrasi 0015) diminta
+  // DALAM SELECT yang sama — semuanya kolom BARU pada tabel yang SAMA
+  // (order_sanci_offers), jadi kalau 0015 belum jalan, PostgREST menolak
+  // SELURUH permintaan ini dengan 42703 (kolom tidak dikenal), bukan cuma
+  // kolom-kolom itu yang kosong — sama seperti pola dp_amount/payment_condition
+  // (0014) sebelumnya, satu error code menutupi SEMUA kolom baru migrasi yang
+  // sama. isMissingTableError() di bawah menangkap 42P01 (tabel 0013 belum
+  // jalan) maupun 42703 (kolom 0014/0015 belum jalan) — degradasi diam-diam
+  // ke "fitur belum aktif" untuk keduanya (LESSONS #12).
   const { data, error } = await supabase
     .from("order_sanci_offers")
-    .select("amount, dp_amount, payment_condition")
+    .select("amount, dp_amount, payment_condition, discount_pcts, markup_pct, cash_discount, final_amount")
     .eq("order_id", orderId)
     .maybeSingle();
-  // "missing-column" dipakai ulang di sini untuk arti "fiturnya belum aktif" —
-  // yang membedakannya dari "error" adalah pesan yang tampil, dan keduanya
-  // memang tidak boleh dirender sama seperti "belum diisi" (LESSONS #10).
-  if (error) return { status: isMissingTableError(error) ? "missing-column" : "error" };
-  const row = data as { amount: number | string; dp_amount: number | string; payment_condition: string | null } | null;
+  if (error) {
+    if (error.code === "42703") {
+      // 0013/0014 sudah jalan tapi 0015 belum — kolom dasar (amount/dp_amount/
+      // payment_condition) TETAP harus tampil, hanya bagian diskon yang
+      // disembunyikan. Coba ulang dengan SELECT sempit (pola sama dengan
+      // fetchOffersByOrderId_ di Code.gs).
+      const narrow = await supabase
+        .from("order_sanci_offers")
+        .select("amount, dp_amount, payment_condition")
+        .eq("order_id", orderId)
+        .maybeSingle();
+      if (narrow.error) return { status: isMissingTableError(narrow.error) ? "missing-column" : "error" };
+      const row = narrow.data as
+        | { amount: number | string; dp_amount: number | string; payment_condition: string | null }
+        | null;
+      if (!row) return { status: "ok", data: null };
+      const amount = Number(row.amount);
+      return {
+        status: "ok",
+        data: {
+          amount,
+          dpAmount: Number(row.dp_amount),
+          paymentCondition: row.payment_condition,
+          discountPcts: [],
+          markupPct: null,
+          cashDiscount: 0,
+          finalAmount: amount,
+        },
+      };
+    }
+    return { status: isMissingTableError(error) ? "missing-column" : "error" };
+  }
+  const row = data as {
+    amount: number | string;
+    dp_amount: number | string;
+    payment_condition: string | null;
+    discount_pcts: number[] | null;
+    markup_pct: number | string | null;
+    cash_discount: number | string;
+    final_amount: number | string;
+  } | null;
   if (!row) return { status: "ok", data: null };
   // numeric(15,2) bisa sampai ke sini sebagai string tergantung versi driver;
   // Number() sekali di sini supaya formatIDR tidak pernah menerima teks.
   return {
     status: "ok",
-    data: { amount: Number(row.amount), dpAmount: Number(row.dp_amount), paymentCondition: row.payment_condition },
+    data: {
+      amount: Number(row.amount),
+      dpAmount: Number(row.dp_amount),
+      paymentCondition: row.payment_condition,
+      discountPcts: (row.discount_pcts ?? []).map(Number),
+      markupPct: row.markup_pct == null ? null : Number(row.markup_pct),
+      cashDiscount: Number(row.cash_discount ?? 0),
+      finalAmount: Number(row.final_amount ?? row.amount),
+    },
   };
 }
 
@@ -572,7 +633,10 @@ export default async function AdminOrderDetailPage({
                   <dt>{m.common.dpAmount}</dt>
                   <dd>{formatIDR(offerResult.data.dpAmount)}</dd>
                   <dt>{m.admin.orderOfferRemainingLabel}</dt>
-                  <dd>{formatIDR(Math.max(offerResult.data.amount - offerResult.data.dpAmount, 0))}</dd>
+                  {/* Sisa bayar = final_amount - dp_amount (0015 — dp dibandingkan
+                      dengan nilai SETELAH diskon/markup/potongan tunai, bukan
+                      amount mentah lagi; matematika tampilan, tidak disimpan). */}
+                  <dd>{formatIDR(Math.max(offerResult.data.finalAmount - offerResult.data.dpAmount, 0))}</dd>
                 </>
               )}
               {offerResult.data?.paymentCondition && (
@@ -581,12 +645,41 @@ export default async function AdminOrderDetailPage({
                   <dd>{offerResult.data.paymentCondition}</dd>
                 </>
               )}
+              {offerResult.data && offerResult.data.discountPcts.length > 0 && (
+                <>
+                  <dt>{m.common.discountPcts}</dt>
+                  <dd>{offerResult.data.discountPcts.map((p) => `${p}%`).join(" + ")}</dd>
+                </>
+              )}
+              {offerResult.data?.markupPct != null && (
+                <>
+                  <dt>{m.common.markupPct}</dt>
+                  <dd>{offerResult.data.markupPct}%</dd>
+                </>
+              )}
+              {offerResult.data && offerResult.data.cashDiscount > 0 && (
+                <>
+                  <dt>{m.common.cashDiscount}</dt>
+                  <dd>{formatIDR(offerResult.data.cashDiscount)}</dd>
+                </>
+              )}
+              {offerResult.data && (
+                <>
+                  <dt>{m.common.finalAmount}</dt>
+                  <dd>
+                    <strong>{formatIDR(offerResult.data.finalAmount)}</strong>
+                  </dd>
+                </>
+              )}
             </dl>
             <OrderOfferForm
               orderId={order.id}
               currentAmount={offerResult.data?.amount ?? null}
               currentDpAmount={offerResult.data?.dpAmount ?? null}
               currentPaymentCondition={offerResult.data?.paymentCondition ?? null}
+              currentDiscountPcts={offerResult.data?.discountPcts ?? []}
+              currentMarkupPct={offerResult.data?.markupPct ?? null}
+              currentCashDiscount={offerResult.data?.cashDiscount ?? 0}
             />
             <p className="footnote">{m.admin.orderOfferFootnote}</p>
           </>

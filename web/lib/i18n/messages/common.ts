@@ -137,6 +137,14 @@ const id = {
   customSize: "Ukuran Custom",
   unitPrice: "Harga Satuan",
   lineDiscount: "Potongan Baris",
+  // 0015 — rantai diskon TINGKAT PESANAN (order_sanci_offers). "Diskon" DI SINI
+  // diizinkan (beda dari lineDiscount di atas) — lihat GLOSSARY.md §"订单层级
+  // 的折扣链计算": owner sudah menetapkan sistem MEMANG menghitung ini.
+  discountPcts: "Diskon",
+  markupPct: "Markup",
+  cashDiscount: "Potongan Tunai",
+  finalAmount: "Harga Akhir",
+  remainingBalance: "Sisa Bayar",
 
   // Kalimat Aktivitas (kode aksi audit → bahasa sehari-hari)
   auditOrderCreated: "Pesanan dibuat",
@@ -342,6 +350,11 @@ const en = {
   customSize: "Custom size",
   unitPrice: "Unit price",
   lineDiscount: "Line deduction",
+  discountPcts: "Discount",
+  markupPct: "Markup",
+  cashDiscount: "Cash discount",
+  finalAmount: "Final price",
+  remainingBalance: "Remaining balance",
 
   auditOrderCreated: "Order created",
   auditOrderUpdated: "Order edited",
@@ -535,6 +548,11 @@ const zh = {
   customSize: "定制尺寸",
   unitPrice: "单价",
   lineDiscount: "单行扣减金额",
+  discountPcts: "折扣",
+  markupPct: "加成",
+  cashDiscount: "现金折让",
+  finalAmount: "最终金额",
+  remainingBalance: "尾款",
 
   auditOrderCreated: "订单已创建",
   auditOrderUpdated: "订单已修改",

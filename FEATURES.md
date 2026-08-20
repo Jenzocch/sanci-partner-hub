@@ -312,6 +312,52 @@ owner 對可見度的原話是「Admin 填，先只有 SANCI 看得到」。「*
 - **已取消訂單的明細不能編輯**：跟訂單本身凍結的精神一致（0005），不是遺漏。
 - **Google 試算表欄位範圍承諾被打破**：README 原本說「只寫 A..K，L 欄以後永不碰」，這次因為新增三欄而變成「只寫 A..N，O 欄以後永不碰」——舊格式分頁會被自動偵測並拒絕同步（不會盲目覆寫使用者手動加在舊 L 欄的備註），細節見 `integrations/sheets-orders/README.md` 新增的「⚠️ 欄位範圍變更」段落，這件事需要明確轉達給 Jenzo。
 
+### Phase 2 第九切片（訂單層級折扣鏈計算引擎，2026-08-20）
+
+延續上一刀（第八切片）記錄下來、沒有自己選邊的衝突：0013/0014 同一天寫進
+`GLOSSARY.md`/`FEATURES.md` 的「系統不算任何東西」跟委派描述要的折扣鏈計算
+引擎正面衝突，0014 選擇只做兩者都不禁止的子集，把衝突原封不動記下來等
+Jenzo 裁決。裁決結果記在上面「衝突已裁決」段落：**折扣鏈計算引擎要做**，
+0010「產品目錄零價格」鐵律不受影響（這是訂單成交價，不是目錄定價）。這一刀
+就是照裁決把它蓋出來。
+
+**算法**（owner 逐字確認，含算例）：`order_sanci_offers` 新增
+`discount_pcts`（jsonb，有序 % 陣列，最多 6 個）、`markup_pct`（可選，
+0–100）、`cash_discount`（預設 0）三個人工輸入欄位；資料庫用 BEFORE
+INSERT/UPDATE trigger 算出 `final_amount`——連續乘上每個 `(1 − 折扣%/100)`
+（連乘不是相加）→ 乘上 `(1 + markup%/100)` → 減 `cash_discount` → 四捨五入
+到分。算例（逐字驗證通過）：10.000.000 → [8,10] → +10% markup → −8.000
+現金折讓 → **9.100.000**。`final_amount` 永遠是資料庫算出來的，前端送上來
+的值一律被 trigger 覆蓋——不存在「使用者自己填最終價」這件事。
+
+**權限矩陣**（`can_discount` 是第三個旗標，本刀新增）：`can_discount` 是疊在
+`can_edit_offer` **之上**的加開關，不是跟它平行的獨立開關——RLS
+（`oso_partner_insert`/`oso_partner_update`，0014 遺留不動）仍然要求
+`can_edit_offer` 才能寫入這一整張表的任何一列；`can_discount`
+只在「已經被 RLS 放行寫入」的前提下，額外把關 discount_pcts/markup_pct/
+cash_discount 這三欄能不能被非管理員改動（新增的 trigger
+`fn_guard_order_offer_discount_fields`）。結論：只有 `can_discount` 沒有
+`can_edit_offer` 完全沒用——連一列都寫不進去，本機測試（T8）逐項驗證過這個
+組合確實是「寫入 0 列，不留任何痕跡」而不是靜默半生效。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-44 | `order_sanci_offers` 折扣鏈欄位 + 計算 trigger（DB 層） | `UNVERIFIED` | `discount_pcts`/`markup_pct`/`cash_discount`/`final_amount` 四個新欄位；`fn_compute_order_offer_final`（驗證陣列形狀＋算 final_amount，SECURITY INVOKER）+ `fn_guard_order_offer_discount_fields`（can_discount 把關，SECURITY DEFINER，EXECUTE 已對 public/anon/authenticated 收回，LESSONS #26）兩個新 trigger，`OFFER_TRIGGERS` 從 3 變成 **5**。`dp_amount<=amount`（0014）換成 `dp_amount<=final_amount`——遷移用「存在才 DROP、不存在才 ADD」的方式同時處理「0014 剛跑完」和「0015 已經跑過一次」兩種起始狀態 |
+| P2-45 | `can_discount` 權限旗標（DB 層） | `UNVERIFIED` | `partner_access_policies` 新增第三個布林旗標，DEFAULT `false`（fail-closed，跟 can_view_offer/can_edit_offer 同一套邏輯）。詳細矩陣見上方說明——這是加在 can_edit_offer 之上的門，不是平行旗標 |
+| P2-46 | Admin 訂單詳情頁：折扣鏈填寫表單 | `UNVERIFIED` | `order-offer-form.tsx` 擴充：動態新增/刪除折扣欄位（最多 6 個，「+ Tambah Diskon」）、Markup %、Potongan Tunai（Rp 格式輸入）；畫面即時算一次 Harga Akhir/Sisa Bayar 給人看（跟資料庫用同一條公式），但存進資料庫的數字永遠是刷新後從伺服器讀回來的那個，不是畫面上算的那個（LESSONS #7）。`setOrderOffer` server action 擴充七個參數，資料庫丟出來的驗證例外（陣列形狀/範圍/6 個上限/組合為負/can_discount 未開）都翻成看得懂的提示，不會讓使用者看到 23514 這種原始代碼 |
+| P2-47 | Admin「Hak Akses」分頁：折扣權限勾選框 | `UNVERIFIED` | `offer-permissions-form.tsx` 新增第三個勾選框「Boleh mengatur diskon」；勾選它會連帶勾選「Boleh mengisi/mengubah Penawaran SANCI」（進而連帶勾選「Boleh melihat」）——UI 端的連鎖，資料庫本身三個旗標仍然各自獨立判斷 |
+| P2-48 | Cabang 訂單詳情頁：折扣鏈顯示 + 填寫 | `UNVERIFIED` | **這是本刀新蓋的畫面，不是延續 0014 既有的東西**——盤點時發現 0014 雖然把 RLS 打開到分店（`can_view_offer`/`can_edit_offer`），但分店端的訂單詳情頁完全沒有畫面讀取或顯示 `order_sanci_offers`（`orderOfferNoPermissionView`/`orderOfferNoPermissionEdit` 兩句文案在 0014 就寫好了卻沒有任何畫面用到）。新增 `offer-section.tsx` + `setOrderOfferBranch`（cabang 專屬 server action，鏡像 admin 版但走 cabang 的身分/訊息層）：`can_view_offer` 開時顯示卡片（含折扣/Markup/Potongan Tunai/Harga Akhir/Sisa Bayar），`can_edit_offer` 開時可以改，`can_discount` 開時折扣欄位才可編輯；三個旗標都沒開時卡片完全不出現（雙重 fail-closed：RLS 在資料庫層擋，卡片在畫面層也不畫） |
+| P2-49 | Google 試算表：新增 M..Q 欄 | `UNVERIFIED` | `integrations/sheets-orders/`：欄位從 A..N（14 欄）再擴充到 **A..S（19 欄）**——M Diskon（格式「8+10」）、N Markup (%)、O Potongan Tunai (IDR)、P Harga Akhir (IDR)、Q Sisa (IDR)，Dibuat/Diubah 移到 R/S。README 原本「只寫 A..N」的承諾再次被打破，`README.md` §2 用專門段落誠實說明，並延伸舊格式分頁偵測（11 欄或 14 欄都會被擋下）。0014→0015 中間狀態（只跑了 0014 沒跑 0015）優雅降級：I..L 欄照常，M..Q 五欄各自獨立偵測缺欄位並留空 |
+| P2-50 | 三語系文案＋Activity 標籤 | `UNVERIFIED` | `common.ts` 新增 `discountPcts`/`markupPct`/`cashDiscount`/`finalAmount`/`remainingBalance`；`GLOSSARY.md` 補上四個新詞條（Diskon/Markup/Potongan Tunai/Harga Akhir 三語對照）。`audit-format.ts` 依 LESSONS #28：`discount_pcts` 走專用渲染（`[8,10]` → "8% + 10%"，不是通用 asLabel）、`markup_pct` 附加 `%`、`cash_discount`/`final_amount` 走 `formatIDR`。`Diskon`/`Discount`/`折扣` 這個詞現在**允許**用在訂單折扣鏈脈絡（GLOSSARY.md §「订单层级的折扣链计算」明文放行）——跟 `order_items.line_discount`（刻意迴避這個詞）是兩件事，注釋裡寫清楚分界 |
+
+**本機 Postgres 16 驗證**：完整重放 `0001→…→0014→0015` 後，驗證區塊 **34 項全數符合期望**（含 `OFFER_TRIGGERS` 3→**5**、`DP_LE_AMOUNT_CHECK_GONE` **0**、`DP_LE_FINAL_CHECK` **1**、`DISCOUNT_GUARD_EXEC_PUBLIC` **0**、十三個 audit 保留斷言＋`REFS_CHECK_CUSTOMER 1`）；行為測試 **18 項全過**（owner 算例逐字驗證 `10.000.000→[8,10]→+10%markup→−8.000→9.100.000.00`；空陣列/無 markup/無現金 → final=amount；單一 8% 折扣 → 9200000.00；client 塞假 final_amount 被 trigger 覆蓋；七種驗證拒絕案例——非陣列/元素等於 0/等於 100/負數/7 個元素/現金為負/組合導致負值——各自對到正確的例外訊息；dp>final 被新 constraint 擋；`can_discount` 關 + `can_edit_offer` 開 → 可以改基礎欄位但改不了折扣欄位；`can_discount` 開 + `can_edit_offer` 開 → 折扣欄位可以改，算出的 final_amount 跟算例吻合；`can_discount` 開但 `can_edit_offer` 關 → 整列寫入 0 筆，`can_discount` 單獨沒用；admin 一律繞過折扣把關；`ORDER_OFFER_UPDATED` 稽核紀錄的 after-json 帶有新欄位）；`pg_dump -s` 冪等連跑 3 次零漂移（濾除 `\restrict`/`\unrestrict` 雜訊，LESSONS #33）；額外實測「0014 在 0015 之後重跑」的真實後果——`order_sanci_offers_dp_le_amount_check`（舊 constraint）會跟新的 `dp_le_final_check` 並存，兩個 trigger 和三個 RLS policy 則完全不受影響（逐項量測，不是猜測），恢復方式是重跑 0015。typecheck ✓ eslint ✓ build ✓（`/offline` 仍為 `○` 靜態預渲染）；新增簡體字串已跑禁用詞掃描，無命中。
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **每一行明細（order_items）打折扣百分比不在範圍內**——`unit_price`/`line_discount` 仍然是人工輸入的絕對金額（Rp），這一刀的折扣鏈只存在於訂單層級（`order_sanci_offers`），不會延伸到明細行。
+- **`cash_discount` 以外沒有任何自動去尾數/四捨五入邏輯**——要湊整數，人自己填 `cash_discount` 填到 `final_amount`變成想要的整數，資料庫不會自動幫忙猜。
+- **一鍵列印 SO/DO/Invoice 仍然是下一刀**——這一刀在資料層新增的 `final_amount`/`discount_pcts`/`markup_pct`/`cash_discount` 讓下一刀的範本欄位對應更完整，但排版產生可列印文件本身完全沒做。
+- **個別分店帳號的獨立權限仍然不存在**——`can_discount` 一樣是整個 partner 層級的旗標，不是單一分店帳號層級（本系統一店一帳號的既有設計，沿用 0014 的說法）。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

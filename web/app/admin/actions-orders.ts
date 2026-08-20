@@ -307,16 +307,46 @@ const MAX_OFFER_AMOUNT = 9_999_999_999_999;
  * panggilan (yang justru membuka celah "amount tersimpan, DP gagal" tanpa
  * kebutuhan nyata). `dpRaw` opsional: string kosong → 0 (bawaan DB).
  *
- * dp_amount > amount ditolak DATABASE (check constraint 0014) — diperiksa
- * ULANG di sini supaya pesannya bisa diterjemahkan (LESSONS #10, jangan
- * biarkan kode mentah 23514 bocor ke layar).
+ * dp_amount > final_amount ditolak DATABASE (check constraint 0015, MENGGANTI
+ * dp_amount > amount milik 0014 — final_amount adalah nilai yang SUNGGUH
+ * harus dibayar) — diperiksa ULANG di sini supaya pesannya bisa diterjemahkan
+ * (LESSONS #10, jangan biarkan kode mentah 23514 bocor ke layar). Karena
+ * final_amount sendiri dihitung SERVER (trigger 0015), pemeriksaan dp<=final
+ * di SINI hanya pemeriksaan dp<=amount sebagai perkiraan cepat sebelum
+ * mengirim — database tetap satu-satunya sumber kebenaran final.
+ *
+ * Diperluas migrasi 0015: `discount_pcts` (rantai % berurutan, maks 6),
+ * `markup_pct` (opsional), `cash_discount` (default 0). Validasi bentuk/
+ * rentang di sini adalah PESAN RAMAH duluan (LESSONS #10) — trigger 0015 di
+ * database tetap penjaga sesungguhnya kalau validasi ini entah bagaimana
+ * dilewati (client lama, panggilan langsung).
  */
+const MAX_DISCOUNT_SLOTS = 6;
+
+function parsePercent(raw: string): number | null {
+  const n = Number(raw.trim().replace(/[^0-9.,]/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function setOrderOffer(
   orderId: string,
   amountRaw: string,
   dpRaw?: string,
-  paymentCondition?: string
-): Promise<ActionResult<{ amount: number; dpAmount: number; paymentCondition: string | null }>> {
+  paymentCondition?: string,
+  discountPctsRaw?: string[],
+  markupRaw?: string,
+  cashRaw?: string
+): Promise<
+  ActionResult<{
+    amount: number;
+    dpAmount: number;
+    paymentCondition: string | null;
+    discountPcts: number[];
+    markupPct: number | null;
+    cashDiscount: number;
+    finalAmount: number;
+  }>
+> {
   const m = await getMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
@@ -334,19 +364,55 @@ export async function setOrderOffer(
   if (dpAmount === null || dpAmount > MAX_OFFER_AMOUNT) {
     return { error: { field: "dp_amount", message: m.admin.orderOfferInvalid } };
   }
-  if (dpAmount > amount) {
-    return { error: { field: "dp_amount", message: m.admin.orderOfferDpExceedsAmount } };
-  }
   const conditionTrimmed = paymentCondition?.trim() || null;
+
+  // discount_pcts: slot kosong DIBUANG (bukan error) — UI mengizinkan slot
+  // "+ tambah diskon" yang belum diisi tanpa memaksa pengguna menghapusnya
+  // manual sebelum menyimpan.
+  const discountSlots = (discountPctsRaw ?? []).map((s) => s.trim()).filter((s) => s !== "");
+  if (discountSlots.length > MAX_DISCOUNT_SLOTS) {
+    return { error: { field: "discount_pcts", message: m.admin.orderOfferDiscountMaxReached } };
+  }
+  const discountPcts: number[] = [];
+  for (const slot of discountSlots) {
+    const n = parsePercent(slot);
+    if (n === null || n <= 0 || n >= 100) {
+      return { error: { field: "discount_pcts", message: m.admin.orderOfferDiscountInvalid } };
+    }
+    discountPcts.push(n);
+  }
+
+  const markupTrimmed = (markupRaw ?? "").trim();
+  let markupPct: number | null = null;
+  if (markupTrimmed) {
+    markupPct = parsePercent(markupTrimmed);
+    if (markupPct === null || markupPct < 0 || markupPct > 100) {
+      return { error: { field: "markup_pct", message: m.admin.orderOfferMarkupInvalid } };
+    }
+  }
+
+  const cashTrimmed = (cashRaw ?? "").trim();
+  const cashDiscount = cashTrimmed ? parseIDRInput(cashTrimmed) : 0;
+  if (cashDiscount === null || cashDiscount > MAX_OFFER_AMOUNT) {
+    return { error: { field: "cash_discount", message: m.admin.orderOfferCashInvalid } };
+  }
 
   const written = await safeWrite(
     supabase
       .from("order_sanci_offers")
       .upsert(
-        { order_id: orderId, amount, dp_amount: dpAmount, payment_condition: conditionTrimmed },
+        {
+          order_id: orderId,
+          amount,
+          dp_amount: dpAmount,
+          payment_condition: conditionTrimmed,
+          discount_pcts: discountPcts,
+          markup_pct: markupPct,
+          cash_discount: cashDiscount,
+        },
         { onConflict: "order_id" }
       )
-      .select("amount, dp_amount, payment_condition")
+      .select("amount, dp_amount, payment_condition, discount_pcts, markup_pct, cash_discount, final_amount")
       .single()
   );
 
@@ -354,8 +420,34 @@ export async function setOrderOffer(
     if (written.reason === "db") {
       if (isMissingTable(written.code)) return { error: { message: m.admin.orderOfferFeatureOffAction } };
       if (isMissingColumnError(written.code)) return { error: { message: m.admin.orderOfferFeatureOffAction } };
+      // dp <= final_amount (0015, menggantikan dp <= amount milik 0014 —
+      // constraint LAMA sudah tidak ada di database setelah 0015 dijalankan,
+      // tapi nama field errornya tetap sama karena maknanya bagi pengguna
+      // sama: "uang muka melebihi apa yang harus dibayar").
+      if (written.code === "23514" && written.detail.includes("dp_le_final")) {
+        return { error: { field: "dp_amount", message: m.admin.orderOfferDpExceedsAmount } };
+      }
       if (written.code === "23514" && written.detail.includes("dp_le_amount")) {
         return { error: { field: "dp_amount", message: m.admin.orderOfferDpExceedsAmount } };
+      }
+      if (written.code === "23514" && written.detail.includes("markup_pct_check")) {
+        return { error: { field: "markup_pct", message: m.admin.orderOfferMarkupInvalid } };
+      }
+      if (written.code === "23514" && written.detail.includes("cash_discount_check")) {
+        return { error: { field: "cash_discount", message: m.admin.orderOfferCashInvalid } };
+      }
+      // Pesan trigger 0015 (validasi bentuk/rentang discount_pcts dan
+      // kombinasi yang menghasilkan nilai negatif) dikenali lewat potongan
+      // teks yang persis sama dengan yang ditulis di migration itu sendiri —
+      // kalau teksnya berubah di sana, baris ini WAJIB ikut diperbarui.
+      if (written.detail.includes("lebih dari 0 dan kurang dari 100") || written.detail.includes("daftar (array)") || written.detail.includes("maksimal 6 nilai")) {
+        return { error: { field: "discount_pcts", message: m.admin.orderOfferDiscountInvalid } };
+      }
+      if (written.detail.includes("nilai akhir negatif")) {
+        return { error: { field: "cash_discount", message: m.admin.orderOfferFinalNegative } };
+      }
+      if (written.detail.includes("Boleh mengatur diskon")) {
+        return { error: { field: "discount_pcts", message: m.admin.orderOfferNoPermissionDiscount } };
       }
       return { error: { message: PESAN.serverSibuk } };
     }
@@ -365,7 +457,7 @@ export async function setOrderOffer(
     // yang dimaksud.
     const { data: recheck, error: recheckErr } = await supabase
       .from("order_sanci_offers")
-      .select("amount, dp_amount, payment_condition")
+      .select("amount, dp_amount, payment_condition, discount_pcts, markup_pct, cash_discount, final_amount")
       .eq("order_id", orderId)
       .maybeSingle();
     if (
@@ -375,7 +467,17 @@ export async function setOrderOffer(
       Number(recheck.dp_amount) === dpAmount
     ) {
       revalidatePath("/admin/orders/[orderId]", "page");
-      return { data: { amount, dpAmount, paymentCondition: conditionTrimmed } };
+      return {
+        data: {
+          amount,
+          dpAmount,
+          paymentCondition: conditionTrimmed,
+          discountPcts: ((recheck.discount_pcts as number[] | null) ?? []).map(Number),
+          markupPct: recheck.markup_pct == null ? null : Number(recheck.markup_pct),
+          cashDiscount: Number(recheck.cash_discount ?? 0),
+          finalAmount: Number(recheck.final_amount ?? amount),
+        },
+      };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }
@@ -391,6 +493,10 @@ export async function setOrderOffer(
       amount: Number(written.data.amount),
       dpAmount: Number(written.data.dp_amount),
       paymentCondition: written.data.payment_condition,
+      discountPcts: ((written.data.discount_pcts as number[] | null) ?? []).map(Number),
+      markupPct: written.data.markup_pct == null ? null : Number(written.data.markup_pct),
+      cashDiscount: Number(written.data.cash_discount ?? 0),
+      finalAmount: Number(written.data.final_amount ?? Number(written.data.amount)),
     },
   };
 }

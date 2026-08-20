@@ -243,6 +243,38 @@ const id = {
   produkViewDetailAria: "Lihat detail {name}",
   noPhotoPlaceholder: "Tidak ada foto",
   produkDetailAria: "Detail {name}",
+
+  // Penawaran SANCI (0014 izin can_view_offer/can_edit_offer, 0015 rantai
+  // diskon can_discount) — hanya terlihat/terisi kalau admin membuka izinnya
+  // di tab Hak Akses. Label kolom (Diskon, Markup, dst) datang dari
+  // common.ts supaya sama persis dengan layar admin.
+  cabangOfferCardTitle: "Penawaran SANCI",
+  cabangOfferEmpty: "Belum ada penawaran SANCI untuk pesanan ini.",
+  cabangOfferReadOnlyNote: "Hanya SANCI Admin yang bisa mengubah ini.",
+  cabangOfferSetBtn: "Isi Penawaran",
+  cabangOfferEditBtn: "Ubah Penawaran",
+  cabangOfferModalTitle: "Penawaran SANCI",
+  cabangOfferModalDesc: "Isi nilai penawaran yang SANCI berikan untuk pesanan ini.",
+  cabangOfferFieldLabel: "Nilai penawaran (Rp)",
+  cabangOfferSaveBtn: "Simpan Penawaran",
+  cabangOfferInvalid: "Nilai penawaran tidak valid. Isi angka Rupiah, contoh: 1.500.000.",
+  cabangOfferDpExceedsAmount: "Uang muka tidak boleh melebihi nilai penawaran.",
+  cabangOfferNoPermissionEdit: "Toko Anda belum diizinkan mengisi Penawaran SANCI — hubungi SANCI Admin.",
+  cabangOfferDiscountSectionTitle: "Diskon, Markup & Potongan Tunai",
+  cabangOfferDiscountHint:
+    "Setiap diskon dihitung berurutan dari nilai dasar. Markup diterapkan setelah semua diskon. " +
+    "Potongan tunai dikurangi paling akhir.",
+  cabangOfferDiscountFieldLabel: "Diskon {n} (%)",
+  cabangOfferDiscountAddBtn: "+ Tambah Diskon",
+  cabangOfferDiscountRemoveBtn: "Hapus",
+  cabangOfferDiscountMaxReached: "Maksimal 6 diskon dalam satu rantai.",
+  cabangOfferMarkupFieldLabel: "Markup (%)",
+  cabangOfferCashFieldLabel: "Potongan Tunai (Rp)",
+  cabangOfferDiscountInvalid: "Setiap nilai diskon harus lebih dari 0 dan kurang dari 100.",
+  cabangOfferMarkupInvalid: "Nilai markup harus antara 0 dan 100.",
+  cabangOfferCashInvalid: "Nilai potongan tunai tidak valid.",
+  cabangOfferFinalNegative: "Kombinasi diskon/markup/potongan tunai menghasilkan nilai akhir negatif. Periksa kembali nilainya.",
+  cabangOfferNoPermissionDiscount: "Toko Anda belum diizinkan mengatur diskon — hubungi SANCI Admin.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -462,6 +494,34 @@ const en = {
   produkViewDetailAria: "View details for {name}",
   noPhotoPlaceholder: "No photo",
   produkDetailAria: "{name} details",
+
+  cabangOfferCardTitle: "SANCI offer",
+  cabangOfferEmpty: "No SANCI offer for this order yet.",
+  cabangOfferReadOnlyNote: "Only SANCI Admin can change this.",
+  cabangOfferSetBtn: "Set offer",
+  cabangOfferEditBtn: "Edit offer",
+  cabangOfferModalTitle: "SANCI offer",
+  cabangOfferModalDesc: "Fill in the offer amount SANCI is giving for this order.",
+  cabangOfferFieldLabel: "Offer amount (Rp)",
+  cabangOfferSaveBtn: "Save offer",
+  cabangOfferInvalid: "That offer amount is not valid. Enter a Rupiah number, for example 1,500,000.",
+  cabangOfferDpExceedsAmount: "The down payment cannot exceed the offer amount.",
+  cabangOfferNoPermissionEdit: "Your store isn't allowed to set the SANCI offer yet — contact SANCI Admin.",
+  cabangOfferDiscountSectionTitle: "Discount, markup & cash discount",
+  cabangOfferDiscountHint:
+    "Each discount is applied in order from the base amount. Markup applies after all discounts. " +
+    "Cash discount is subtracted last.",
+  cabangOfferDiscountFieldLabel: "Discount {n} (%)",
+  cabangOfferDiscountAddBtn: "+ Add discount",
+  cabangOfferDiscountRemoveBtn: "Remove",
+  cabangOfferDiscountMaxReached: "Maximum 6 discounts in one chain.",
+  cabangOfferMarkupFieldLabel: "Markup (%)",
+  cabangOfferCashFieldLabel: "Cash discount (Rp)",
+  cabangOfferDiscountInvalid: "Each discount value must be more than 0 and less than 100.",
+  cabangOfferMarkupInvalid: "The markup value must be between 0 and 100.",
+  cabangOfferCashInvalid: "That cash discount value is not valid.",
+  cabangOfferFinalNegative: "This combination of discount/markup/cash discount produces a negative final price. Please check the values.",
+  cabangOfferNoPermissionDiscount: "Your store isn't allowed to set discounts yet — contact SANCI Admin.",
 } satisfies Shape;
 
 const zh = {
@@ -670,6 +730,32 @@ const zh = {
   produkViewDetailAria: "查看{name}详情",
   noPhotoPlaceholder: "没有照片",
   produkDetailAria: "{name}详情",
+
+  cabangOfferCardTitle: "SANCI 方案金额",
+  cabangOfferEmpty: "这笔订单还没有 SANCI 方案金额。",
+  cabangOfferReadOnlyNote: "只有 SANCI 管理员可以修改这个。",
+  cabangOfferSetBtn: "填写方案金额",
+  cabangOfferEditBtn: "修改方案金额",
+  cabangOfferModalTitle: "SANCI 方案金额",
+  cabangOfferModalDesc: "填写 SANCI 给这笔订单的方案金额。",
+  cabangOfferFieldLabel: "方案金额（Rp）",
+  cabangOfferSaveBtn: "保存方案金额",
+  cabangOfferInvalid: "方案金额无效，请输入卢比数字，例如 1.500.000。",
+  cabangOfferDpExceedsAmount: "订金不能超过方案金额。",
+  cabangOfferNoPermissionEdit: "您的门店还没有填写 SANCI 方案金额的权限 —— 请联系 SANCI 管理员。",
+  cabangOfferDiscountSectionTitle: "折扣、加成与现金折让",
+  cabangOfferDiscountHint: "每笔折扣按顺序从基础金额开始计算。加成在所有折扣之后计算。现金折让最后扣除。",
+  cabangOfferDiscountFieldLabel: "折扣 {n}（%）",
+  cabangOfferDiscountAddBtn: "+ 添加折扣",
+  cabangOfferDiscountRemoveBtn: "删除",
+  cabangOfferDiscountMaxReached: "一条折扣链最多 6 笔折扣。",
+  cabangOfferMarkupFieldLabel: "加成（%）",
+  cabangOfferCashFieldLabel: "现金折让（Rp）",
+  cabangOfferDiscountInvalid: "每笔折扣数值必须大于 0 且小于 100。",
+  cabangOfferMarkupInvalid: "加成数值必须在 0 到 100 之间。",
+  cabangOfferCashInvalid: "现金折让数值无效。",
+  cabangOfferFinalNegative: "这个折扣/加成/现金折让组合会得出负数的最终金额，请检查数值。",
+  cabangOfferNoPermissionDiscount: "您的门店还没有设置折扣的权限 —— 请联系 SANCI 管理员。",
 } satisfies Shape;
 
 export const cabang = { id, en, zh };

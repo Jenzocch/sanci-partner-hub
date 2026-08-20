@@ -6,77 +6,62 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
-import { setOrderOffer, clearOrderOffer } from "../../actions-orders";
+import { setOrderOfferBranch } from "../actions";
 
 /**
- * Isi / ubah / hapus nilai penawaran SANCI untuk SATU pesanan (migrasi 0013).
+ * Penawaran SANCI dari sisi cabang (migrasi 0014 can_view_offer/can_edit_offer,
+ * 0015 can_discount + rantai diskon) — mirror `order-offer-form.tsx` (admin),
+ * bukan komponen yang sama, karena Server Action-nya beda modul (LESSONS
+ * catatan di kepala setOrderOfferBranch). TIDAK ADA tombol Hapus di sini —
+ * "SANCI memutuskan tidak jadi memberi penawaran" tetap keputusan admin
+ * (oso_admin_all-saja untuk DELETE, migration 0014 §3).
  *
- * Pola modal + useSubmitGuard + submitSafely ditiru dari mark-arrived-button.tsx
- * dan correct-attribution-button.tsx supaya perilaku jaringan lemah konsisten
- * se-halaman. Tanpa `lookup`: tulisannya adalah UPSERT berkunci order_id, jadi
- * kiriman ulang tidak pernah menghasilkan baris kedua — Server Action yang
- * memastikan status sebenarnya saat respons hilang, bukan nomor permintaan.
- *
- * "Hapus" dibuat sebagai tombol TERSENDIRI, bukan "simpan nilai kosong":
- * tidak ada penawaran dan penawaran senilai Rp 0 adalah dua keadaan berbeda,
- * dan layar tidak boleh membuat keduanya terlihat seperti satu hal.
- *
- * Diperluas migrasi 0015: rantai diskon % (slot dinamis, maks 6) + markup% +
- * potongan tunai + Harga Akhir/Sisa Bayar dihitung LIVE di layar (perkiraan —
- * dihitung ulang dengan rumus yang SAMA dengan trigger database supaya
- * pengguna melihat angka yang masuk akal SEBELUM submit) — nilai yang
- * TERSIMPAN selalu datang dari respons server setelah refresh (LESSONS #7:
- * jangan percaya angka yang dihitung sendiri sebagai bukti tersimpan).
+ * Komponen ini TIDAK memutuskan visibilitas sendiri — halaman pemanggil
+ * (page.tsx) hanya me-render ini ketika `canViewOffer` sudah true (yang
+ * sendiri berarti data amount ADA untuk dibaca; kalau baris tidak ada sama
+ * sekali, RLS sudah mengembalikan 0 baris sebelum komponen ini sempat
+ * dipasang). Prop `canViewOffer` tetap diteruskan untuk konsistensi dan
+ * berjaga-jaga.
  */
 function liveDiscountMultiplier(pcts: number[]): number {
   return pcts.reduce((mult, p) => mult * (1 - p / 100), 1);
 }
 
-export default function OrderOfferForm({
+export type OfferData = {
+  amount: number | null;
+  dpAmount: number | null;
+  paymentCondition: string | null;
+  discountPcts: number[];
+  markupPct: number | null;
+  cashDiscount: number;
+  finalAmount: number | null;
+};
+
+export default function OfferSection({
   orderId,
-  currentAmount,
-  currentDpAmount,
-  currentPaymentCondition,
-  currentDiscountPcts,
-  currentMarkupPct,
-  currentCashDiscount,
+  canEditOffer,
   canDiscount,
+  offer,
 }: {
   orderId: string;
-  currentAmount: number | null;
-  currentDpAmount: number | null;
-  currentPaymentCondition: string | null;
-  currentDiscountPcts: number[];
-  currentMarkupPct: number | null;
-  currentCashDiscount: number;
-  /** Admin selalu true secara efektif (server tidak pernah mengecek ini untuk
-   * admin — hanya dipakai untuk menyembunyikan bagian diskon di layar cabang
-   * kalau komponen ini kelak dipakai ulang di sana; halaman admin selalu
-   * memberi `true`). */
-  canDiscount?: boolean;
+  canEditOffer: boolean;
+  canDiscount: boolean;
+  offer: OfferData;
 }) {
   const router = useRouter();
   const m = useMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
-  const [clearing, setClearing] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
-  // Sisa bayar = matematika TAMPILAN saja (amount - dp_amount), TIDAK PERNAH
-  // disimpan sebagai kolom — pola yang sama sudah didokumentasikan di
-  // migration 0014 §2. Dihitung ulang setiap kali kedua input berubah.
-  const [liveAmount, setLiveAmount] = useState<number | null>(currentAmount);
-  const [liveDp, setLiveDp] = useState<number | null>(currentDpAmount);
+  const [liveAmount, setLiveAmount] = useState<number | null>(offer.amount);
+  const [liveDp, setLiveDp] = useState<number | null>(offer.dpAmount);
   const [liveDiscounts, setLiveDiscounts] = useState<string[]>(
-    currentDiscountPcts.length ? currentDiscountPcts.map(String) : [""]
+    offer.discountPcts.length ? offer.discountPcts.map(String) : [""]
   );
-  const [liveMarkup, setLiveMarkup] = useState<string>(currentMarkupPct == null ? "" : String(currentMarkupPct));
-  const [liveCash, setLiveCash] = useState<number | null>(currentCashDiscount || null);
+  const [liveMarkup, setLiveMarkup] = useState<string>(offer.markupPct == null ? "" : String(offer.markupPct));
+  const [liveCash, setLiveCash] = useState<number | null>(offer.cashDiscount || null);
 
-  // Perkiraan LIVE — rumus SAMA PERSIS dengan fn_compute_order_offer_final
-  // (0015): rantai % berurutan (kalikan, bukan jumlah) → markup → kurangi
-  // potongan tunai. Elemen kosong/tidak valid di slot diskon diabaikan di
-  // sini (bukan error) — validasi sungguhan tetap di server + database.
   const parsedDiscounts = liveDiscounts
     .map((s) => Number(s.trim().replace(",", ".")))
     .filter((n) => Number.isFinite(n) && n > 0 && n < 100);
@@ -96,47 +81,37 @@ export default function OrderOfferForm({
     reset();
     setErrMsg(null);
     setNetMsg(null);
-    setClearing(false);
-    setLiveAmount(currentAmount);
-    setLiveDp(currentDpAmount);
-    setLiveDiscounts(currentDiscountPcts.length ? currentDiscountPcts.map(String) : [""]);
-    setLiveMarkup(currentMarkupPct == null ? "" : String(currentMarkupPct));
-    setLiveCash(currentCashDiscount || null);
+    setLiveAmount(offer.amount);
+    setLiveDp(offer.dpAmount);
+    setLiveDiscounts(offer.discountPcts.length ? offer.discountPcts.map(String) : [""]);
+    setLiveMarkup(offer.markupPct == null ? "" : String(offer.markupPct));
+    setLiveCash(offer.cashDiscount || null);
     setOpen(true);
   }
-
+  function closeModal() {
+    reset();
+    setOpen(false);
+  }
   function addDiscountSlot() {
     setLiveDiscounts((slots) => (slots.length >= 6 ? slots : [...slots, ""]));
   }
   function removeDiscountSlot(idx: number) {
     setLiveDiscounts((slots) => slots.filter((_, i) => i !== idx));
   }
-  function handleDiscountSlotChange(idx: number, value: string) {
-    setLiveDiscounts((slots) => slots.map((s, i) => (i === idx ? value : s)));
-  }
-  function handleCashChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const n = parseIDRInput(e.target.value);
-    e.target.value = n === null ? "" : formatIDR(n);
-    setLiveCash(n);
-  }
-
-  function closeModal() {
-    reset();
-    setClearing(false);
-    setOpen(false);
-  }
-
-  /** Format Rupiah langsung saat mengetik — sama persis dengan formulir pesanan cabang. */
   function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
     const n = parseIDRInput(e.target.value);
     e.target.value = n === null ? "" : formatIDR(n);
     setLiveAmount(n);
   }
-
   function handleDpChange(e: React.ChangeEvent<HTMLInputElement>) {
     const n = parseIDRInput(e.target.value);
     e.target.value = n === null ? "" : formatIDR(n);
     setLiveDp(n);
+  }
+  function handleCashChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const n = parseIDRInput(e.target.value);
+    e.target.value = n === null ? "" : formatIDR(n);
+    setLiveCash(n);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -152,7 +127,7 @@ export default function OrderOfferForm({
     const cashRaw = String(fd.get("cash_discount") || "");
     const out = await submitSafely({
       kind: "update",
-      run: () => setOrderOffer(orderId, raw, dpRaw, conditionRaw, liveDiscounts, markupRaw, cashRaw),
+      run: () => setOrderOfferBranch(orderId, raw, dpRaw, conditionRaw, liveDiscounts, markupRaw, cashRaw),
       messages: m,
     });
     if (out.status !== "ok") {
@@ -163,36 +138,6 @@ export default function OrderOfferForm({
     const res = out.result;
     if ("error" in res) {
       release();
-      setErrMsg(res.error.message);
-      return;
-    }
-    // Tombol tetap nonaktif sampai halaman disegarkan — nilai yang tampil
-    // datang dari query server yang sudah dipastikan (LESSONS #7).
-    setOpen(false);
-    router.refresh();
-  }
-
-  async function onClear() {
-    if (!confirm(m.admin.orderOfferClearConfirm)) return;
-    if (!begin()) return;
-    setErrMsg(null);
-    setNetMsg(null);
-    setClearing(true);
-    const out = await submitSafely({
-      kind: "update",
-      run: () => clearOrderOffer(orderId),
-      messages: m,
-    });
-    if (out.status !== "ok") {
-      release();
-      setClearing(false);
-      setNetMsg(out.message);
-      return;
-    }
-    const res = out.result;
-    if ("error" in res) {
-      release();
-      setClearing(false);
       setErrMsg(res.error.message);
       return;
     }
@@ -201,93 +146,153 @@ export default function OrderOfferForm({
   }
 
   return (
-    <>
-      <div className="btnrow-inline">
-        <button className="btn primary" onClick={openModal}>
-          {currentAmount == null ? m.admin.orderOfferSetBtn : m.admin.orderOfferEditBtn}
-        </button>
-      </div>
+    <div className="card">
+      <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.cabang.cabangOfferCardTitle}</h3>
+      <dl className="kv" style={{ marginTop: 10 }}>
+        <dt>{m.common.sanciOffer}</dt>
+        <dd>
+          {offer.amount == null ? (
+            <span className="small muted">{m.cabang.cabangOfferEmpty}</span>
+          ) : (
+            <strong>{formatIDR(offer.amount)}</strong>
+          )}
+        </dd>
+        {offer.dpAmount != null && offer.dpAmount > 0 && (
+          <>
+            <dt>{m.common.dpAmount}</dt>
+            <dd>{formatIDR(offer.dpAmount)}</dd>
+          </>
+        )}
+        {offer.paymentCondition && (
+          <>
+            <dt>{m.common.paymentCondition}</dt>
+            <dd>{offer.paymentCondition}</dd>
+          </>
+        )}
+        {offer.discountPcts.length > 0 && (
+          <>
+            <dt>{m.common.discountPcts}</dt>
+            <dd>{offer.discountPcts.map((p) => `${p}%`).join(" + ")}</dd>
+          </>
+        )}
+        {offer.markupPct != null && (
+          <>
+            <dt>{m.common.markupPct}</dt>
+            <dd>{offer.markupPct}%</dd>
+          </>
+        )}
+        {offer.cashDiscount > 0 && (
+          <>
+            <dt>{m.common.cashDiscount}</dt>
+            <dd>{formatIDR(offer.cashDiscount)}</dd>
+          </>
+        )}
+        {offer.finalAmount != null && offer.amount != null && (
+          <>
+            <dt>{m.common.finalAmount}</dt>
+            <dd>
+              <strong>{formatIDR(offer.finalAmount)}</strong>
+            </dd>
+            {offer.dpAmount != null && offer.dpAmount > 0 && (
+              <>
+                <dt>{m.common.remainingBalance}</dt>
+                <dd>{formatIDR(Math.max(offer.finalAmount - offer.dpAmount, 0))}</dd>
+              </>
+            )}
+          </>
+        )}
+      </dl>
+
+      {canEditOffer ? (
+        <div className="btnrow-inline">
+          <button className="btn primary" onClick={openModal}>
+            {offer.amount == null ? m.cabang.cabangOfferSetBtn : m.cabang.cabangOfferEditBtn}
+          </button>
+        </div>
+      ) : (
+        <p className="footnote">{m.cabang.cabangOfferReadOnlyNote}</p>
+      )}
 
       {open && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal" role="dialog" aria-modal="true">
-            <h2>{m.admin.orderOfferModalTitle}</h2>
+            <h2>{m.cabang.cabangOfferModalTitle}</h2>
             <p className="small muted" style={{ marginBottom: 14 }}>
-              {m.admin.orderOfferModalDesc}
+              {m.cabang.cabangOfferModalDesc}
             </p>
             {netMsg && <div className="banner warn">{netMsg}</div>}
             {errMsg && <div className="banner bad">{errMsg}</div>}
             <form onSubmit={onSubmit}>
               <div className={`field${errMsg ? " invalid" : ""}`} style={{ marginBottom: 10 }}>
-                <label htmlFor="offer_amount">{m.admin.orderOfferFieldLabel}</label>
+                <label htmlFor="offer_amount">{m.cabang.cabangOfferFieldLabel}</label>
                 <input
                   id="offer_amount"
                   name="offer_amount"
                   type="text"
                   inputMode="numeric"
-                  defaultValue={currentAmount == null ? "" : formatIDR(currentAmount)}
+                  defaultValue={offer.amount == null ? "" : formatIDR(offer.amount)}
                   onChange={handleAmountChange}
-                  placeholder={m.admin.orderOfferPlaceholder}
                 />
               </div>
               <div className="field" style={{ marginBottom: 10 }}>
-                <label htmlFor="dp_amount">{m.admin.orderOfferDpFieldLabel}</label>
+                <label htmlFor="dp_amount">{m.common.dpAmount}</label>
                 <input
                   id="dp_amount"
                   name="dp_amount"
                   type="text"
                   inputMode="numeric"
-                  defaultValue={currentDpAmount ? formatIDR(currentDpAmount) : ""}
+                  defaultValue={offer.dpAmount ? formatIDR(offer.dpAmount) : ""}
                   onChange={handleDpChange}
                   placeholder="Rp 0"
                 />
               </div>
               <div className="field" style={{ marginBottom: 10 }}>
-                <label htmlFor="payment_condition">{m.admin.orderOfferPaymentConditionFieldLabel}</label>
+                <label htmlFor="payment_condition">{m.common.paymentCondition}</label>
                 <input
                   id="payment_condition"
                   name="payment_condition"
                   type="text"
-                  defaultValue={currentPaymentCondition ?? ""}
-                  placeholder={m.admin.orderOfferPaymentConditionPlaceholder}
+                  defaultValue={offer.paymentCondition ?? ""}
                 />
               </div>
 
-              {canDiscount !== false && (
+              {canDiscount && (
                 <div style={{ marginBottom: 10, paddingTop: 6, borderTop: "1px solid var(--border, #e5e5e5)" }}>
-                  <h3 style={{ fontSize: 14, marginBottom: 4 }}>{m.admin.orderOfferDiscountSectionTitle}</h3>
+                  <h3 style={{ fontSize: 14, marginBottom: 4 }}>{m.cabang.cabangOfferDiscountSectionTitle}</h3>
                   <p className="small muted" style={{ marginBottom: 10 }}>
-                    {m.admin.orderOfferDiscountHint}
+                    {m.cabang.cabangOfferDiscountHint}
                   </p>
                   {liveDiscounts.map((slot, idx) => (
                     <div key={idx} className="field" style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "flex-end" }}>
                       <div style={{ flex: 1 }}>
                         <label htmlFor={`discount_${idx}`}>
-                          {m.admin.orderOfferDiscountFieldLabel.replace("{n}", String(idx + 1))}
+                          {m.cabang.cabangOfferDiscountFieldLabel.replace("{n}", String(idx + 1))}
                         </label>
                         <input
                           id={`discount_${idx}`}
                           type="text"
                           inputMode="decimal"
                           value={slot}
-                          onChange={(e) => handleDiscountSlotChange(idx, e.target.value)}
+                          onChange={(e) =>
+                            setLiveDiscounts((slots) => slots.map((s, i) => (i === idx ? e.target.value : s)))
+                          }
                           placeholder="8"
                         />
                       </div>
                       {liveDiscounts.length > 1 && (
                         <button type="button" className="btn sm" onClick={() => removeDiscountSlot(idx)}>
-                          {m.admin.orderOfferDiscountRemoveBtn}
+                          {m.cabang.cabangOfferDiscountRemoveBtn}
                         </button>
                       )}
                     </div>
                   ))}
                   {liveDiscounts.length < 6 && (
                     <button type="button" className="btn sm" onClick={addDiscountSlot} style={{ marginBottom: 10 }}>
-                      {m.admin.orderOfferDiscountAddBtn}
+                      {m.cabang.cabangOfferDiscountAddBtn}
                     </button>
                   )}
                   <div className="field" style={{ marginBottom: 10 }}>
-                    <label htmlFor="markup_pct">{m.admin.orderOfferMarkupFieldLabel}</label>
+                    <label htmlFor="markup_pct">{m.cabang.cabangOfferMarkupFieldLabel}</label>
                     <input
                       id="markup_pct"
                       name="markup_pct"
@@ -299,13 +304,13 @@ export default function OrderOfferForm({
                     />
                   </div>
                   <div className="field" style={{ marginBottom: 10 }}>
-                    <label htmlFor="cash_discount">{m.admin.orderOfferCashFieldLabel}</label>
+                    <label htmlFor="cash_discount">{m.cabang.cabangOfferCashFieldLabel}</label>
                     <input
                       id="cash_discount"
                       name="cash_discount"
                       type="text"
                       inputMode="numeric"
-                      defaultValue={currentCashDiscount ? formatIDR(currentCashDiscount) : ""}
+                      defaultValue={offer.cashDiscount ? formatIDR(offer.cashDiscount) : ""}
                       onChange={handleCashChange}
                       placeholder="Rp 0"
                     />
@@ -314,43 +319,34 @@ export default function OrderOfferForm({
               )}
 
               {liveFinal != null && (
-                <>
-                  <dl className="kv" style={{ marginBottom: 4 }}>
-                    <dt>{m.admin.orderOfferFinalLiveLabel}</dt>
-                    <dd>
-                      <strong>{formatIDR(Math.max(liveFinal, 0))}</strong>
-                    </dd>
-                  </dl>
-                  <p className="small muted" style={{ marginBottom: 10 }}>
-                    {m.admin.orderOfferFinalLiveHint}
-                  </p>
-                </>
+                <dl className="kv" style={{ marginBottom: 10 }}>
+                  <dt>{m.common.finalAmount}</dt>
+                  <dd>
+                    <strong>{formatIDR(Math.max(liveFinal, 0))}</strong>
+                  </dd>
+                </dl>
               )}
               {remaining != null && (
                 <dl className="kv" style={{ marginBottom: 10 }}>
-                  <dt>{m.admin.orderOfferRemainingLabel}</dt>
+                  <dt>{m.common.remainingBalance}</dt>
                   <dd>
                     <strong>{formatIDR(Math.max(remaining, 0))}</strong>
                   </dd>
                 </dl>
               )}
+
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
                   {m.common.cancel}
                 </button>
-                {currentAmount != null && (
-                  <button type="button" className="btn" disabled={submitting} onClick={onClear}>
-                    {clearing ? m.admin.orderOfferClearingBtn : m.admin.orderOfferClearBtn}
-                  </button>
-                )}
                 <button type="submit" className="btn primary" disabled={submitting}>
-                  {submitting && !clearing ? m.common.saving : m.admin.orderOfferSaveBtn}
+                  {submitting ? m.common.saving : m.cabang.cabangOfferSaveBtn}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

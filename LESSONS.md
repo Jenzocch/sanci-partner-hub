@@ -183,6 +183,13 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：只做兩份文件都不禁止的子集(單純記錄用的欄位,不牽涉計算),把牴觸的部分完整記在 migration 檔頭、README、FEATURES.md 三個地方,講清楚「為什麼沒做」而不是「還沒做」,並在交付報告裡把這件事單獨挑出來講給接手的人(不要埋在一堆其他完成項目中間,讓人以為只是順帶一提)。
 - **教訓**：**執行委派任務前的文件盤點,不是只為了學會怎麼寫 code,也是為了抓委派本身可能已經過期的地方。** 尤其當委派描述的具體程度(精確範例數字)給人一種「這一定是最新溝通」的錯覺時,更要對照 commit 時間戳——時間比細節更可靠。發現衝突後,正確的判斷權在委派任務的人(或最終的 owner)手上,不在執行任務的當下這一步——執行者的責任是把衝突攤開講清楚、做不會加深問題的子集,不是自己選一個答案。
 
+### 35. 一個具名 CHECK constraint 被後面的 migration「取代」（DROP 舊的、CREATE 新的）時，前面那個 migration 自己的 `if not exists` 冪等判斷會把舊的復活——ATURAN BESI 現有的檢查只涵蓋 `fn_audit_row`/policy，沒涵蓋這個模式〔本專案 2026-08-20，0015 開工時實測發現〕
+- **情境**：0014 用 `do $$ if not exists (select … where conname = 'order_sanci_offers_dp_le_amount_check') then alter table … add constraint … $$` 建立 `dp_amount<=amount`。0015 需要把這條規則改成 `dp_amount<=final_amount`（不是同一條規則加寬，是名字都不一樣的兩個 constraint）——正確做法是 0015 自己 `drop constraint if exists`（舊的）+ `create if not exists`（新的），兩者都不編輯 0014 本身（ATURAN BESI：已跑過的檔案不能動）。
+- **沒想到的地方**：如果照 ATURAN BESI 的既有邏輯以為「只要不重新定義 `fn_audit_row`/policy 就安全」，會漏掉這一類風險——0014 的那個 `if not exists` 區塊，判斷的是「這個名字的 constraint 現在存不存在」，跟它是不是「同一份邏輯規則」完全無關。0015 跑完之後，`order_sanci_offers_dp_le_amount_check` 這個名字確實不存在了（被 0015 drop 掉）——如果有人事後又把 0014 重新貼到 SQL Editor 跑一次（例如以為「補跑一次沒關係」），0014 的判斷式看到「不存在」就會**把舊 constraint 加回來**，而 0015 新增的 `dp_le_final_check` 完全沒被動到——變成兩條規則同時生效，其中舊的那條在特定情境（`final_amount > amount`，也就是套用 markup 的訂單）會比新規則更嚴格，悄悄拒絕本來該被允許的 DP 金額，畫面上不會有任何紅字或錯誤訊息解釋為什麼。
+- **這跟 fn_audit_row 的舊坑不是同一件事**：`fn_audit_row` 用 `CREATE OR REPLACE FUNCTION`，誰跑在最後誰贏，ATURAN BESI 早就把這個模式的後果整理成表格。具名 CHECK constraint 用的是「DROP 舊名字 + ADD 新名字」，機制完全不同——受害的不是「最後跑的那個贏」，而是「中間任何一個舊檔案的冪等判斷式，會把新檔案剛做的事情看成『還沒做過』」。
+- **修法**：這一類「後面的 migration 用不同名字取代前面 migration 建的 constraint/index」的情況，都要在**前面那個 migration 自己的區塊註解**旁邊補一句「這個名字如果被後面的檔案 DROP 掉，重新執行本檔會把它加回來」，並在 `migrations/README.md` ATURAN BESI 表格裡，用實測結果（不是推論）記录「重跑前面那個檔案，唯一真的改變的是這條 constraint，兩個 trigger 和三個 policy 完全沒事」——逐項量測過才能這樣寫，不能用「應該不會有事」帶過。
+- **教訓**：ATURAN BESI 目前整理的兩種模式（`CREATE OR REPLACE FUNCTION` 覆蓋、policy 名字沒被新檔案 DROP）都是「最後跑的贏」；具名 constraint 的 DROP+CREATE 模式是**第三種**、方向相反的模式（「中間跑的那個，因為看不到後面發生的事，會把後面的成果撤銷」）——每次一個新 migration 用不同名字取代舊 migration 建立的東西時，都要問一句「如果舊那份被重新執行，它的冪等判斷式現在還成立嗎」，不能只套用前兩種模式的直覺。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

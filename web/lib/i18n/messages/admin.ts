@@ -532,6 +532,35 @@ const id = {
   orderOfferNoPermissionView: "Partner ini belum diizinkan melihat Penawaran SANCI cabangnya — atur di tab Hak Akses.",
   orderOfferNoPermissionEdit: "Partner ini belum diizinkan mengisi Penawaran SANCI dari cabang.",
 
+  // ---- Rantai diskon (0015 — order-offer-form.tsx) ----
+  // "Diskon" DIIZINKAN di sini (GLOSSARY.md §"订单层级的折扣链计算") — beda
+  // dari lineDiscount (common.ts) yang sengaja menghindari kata itu.
+  orderOfferDiscountSectionTitle: "Diskon, Markup & Potongan Tunai",
+  orderOfferDiscountHint:
+    "Setiap diskon dihitung berurutan dari nilai dasar (8% lalu 10% = ×0,92×0,90, BUKAN 18%). " +
+    "Markup diterapkan setelah semua diskon. Potongan tunai dikurangi paling akhir — dipakai " +
+    "untuk pembulatan angka atau kesepakatan tunai.",
+  orderOfferDiscountFieldLabel: "Diskon {n} (%)",
+  orderOfferDiscountAddBtn: "+ Tambah Diskon",
+  orderOfferDiscountRemoveBtn: "Hapus",
+  orderOfferDiscountMaxReached: "Maksimal 6 diskon dalam satu rantai.",
+  orderOfferMarkupFieldLabel: "Markup (%)",
+  orderOfferCashFieldLabel: "Potongan Tunai (Rp)",
+  orderOfferFinalLiveLabel: "Harga Akhir (perkiraan)",
+  orderOfferFinalLiveHint: "Angka ini dihitung ulang di layar saat mengetik — nilai yang tersimpan tetap dihitung server.",
+  orderOfferDiscountInvalid: "Setiap nilai diskon harus lebih dari 0 dan kurang dari 100.",
+  orderOfferMarkupInvalid: "Nilai markup harus antara 0 dan 100.",
+  orderOfferCashInvalid: "Nilai potongan tunai tidak valid.",
+  orderOfferFinalNegative: "Kombinasi diskon/markup/potongan tunai menghasilkan nilai akhir negatif. Periksa kembali nilainya.",
+  orderOfferNoPermissionDiscount: "Partner ini belum diizinkan mengatur diskon dari cabang — atur di tab Hak Akses.",
+
+  // ---- Izin diskon (0015 — offer-permissions-form.tsx) ----
+  offerPermDiscountLabel: "Boleh mengatur diskon",
+  offerPermDiscountDesc:
+    "Staf cabang bisa mengisi rantai diskon %, markup %, dan potongan tunai pada Penawaran SANCI " +
+    "pesanan cabang mereka sendiri. Mengandaikan izin \"Boleh mengisi/mengubah Penawaran SANCI\" " +
+    "tetap dinyalakan — tanpa itu izin ini tidak berpengaruh apa pun.",
+
   // ---- Isi Pesanan (order-items-section.tsx, migrasi 0014) ----
   orderItemsCardTitle: "Isi Pesanan",
   orderItemsEmpty: "Belum ada isi pesanan.",
@@ -1048,6 +1077,31 @@ const en = {
   orderOfferNoPermissionView: "This partner isn't allowed to view its branches' SANCI offer yet — set it on the Access tab.",
   orderOfferNoPermissionEdit: "This partner isn't allowed to set the SANCI offer from a branch yet.",
 
+  orderOfferDiscountSectionTitle: "Discount, markup & cash discount",
+  orderOfferDiscountHint:
+    "Each discount is applied in order from the base amount (8% then 10% = ×0.92×0.90, NOT 18%). " +
+    "Markup applies after all discounts. Cash discount is subtracted last — used for rounding or " +
+    "cash deals.",
+  orderOfferDiscountFieldLabel: "Discount {n} (%)",
+  orderOfferDiscountAddBtn: "+ Add discount",
+  orderOfferDiscountRemoveBtn: "Remove",
+  orderOfferDiscountMaxReached: "Maximum 6 discounts in one chain.",
+  orderOfferMarkupFieldLabel: "Markup (%)",
+  orderOfferCashFieldLabel: "Cash discount (Rp)",
+  orderOfferFinalLiveLabel: "Final price (estimate)",
+  orderOfferFinalLiveHint: "Recalculated live as you type — the saved value is always computed by the server.",
+  orderOfferDiscountInvalid: "Each discount value must be more than 0 and less than 100.",
+  orderOfferMarkupInvalid: "The markup value must be between 0 and 100.",
+  orderOfferCashInvalid: "That cash discount value is not valid.",
+  orderOfferFinalNegative: "This combination of discount/markup/cash discount produces a negative final price. Please check the values.",
+  orderOfferNoPermissionDiscount: "This partner isn't allowed to set discounts from a branch yet — set it on the Access tab.",
+
+  offerPermDiscountLabel: "May set discounts",
+  offerPermDiscountDesc:
+    "Branch staff can fill in the discount % chain, markup %, and cash discount on the SANCI offer " +
+    "for their own branch's orders. Assumes the \"May set/edit the SANCI offer\" permission stays " +
+    "on — without it this permission has no effect.",
+
   // ---- Order items (order-items-section.tsx, migration 0014) ----
   orderItemsCardTitle: "Order items",
   orderItemsEmpty: "No order items yet.",
@@ -1517,6 +1571,29 @@ const zh = {
   orderOfferDpExceedsAmount: "订金不能超过方案金额。",
   orderOfferNoPermissionView: "该合作商还没有查看自己分店 SANCI 方案金额的权限 —— 到「权限」分页设置。",
   orderOfferNoPermissionEdit: "该合作商的分店还没有填写 SANCI 方案金额的权限。",
+
+  orderOfferDiscountSectionTitle: "折扣、加成与现金折让",
+  orderOfferDiscountHint:
+    "每笔折扣按顺序从基础金额开始计算（先 8% 再 10% = ×0.92×0.90，不是 18%）。加成在所有折扣之后计算。" +
+    "现金折让最后扣除 —— 用于凑整数或现金优惠。",
+  orderOfferDiscountFieldLabel: "折扣 {n}（%）",
+  orderOfferDiscountAddBtn: "+ 添加折扣",
+  orderOfferDiscountRemoveBtn: "删除",
+  orderOfferDiscountMaxReached: "一条折扣链最多 6 笔折扣。",
+  orderOfferMarkupFieldLabel: "加成（%）",
+  orderOfferCashFieldLabel: "现金折让（Rp）",
+  orderOfferFinalLiveLabel: "最终金额（预估）",
+  orderOfferFinalLiveHint: "这是输入时在界面上即时算出的预估值 —— 实际保存的数字始终由服务器计算。",
+  orderOfferDiscountInvalid: "每笔折扣数值必须大于 0 且小于 100。",
+  orderOfferMarkupInvalid: "加成数值必须在 0 到 100 之间。",
+  orderOfferCashInvalid: "现金折让数值无效。",
+  orderOfferFinalNegative: "这个折扣/加成/现金折让组合会得出负数的最终金额，请检查数值。",
+  orderOfferNoPermissionDiscount: "该合作商的分店还没有设置折扣的权限 —— 到「权限」分页设置。",
+
+  offerPermDiscountLabel: "可以设置折扣",
+  offerPermDiscountDesc:
+    "分店员工可以为自己分店的订单填写折扣链百分比、加成百分比和现金折让。这个权限需要同时保持" +
+    "「可以填写/修改 SANCI 方案金额」打开 —— 否则这个权限不会有任何作用。",
 
   // ---- 订单明细（order-items-section.tsx，迁移 0014） ----
   orderItemsCardTitle: "订单明细",

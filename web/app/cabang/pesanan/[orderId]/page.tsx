@@ -13,6 +13,7 @@ import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
 import InvoiceSection from "./invoice-section";
 import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
+import OfferSection from "./offer-section";
 
 export const dynamic = "force-dynamic";
 
@@ -174,6 +175,86 @@ async function fetchOrderItems(
   return { items: (data ?? []) as OrderItemRow[], unavailable: false };
 }
 
+/**
+ * Penawaran SANCI (order_sanci_offers, migrasi 0013 + 0014 + 0015) dari sisi
+ * cabang. RLS (oso_partner_read, 0014) sudah menegakkan can_view_offer —
+ * kalau flag itu mati atau baris memang belum ada, query ini SENDIRINYA
+ * mengembalikan 0 baris; halaman tidak perlu memeriksa flag untuk MEMUTUSKAN
+ * apakah boleh membaca, hanya untuk memutuskan apakah boleh MENAMPILKAN
+ * kartu ini sama sekali (fail-closed ganda: RLS di database, kartu di sini).
+ *
+ * Pola degradasi kolom SAMA dengan fetchOrderOffer di halaman admin: coba
+ * SELECT lebar (termasuk kolom 0015) dulu, turun ke SELECT sempit kalau
+ * 42703 (0015 belum jalan tapi 0013/0014 sudah).
+ */
+async function fetchOrderOfferCabang(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{
+  amount: number | null;
+  dpAmount: number | null;
+  paymentCondition: string | null;
+  discountPcts: number[];
+  markupPct: number | null;
+  cashDiscount: number;
+  finalAmount: number | null;
+}> {
+  const EMPTY = {
+    amount: null,
+    dpAmount: null,
+    paymentCondition: null,
+    discountPcts: [] as number[],
+    markupPct: null,
+    cashDiscount: 0,
+    finalAmount: null,
+  };
+  const wide = await supabase
+    .from("order_sanci_offers")
+    .select("amount, dp_amount, payment_condition, discount_pcts, markup_pct, cash_discount, final_amount")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  if (!wide.error) {
+    const row = wide.data as {
+      amount: number | string;
+      dp_amount: number | string;
+      payment_condition: string | null;
+      discount_pcts: number[] | null;
+      markup_pct: number | string | null;
+      cash_discount: number | string;
+      final_amount: number | string;
+    } | null;
+    if (!row) return EMPTY;
+    return {
+      amount: Number(row.amount),
+      dpAmount: Number(row.dp_amount),
+      paymentCondition: row.payment_condition,
+      discountPcts: (row.discount_pcts ?? []).map(Number),
+      markupPct: row.markup_pct == null ? null : Number(row.markup_pct),
+      cashDiscount: Number(row.cash_discount ?? 0),
+      finalAmount: Number(row.final_amount ?? row.amount),
+    };
+  }
+  if (wide.error.code !== "42703") return EMPTY;
+  const narrow = await supabase
+    .from("order_sanci_offers")
+    .select("amount, dp_amount, payment_condition")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  if (narrow.error) return EMPTY;
+  const row = narrow.data as { amount: number | string; dp_amount: number | string; payment_condition: string | null } | null;
+  if (!row) return EMPTY;
+  const amount = Number(row.amount);
+  return {
+    amount,
+    dpAmount: Number(row.dp_amount),
+    paymentCondition: row.payment_condition,
+    discountPcts: [],
+    markupPct: null,
+    cashDiscount: 0,
+    finalAmount: amount,
+  };
+}
+
 export default async function PesananDetailPage({
   params,
 }: {
@@ -212,6 +293,42 @@ export default async function PesananDetailPage({
     .select("edit_scope")
     .eq("partner_id", pu.partner_id)
     .maybeSingle();
+
+  // can_view_offer/can_edit_offer (0014) + can_discount (0015) — SELECT
+  // TERPISAH dari puPolicy di atas: 0015 bisa saja belum jalan sementara
+  // edit_scope (0001) tentu sudah, jadi menggabungkannya akan membuat 42703
+  // dari can_discount menggagalkan pembacaan edit_scope juga (LESSONS #12).
+  // Dicoba DENGAN can_discount dulu; ditolak 42703 KHUSUS kolom itu → ulang
+  // TANPA can_discount (0014 sudah jalan, 0015 belum — dua flag lama tetap
+  // harus terbaca).
+  // `pu` sudah dipastikan non-null di atas (`if (!pu) redirect("/")`), tapi
+  // TypeScript tidak menyimpan penyempitan itu ke DALAM sebuah nested function
+  // declaration (closure) — nilainya ditangkap ke const TERPISAH di sini
+  // supaya narrowing-nya tidak hilang di fetchOfferFlags() di bawah.
+  const partnerIdForOfferFlags = pu.partner_id;
+  async function fetchOfferFlags(): Promise<{ canViewOffer: boolean; canEditOffer: boolean; canDiscount: boolean }> {
+    const wide = await supabase
+      .from("partner_access_policies")
+      .select("can_view_offer, can_edit_offer, can_discount")
+      .eq("partner_id", partnerIdForOfferFlags)
+      .maybeSingle();
+    if (!wide.error) {
+      const row = wide.data as { can_view_offer: boolean; can_edit_offer: boolean; can_discount: boolean } | null;
+      return {
+        canViewOffer: row?.can_view_offer ?? false,
+        canEditOffer: row?.can_edit_offer ?? false,
+        canDiscount: row?.can_discount ?? false,
+      };
+    }
+    const narrow = await supabase
+      .from("partner_access_policies")
+      .select("can_view_offer, can_edit_offer")
+      .eq("partner_id", partnerIdForOfferFlags)
+      .maybeSingle();
+    const row = narrow.data as { can_view_offer: boolean; can_edit_offer: boolean } | null;
+    return { canViewOffer: row?.can_view_offer ?? false, canEditOffer: row?.can_edit_offer ?? false, canDiscount: false };
+  }
+  const offerFlags = await fetchOfferFlags();
 
   // RLS pada partner_orders membatasi baris: order di cabang yang tidak boleh
   // dilihat pengguna ini tidak akan pernah muncul di sini.
@@ -307,9 +424,10 @@ export default async function PesananDetailPage({
     cancelInfoUnavailable = res.unavailable;
   }
 
-  const [shippingResult, itemsResult] = await Promise.all([
+  const [shippingResult, itemsResult, offerData] = await Promise.all([
     fetchShippingAddress(supabase, order.id),
     fetchOrderItems(supabase, order.id),
+    offerFlags.canViewOffer ? fetchOrderOfferCabang(supabase, order.id) : Promise.resolve(null),
   ]);
 
   return (
@@ -426,6 +544,15 @@ export default async function PesananDetailPage({
             items={itemsResult.items}
             canManage={canManage}
             copyWarning={false}
+          />
+        )}
+
+        {offerFlags.canViewOffer && offerData && (
+          <OfferSection
+            orderId={order.id}
+            canEditOffer={canEditBranch && offerFlags.canEditOffer}
+            canDiscount={canEditBranch && offerFlags.canDiscount}
+            offer={offerData}
           />
         )}
 

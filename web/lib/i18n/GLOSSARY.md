@@ -40,6 +40,10 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Syarat pembayaran (teks bebas) | Kondisi Pembayaran | 付款条件 | Payment condition |
 | Alamat tujuan kirim satu pesanan | Alamat Pengiriman | 收货地址 | Shipping address |
 | Daftar produk/baris di dalam satu pesanan | Isi Pesanan | 订单明细 | Order items |
+| Rantai diskon % tingkat pesanan (0015) | Diskon | 折扣 | Discount |
+| Persentase kenaikan setelah diskon (0015) | Markup | 加成 | Markup |
+| Potongan tunai flat, dikurangi terakhir (0015) | Potongan Tunai | 现金折让 | Cash discount |
+| Nilai yang harus dibayar setelah diskon/markup/potongan tunai (0015) | Harga Akhir | 最终金额 | Final price |
 | Kepemilikan pesanan | Atribusi | 归属 | Attribution |
 | Hak akses | Hak Akses | 权限 | Access |
 | — hanya cabang sendiri | Cabang sendiri | 仅本店 | Own branch |

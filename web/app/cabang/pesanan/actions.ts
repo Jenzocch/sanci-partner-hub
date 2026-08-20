@@ -1297,3 +1297,161 @@ export async function getOrderInvoiceSignedUrl(orderId: string): Promise<Invoice
   if (signErr || !signed?.signedUrl) return { status: "error" };
   return { status: "ok", url: signed.signedUrl };
 }
+
+/* ------------------------------------------------------------------ *
+ * Penawaran SANCI dari sisi cabang (order_sanci_offers, migrasi 0014 +
+ * 0015). Mirror dari web/app/admin/actions-orders.ts::setOrderOffer, tapi
+ * lewat modul cabang sendiri karena sisi ini punya lapisan identitas/pesan
+ * yang berbeda (getIdentity, m.cabang, bukan m.admin). Zero-trust tetap di
+ * database (LESSONS #5/#6): RLS (oso_partner_insert/oso_partner_update,
+ * 0014) mensyaratkan can_edit_offer untuk SELURUH baris, dan trigger 0015
+ * (fn_guard_order_offer_discount_fields) mensyaratkan can_discount TAMBAHAN
+ * untuk kolom discount_pcts/markup_pct/cash_discount — validasi di sini
+ * hanya supaya pesan kesalahannya RAMAH (LESSONS #10), bukan penjaga
+ * sesungguhnya.
+ * ------------------------------------------------------------------ */
+
+const MAX_OFFER_AMOUNT_BRANCH = 9_999_999_999_999;
+const MAX_DISCOUNT_SLOTS_BRANCH = 6;
+
+function parsePercentBranch(raw: string): number | null {
+  const n = Number(raw.trim().replace(/[^0-9.,]/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+export type OfferOutcome =
+  | {
+      data: {
+        amount: number;
+        dpAmount: number;
+        paymentCondition: string | null;
+        discountPcts: number[];
+        markupPct: number | null;
+        cashDiscount: number;
+        finalAmount: number;
+      };
+    }
+  | { error: ActionError };
+
+export async function setOrderOfferBranch(
+  orderId: string,
+  amountRaw: string,
+  dpRaw: string,
+  paymentCondition: string,
+  discountPctsRaw: string[],
+  markupRaw: string,
+  cashRaw: string
+): Promise<OfferOutcome> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+  const idOutcome = await getIdentity(supabase);
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
+
+  const amount = parseIDRInput(amountRaw.trim());
+  if (amount === null || amount > MAX_OFFER_AMOUNT_BRANCH) {
+    return { error: { field: "amount", message: m.cabang.cabangOfferInvalid } };
+  }
+  const dpTrimmed = dpRaw.trim();
+  const dpAmount = dpTrimmed ? parseIDRInput(dpTrimmed) : 0;
+  if (dpAmount === null || dpAmount > MAX_OFFER_AMOUNT_BRANCH) {
+    return { error: { field: "dp_amount", message: m.cabang.cabangOfferInvalid } };
+  }
+  const conditionTrimmed = paymentCondition.trim() || null;
+
+  const discountSlots = discountPctsRaw.map((s) => s.trim()).filter((s) => s !== "");
+  if (discountSlots.length > MAX_DISCOUNT_SLOTS_BRANCH) {
+    return { error: { field: "discount_pcts", message: m.cabang.cabangOfferDiscountMaxReached } };
+  }
+  const discountPcts: number[] = [];
+  for (const slot of discountSlots) {
+    const n = parsePercentBranch(slot);
+    if (n === null || n <= 0 || n >= 100) {
+      return { error: { field: "discount_pcts", message: m.cabang.cabangOfferDiscountInvalid } };
+    }
+    discountPcts.push(n);
+  }
+
+  const markupTrimmed = markupRaw.trim();
+  let markupPct: number | null = null;
+  if (markupTrimmed) {
+    markupPct = parsePercentBranch(markupTrimmed);
+    if (markupPct === null || markupPct < 0 || markupPct > 100) {
+      return { error: { field: "markup_pct", message: m.cabang.cabangOfferMarkupInvalid } };
+    }
+  }
+
+  const cashTrimmed = cashRaw.trim();
+  const cashDiscount = cashTrimmed ? parseIDRInput(cashTrimmed) : 0;
+  if (cashDiscount === null || cashDiscount > MAX_OFFER_AMOUNT_BRANCH) {
+    return { error: { field: "cash_discount", message: m.cabang.cabangOfferCashInvalid } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("order_sanci_offers")
+      .upsert(
+        {
+          order_id: orderId,
+          amount,
+          dp_amount: dpAmount,
+          payment_condition: conditionTrimmed,
+          discount_pcts: discountPcts,
+          markup_pct: markupPct,
+          cash_discount: cashDiscount,
+        },
+        { onConflict: "order_id" }
+      )
+      .select("amount, dp_amount, payment_condition, discount_pcts, markup_pct, cash_discount, final_amount")
+      .single()
+  );
+
+  if (!written.ok) {
+    if (written.reason === "unconfirmed") return { error: { message: PESAN.belumPastiUbah } };
+    if (isMissingTableError({ code: written.code })) return { error: { message: m.cabang.errOrderModuleInactive } };
+    if (isMissingColumnError({ code: written.code })) return { error: { message: m.cabang.errFeatureInactive } };
+    // RLS UPDATE (row invisible under USING) laporkan "no row returned" lewat
+    // safeWrite; RLS INSERT (WITH CHECK gagal) laporkan error 42501
+    // (insufficient_privilege) — keduanya berarti sama bagi pengguna: belum
+    // diizinkan menulis (LESSONS #25 memastikan bentuk ini aman diuji).
+    if (written.detail === "no row returned" || written.code === "42501") {
+      return { error: { message: m.cabang.cabangOfferNoPermissionEdit } };
+    }
+    if (written.code === "23514" && written.detail.includes("dp_le_final")) {
+      return { error: { field: "dp_amount", message: m.cabang.cabangOfferDpExceedsAmount } };
+    }
+    if (written.code === "23514" && written.detail.includes("markup_pct_check")) {
+      return { error: { field: "markup_pct", message: m.cabang.cabangOfferMarkupInvalid } };
+    }
+    if (written.code === "23514" && written.detail.includes("cash_discount_check")) {
+      return { error: { field: "cash_discount", message: m.cabang.cabangOfferCashInvalid } };
+    }
+    if (
+      written.detail.includes("lebih dari 0 dan kurang dari 100") ||
+      written.detail.includes("daftar (array)") ||
+      written.detail.includes("maksimal 6 nilai")
+    ) {
+      return { error: { field: "discount_pcts", message: m.cabang.cabangOfferDiscountInvalid } };
+    }
+    if (written.detail.includes("nilai akhir negatif")) {
+      return { error: { field: "cash_discount", message: m.cabang.cabangOfferFinalNegative } };
+    }
+    if (written.detail.includes("Boleh mengatur diskon")) {
+      return { error: { field: "discount_pcts", message: m.cabang.cabangOfferNoPermissionDiscount } };
+    }
+    return { error: { message: PESAN.serverSibuk } };
+  }
+
+  revalidatePath(`/cabang/pesanan/${orderId}`);
+  return {
+    data: {
+      amount: Number(written.data.amount),
+      dpAmount: Number(written.data.dp_amount),
+      paymentCondition: written.data.payment_condition,
+      discountPcts: ((written.data.discount_pcts as number[] | null) ?? []).map(Number),
+      markupPct: written.data.markup_pct == null ? null : Number(written.data.markup_pct),
+      cashDiscount: Number(written.data.cash_discount ?? 0),
+      finalAmount: Number(written.data.final_amount ?? Number(written.data.amount)),
+    },
+  };
+}

@@ -15,7 +15,9 @@
  * Yang skrip ini TIDAK lakukan (disengaja, lihat README.md):
  *   - Tidak pernah menulis balik ke sistem. Suntingan di lembar TIDAK naik.
  *   - Tidak pernah menghapus baris. Pesanan batal hanya berubah statusnya.
- *   - Tidak pernah menyentuh kolom L dan seterusnya — itu milik catatan manual.
+ *   - Tidak pernah menyentuh kolom T dan seterusnya — itu milik catatan manual
+ *     (batas ini bergeser dari L → O → T seiring migrasi 0014/0015 menambah
+ *     kolom, lihat README.md §2 "⚠️ Perubahan cakupan kolom").
  */
 
 // ── Konfigurasi tetap ───────────────────────────────────────
@@ -26,11 +28,12 @@ var TRIGGER_HANDLER = 'syncNow';   // nama fungsi yang dipasang time-driven
 var TRIGGER_EVERY_MINUTES = 15;
 
 /**
- * Kolom A..N (migrasi 0014 — sebelumnya A..K, lihat README.md §2/§8 untuk
- * penjelasan kenapa kontrak "hanya A..K" berubah). Jangan mengubah URUTAN
- * tanpa mengubah buildRow_(). L..N adalah kolom BARU (DP/Kondisi Pembayaran/
- * Alamat Kirim) — kolom SETELAHNYA (O dan seterusnya) tetap milik catatan
- * manual pengguna, tidak pernah disentuh skrip ini (lihat COL_COUNT di bawah).
+ * Kolom A..S (migrasi 0015 — sebelumnya A..N sejak 0014, lihat README.md §2/§8
+ * untuk penjelasan kenapa kontrak "hanya A..N" berubah lagi). Jangan mengubah
+ * URUTAN tanpa mengubah buildRow_(). O..S adalah kolom BARU (Diskon/Markup/
+ * Potongan Tunai/Harga Akhir/Sisa) — kolom SETELAHNYA (T dan seterusnya) tetap
+ * milik catatan manual pengguna, tidak pernah disentuh skrip ini (lihat
+ * COL_COUNT di bawah).
  */
 var HEADERS = [
   'Nomor Pesanan',
@@ -45,13 +48,18 @@ var HEADERS = [
   'Uang Muka / DP (IDR)',
   'Kondisi Pembayaran',
   'Alamat Kirim',
+  'Diskon',
+  'Markup (%)',
+  'Potongan Tunai (IDR)',
+  'Harga Akhir (IDR)',
+  'Sisa (IDR)',
   'Dibuat',
   'Diubah'
 ];
-var COL_COUNT = HEADERS.length;    // 14
+var COL_COUNT = HEADERS.length;    // 19
 var KEY_COL = 1;                   // Nomor Pesanan ada di kolom A
-/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2). */
-var HEADER_VERSION = 2;
+/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3). */
+var HEADER_VERSION = 3;
 
 /** Nilai enum internal tetap Inggris di basis data; label mengikuti glosarium. */
 var STATUS_LABEL = {
@@ -317,29 +325,42 @@ function fetchOrdersPage_(cfg, token, select, from, pageSize) {
  * "tabelnya belum ada" hanya berarti kolom Penawaran SANCI tetap kosong.
  */
 /**
- * Peta order_id → { amount, dp, condition }. dp_amount/payment_condition
- * adalah kolom BARU migrasi 0014 pada tabel yang SAMA (order_sanci_offers,
- * 0013) — dicoba dulu DENGAN kedua kolom itu; kalau ditolak 42703 (0014
- * belum jalan tapi 0013 sudah), diulang HANYA dengan `amount` supaya kolom
- * Penawaran SANCI yang sudah lama jalan tidak ikut kosong gara-gara dua
- * kolom baru (LESSONS #12).
+ * Peta order_id → { amount, dp, condition, discountPcts, markup, cash, final }.
+ * dp_amount/payment_condition adalah kolom migrasi 0014; discount_pcts/
+ * markup_pct/cash_discount/final_amount adalah kolom migrasi 0015 —
+ * SEMUANYA pada tabel yang SAMA (order_sanci_offers, 0013). Dicoba dari yang
+ * PALING LEBAR (0015) dulu, turun berjenjang kalau ditolak 42703 — setiap
+ * tingkat degradasi independen (LESSONS #12), persis pola fetchAllOrders_
+ * untuk shipping_address.
  */
 function fetchOffersByOrderId_(cfg, token) {
-  var wide = fetchOffersPage_(cfg, token, 'order_id,amount,dp_amount,payment_condition', 0);
-  if (wide.status === 'missing-column') {
-    Logger.log('dp_amount/payment_condition belum ada di order_sanci_offers ' +
-      '(migrasi 0014 belum dijalankan) — kolom Uang Muka/Kondisi Pembayaran dibiarkan kosong.');
-    return fetchOffersLoop_(cfg, token, 'order_id,amount', false);
-  }
-  if (wide.status === 'missing-table') {
+  var full = fetchOffersPage_(cfg, token,
+    'order_id,amount,dp_amount,payment_condition,discount_pcts,markup_pct,cash_discount,final_amount', 0);
+  if (full.status === 'missing-table') {
     Logger.log('order_sanci_offers belum ada (migration 0013 belum dijalankan) — ' +
       'kolom Penawaran SANCI dibiarkan kosong.');
     return {};
   }
-  return fetchOffersLoop_(cfg, token, 'order_id,amount,dp_amount,payment_condition', true, wide);
+  if (full.status === 'ok') {
+    return fetchOffersLoop_(cfg, token,
+      'order_id,amount,dp_amount,payment_condition,discount_pcts,markup_pct,cash_discount,final_amount',
+      'full', full);
+  }
+  // full.status === 'missing-column' → discount_pcts/markup_pct/cash_discount/
+  // final_amount (0015) belum ada. Coba tingkat 0014 (dp_amount/payment_condition).
+  Logger.log('discount_pcts/markup_pct/cash_discount/final_amount belum ada di order_sanci_offers ' +
+    '(migrasi 0015 belum dijalankan) — kolom Diskon/Markup/Potongan Tunai/Harga Akhir/Sisa dibiarkan kosong.');
+  var mid = fetchOffersPage_(cfg, token, 'order_id,amount,dp_amount,payment_condition', 0);
+  if (mid.status === 'missing-column') {
+    Logger.log('dp_amount/payment_condition belum ada di order_sanci_offers ' +
+      '(migrasi 0014 belum dijalankan) — kolom Uang Muka/Kondisi Pembayaran dibiarkan kosong.');
+    return fetchOffersLoop_(cfg, token, 'order_id,amount', 'amount-only');
+  }
+  if (mid.status === 'missing-table') return {};
+  return fetchOffersLoop_(cfg, token, 'order_id,amount,dp_amount,payment_condition', 'mid', mid);
 }
 
-function fetchOffersLoop_(cfg, token, select, wide, firstPage) {
+function fetchOffersLoop_(cfg, token, select, level, firstPage) {
   var map = {};
   var from = 0;
   while (true) {
@@ -355,7 +376,16 @@ function fetchOffersLoop_(cfg, token, select, wide, firstPage) {
     if (page.status === 'missing-table' || page.status === 'missing-column') return map;
     for (var i = 0; i < page.rows.length; i++) {
       var r = page.rows[i];
-      map[r.order_id] = wide ? { amount: r.amount, dp: r.dp_amount, condition: r.payment_condition } : { amount: r.amount };
+      if (level === 'full') {
+        map[r.order_id] = {
+          amount: r.amount, dp: r.dp_amount, condition: r.payment_condition,
+          discountPcts: r.discount_pcts, markup: r.markup_pct, cash: r.cash_discount, final: r.final_amount
+        };
+      } else if (level === 'mid') {
+        map[r.order_id] = { amount: r.amount, dp: r.dp_amount, condition: r.payment_condition };
+      } else {
+        map[r.order_id] = { amount: r.amount };
+      }
     }
     if (page.rows.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
@@ -454,7 +484,7 @@ function writePartnerTab_(ss, partnerName, orders, offers) {
       block.push(updates[next].values);
       next++;
     }
-    // HANYA kolom 1..COL_COUNT (A..K). Kolom L dan seterusnya — catatan manual
+    // HANYA kolom 1..COL_COUNT (A..S). Kolom T dan seterusnya — catatan manual
     // yang ditulis orang di lembar ini — tidak pernah ikut tersentuh.
     sheet.getRange(startRow, 1, block.length, COL_COUNT).setValues(block);
     g = next;
@@ -463,8 +493,8 @@ function writePartnerTab_(ss, partnerName, orders, offers) {
   // Ditambahkan tepat di bawah baris berkunci TERAKHIR, bukan di bawah
   // getLastRow(). Bedanya muncul kalau seseorang menulis catatan manual jauh di
   // bawah tabel: getLastRow() akan melompati lubang itu dan tabel pesanannya
-  // pecah menjadi dua bagian yang makin lama makin jauh. Kolom L dan seterusnya
-  // tetap tidak tersentuh — yang ditulis di sini hanya A..K.
+  // pecah menjadi dua bagian yang makin lama makin jauh. Kolom T dan seterusnya
+  // tetap tidak tersentuh — yang ditulis di sini hanya A..S.
   if (appends.length) {
     sheet.getRange(lastKeyRow + 1, 1, appends.length, COL_COUNT).setValues(appends);
   }
@@ -473,14 +503,16 @@ function writePartnerTab_(ss, partnerName, orders, offers) {
 }
 
 /**
- * Deteksi format lama (migrasi 0014 menambah 3 kolom, A..K → A..N — README.md
- * §2/§8 dulu menjanjikan "hanya menulis A..K", janji itu SENGAJA dilanggar
- * di sini karena bentuk datanya sendiri berubah). Tab lama yang header-nya
- * masih A..K (11 kolom) TIDAK ditimpa diam-diam — kalau begitu, kolom L
- * lama (catatan manual pengguna, dijamin README "tidak pernah disentuh")
- * akan tertimpa Uang Muka/DP tanpa peringatan. Lebih baik REFUSE dengan
- * pesan jelas daripada salah tulis (LESSONS #16 turunan: gagal dengan jelas
- * lebih baik daripada berhasil dengan salah).
+ * Deteksi format lama (migrasi 0014 menambah 3 kolom, A..K → A..N; migrasi
+ * 0015 menambah 5 kolom lagi, A..N → A..S — README.md §2/§8 dulu menjanjikan
+ * "hanya menulis A..K" lalu "hanya menulis A..N", kedua janji itu SENGAJA
+ * dilanggar berturut-turut karena bentuk datanya sendiri berubah). Tab lama
+ * yang header-nya masih A..K (11 kolom) ATAU A..N (14 kolom) TIDAK ditimpa
+ * diam-diam — kalau begitu, kolom lama (catatan manual pengguna, dijamin
+ * README "tidak pernah disentuh") akan tertimpa Diskon/Markup/dst tanpa
+ * peringatan. Lebih baik REFUSE dengan pesan jelas daripada salah tulis
+ * (LESSONS #16 turunan: gagal dengan jelas lebih baik daripada berhasil
+ * dengan salah).
  */
 function headerMatches_(sheet) {
   if (sheet.getLastRow() === 0) return true;   // tab kosong — aman ditulis header baru
@@ -510,11 +542,12 @@ function ensureSheet_(ss, partnerName) {
   if (!headerMatches_(sheet)) {
     throw new Error(
       'Format lama terdeteksi di tab "' + name + '" (header tidak cocok dengan versi ' +
-      'terbaru — migrasi 0014 menambah kolom L "Uang Muka / DP", M "Kondisi Pembayaran", ' +
-      'N "Alamat Kirim"; kolom lama L dst. bergeser ke O dst.). Skrip ini TIDAK menimpa ' +
-      'tab ini secara otomatis supaya catatan manual Anda di kolom lama tidak salah tertulis. ' +
-      'Ganti nama tab ini (mis. tambahkan " (lama)") atau arsipkan ke lembar lain, lalu jalankan ' +
-      'Sync sekarang lagi — tab baru dengan format terbaru akan dibuat otomatis.'
+      'terbaru — migrasi 0015 menambah kolom M "Diskon", N "Markup (%)", O "Potongan Tunai (IDR)", ' +
+      'P "Harga Akhir (IDR)", Q "Sisa (IDR)"; kolom Dibuat/Diubah bergeser ke R/S, dan kolom lama ' +
+      'setelah itu bergeser ke T dst.). Skrip ini TIDAK menimpa tab ini secara otomatis supaya ' +
+      'catatan manual Anda di kolom lama tidak salah tertulis. Ganti nama tab ini (mis. tambahkan ' +
+      '" (lama)") atau arsipkan ke lembar lain, lalu jalankan Sync sekarang lagi — tab baru dengan ' +
+      'format terbaru akan dibuat otomatis.'
     );
   }
   return sheet;
@@ -527,10 +560,29 @@ function safeSheetName_(name) {
   return cleaned.length > 95 ? cleaned.substring(0, 95) : cleaned;
 }
 
+/**
+ * "[8,10]" → "8+10" (per README §8/kepala berkas: render tanpa tanda %,
+ * dipisah "+" — beda dari audit-format.ts di aplikasi Next.js yang merender
+ * "8% + 10%" untuk manusia baca di layar Activity; di lembar ini ringkas
+ * lebih penting supaya kolomnya tetap enak dibaca berdampingan dengan kolom
+ * angka lain). Array kosong/undefined/null → sel kosong.
+ */
+function discountChainForSheet_(discountPcts) {
+  if (!discountPcts || !discountPcts.length) return '';
+  return discountPcts.join('+');
+}
+
 function buildRow_(o, offers) {
   var customer = pickOne_(o.customers);
   var branch = pickOne_(o.partner_branches);
-  var offer = offers[o.id];   // { amount, dp, condition } | { amount } | undefined
+  // { amount, dp, condition, discountPcts, markup, cash, final } | { amount, dp, condition }
+  // | { amount } | undefined — lihat fetchOffersByOrderId_ untuk tiga tingkat degradasi.
+  var offer = offers[o.id];
+  // Sisa (Q) = Harga Akhir − DP, sama seperti "Sisa Bayar" di layar aplikasi
+  // (matematika tampilan, tidak pernah disimpan sebagai kolom) — dihitung
+  // HANYA kalau kedua nilainya ada (final_amount butuh 0015 sudah jalan).
+  var hasFinal = offer && offer.final !== undefined && offer.final !== null;
+  var remaining = hasFinal ? Number(offer.final) - Number(offer.dp || 0) : '';
 
   return [
     o.order_number || '',
@@ -548,6 +600,11 @@ function buildRow_(o, offers) {
     // fetchAllOrders_) ATAU `null` (kolom ada tapi belum diisi) — keduanya
     // sama-sama harus jadi sel kosong, bukan teks "undefined"/"null".
     o.shipping_address || '',
+    discountChainForSheet_(offer && offer.discountPcts),
+    toNumberOrBlank_(offer && offer.markup),
+    toNumberOrBlank_(offer && offer.cash),
+    toNumberOrBlank_(offer && offer.final),
+    remaining,
     toDateOrBlank_(o.created_at),
     toDateOrBlank_(o.updated_at)
   ];

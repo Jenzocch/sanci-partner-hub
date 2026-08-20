@@ -53,18 +53,40 @@ function isMissingTableErr(err: QueryErr): boolean {
  * satu kolom hilang akan menggagalkan SELURUH query kebijakan akses (dipakai
  * juga oleh `canActivate`/tab overview), bukan cuma kartu izin penawaran ini.
  */
-type OfferPolicyRow = { can_view_offer: boolean; can_edit_offer: boolean };
+type OfferPolicyRow = { can_view_offer: boolean; can_edit_offer: boolean; can_discount: boolean };
 async function fetchOfferPolicy(
   supabase: Awaited<ReturnType<typeof createClient>>,
   partnerId: string
 ): Promise<{ status: "ok"; data: OfferPolicyRow } | { status: "missing-column" } | { status: "error" }> {
   const { data, error } = await supabase
     .from("partner_access_policies")
-    .select("can_view_offer, can_edit_offer")
+    .select("can_view_offer, can_edit_offer, can_discount")
     .eq("partner_id", partnerId)
     .maybeSingle();
-  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
-  return { status: "ok", data: (data as OfferPolicyRow | null) ?? { can_view_offer: false, can_edit_offer: false } };
+  if (error) {
+    if (error.code === "42703") {
+      // can_discount (0015) belum ada TAPI can_view_offer/can_edit_offer
+      // (0014) mungkin sudah — coba lagi dengan SELECT sempit supaya kartu
+      // izin penawaran tetap tampil, hanya checkbox diskon yang disembunyikan
+      // (LESSONS #12, pola sama dengan fetchOrderOffer di halaman detail pesanan).
+      const narrow = await supabase
+        .from("partner_access_policies")
+        .select("can_view_offer, can_edit_offer")
+        .eq("partner_id", partnerId)
+        .maybeSingle();
+      if (narrow.error) return { status: narrow.error.code === "42703" ? "missing-column" : "error" };
+      const row = narrow.data as { can_view_offer: boolean; can_edit_offer: boolean } | null;
+      return {
+        status: "ok",
+        data: { can_view_offer: row?.can_view_offer ?? false, can_edit_offer: row?.can_edit_offer ?? false, can_discount: false },
+      };
+    }
+    return { status: "error" };
+  }
+  return {
+    status: "ok",
+    data: (data as OfferPolicyRow | null) ?? { can_view_offer: false, can_edit_offer: false, can_discount: false },
+  };
 }
 
 export default async function PartnerDetailPage({
@@ -434,6 +456,7 @@ export default async function PartnerDetailPage({
             partnerName={partner.name}
             canViewOffer={offerPolicy.data.can_view_offer}
             canEditOffer={offerPolicy.data.can_edit_offer}
+            canDiscount={offerPolicy.data.can_discount}
           />
         ) : offerPolicy.status === "missing-column" ? (
           <div className="card emptybox" style={{ maxWidth: 560 }}>

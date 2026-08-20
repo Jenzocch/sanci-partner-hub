@@ -40,19 +40,23 @@ export async function updatePolicy(
 }
 
 /**
- * Izin Penawaran SANCI per partner (migrasi 0014) — `can_view_offer` /
- * `can_edit_offer` di `partner_access_policies`. Berbeda dari `updatePolicy`
- * di atas (yang mengganti DUA kolom scope sekaligus): dua kolom ini
- * TERPISAH dari visibility_scope/edit_scope, jadi ditulis lewat upsert
- * TERSENDIRI supaya menyimpan izin penawaran tidak pernah diam-diam
- * menimpa (atau bergantung pada) pengaturan Visibilitas/Akses cabang.
+ * Izin Penawaran SANCI per partner (migrasi 0014 + 0015) — `can_view_offer` /
+ * `can_edit_offer` / `can_discount` di `partner_access_policies`. Berbeda
+ * dari `updatePolicy` di atas (yang mengganti DUA kolom scope sekaligus):
+ * ketiga kolom ini TERPISAH dari visibility_scope/edit_scope, jadi ditulis
+ * lewat upsert TERSENDIRI supaya menyimpan izin penawaran tidak pernah diam-
+ * diam menimpa (atau bergantung pada) pengaturan Visibilitas/Akses cabang.
  *
  * `42703` (kolom belum ada) diterjemahkan ke pesan "migrasi belum jalan" —
- * kode boleh naik lebih dulu daripada 0014 dijalankan (LESSONS #12).
+ * kode boleh naik lebih dulu daripada migrasinya dijalankan (LESSONS #12).
+ * Dicoba dulu DENGAN can_discount (0015); kalau ditolak 42703 KHUSUS karena
+ * kolom itu (0014 sudah jalan, 0015 belum), diulang TANPA can_discount supaya
+ * can_view_offer/can_edit_offer tetap bisa disimpan — degradasi per-kolom
+ * yang sama seperti fetchOfferPolicy di halaman ini.
  */
 export async function updateOfferPermissions(
   partnerId: string,
-  input: { canViewOffer: boolean; canEditOffer: boolean }
+  input: { canViewOffer: boolean; canEditOffer: boolean; canDiscount: boolean }
 ): Promise<ActionResult<true>> {
   const m = await getMessages();
   const supabase = await createClient();
@@ -62,12 +66,29 @@ export async function updateOfferPermissions(
       partner_id: partnerId,
       can_view_offer: input.canViewOffer,
       can_edit_offer: input.canEditOffer,
+      can_discount: input.canDiscount,
       configured: true,
     },
     { onConflict: "partner_id" }
   );
   if (error) {
-    if (error.code === "42703") return { error: { message: m.admin.orderOfferFeatureOffAction } };
+    if (error.code === "42703") {
+      const retry = await supabase.from("partner_access_policies").upsert(
+        {
+          partner_id: partnerId,
+          can_view_offer: input.canViewOffer,
+          can_edit_offer: input.canEditOffer,
+          configured: true,
+        },
+        { onConflict: "partner_id" }
+      );
+      if (!retry.error) {
+        revalidatePath(`/admin/partners/${partnerId}`);
+        return { data: true };
+      }
+      if (retry.error.code === "42703") return { error: { message: m.admin.orderOfferFeatureOffAction } };
+      return { error: { message: m.admin.offerPermSaveFailed } };
+    }
     return { error: { message: m.admin.offerPermSaveFailed } };
   }
 

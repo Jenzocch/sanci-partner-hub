@@ -8,27 +8,38 @@ import { useMessages } from "@/lib/i18n/provider";
 import { updateOfferPermissions } from "../../actions-permissions";
 
 /**
- * Dua flag izin (migrasi 0014): can_view_offer / can_edit_offer pada
- * `partner_access_policies`. Pola sama dengan PermissionsForm/CatalogAccessForm
- * di file sebelah — checkbox di sini (bukan radioset) karena dua flag ini
- * INDEPENDEN satu sama lain (boleh lihat tanpa boleh isi — mis. manajer toko
- * yang cuma perlu tahu; boleh isi otomatis mengandaikan boleh lihat juga di
- * layar, jadi checkbox "isi" tercentang ikut mencentang "lihat" di klien —
- * tapi database tetap memvalidasi keduanya independen lewat RLS).
+ * Tiga flag izin (migrasi 0014 + 0015): can_view_offer / can_edit_offer /
+ * can_discount pada `partner_access_policies`. Pola sama dengan
+ * PermissionsForm/CatalogAccessForm di file sebelah — checkbox di sini (bukan
+ * radioset) karena ketiga flag ini INDEPENDEN satu sama lain di database
+ * (boleh lihat tanpa boleh isi — mis. manajer toko yang cuma perlu tahu; RLS
+ * memvalidasi ketiganya independen), tapi UI ini SENGAJA membuat sebagian
+ * kombinasi tidak bisa dicentang lewat form ini karena tidak masuk akal:
+ *   * mencentang "isi" ikut mencentang "lihat" (isi tanpa lihat tidak masuk akal).
+ *   * mencentang "diskon" ikut mencentang "isi" (dan dengan itu "lihat") —
+ *     can_discount TANPA can_edit_offer tidak berguna sama sekali di database
+ *     (migration 0015 §6/§7: RLS tetap mensyaratkan can_edit_offer untuk
+ *     SELURUH baris, can_discount hanya gerbang TAMBAHAN di atasnya).
+ *   * melepas centang "isi" ikut melepas centang "diskon" (kalau tidak boleh
+ *     isi baris sama sekali, izin diskon jadi tidak berguna — dibiarkan
+ *     tercentang di layar akan menyesatkan admin membaca ulang layar ini).
  *
  * DEFAULT false (fail-closed): partner yang belum pernah disentuh admin di
- * sini TIDAK melihat/mengisi Penawaran SANCI — lihat migration 0014 §1.
+ * sini TIDAK melihat/mengisi Penawaran SANCI/diskon — lihat migration 0014 §1
+ * dan 0015 §1.
  */
 export default function OfferPermissionsForm({
   partnerId,
   partnerName,
   canViewOffer,
   canEditOffer,
+  canDiscount,
 }: {
   partnerId: string;
   partnerName: string;
   canViewOffer: boolean;
   canEditOffer: boolean;
+  canDiscount: boolean;
 }) {
   const router = useRouter();
   const m = useMessages();
@@ -38,6 +49,7 @@ export default function OfferPermissionsForm({
   const [saved, setSaved] = useState(false);
   const [viewChecked, setViewChecked] = useState(canViewOffer);
   const [editChecked, setEditChecked] = useState(canEditOffer);
+  const [discountChecked, setDiscountChecked] = useState(canDiscount);
 
   function handleEditChange(checked: boolean) {
     setEditChecked(checked);
@@ -45,6 +57,17 @@ export default function OfferPermissionsForm({
     // database tidak melarangnya) — samakan di klien supaya kombinasi aneh
     // tidak pernah tersimpan lewat form ini.
     if (checked) setViewChecked(true);
+    // Melepas "isi" membuat "diskon" tidak berguna (migration 0015 §6/§7) —
+    // lepas juga supaya layar ini tidak menampilkan izin yang diam-diam mati.
+    if (!checked) setDiscountChecked(false);
+  }
+
+  function handleDiscountChange(checked: boolean) {
+    setDiscountChecked(checked);
+    // can_discount TANPA can_edit_offer tidak berguna di database sama sekali
+    // (RLS tetap menutup SELURUH baris) — cascade ke "isi" (yang sendiri
+    // cascade ke "lihat") supaya form ini tidak pernah menyimpan kombinasi mati.
+    if (checked) handleEditChange(true);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -59,6 +82,7 @@ export default function OfferPermissionsForm({
         updateOfferPermissions(partnerId, {
           canViewOffer: viewChecked,
           canEditOffer: editChecked,
+          canDiscount: discountChecked,
         }),
       messages: m,
     });
@@ -104,10 +128,22 @@ export default function OfferPermissionsForm({
               type="checkbox"
               checked={editChecked}
               onChange={(e) => handleEditChange(e.target.checked)}
+              disabled={discountChecked}
             />
             <span>
               {m.admin.offerPermEditLabel}
               <div className="rd">{m.admin.offerPermEditDesc}</div>
+            </span>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={discountChecked}
+              onChange={(e) => handleDiscountChange(e.target.checked)}
+            />
+            <span>
+              {m.admin.offerPermDiscountLabel}
+              <div className="rd">{m.admin.offerPermDiscountDesc}</div>
             </span>
           </label>
         </div>
