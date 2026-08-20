@@ -432,8 +432,11 @@ Owner 拍板：分店建單後，SANCI 逐筆人工決定要出哪些文件、�
 | P2-57 | 列印頁 `/admin/orders/[orderId]/documents/[documentId]/print` | `UNVERIFIED` | Server component（沿用 `app/admin/layout.tsx` 既有的 admin 驗證，本頁不重複加驗證邏輯）；三種文件各自的版面（結構仿照 owner 提供的三份 Excel 範本，不是像素級複製）：SO 含表頭區塊、品項表、小計/折扣鏈/DP/尾款、銀行轉帳區塊、雙簽名欄、完整 Syarat & Ketentuan 條款全文（從範本 A47:A51 逐字取出）；DO 只有名稱/備註/數量三欄＋總數量＋三個簽名欄；Invoice 含買方資訊/PO 對應訂單編號/品項含價格/小計/DP/尾款/銀行區塊。`@media print` 隱藏 admin chrome 與列印按鈕本身，A4 版面，**黑底白字寫死，不跟 app 深色模式**。銀行/公司常數集中在新檔 `web/lib/company-info.ts`（值取自 Invoice 範本：BCA／542-5816168／PT WAHANA ERA INOVASI，City 取 SO 範本「KCP Jakarta Selatan」較完整的版本），檔頭註明是靜態設定、要改在這裡改，沒有畫面可以編輯 |
 | P2-58 | 三語系文案＋Activity 標籤 | `UNVERIFIED` | `common.ts` 新增 `docTypeSO/DO/Invoice`（GLOSSARY.md 新增條目，跟 Invoice 同一原則：三語言都不翻譯，維持英文縮寫）＋六句 `auditOrderDocument*`/`auditOrderDocumentItem*`；`admin.ts` 新增 33 個鍵×三語（卡片標題、按鈕、modal 欄位、錯誤訊息）。`audit-format.ts` 依 LESSONS #28：`document_id`/`order_item_id` 補進 `SKIP`（UUID，兩個都是新關聯欄位）；`doc_type`/`doc_number`/`doc_date` 進欄位標籤表；`doc_type` 的值（SO/DO/INVOICE）透過 `valueLabel` 對應到自己（維持原樣但走 `Messages`，跟其他 enum 一致，非留白）；`ORDER_DOCUMENT_*`/`ORDER_DOCUMENT_ITEM_*` 各三個動作碼進 `ACTION_KEYS`。**列印文件本身的標籤刻意硬編印尼文、不跑 `Messages`**——這是客戶會簽名的紙本，簽字的客戶看得懂印尼文，不該因為 admin 當下切到哪個介面語言就跟著變，理由完整寫在 `GLOSSARY.md` 新增段落與列印頁檔頭註解裡；系統介面（卡片/按鈕/表單提示）仍完整三語系，這是兩件事。 |
 
-**Migration `0016_order_documents.sql` 狀態**：**`UNVERIFIED`（本機驗證通過，
-production 尚未執行）** — 本機 Postgres 16 完整重放 `0001→…→0015→0016` 後：
+**Migration `0016_order_documents.sql` 狀態**：**`VERIFIED`(production)** —
+2026-08-20 Jenzo 執行成功並回貼驗證結果，**46 項數字與期望完全相符**（含
+四個關鍵負面斷言 `DOC_NONADMIN_POLICIES 0`、`DOC_ITEM_NONADMIN_POLICIES 0`、
+`RPC_EXEC_PUBLIC 0`、`RPC_EXEC_ANON 0`，以及十四個 audit 保留斷言全 1）。
+本機 Postgres 16 完整重放 `0001→…→0015→0016` 後：
 驗證區塊 **46 項全數符合期望**（含四個關鍵負面斷言 `DOC_NONADMIN_POLICIES`
 0、`DOC_ITEM_NONADMIN_POLICIES` 0、`RPC_EXEC_PUBLIC`/`RPC_EXEC_ANON` 0、
 `OVERSHIP_GUARD_EXEC_PUBLIC` 0，以及十三個 `AUDIT_KEEP_*`/`REFS_CHECK_CUSTOMER`
