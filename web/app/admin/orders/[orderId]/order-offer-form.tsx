@@ -24,9 +24,13 @@ import { setOrderOffer, clearOrderOffer } from "../../actions-orders";
 export default function OrderOfferForm({
   orderId,
   currentAmount,
+  currentDpAmount,
+  currentPaymentCondition,
 }: {
   orderId: string;
   currentAmount: number | null;
+  currentDpAmount: number | null;
+  currentPaymentCondition: string | null;
 }) {
   const router = useRouter();
   const m = useMessages();
@@ -35,12 +39,20 @@ export default function OrderOfferForm({
   const [clearing, setClearing] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
+  // Sisa bayar = matematika TAMPILAN saja (amount - dp_amount), TIDAK PERNAH
+  // disimpan sebagai kolom — pola yang sama sudah didokumentasikan di
+  // migration 0014 §2. Dihitung ulang setiap kali kedua input berubah.
+  const [liveAmount, setLiveAmount] = useState<number | null>(currentAmount);
+  const [liveDp, setLiveDp] = useState<number | null>(currentDpAmount);
+  const remaining = liveAmount != null ? liveAmount - (liveDp ?? 0) : null;
 
   function openModal() {
     reset();
     setErrMsg(null);
     setNetMsg(null);
     setClearing(false);
+    setLiveAmount(currentAmount);
+    setLiveDp(currentDpAmount);
     setOpen(true);
   }
 
@@ -54,6 +66,13 @@ export default function OrderOfferForm({
   function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
     const n = parseIDRInput(e.target.value);
     e.target.value = n === null ? "" : formatIDR(n);
+    setLiveAmount(n);
+  }
+
+  function handleDpChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const n = parseIDRInput(e.target.value);
+    e.target.value = n === null ? "" : formatIDR(n);
+    setLiveDp(n);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -61,10 +80,13 @@ export default function OrderOfferForm({
     if (!begin()) return;
     setErrMsg(null);
     setNetMsg(null);
-    const raw = String(new FormData(e.currentTarget).get("offer_amount") || "");
+    const fd = new FormData(e.currentTarget);
+    const raw = String(fd.get("offer_amount") || "");
+    const dpRaw = String(fd.get("dp_amount") || "");
+    const conditionRaw = String(fd.get("payment_condition") || "");
     const out = await submitSafely({
       kind: "update",
-      run: () => setOrderOffer(orderId, raw),
+      run: () => setOrderOffer(orderId, raw, dpRaw, conditionRaw),
       messages: m,
     });
     if (out.status !== "ok") {
@@ -142,6 +164,36 @@ export default function OrderOfferForm({
                   placeholder={m.admin.orderOfferPlaceholder}
                 />
               </div>
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label htmlFor="dp_amount">{m.admin.orderOfferDpFieldLabel}</label>
+                <input
+                  id="dp_amount"
+                  name="dp_amount"
+                  type="text"
+                  inputMode="numeric"
+                  defaultValue={currentDpAmount ? formatIDR(currentDpAmount) : ""}
+                  onChange={handleDpChange}
+                  placeholder="Rp 0"
+                />
+              </div>
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label htmlFor="payment_condition">{m.admin.orderOfferPaymentConditionFieldLabel}</label>
+                <input
+                  id="payment_condition"
+                  name="payment_condition"
+                  type="text"
+                  defaultValue={currentPaymentCondition ?? ""}
+                  placeholder={m.admin.orderOfferPaymentConditionPlaceholder}
+                />
+              </div>
+              {remaining != null && (
+                <dl className="kv" style={{ marginBottom: 10 }}>
+                  <dt>{m.admin.orderOfferRemainingLabel}</dt>
+                  <dd>
+                    <strong>{formatIDR(Math.max(remaining, 0))}</strong>
+                  </dd>
+                </dl>
+              )}
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
                   {m.common.cancel}

@@ -14,6 +14,7 @@ import CorrectAttributionButton, { type BranchOption } from "./correct-attributi
 import MarkArrivedButton from "./mark-arrived-button";
 import InternalNoteForm from "./internal-note-form";
 import OrderOfferForm from "./order-offer-form";
+import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
 import { getInvoiceSignedUrl } from "../../actions-orders";
 import { getMessages } from "@/lib/i18n";
 
@@ -168,23 +169,63 @@ async function fetchInternalNotes(
  *      dihindari kalau ada bentuk yang tidak bisa.
  * Pola ini sama dengan fetchInternalNotes di atas.
  */
+type OfferInfo = { amount: number; dpAmount: number; paymentCondition: string | null } | null;
 async function fetchOrderOffer(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string
-): Promise<ColumnFetch<number | null>> {
+): Promise<ColumnFetch<OfferInfo>> {
   const { data, error } = await supabase
     .from("order_sanci_offers")
-    .select("amount")
+    .select("amount, dp_amount, payment_condition")
     .eq("order_id", orderId)
     .maybeSingle();
   // "missing-column" dipakai ulang di sini untuk arti "fiturnya belum aktif" —
   // yang membedakannya dari "error" adalah pesan yang tampil, dan keduanya
   // memang tidak boleh dirender sama seperti "belum diisi" (LESSONS #10).
   if (error) return { status: isMissingTableError(error) ? "missing-column" : "error" };
-  const amount = (data as { amount: number | string | null } | null)?.amount ?? null;
+  const row = data as { amount: number | string; dp_amount: number | string; payment_condition: string | null } | null;
+  if (!row) return { status: "ok", data: null };
   // numeric(15,2) bisa sampai ke sini sebagai string tergantung versi driver;
   // Number() sekali di sini supaya formatIDR tidak pernah menerima teks.
-  return { status: "ok", data: amount === null ? null : Number(amount) };
+  return {
+    status: "ok",
+    data: { amount: Number(row.amount), dpAmount: Number(row.dp_amount), paymentCondition: row.payment_condition },
+  };
+}
+
+/**
+ * order_items (migrasi 0014) dibaca TERPISAH, pola sama dengan
+ * fetchInternalNotes/fetchOrderOffer di atas: tabel BARU, degradasi lewat
+ * 42P01 (tabel hilang), bukan 42703.
+ */
+async function fetchOrderItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ items: OrderItemRow[]; unavailable: boolean }> {
+  const { data, error } = await supabase
+    .from("order_items")
+    .select("id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size, unit_price, line_discount")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
+  if (error) return { items: [], unavailable: isMissingTableError(error) };
+  return { items: (data ?? []) as OrderItemRow[], unavailable: false };
+}
+
+/**
+ * shipping_address (migrasi 0014) dibaca TERPISAH dari query utama — kolom
+ * bisa saja belum ada (LESSONS #12).
+ */
+async function fetchShippingAddress(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<ColumnFetch<string | null>> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("shipping_address")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  return { status: "ok", data: (data as { shipping_address: string | null } | null)?.shipping_address ?? null };
 }
 
 type AuditRow = {
@@ -252,7 +293,7 @@ export default async function AdminOrderDetailPage({
   const sales = one(order.sales);
   const pic = one(order.pic);
 
-  const [cancelResult, packageIdResult, fulfillmentResult, notesResult, offerResult] =
+  const [cancelResult, packageIdResult, fulfillmentResult, notesResult, offerResult, itemsResult, shippingResult] =
     await Promise.all([
       order.status === "CANCELLED"
         ? fetchCancelInfo(supabase, order.id)
@@ -261,6 +302,8 @@ export default async function AdminOrderDetailPage({
       fetchFulfillmentInfo(supabase, order.id),
       fetchInternalNotes(supabase, order.id),
       fetchOrderOffer(supabase, order.id),
+      fetchOrderItems(supabase, order.id),
+      fetchShippingAddress(supabase, order.id),
     ]);
   const packageId = packageIdResult.status === "ok" ? packageIdResult.data : null;
   const packageDetail = packageId ? await fetchPackageDetail(supabase, packageId) : null;
@@ -413,6 +456,12 @@ export default async function AdminOrderDetailPage({
             )}
             <dt>{m.common.notes}</dt>
             <dd>{order.notes || "—"}</dd>
+            {shippingResult.status === "ok" && (
+              <>
+                <dt>{m.common.shippingAddress}</dt>
+                <dd style={{ whiteSpace: "pre-wrap" }}>{shippingResult.data || "—"}</dd>
+              </>
+            )}
             <dt>{m.common.createdAt}</dt>
             <dd>
               {new Date(order.created_at).toLocaleString("id-ID", {
@@ -515,15 +564,43 @@ export default async function AdminOrderDetailPage({
                 {offerResult.data == null ? (
                   <span className="small muted">{m.admin.orderOfferEmpty}</span>
                 ) : (
-                  <strong>{formatIDR(offerResult.data)}</strong>
+                  <strong>{formatIDR(offerResult.data.amount)}</strong>
                 )}
               </dd>
+              {offerResult.data && offerResult.data.dpAmount > 0 && (
+                <>
+                  <dt>{m.common.dpAmount}</dt>
+                  <dd>{formatIDR(offerResult.data.dpAmount)}</dd>
+                  <dt>{m.admin.orderOfferRemainingLabel}</dt>
+                  <dd>{formatIDR(Math.max(offerResult.data.amount - offerResult.data.dpAmount, 0))}</dd>
+                </>
+              )}
+              {offerResult.data?.paymentCondition && (
+                <>
+                  <dt>{m.common.paymentCondition}</dt>
+                  <dd>{offerResult.data.paymentCondition}</dd>
+                </>
+              )}
             </dl>
-            <OrderOfferForm orderId={order.id} currentAmount={offerResult.data} />
+            <OrderOfferForm
+              orderId={order.id}
+              currentAmount={offerResult.data?.amount ?? null}
+              currentDpAmount={offerResult.data?.dpAmount ?? null}
+              currentPaymentCondition={offerResult.data?.paymentCondition ?? null}
+            />
             <p className="footnote">{m.admin.orderOfferFootnote}</p>
           </>
         )}
       </div>
+
+      {itemsResult.unavailable ? (
+        <div className="card">
+          <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.admin.orderItemsCardTitle}</h3>
+          <div className="emptybox">{m.admin.orderItemsFeatureOff}</div>
+        </div>
+      ) : (
+        <OrderItemsSection orderId={order.id} items={itemsResult.items} copyWarning={false} />
+      )}
 
       {/* Catatan Internal SANCI — partner TIDAK PERNAH melihat kartu ini;
           ditegakkan oleh RLS admin-only di DB, bukan cuma disembunyikan di

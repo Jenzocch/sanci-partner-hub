@@ -36,6 +36,10 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Pelanggan sudah datang | Pelanggan Tiba | 客户已到店 | Customer Arrived |
 | Catatan khusus SANCI | Catatan Internal | 内部备注 | Internal Note |
 | Nilai penawaran SANCI per pesanan | Penawaran SANCI | SANCI 方案金额 | SANCI Offer |
+| Uang muka pesanan | Uang Muka (DP) | 订金 | Down payment (DP) |
+| Syarat pembayaran (teks bebas) | Kondisi Pembayaran | 付款条件 | Payment condition |
+| Alamat tujuan kirim satu pesanan | Alamat Pengiriman | 收货地址 | Shipping address |
+| Daftar produk/baris di dalam satu pesanan | Isi Pesanan | 订单明细 | Order items |
 | Kepemilikan pesanan | Atribusi | 归属 | Attribution |
 | Hak akses | Hak Akses | 权限 | Access |
 | — hanya cabang sendiri | Cabang sendiri | 仅本店 | Own branch |
@@ -108,6 +112,16 @@ SANCI 及各合作商名称、订单编号与各种代码。
 (0010 的铁律)。所以三种语言都不用"Harga / Price / 价格"这类词，避免有人
 误以为系统里开始有产品定价了。同理也不叫"Diskon / Discount / 折扣"：
 系统不计算折扣，只记录人决定的那个数字。
+
+**补充说明（0014，2026-08-20）**：这条规则**依然完全有效**，没有被 0014
+推翻。0014 新增的 `dp_amount`（订金）、`payment_condition`（付款条件）、
+`order_items.unit_price`/`line_discount`（单价／单行扣减金额）全部是**人
+手动打进去的数字/文字**，数据库不对它们做任何加减乘除——跟 `amount` 本身
+性质完全一样，只是多了几个栏位。因此 `line_discount` 刻意翻成"Potongan
+Baris / Line deduction / 单行扣减金额"而不是"Diskon/Discount/折扣"，避免
+让人以为这里出现了折扣计算引擎。**如果哪天真的要做"输入多个百分比、系统
+自动算出最终金额"那种折扣链计算，那是全新的、需要 Jenzo 重新拍板确认的
+功能——不要因为看到 `line_discount` 这个栏位名就假设它已经存在。**
 
 **English** — plain English, not enterprise jargon. "Add Staff", not
 "Create Personnel Record". Sentence case for buttons and labels.

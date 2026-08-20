@@ -6,6 +6,7 @@ import AddBranchButton from "./add-branch-button";
 import AddPackageButton from "./add-package-button";
 import PackageActions from "./package-actions";
 import PermissionsForm from "./permissions-form";
+import OfferPermissionsForm from "./offer-permissions-form";
 import CatalogAccessForm from "./catalog-access-form";
 import UserToggleButton from "./user-toggle-button";
 import AddUserButton from "./add-user-button";
@@ -43,6 +44,27 @@ type QueryErr = { code?: string; message?: string } | null;
 
 function isMissingTableErr(err: QueryErr): boolean {
   return !!err && err.code === "42P01";
+}
+
+/**
+ * can_view_offer/can_edit_offer (migrasi 0014) dibaca TERPISAH dari query
+ * `policy` di atas: kolomnya bisa saja belum ada (LESSONS #12, kode boleh
+ * naik lebih dulu daripada 0014 dijalankan) — kalau digabung ke satu SELECT,
+ * satu kolom hilang akan menggagalkan SELURUH query kebijakan akses (dipakai
+ * juga oleh `canActivate`/tab overview), bukan cuma kartu izin penawaran ini.
+ */
+type OfferPolicyRow = { can_view_offer: boolean; can_edit_offer: boolean };
+async function fetchOfferPolicy(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  partnerId: string
+): Promise<{ status: "ok"; data: OfferPolicyRow } | { status: "missing-column" } | { status: "error" }> {
+  const { data, error } = await supabase
+    .from("partner_access_policies")
+    .select("can_view_offer, can_edit_offer")
+    .eq("partner_id", partnerId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  return { status: "ok", data: (data as OfferPolicyRow | null) ?? { can_view_offer: false, can_edit_offer: false } };
 }
 
 export default async function PartnerDetailPage({
@@ -396,6 +418,7 @@ export default async function PartnerDetailPage({
     // arti" — bawaan sistem (OWN_BRANCH) tetap berlaku di balik layar. Layar
     // ini harus bilang itu secara eksplisit, bukan diam (audit P2-2).
     const pol: PolicyRow = policy || { visibility_scope: "OWN_BRANCH", edit_scope: "OWN_BRANCH", configured: false };
+    const offerPolicy = await fetchOfferPolicy(supabase, id);
     body = (
       <div>
         <PermissionsForm
@@ -405,6 +428,24 @@ export default async function PartnerDetailPage({
           editScope={pol.edit_scope}
           configured={pol.configured}
         />
+        {offerPolicy.status === "ok" ? (
+          <OfferPermissionsForm
+            partnerId={id}
+            partnerName={partner.name}
+            canViewOffer={offerPolicy.data.can_view_offer}
+            canEditOffer={offerPolicy.data.can_edit_offer}
+          />
+        ) : offerPolicy.status === "missing-column" ? (
+          <div className="card emptybox" style={{ maxWidth: 560 }}>
+            {m.admin.orderOfferFeatureOff}
+          </div>
+        ) : (
+          <div className="card" style={{ maxWidth: 560 }}>
+            <div className="err" style={{ marginBottom: 0 }}>
+              {m.common.errorLoad}
+            </div>
+          </div>
+        )}
         {catalogMissing ? (
           <div className="card emptybox" style={{ maxWidth: 560 }}>
             {m.admin.catalogMigrationMsg}

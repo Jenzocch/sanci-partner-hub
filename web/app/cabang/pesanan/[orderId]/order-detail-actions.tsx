@@ -68,6 +68,7 @@ export default function OrderDetailActions({
   fulfillmentPath,
   purchaseAmount,
   extrasAvailable,
+  shippingAddress,
 }: {
   orderId: string;
   orderNumber: string;
@@ -82,6 +83,7 @@ export default function OrderDetailActions({
   fulfillmentPath: FulfillmentPath | null;
   purchaseAmount: number | null;
   extrasAvailable: boolean;
+  shippingAddress: string | null;
 }) {
   const router = useRouter();
   const m = useMessages();
@@ -111,6 +113,7 @@ export default function OrderDetailActions({
           fulfillmentPath={fulfillmentPath}
           purchaseAmount={purchaseAmount}
           extrasAvailable={extrasAvailable}
+          shippingAddress={shippingAddress}
           onClose={() => setModal(null)}
           onSaved={() => {
             setModal(null);
@@ -151,6 +154,7 @@ function EditOrderModal({
   fulfillmentPath,
   purchaseAmount,
   extrasAvailable,
+  shippingAddress,
   onClose,
   onSaved,
 }: {
@@ -165,6 +169,7 @@ function EditOrderModal({
   fulfillmentPath: FulfillmentPath | null;
   purchaseAmount: number | null;
   extrasAvailable: boolean;
+  shippingAddress: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -229,6 +234,7 @@ function EditOrderModal({
           // ini memang tidak dirender, kolomnya tidak boleh disentuh sama sekali.
           fulfillmentPath: extrasAvailable ? String(fd.get("fulfillment_path") || "") : undefined,
           purchaseAmountRaw: extrasAvailable ? String(fd.get("partner_purchase_amount") || "") : undefined,
+          shippingAddress: String(fd.get("shipping_address") || ""),
         }),
     });
 
@@ -344,6 +350,16 @@ function EditOrderModal({
               ))}
             </select>
             {errs.pic_staff_id && <div className="err-text">{errs.pic_staff_id}</div>}
+          </div>
+          <div className="field">
+            <label htmlFor="eo_shipping_address">{m.cabang.shippingAddressFieldLabel}</label>
+            <textarea
+              id="eo_shipping_address"
+              name="shipping_address"
+              defaultValue={shippingAddress || ""}
+              placeholder={m.cabang.optionalPlaceholder}
+            />
+            <div className="hint">{m.cabang.shippingAddressHint}</div>
           </div>
           <div className="field">
             <label htmlFor="eo_notes">{m.common.notes}</label>

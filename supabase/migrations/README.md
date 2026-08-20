@@ -20,12 +20,13 @@ tanpa perlu membaca SQL-nya.
 | 0011 | `0011_audit_hardening.sql` | Pengerasan audit round 3, seluruhnya di lapisan database: **P2** `fn_check_order_refs` akhirnya ikut memeriksa `customer_id` (pelanggan partner lain tidak lagi bisa ditautkan lewat API), **P3** `sanci_catalog_access.enabled` DEFAULT `true` → `false`, **P3** `invoice_url` wajib menunjuk folder pesanannya sendiri (trigger `trg_order_invoice_path`). |
 | 0012 | `0012_package_product_components.sql` | Irisan keenam: isi Package — tabel `partner_package_items` (produk + jumlah di dalam sebuah Package, FK sungguhan ke `sanci_products`), menutup penundaan SPEC §23. Admin kelola penuh, partner **hanya baca** isi paketnya sendiri. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `PACKAGE_ITEM`. |
 | 0013 | `0013_order_offer_amount.sql` | Irisan ketujuh: nilai penawaran SANCI per pesanan — tabel `order_sanci_offers` (satu baris per pesanan, `order_id` sebagai PRIMARY KEY sehingga penulisannya upsert idempoten). **Khusus admin SANCI, baca maupun tulis**; pengguna cabang nol akses, SELECT sekalipun — ditegakkan RLS, bukan disembunyikan layar. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_OFFER`. |
+| 0014 | `0014_permissions_items_shipping.sql` | Irisan kedelapan: 2 flag izin (`can_view_offer`/`can_edit_offer`) di `partner_access_policies` yang MEMBUKA akses cabang ke `order_sanci_offers` miliknya sendiri (3 policy SELECT/INSERT/UPDATE baru — evolusi janji 0013 §4); `dp_amount`/`payment_condition` di `order_sanci_offers`; tabel BARU `order_items` (snapshot isi pesanan per baris + catatan/warna/ukuran, disalin otomatis dari isi Package saat pesanan dibuat, boleh diedit cabang selama pesanan aktif — harga per baris digerbangi `can_edit_offer` lewat trigger); `partner_orders.shipping_address` (selalu bisa diedit, TIDAK masuk daftar beku 0005). Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_ITEM`. **Sengaja TIDAK membangun** rantai perhitungan diskon/markup/potongan-tunai yang direncanakan awal — bentrok langsung dengan `GLOSSARY.md`/`FEATURES.md` yang ditulis di commit yang sama (0013) yang menyatakan sistem ini tidak menghitung diskon; lihat kepala berkas 0014 untuk penjelasan lengkap. |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -37,16 +38,17 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 
 | Yang dijalankan ulang | Yang rusak diam-diam |
 |---|---|
-| 0001 | `s_partner_read` kembali ke versi lama → **setiap "Simpan staf" dari cabang gagal**; `fn_audit_row` kehilangan awalan `PACKAGE`, `CUSTOMER_PHONE_CHANGED`, `ORDER_ATTRIBUTION_CORRECTED`, `ORDER_CANCELLED`, `ORDER_CUSTOMER_ARRIVED`, awalan `ORDER_INTERNAL_NOTE`, awalan `PRODUCT` & `CATALOG_ACCESS`, awalan `PACKAGE_ITEM`, serta awalan `ORDER_OFFER` (0013). |
-| 0004 | `c_partner_read` kembali ke versi lama → **setiap "Simpan pelanggan" dari cabang gagal**; `fn_check_order_refs` berhenti memeriksa pemilik paket **dan pemilik pelanggan (lubang P2 milik 0011 terbuka lagi)**; `fn_audit_row` seperti di atas, `ORDER_OFFER` termasuk. |
-| 0005 | `fn_audit_row` kehilangan tambahan 0008 (PACKAGE / PHONE_CHANGED / ATTRIBUTION), 0009 (ARRIVED / INTERNAL_NOTE), 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM) dan 0013 (ORDER_OFFER). |
+| 0001 | `s_partner_read` kembali ke versi lama → **setiap "Simpan staf" dari cabang gagal**; `fn_audit_row` kehilangan awalan `PACKAGE`, `CUSTOMER_PHONE_CHANGED`, `ORDER_ATTRIBUTION_CORRECTED`, `ORDER_CANCELLED`, `ORDER_CUSTOMER_ARRIVED`, awalan `ORDER_INTERNAL_NOTE`, awalan `PRODUCT` & `CATALOG_ACCESS`, awalan `PACKAGE_ITEM`, awalan `ORDER_OFFER` (0013), serta awalan `ORDER_ITEM` (0014). |
+| 0004 | `c_partner_read` kembali ke versi lama → **setiap "Simpan pelanggan" dari cabang gagal**; `fn_check_order_refs` berhenti memeriksa pemilik paket **dan pemilik pelanggan (lubang P2 milik 0011 terbuka lagi)**; `fn_audit_row` seperti di atas, `ORDER_OFFER` dan `ORDER_ITEM` termasuk. |
+| 0005 | `fn_audit_row` kehilangan tambahan 0008 (PACKAGE / PHONE_CHANGED / ATTRIBUTION), 0009 (ARRIVED / INTERNAL_NOTE), 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER) dan 0014 (ORDER_ITEM). |
 | 0006 | tidak ada — 0006 hanya menulis dua helper, dan sejak 0007 isi 0001 sudah sama. |
-| 0008 | `fn_check_order_refs` **berhenti memeriksa pemilik pelanggan** (lubang P2 milik 0011 terbuka lagi — pemeriksaan paket sendiri selamat karena 0008 memang memuatnya); `fn_audit_row` kehilangan tambahan 0009 (ARRIVED / INTERNAL_NOTE), 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM) dan 0013 (ORDER_OFFER). |
-| 0009 | `fn_audit_row` kehilangan tambahan 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM) dan 0013 (ORDER_OFFER). |
-| 0010 | `fn_audit_row` kehilangan tambahan 0012 (awalan `PACKAGE_ITEM` **dan** pencarian partner lewat paket induknya) dan 0013 (awalan `ORDER_OFFER` **dan** pencarian partner/branch lewat pesanannya) — sudah diukur, bukan dugaan. DEFAULT `enabled` **tidak** kembali ke `true`: `create table if not exists` tidak dijalankan lagi pada tabel yang sudah ada, dan 0010 tetap tidak mendefinisikan ulang apa pun milik 0011. |
-| 0011 | tidak ada — 0011 tidak mendefinisikan ulang `fn_audit_row` (dinyatakan lewat komentar di dalam berkasnya) maupun apa pun milik 0012/0013. |
-| 0012 | `fn_audit_row` kehilangan tambahan 0013 saja — awalan `ORDER_OFFER` dan pencarian partner/branch lewat pesanannya. Awalan `PACKAGE_ITEM` miliknya sendiri **tetap ada** (sudah diukur satu per satu di Postgres 16 lokal). |
-| 0013 | tidak ada — 0013 adalah berkas terakhir dalam rantai. Versi `fn_audit_row` miliknya memuat SELURUH perilaku 0004+0005+0008+0009+0010+0012, jadi menjalankannya paling akhir justru **memulihkan** seluruh pemetaan yang sempat tertimpa berkas lama. |
+| 0008 | `fn_check_order_refs` **berhenti memeriksa pemilik pelanggan** (lubang P2 milik 0011 terbuka lagi — pemeriksaan paket sendiri selamat karena 0008 memang memuatnya); `fn_audit_row` kehilangan tambahan 0009 (ARRIVED / INTERNAL_NOTE), 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER) dan 0014 (ORDER_ITEM). |
+| 0009 | `fn_audit_row` kehilangan tambahan 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER) dan 0014 (ORDER_ITEM). |
+| 0010 | `fn_audit_row` kehilangan tambahan 0012 (awalan `PACKAGE_ITEM` **dan** pencarian partner lewat paket induknya), 0013 (awalan `ORDER_OFFER`) dan 0014 (awalan `ORDER_ITEM` **dan** ketiganya kehilangan pencarian partner/branch lewat pesanannya bersama-sama) — sudah diukur, bukan dugaan. DEFAULT `enabled` **tidak** kembali ke `true`: `create table if not exists` tidak dijalankan lagi pada tabel yang sudah ada, dan 0010 tetap tidak mendefinisikan ulang apa pun milik 0011. |
+| 0011 | tidak ada — 0011 tidak mendefinisikan ulang `fn_audit_row` (dinyatakan lewat komentar di dalam berkasnya) maupun apa pun milik 0012/0013/0014. |
+| 0012 | `fn_audit_row` kehilangan tambahan 0013 (awalan `ORDER_OFFER`) dan 0014 (awalan `ORDER_ITEM`), termasuk pencarian partner/branch lewat pesanan untuk keduanya. Awalan `PACKAGE_ITEM` miliknya sendiri **tetap ada** (sudah diukur satu per satu di Postgres 16 lokal). |
+| 0013 | `fn_audit_row` kehilangan tambahan 0014 SAJA — awalan `ORDER_ITEM` dan pencarian partner/branch lewat pesanannya. **Selain itu**, `order_sanci_offers` juga kehilangan TIGA policy cabang baru milik 0014 (`oso_partner_read`/`_insert`/`_update` — `DROP POLICY IF EXISTS oso_admin_all` di 0013 tidak menyentuh nama policy itu, tapi 0013 juga tidak MEMBUATNYA lagi, jadi kalau 0014 belum pernah dijalankan ulang sesudahnya, urutan asli tetap aman; risiko hanya muncul kalau 0013 dijalankan ulang SETELAH 0014 sempat berjalan tanpa 0014 ikut dijalankan ulang lagi — lihat catatan ⚠️ di blok verifikasi 0014). Awalan `ORDER_OFFER` miliknya sendiri **tetap ada**. |
+| 0014 | tidak ada — 0014 adalah berkas terakhir dalam rantai. Versi `fn_audit_row` miliknya memuat SELURUH perilaku 0004+0005+0008+0009+0010+0012+0013, jadi menjalankannya paling akhir justru **memulihkan** seluruh pemetaan yang sempat tertimpa berkas lama. **Pemulihan untuk kasus 0013 dijalankan ulang** (baris di atas): jalankan ulang 0014 sekali lagi — ketiga policy `oso_partner_*` dan awalan `ORDER_ITEM` kembali utuh. |
 
 Khusus lubang P2 (`fn_check_order_refs` tanpa pemeriksaan pelanggan): ia TIDAK
 menghasilkan satu pun pesan error atau gejala di layar. Yang terjadi hanyalah
@@ -113,12 +115,12 @@ Kolom **setelah 0012** = nilai kalau blok verifikasi berkas itu dijalankan ulang
 pada database yang sudah lengkap. Nilai yang **berubah** ditandai `→`.
 
 ### 0001
-| Cek | fresh | setelah 0013 |
-|---|---|---|
-| TABLES | 9 | 9 |
-| RLS_ENABLED | 9 | 9 → **18** (+customers, partner_orders, partner_order_counters, partner_packages, order_internal_notes, sanci_products, sanci_catalog_access, partner_package_items, order_sanci_offers) |
-| POLICIES | 19 | 19 → **38** (+6 dari 0004, +1 dari 0005, +3 dari 0008, +2 dari 0009, +4 dari 0010, +2 dari 0012, +1 dari 0013) |
-| TRIGGERS | 12 | 12 → **27** (+5 dari 0004, +2 dari 0005, +3 dari 0008, +1 dari 0009, +0 dari 0010, +1 dari 0011, +3 dari 0012, **+0 dari 0013**) |
+| Cek | fresh | setelah 0013 | setelah 0014 |
+|---|---|---|---|
+| TABLES | 9 | 9 | 9 |
+| RLS_ENABLED | 9 | 9 → **18** (+customers, partner_orders, partner_order_counters, partner_packages, order_internal_notes, sanci_products, sanci_catalog_access, partner_package_items, order_sanci_offers) | 18 → **19** (+order_items) |
+| POLICIES | 19 | 19 → **38** (+6 dari 0004, +1 dari 0005, +3 dari 0008, +2 dari 0009, +4 dari 0010, +2 dari 0012, +1 dari 0013) | 38 → **46** (+3 `oso_partner_*` baru di order_sanci_offers, +5 policy order_items — 2 kolom baru di partner_access_policies TIDAK menambah policy) |
+| TRIGGERS | 12 | 12 → **27** (+5 dari 0004, +2 dari 0005, +3 dari 0008, +1 dari 0009, +0 dari 0010, +1 dari 0011, +3 dari 0012, **+0 dari 0013**) | **tetap 27** (+0 dari 0014 — kelima trigger `order_items` TIDAK ikut terhitung, sama seperti order_internal_notes/order_sanci_offers) |
 
 `TRIGGERS` di 0001 hanya menghitung tabel berawalan `partner%`, jadi kedua
 trigger `order_internal_notes` dan kelima trigger kedua tabel katalog TIDAK ikut
@@ -127,10 +129,11 @@ terhitung di sini — yang bertambah dari 0009 hanya `trg_order_arrival` pada
 `trg_order_invoice_path` (juga pada `partner_orders`). Ketiga trigger 0012
 JUSTRU ikut terhitung, karena `partner_package_items` berawalan `partner%` —
 beda dari `order_internal_notes`. Ketiga trigger 0013 pada `order_sanci_offers`
-**TIDAK** ikut terhitung (namanya berawalan `order_`, sama seperti
-`order_internal_notes`), sehingga `TRIGGERS` tetap **27** sesudah 0013 —
-satu-satunya angka 0001 yang TIDAK berubah kali ini. Keempat angka ini sudah
-diukur pada Postgres 16 lokal, bukan diperkirakan.
+dan kelima trigger 0014 pada `order_items` **TIDAK** ikut terhitung (kedua nama
+tabel berawalan `order_`, sama seperti `order_internal_notes`), sehingga
+`TRIGGERS` tetap **27** sesudah 0013 MAUPUN sesudah 0014 — satu-satunya angka
+0001 yang TIDAK berubah lagi kali ini. Kelima angka ini sudah diukur pada
+Postgres 16 lokal, bukan diperkirakan.
 
 ### 0003
 | Cek | fresh | setelah 0011 |
@@ -448,6 +451,64 @@ Angka berkas LAMA setelah 0013 — sudah diukur, bukan diperkirakan: **hanya blo
 27). Blok 0004, 0005, 0009, 0010, 0011 dan 0012 **tidak berubah satu angka pun** —
 0013 tidak menyentuh `partner_orders` maupun tabel mana pun yang mereka hitung.
 
+### 0014
+| Cek | nilai |
+|---|---|
+| POLICY_NEW_COLS / POLICY_NEW_COLS_DEFAULT_FALSE | 2 / **2** |
+| OFFER_NEW_COLS | 2 |
+| OFFER_DP_CHECK / OFFER_DP_LE_AMOUNT_CHECK | 1 / 1 |
+| OFFER_POLICIES | **4** |
+| OFFER_NONADMIN_POLICIES | **3** |
+| OFFER_TRIGGERS | 3 (tetap — tidak ada guard trigger baru di tabel ini) |
+| ORDER_SHIPPING_COLUMN / ORDER_SHIPPING_NOT_FROZEN | 1 / **1** |
+| ORDER_ITEM_TABLE | 1 |
+| ORDER_ITEM_QTY_CHECK | 1 |
+| ORDER_ITEM_FK_ORDER_RESTRICT / _NOT_CASCADE | **1** / **0** |
+| ORDER_ITEM_FK_PRODUCT_RESTRICT / _NOT_CASCADE | **1** / **0** |
+| ORDER_ITEM_INDEXES | 2 |
+| ORDER_ITEM_RLS / ORDER_ITEM_POLICIES | 1 / 5 |
+| ORDER_ITEM_PARTNER_WRITE_POLICIES | **3** |
+| ORDER_ITEM_TRIGGERS | 5 |
+| ITEM_PRICE_GUARD_EXEC_PUBLIC / ITEM_IMMUTABLE_GUARD_EXEC_PUBLIC | **0** / **0** |
+| AUDIT_ORDER_ITEM / AUDIT_ITEM_OFFER_NOTE_LOOKUP | 1 / 1 |
+| AUDIT_KEEP_0013_OFFER | 1 |
+| AUDIT_KEEP_0012_PKG_ITEM / AUDIT_KEEP_0012_PKG_LOOKUP | 1 / 1 |
+| AUDIT_KEEP_0010_PRODUCT / AUDIT_KEEP_0010_CATALOG | 1 / 1 |
+| AUDIT_KEEP_0009_ARRIVED / AUDIT_KEEP_0009_NOTE | 1 / 1 |
+| AUDIT_KEEP_0008_PKG / AUDIT_KEEP_0008_PHONE / AUDIT_KEEP_0008_ATTR | 1 / 1 / 1 |
+| AUDIT_KEEP_0005 / AUDIT_KEEP_0004 | 1 / 1 |
+| REFS_CHECK_CUSTOMER | **1** |
+
+38 baris total, semua sudah diukur di Postgres 16 lokal (bukan diperkirakan) —
+lihat blok verifikasi lengkap di kepala berkas `0014_permissions_items_shipping.sql`
+untuk penjelasan tiap angka.
+
+⚠️ **`OFFER_POLICIES` (1 → 4) dan `OFFER_NONADMIN_POLICIES` (0 → 3) BERUBAH dari
+angka yang ditulis di 0013.** Ini DISENGAJA, bukan regresi — 0013 sendiri TIDAK
+diedit (dan tidak boleh diedit), jadi komentarnya di sana tetap berbunyi seperti
+semula selamanya; begitu 0014 menjadi berkas terakhir dalam rantai, keadaan
+sesungguhnya berubah karena §3 berkas ini menambah TIGA policy baru
+(`oso_partner_read`/`_insert`/`_update`) yang membuka akses TERKONTROL untuk
+cabang lewat dua flag `can_view_offer`/`can_edit_offer`. Siapa pun yang
+mencocokkan angka 0013 pada database yang SUDAH punya 0014 WAJIB memakai angka
+BARU ini (4 / 3), bukan angka lama (1 / 0) di berkas 0013.
+
+Dua hal lain yang perlu diketahui pembaca berkas ini:
+
+* **Fitur diskon/markup/potongan-tunai yang direncanakan awal SENGAJA TIDAK
+  dibangun.** Bentrok langsung dengan `GLOSSARY.md` §"Penawaran SANCI bukan
+  harga" dan `FEATURES.md` §"Phase 2 irisan ketujuh" — keduanya ditulis di
+  commit 0013 (satu hari sebelum berkas ini) dan secara eksplisit menyatakan
+  sistem ini tidak menghitung diskon apa pun. Membangunnya di atas keputusan
+  yang baru saja dibuat, tanpa konfirmasi ulang, berisiko membangun sesuatu
+  yang justru baru saja diputuskan TIDAK diinginkan — lihat penjelasan lengkap
+  di kepala berkas 0014. Yang dibangun sebagai gantinya (`dp_amount`,
+  `payment_condition`) murni pencatatan, bukan perhitungan.
+* **`can_discount` (flag izin ketiga yang diminta rencana awal) TIDAK
+  dibangun** — konsekuensi langsung dari poin di atas: tidak ada mesin
+  hitung diskon untuk diberi izin. Hanya DUA flag (`can_view_offer`,
+  `can_edit_offer`) yang dibangun.
+
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 
 `phone_normalized` dihitung Server Action (`normalizePhoneID()`), bukan SQL —
@@ -596,3 +657,39 @@ Empat batas milik 0013, semuanya sudah diukur, bukan dugaan:
    tanpa harga" milik 0010, karena yang disimpan adalah nilai kesepakatan untuk
    SATU pesanan konkret, bukan harga sebuah produk. `sanci_products` tetap tidak
    punya dan tidak boleh punya kolom harga.
+
+Lima batas milik 0014, semuanya sudah diukur, bukan dugaan:
+
+1. **Tidak ada mesin hitung diskon/markup/potongan-tunai apa pun.** Ini
+   keputusan SADAR, bukan kelalaian — lihat penjelasan panjang di kepala
+   berkas 0014 dan `web/lib/i18n/GLOSSARY.md`. `dp_amount`/`payment_condition`/
+   `order_items.unit_price`/`line_discount` semuanya angka/teks yang diketik
+   manusia, basis data tidak menghitung apa pun dari nilai-nilai itu.
+2. **Isi Package TIDAK dibekukan ulang kalau pesanan diedit sesudahnya.**
+   Salinan ke `order_items` terjadi SEKALI saat pesanan dibuat (best-effort).
+   Kalau isi Package induknya berubah BESOK, baris `order_items` pesanan yang
+   sudah dibuat HARI INI tidak ikut berubah (memang begitu maksudnya —
+   riwayat), tapi juga tidak ada mekanisme "sinkronkan ulang" kalau admin
+   sengaja mau menyamakan lagi — itu berarti hapus baris lama + tambah baris
+   baru manual lewat layar Isi Pesanan.
+3. **Salinan otomatis best-effort, BUKAN transaksional dengan pembuatan
+   pesanan.** Kalau salinan gagal sebagian (mis. produk di paket sudah
+   dihapus), pesanan ITU SENDIRI tetap tersimpan penuh — cabang melihat
+   peringatan "sebagian isi paket gagal disalin", bukan pesanan gagal dibuat
+   total. Ini disengaja (pola sama dengan unggah invoice, LESSONS #10/#12),
+   tapi berarti `order_items` sebuah pesanan BISA sah kosong walau
+   `package_id`-nya terisi — layar tidak boleh menganggap "package_id ada"
+   berarti "pasti ada baris order_items".
+4. **`quantity` di order_items tidak punya batas atas selain tipe kolomnya**
+   (sama seperti `partner_package_items` 0012) — CHECK-nya hanya `> 0`.
+5. **Kombinasi shipping_address "digabung" ke tier fallback yang sama dengan
+   fulfillment_path/partner_purchase_amount di `createCustomerAndOrder`**
+   (`web/app/cabang/pesanan/actions.ts`) — penyederhanaan sadar: memisahkan
+   setiap kolom jadi tier fallback tersendiri lebih presisi tapi jauh lebih
+   rumit untuk risiko yang sempit (kolom-kolom ini datang dari migrasi
+   berbeda — 0009 vs 0014 — jadi ADA skenario teoretis "0009 sudah jalan,
+   0014 belum" yang membuat grup ini gagal bersama dan jawaban fulfillment
+   ikut ditandai partial walau sebenarnya hanya shipping_address yang
+   bermasalah). Tidak ada kehilangan data diam-diam (mekanisme partial yang
+   sudah ada tetap melapor jujur), hanya kurang presisi soal kolom mana yang
+   sebenarnya gagal.

@@ -29,7 +29,14 @@ import { useMessages } from "@/lib/i18n/provider";
 
 type StaffOption = { id: string; fullName: string; role: string };
 export type PackageOption = { id: string; name: string };
-type FoundCustomer = { id: string; full_name: string; phone: string };
+type FoundCustomer = {
+  id: string;
+  full_name: string;
+  phone: string;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+};
 type LookupState = "idle" | "checking" | "found" | "not_found" | "invalid" | "error";
 
 const SEARCH_DEBOUNCE_MS = 600;
@@ -143,10 +150,24 @@ export default function NewOrderForm({
     if (el) el.value = value;
   }
 
+  /**
+   * Prefill shipping_address dari alamat pelanggan (0014) — HANYA kalau
+   * field itu masih kosong (LESSONS #1: draf/isian yang sudah diketik
+   * pengguna tidak boleh ditimpa balik). Kolomnya tetap independen dan
+   * selalu bisa diubah manual sesudah ini — ini murni kemudahan awal.
+   */
+  function prefillShippingAddress(c: FoundCustomer) {
+    const el = draft.formRef.current?.elements.namedItem("shipping_address") as HTMLTextAreaElement | null;
+    if (!el || el.value.trim()) return;
+    const joined = [c.address, c.city, c.province].filter((v) => v && v.trim()).join(", ");
+    if (joined) el.value = joined;
+  }
+
   function handleUseExisting() {
     if (!foundCustomer) return;
     setSelectedExisting(true);
     setErrs({});
+    prefillShippingAddress(foundCustomer);
   }
 
   function handleChangeCustomer() {
@@ -276,6 +297,7 @@ export default function NewOrderForm({
           fulfillmentPath: String(fd.get("fulfillment_path") || ""),
           fulfillmentAvailable,
           purchaseAmountRaw: String(fd.get("partner_purchase_amount") || ""),
+          shippingAddress: String(fd.get("shipping_address") || ""),
           clientRequestId: rid,
         }),
       lookup: () => lookupOrderRequestId(rid),
@@ -334,6 +356,7 @@ export default function NewOrderForm({
       <div className="card">
         <div className="banner ok">{m.cabang.orderCreatedBanner}</div>
         {invoiceMsg && <div className="banner warn">{invoiceMsg}</div>}
+        {orderResult.itemsCopyWarning && <div className="banner warn">{orderResult.itemsCopyWarning}</div>}
         <dl className="kv">
           <dt>{m.common.orderNumber}</dt>
           <dd className="code">{orderResult.orderNumber}</dd>
@@ -558,6 +581,17 @@ export default function NewOrderForm({
             </select>
             {errs.pic_staff_id && <div className="err-text">{errs.pic_staff_id}</div>}
           </div>
+          <div className="field">
+            <label htmlFor="po_shipping_address">{m.cabang.shippingAddressFieldLabel}</label>
+            <textarea
+              id="po_shipping_address"
+              name="shipping_address"
+              defaultValue=""
+              placeholder={m.cabang.optionalPlaceholder}
+            />
+            <div className="hint">{m.cabang.shippingAddressHint}</div>
+          </div>
+
           <div className="field">
             <label htmlFor="po_notes">{m.common.notes}</label>
             <textarea id="po_notes" name="notes" defaultValue="" placeholder={m.cabang.optionalPlaceholder} />

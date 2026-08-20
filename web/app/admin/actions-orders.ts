@@ -300,10 +300,23 @@ export async function addInternalNote(
  */
 const MAX_OFFER_AMOUNT = 9_999_999_999_999;
 
+/**
+ * Diperluas migrasi 0014: `dp_amount` (uang muka) dan `payment_condition`
+ * (teks bebas) ikut disimpan lewat upsert yang SAMA — keduanya baris yang
+ * sama dengan `amount`, jadi tidak ada alasan memisahkannya jadi dua
+ * panggilan (yang justru membuka celah "amount tersimpan, DP gagal" tanpa
+ * kebutuhan nyata). `dpRaw` opsional: string kosong → 0 (bawaan DB).
+ *
+ * dp_amount > amount ditolak DATABASE (check constraint 0014) — diperiksa
+ * ULANG di sini supaya pesannya bisa diterjemahkan (LESSONS #10, jangan
+ * biarkan kode mentah 23514 bocor ke layar).
+ */
 export async function setOrderOffer(
   orderId: string,
-  amountRaw: string
-): Promise<ActionResult<{ amount: number }>> {
+  amountRaw: string,
+  dpRaw?: string,
+  paymentCondition?: string
+): Promise<ActionResult<{ amount: number; dpAmount: number; paymentCondition: string | null }>> {
   const m = await getMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
@@ -316,17 +329,34 @@ export async function setOrderOffer(
     return { error: { field: "amount", message: m.admin.orderOfferInvalid } };
   }
 
+  const dpTrimmed = (dpRaw ?? "").trim();
+  const dpAmount = dpTrimmed ? parseIDRInput(dpTrimmed) : 0;
+  if (dpAmount === null || dpAmount > MAX_OFFER_AMOUNT) {
+    return { error: { field: "dp_amount", message: m.admin.orderOfferInvalid } };
+  }
+  if (dpAmount > amount) {
+    return { error: { field: "dp_amount", message: m.admin.orderOfferDpExceedsAmount } };
+  }
+  const conditionTrimmed = paymentCondition?.trim() || null;
+
   const written = await safeWrite(
     supabase
       .from("order_sanci_offers")
-      .upsert({ order_id: orderId, amount }, { onConflict: "order_id" })
-      .select("amount")
+      .upsert(
+        { order_id: orderId, amount, dp_amount: dpAmount, payment_condition: conditionTrimmed },
+        { onConflict: "order_id" }
+      )
+      .select("amount, dp_amount, payment_condition")
       .single()
   );
 
   if (!written.ok) {
     if (written.reason === "db") {
       if (isMissingTable(written.code)) return { error: { message: m.admin.orderOfferFeatureOffAction } };
+      if (isMissingColumnError(written.code)) return { error: { message: m.admin.orderOfferFeatureOffAction } };
+      if (written.code === "23514" && written.detail.includes("dp_le_amount")) {
+        return { error: { field: "dp_amount", message: m.admin.orderOfferDpExceedsAmount } };
+      }
       return { error: { message: PESAN.serverSibuk } };
     }
     // Respons hilang. Upsert berkunci order_id aman diulang, tapi JANGAN
@@ -335,12 +365,17 @@ export async function setOrderOffer(
     // yang dimaksud.
     const { data: recheck, error: recheckErr } = await supabase
       .from("order_sanci_offers")
-      .select("amount")
+      .select("amount, dp_amount, payment_condition")
       .eq("order_id", orderId)
       .maybeSingle();
-    if (!recheckErr && recheck && Number(recheck.amount) === amount) {
+    if (
+      !recheckErr &&
+      recheck &&
+      Number(recheck.amount) === amount &&
+      Number(recheck.dp_amount) === dpAmount
+    ) {
       revalidatePath("/admin/orders/[orderId]", "page");
-      return { data: { amount } };
+      return { data: { amount, dpAmount, paymentCondition: conditionTrimmed } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }
@@ -351,7 +386,13 @@ export async function setOrderOffer(
   // dan cache-nya tidak pernah disegarkan (pola yang sudah dipakai
   // actions-package-items.ts sejak 0012).
   revalidatePath("/admin/orders/[orderId]", "page");
-  return { data: { amount: Number(written.data.amount) } };
+  return {
+    data: {
+      amount: Number(written.data.amount),
+      dpAmount: Number(written.data.dp_amount),
+      paymentCondition: written.data.payment_condition,
+    },
+  };
 }
 
 /**
@@ -393,6 +434,193 @@ export async function clearOrderOffer(orderId: string): Promise<ActionResult<tru
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }
+
+  revalidatePath("/admin/orders/[orderId]", "page");
+  return { data: true };
+}
+
+/* ------------------------------------------------------------------ *
+ * Isi Pesanan (order_items, migrasi 0014) — sisi admin.
+ *
+ * Admin lolos lewat oi_admin_all (fn_is_admin()) untuk SEMUA kolom termasuk
+ * unit_price/line_discount — trg_order_item_price_guard melepas admin di
+ * baris pertamanya, jadi tidak ada gerbang tambahan yang perlu ditulis di
+ * sini (zero-trust tetap ditegakkan DB, bukan diasumsikan dari sisi ini).
+ * ------------------------------------------------------------------ */
+
+const MAX_ITEM_PRICE = 9_999_999_999_999;
+
+type OrderItemInput = {
+  name: string;
+  code?: string;
+  quantity: string;
+  note?: string;
+  colorCode?: string;
+  customSize?: string;
+  unitPriceRaw?: string;
+  lineDiscountRaw?: string;
+};
+
+function parseItemFields(
+  m: Awaited<ReturnType<typeof getMessages>>,
+  input: OrderItemInput
+):
+  | {
+      ok: true;
+      value: {
+        name: string;
+        code: string | null;
+        quantity: number;
+        note: string | null;
+        colorCode: string | null;
+        customSize: string | null;
+        unitPrice: number | null;
+        lineDiscount: number | null;
+      };
+    }
+  | { ok: false; error: ActionError } {
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: { field: "name", message: m.admin.orderItemNameRequired } };
+  const qty = Number(input.quantity);
+  if (!Number.isInteger(qty) || qty <= 0) {
+    return { ok: false, error: { field: "quantity", message: m.admin.orderItemQtyInvalid } };
+  }
+  let unitPrice: number | null = null;
+  if (input.unitPriceRaw?.trim()) {
+    unitPrice = parseIDRInput(input.unitPriceRaw.trim());
+    if (unitPrice === null || unitPrice > MAX_ITEM_PRICE) {
+      return { ok: false, error: { field: "unit_price", message: m.admin.orderItemPriceInvalid } };
+    }
+  }
+  let lineDiscount: number | null = null;
+  if (input.lineDiscountRaw?.trim()) {
+    lineDiscount = parseIDRInput(input.lineDiscountRaw.trim());
+    if (lineDiscount === null || lineDiscount > MAX_ITEM_PRICE) {
+      return { ok: false, error: { field: "line_discount", message: m.admin.orderItemPriceInvalid } };
+    }
+  }
+  return {
+    ok: true,
+    value: {
+      name,
+      code: input.code?.trim() || null,
+      quantity: qty,
+      note: input.note?.trim() || null,
+      colorCode: input.colorCode?.trim() || null,
+      customSize: input.customSize?.trim() || null,
+      unitPrice,
+      lineDiscount,
+    },
+  };
+}
+
+export async function addOrderItem(
+  orderId: string,
+  input: OrderItemInput & { clientRequestId: string }
+): Promise<ActionResult<{ id: string }>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+  const parsed = parseItemFields(m, input);
+  if (!parsed.ok) return { error: parsed.error };
+
+  const { data: existing } = await supabase
+    .from("order_items")
+    .select("id")
+    .eq("client_request_id", input.clientRequestId)
+    .maybeSingle();
+  if (existing) {
+    revalidatePath("/admin/orders/[orderId]", "page");
+    return { data: { id: existing.id } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("order_items")
+      .insert({
+        order_id: orderId,
+        name_snapshot: parsed.value.name,
+        code_snapshot: parsed.value.code,
+        quantity: parsed.value.quantity,
+        note: parsed.value.note,
+        color_code: parsed.value.colorCode,
+        custom_size: parsed.value.customSize,
+        unit_price: parsed.value.unitPrice,
+        line_discount: parsed.value.lineDiscount,
+        client_request_id: input.clientRequestId,
+      })
+      .select("id")
+      .single()
+  );
+  if (!written.ok) {
+    if (written.reason === "db") {
+      if (isMissingTable(written.code)) return { error: { message: m.admin.orderItemsFeatureOff } };
+      return { error: { message: PESAN.serverSibuk } };
+    }
+    const { data: recheck } = await supabase
+      .from("order_items")
+      .select("id")
+      .eq("client_request_id", input.clientRequestId)
+      .maybeSingle();
+    if (recheck) {
+      revalidatePath("/admin/orders/[orderId]", "page");
+      return { data: { id: recheck.id } };
+    }
+    return { error: { message: PESAN.belumPastiBaru } };
+  }
+
+  revalidatePath("/admin/orders/[orderId]", "page");
+  return { data: { id: written.data.id } };
+}
+
+export async function updateOrderItem(
+  itemId: string,
+  input: OrderItemInput
+): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+  const parsed = parseItemFields(m, input);
+  if (!parsed.ok) return { error: parsed.error };
+
+  const written = await safeWrite(
+    supabase
+      .from("order_items")
+      .update({
+        name_snapshot: parsed.value.name,
+        code_snapshot: parsed.value.code,
+        quantity: parsed.value.quantity,
+        note: parsed.value.note,
+        color_code: parsed.value.colorCode,
+        custom_size: parsed.value.customSize,
+        unit_price: parsed.value.unitPrice,
+        line_discount: parsed.value.lineDiscount,
+      })
+      .eq("id", itemId)
+      .select("id")
+      .single()
+  );
+  if (!written.ok) {
+    if (written.reason === "db") {
+      if (isMissingTable(written.code)) return { error: { message: m.admin.orderItemsFeatureOff } };
+      return { error: { message: m.admin.orderItemSaveFailed } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+
+  revalidatePath("/admin/orders/[orderId]", "page");
+  return { data: true };
+}
+
+export async function deleteOrderItem(itemId: string): Promise<ActionResult<true>> {
+  const m = await getMessages();
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("order_items").delete().eq("id", itemId).select("id").maybeSingle();
+  if (error) {
+    if (isMissingTable(error.code)) return { error: { message: m.admin.orderItemsFeatureOff } };
+    return { error: { message: m.admin.orderItemDeleteFailed } };
+  }
+  if (!data) return { error: { message: m.admin.orderItemDeleteFailed } };
 
   revalidatePath("/admin/orders/[orderId]", "page");
   return { data: true };

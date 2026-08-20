@@ -288,7 +288,11 @@ async function insertOrderWithFallbacks(
     // supaya kombinasi "package_id ada, fulfillment belum ada" (atau sebaliknya)
     // sama-sama tertangani, bukan cuma satu arah.
     res = await insertOrderWithPackageFallback(supabase, base, packageId);
-    droppedFulfillment = res.ok && fulfillmentCols.fulfillment_path != null;
+    // "sesuatu di grup ini dijawab pengguna" — bukan cuma fulfillment_path lagi
+    // sejak shipping_address (0014) ikut dilebur ke grup yang sama (lihat
+    // komentar di titik panggil createCustomerAndOrder).
+    droppedFulfillment =
+      res.ok && (fulfillmentCols.fulfillment_path != null || fulfillmentCols.shipping_address != null);
   }
   return { res, droppedFulfillment };
 }
@@ -309,7 +313,30 @@ async function updateOrderWithFallbacks(
   return res;
 }
 
-type CustomerLite = { id: string; full_name: string; phone: string };
+/**
+ * shipping_address (migration 0014) — teks bebas nullable, tidak wajib.
+ * Naik lewat kolom yang SAMA dengan fulfillmentCols (§ di atas): kalau
+ * kolomnya belum ada di sesi ini (LESSONS #12, 0014 belum dijalankan),
+ * fallback yang SAMA yang sudah menangani fulfillment_path/
+ * partner_purchase_amount ikut menangani kolom ini — tidak ada plumbing
+ * kedua yang perlu ditulis ulang.
+ */
+function normalizeShippingAddress(raw: string | undefined): string | null {
+  const trimmed = (raw ?? "").trim();
+  return trimmed || null;
+}
+
+type CustomerLite = {
+  id: string;
+  full_name: string;
+  phone: string;
+  // address/city/province (0014): dipakai HANYA untuk prefill shipping_address
+  // di form — bukan sumber kebenaran alamat kirim itu sendiri (kolom itu
+  // selalu independen dan selalu bisa diubah, lihat migration 0014 §4).
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+};
 
 /* ------------------------------------------------------------------ *
  * Pencarian pelanggan berdasarkan telepon (SPEC §10, §82–84)
@@ -337,7 +364,9 @@ export async function searchCustomerByPhone(rawPhone: string): Promise<CustomerS
   const outcome = await safeWrite<CustomerLite[]>(
     supabase
       .from("customers")
-      .select("id, full_name, phone")
+      // address/city/province (0014) dibaca di sini murni untuk prefill
+      // shipping_address di form pesanan baru — lihat catatan di CustomerLite.
+      .select("id, full_name, phone, address, city, province")
       .eq("phone_normalized", normalized)
       .limit(1),
     LOOKUP_TIMEOUT_MS
@@ -507,6 +536,15 @@ export type OrderSummary = {
   createdAt: string;
   customerName: string;
   customerPhone: string;
+  /**
+   * 0014 — terisi kalau salinan isi Package ke order_items sempat gagal
+   * SEBAGIAN. Best-effort: kegagalan ini TIDAK PERNAH membatalkan/rollback
+   * pesanan itu sendiri (pola sama dengan unggah invoice — lampiran yang
+   * gagal turun jadi peringatan, bukan menggagalkan pesanannya, LESSONS
+   * #10/#12), tapi juga TIDAK PERNAH disembunyikan — dilaporkan di sini
+   * supaya UI bisa menampilkan peringatan alih-alih sukses penuh yang palsu.
+   */
+  itemsCopyWarning?: string;
 };
 
 export type OrderCreated = OrderSummary & { customerId: string };
@@ -600,6 +638,78 @@ async function verifyActiveStaffInBranch(
   return !!staff && staff.status === "ACTIVE" && staff.partner_id === partnerId ? "ok" : "invalid";
 }
 
+/**
+ * Menyalin isi Package (partner_package_items) ke order_items SAAT pesanan
+ * dibuat — inti permintaan owner "每個訂單下的產品或是paket都要可以備註":
+ * tanpa baris order_items, tidak ada apa pun untuk diberi catatan per
+ * produk. Snapshot nama/kode diambil ULANG dari sanci_products saat itu
+ * (bukan dipercaya dari client — LESSONS #6), lalu DIBEKUKAN di baris ini
+ * (trg_order_item_immutable_cols, migrasi 0014, mengunci name_snapshot/
+ * code_snapshot dari cabang selanjutnya).
+ *
+ * client_request_id per baris DETERMINISTIK (`{orderClientRequestId}:item:
+ * {product_id}`) — retry (respons hilang, submitSafely mengulang) tidak
+ * pernah menggandakan baris (LESSONS #3/#21): dicek dulu apakah baris untuk
+ * kombinasi order+produk itu sudah ada sebelum INSERT.
+ *
+ * BEST-EFFORT MURNI: kegagalan di sini TIDAK PERNAH melempar/membatalkan
+ * pesanan yang sudah tersimpan (pola sama dengan lampiran invoice) — hanya
+ * dilaporkan lewat return value, dan pemanggil WAJIB meneruskannya sebagai
+ * peringatan (LESSONS #10: jangan diam-diam menelan kegagalan sebagian).
+ */
+async function copyPackageItemsToOrder(
+  supabase: SupabaseServerClient,
+  orderId: string,
+  packageId: string,
+  orderClientRequestId: string
+): Promise<{ ok: true } | { ok: false }> {
+  const { data: items, error } = await supabase
+    .from("partner_package_items")
+    .select("product_id, quantity, sanci_products:product_id(name, code)")
+    .eq("package_id", packageId);
+  if (error || !items) return { ok: false };
+  if (items.length === 0) return { ok: true };
+
+  let anyFailed = false;
+  for (const raw of items) {
+    type Item = { product_id: string; quantity: number; sanci_products: { name: string; code: string | null } | { name: string; code: string | null }[] | null };
+    const it = raw as unknown as Item;
+    const product = Array.isArray(it.sanci_products) ? it.sanci_products[0] : it.sanci_products;
+    if (!product) {
+      anyFailed = true;
+      continue;
+    }
+    const reqId = `${orderClientRequestId}:item:${it.product_id}`;
+    const { data: existing, error: existingErr } = await supabase
+      .from("order_items")
+      .select("id")
+      .eq("client_request_id", reqId)
+      .maybeSingle();
+    if (existingErr) {
+      anyFailed = true;
+      continue;
+    }
+    if (existing) continue;
+
+    const written = await safeWrite(
+      supabase
+        .from("order_items")
+        .insert({
+          order_id: orderId,
+          product_id: it.product_id,
+          name_snapshot: product.name,
+          code_snapshot: product.code,
+          quantity: it.quantity,
+          client_request_id: reqId,
+        })
+        .select("id")
+        .single()
+    );
+    if (!written.ok) anyFailed = true;
+  }
+  return anyFailed ? { ok: false } : { ok: true };
+}
+
 export async function createCustomerAndOrder(input: {
   customerId?: string;
   fullName?: string;
@@ -620,6 +730,7 @@ export async function createCustomerAndOrder(input: {
    */
   fulfillmentAvailable?: boolean;
   purchaseAmountRaw?: string;
+  shippingAddress?: string;
   clientRequestId: string;
 }): Promise<CreateOrderResult> {
   const m = await getMessages();
@@ -696,9 +807,19 @@ export async function createCustomerAndOrder(input: {
   // ada di sesi client ini), kolomnya sama sekali tidak disertakan — bukan
   // ditulis null (LESSONS #12, menyamakan create dengan pola `undefined`
   // milik update).
-  const fulfillmentCols: Record<string, unknown> = fulfillmentRendered
-    ? { fulfillment_path: path.value, partner_purchase_amount: amount.value }
-    : {};
+  // shipping_address (0014) dilebur ke tier fallback yang SAMA dengan
+  // fulfillment_path/partner_purchase_amount (bukan tier terpisah): kalau
+  // salah satu kolom di grup ini belum ada di server (kode naik lebih dulu
+  // dari migrasi — LESSONS #12), grup ini gagal BERSAMA dan seluruhnya
+  // dicoba ulang tanpa grup — tapi tetap dilaporkan sebagai partial lewat
+  // `droppedFulfillment` di bawah, TIDAK PERNAH diam-diam dibuang tanpa
+  // pemberitahuan. Ini penyederhanaan sadar: memisahkan tiap kolom jadi
+  // tier fallback sendiri-sendiri lebih presisi tapi jauh lebih rumit untuk
+  // risiko yang sempit (0014 biasanya dijalankan bersamaan dengan kode ini).
+  const fulfillmentCols: Record<string, unknown> = {
+    ...(fulfillmentRendered ? { fulfillment_path: path.value, partner_purchase_amount: amount.value } : {}),
+    shipping_address: normalizeShippingAddress(input.shippingAddress),
+  };
 
   let orderId: string;
   let droppedFulfillment = false;
@@ -750,6 +871,16 @@ export async function createCustomerAndOrder(input: {
     }
   }
 
+  // Salinan isi Package → order_items (0014). Best-effort, TIDAK PERNAH
+  // menggagalkan pesanan yang sudah tersimpan (lihat komentar
+  // copyPackageItemsToOrder di atas) — hanya lewat pkg.packageId yang berarti
+  // "Package sungguhan terpilih" (bukan mode manual/undefined).
+  let itemsCopyWarning: string | undefined;
+  if (pkg.packageId) {
+    const copyResult = await copyPackageItemsToOrder(supabase, orderId, pkg.packageId, input.clientRequestId);
+    if (!copyResult.ok) itemsCopyWarning = m.cabang.orderItemsCopyWarningPartial;
+  }
+
   // SPEC §68: jangan hanya percaya respons insert — pastikan lewat SELECT terpisah.
   const summary = await fetchOrderSummary(supabase, orderId);
   revalidatePath("/cabang/pesanan");
@@ -780,7 +911,7 @@ export async function createCustomerAndOrder(input: {
     };
   }
 
-  return { data: { ...summary, customerId: customer.id } };
+  return { data: { ...summary, customerId: customer.id, itemsCopyWarning } };
 }
 
 /* ------------------------------------------------------------------ *
@@ -852,6 +983,7 @@ export async function updateOrder(input: {
   notes?: string;
   fulfillmentPath?: string;
   purchaseAmountRaw?: string;
+  shippingAddress?: string;
 }): Promise<UpdateOrderResult> {
   const m = await getMessages();
   const PESAN = pesan(m);
@@ -891,6 +1023,12 @@ export async function updateOrder(input: {
     const amount = validatePurchaseAmount(m, input.purchaseAmountRaw);
     if (!amount.ok) return { error: amount.error };
     fulfillmentCols.partner_purchase_amount = amount.value;
+  }
+  // shipping_address (0014) selalu dirender di modal Ubah (bukan field
+  // bersyarat seperti fulfillment/purchase amount), jadi biasanya selalu
+  // terkirim — sentinel `undefined` tetap diperiksa untuk konsistensi pola.
+  if (input.shippingAddress !== undefined) {
+    fulfillmentCols.shipping_address = normalizeShippingAddress(input.shippingAddress);
   }
 
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: m.cabang.errSalesRequired } };
@@ -1047,6 +1185,81 @@ export async function setOrderInvoicePath(input: {
   }
 
   revalidatePath(`/cabang/pesanan/${input.orderId}`);
+  return { data: { updated: true } };
+}
+
+/* ------------------------------------------------------------------ *
+ * Isi Pesanan (order_items, migrasi 0014) — sisi cabang. Cabang boleh
+ * mengubah note/quantity/color_code/custom_size dan menghapus baris pada
+ * pesanan yang masih REGISTERED dan boleh ia edit (fn_can_edit_branch) —
+ * ditegakkan RLS (oi_partner_update/oi_partner_delete), bukan diasumsikan
+ * di sini. Kolom harga (unit_price/line_discount) SENGAJA TIDAK ada di form
+ * cabang sama sekali — trg_order_item_price_guard akan menolaknya kalau
+ * partner tidak punya can_edit_offer, jadi UI cabang tidak menawarkannya.
+ * ------------------------------------------------------------------ */
+
+const MAX_ITEM_QTY = 999_999;
+
+export type UpdateOrderItemResult = { data: { updated: true } } | { error: ActionError };
+
+export async function updateOrderItemFields(input: {
+  itemId: string;
+  quantity: string;
+  note?: string;
+  colorCode?: string;
+  customSize?: string;
+}): Promise<UpdateOrderItemResult> {
+  const m = await getMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  const qty = Number(input.quantity);
+  if (!Number.isInteger(qty) || qty <= 0 || qty > MAX_ITEM_QTY) {
+    return { error: { field: "quantity", message: m.cabang.orderItemQtyInvalid } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("order_items")
+      .update({
+        quantity: qty,
+        note: input.note?.trim() || null,
+        color_code: input.colorCode?.trim() || null,
+        custom_size: input.customSize?.trim() || null,
+      })
+      .eq("id", input.itemId)
+      .select("id")
+      .maybeSingle()
+  );
+
+  if (!written.ok) {
+    if (written.reason === "db") {
+      if (isMissingTableError({ code: written.code })) return { error: { message: m.cabang.orderItemsFeatureOff } };
+      return { error: { message: m.cabang.orderItemSaveFailed } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+  if (!written.data) {
+    // 0 baris: bukan error DB, tapi RLS menolak diam-diam (bukan hak cabang
+    // ini / pesanan sudah CANCELLED) — LESSONS #2/#7, jangan pura-pura sukses.
+    return { error: { message: m.cabang.orderItemSaveFailed } };
+  }
+
+  revalidatePath(`/cabang/pesanan/${input.itemId}`);
+  return { data: { updated: true } };
+}
+
+export async function deleteOrderItemCabang(itemId: string, orderId: string): Promise<UpdateOrderItemResult> {
+  const m = await getMessages();
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("order_items").delete().eq("id", itemId).select("id").maybeSingle();
+  if (error) {
+    if (isMissingTableError(error)) return { error: { message: m.cabang.orderItemsFeatureOff } };
+    return { error: { message: m.cabang.orderItemDeleteFailed } };
+  }
+  if (!data) return { error: { message: m.cabang.orderItemDeleteFailed } };
+
+  revalidatePath(`/cabang/pesanan/${orderId}`);
   return { data: { updated: true } };
 }
 

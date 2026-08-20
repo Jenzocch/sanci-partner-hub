@@ -257,6 +257,49 @@ owner 對可見度的原話是「Admin 填，先只有 SANCI 看得到」。「*
 - **方案金額不隨訂單快照凍結**。跟 0012 的套裝內容一樣：它是「目前生效的值」，改了就是改了，`audit_logs` 留完整前後值。要凍結需要另一張表。
 - **訂單詳細頁的 Activity 分頁看不到 `ORDER_OFFER_*`**。那個查詢過濾 `entity_type='partner_orders'`，而這些列是 `order_sanci_offers`——跟 0009 的內部備註完全一樣的情形，不是壞掉。要看在**合作商 Activity** 和**分店 Activity** 兩個分頁（0013 刻意把 `partner_id` 和 `branch_id` 都填好就是為了這個）。
 
+### Phase 2 第八切片（分店權限開放 + 訂單明細/備註 + 收貨地址，2026-08-20）
+
+這一刀本來的委派範圍比實際做出來的大——執行中發現委派描述要求的「折扣鏈自動
+計算引擎」（輸入多組百分比、markup%、現金折讓，資料庫算出 `final_amount`）跟
+**同一個 commit（0013，`dc223a2`）**裡剛寫進 `GLOSSARY.md` 和上面 0013 段落的
+「系統不算任何東西」明文規則直接衝突。這不是可以自行決定要不要照做的措辞差異
+——是同一天、同一次交付裡兩份文件互相矛盾。既然只有 Jenzo 能拍板要不要推翻自己
+剛定下的規則，這一刀**沒有**建折扣計算的部分，只做了跟現有規則相容的子集，並
+把衝突原原本本記在 `0014_permissions_items_shipping.sql` 檔頭與
+`supabase/migrations/README.md`（0014 段落）裡，供 Jenzo 親自決定。
+
+實際做出來的三件事：① 兩個獨立的**分店可見度開關**（不是原委派要求的三個——
+第三個 `can_discount` 因為沒有折扣機制可管而不存在），讓個別合作商的分店可以
+在自己權限被打開後看到／填寫自己訂單的 Penawaran SANCI（含新增的訂金/付款
+條件，兩者都是人手動打的數字/文字，不是算出來的）；② `order_items`：訂單裡
+每一項產品自己的一行，建立訂單時從 Package 內容自動複製一份快照（名稱/代碼
+凍結，不隨katalog之後改名而變），分店可以在自己訂單上改備註/顏色/尺寸/數量、
+刪除某一行，直接回應 Jenzo「每個訂單下的產品或是paket都要可以備註」的要求；
+③ `partner_orders.shipping_address`：每筆訂單自己的收貨地址（跟客戶主檔地址
+分開,可以不一樣,建單時自動帶入客戶地址方便修改）。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-36 | Penawaran SANCI 分店可見度開關（admin） | `UNVERIFIED` | Partner 詳情頁「Hak Akses」分頁新增獨立卡片：`can_view_offer`／`can_edit_offer` 兩個 checkbox，DEFAULT `false`（fail-closed，未設定的 partner 維持 0013 原本的「只有 SANCI 看得到」）。勾選「可以填寫」會自動連帶勾選「可以查看」（UI 端；資料庫本身兩者獨立） |
+| P2-37 | `order_sanci_offers` RLS 開放給分店（DB 層） | `UNVERIFIED` | 新增三條分店 policy（SELECT/INSERT/UPDATE），全部同時檢查：訂單屬於自己看得到／改得到的分店（`fn_can_view_branch`/`fn_can_edit_branch`，不回查自己這張表——LESSONS #25）**且** partner 的對應 flag 為 true（`partner_access_policies` INNER JOIN，無列＝關閉，fail-closed）。DELETE 對分店維持零 policy——刪除方案金額仍是 SANCI 專屬。`dp_amount`/`payment_condition` 兩個新欄位是純資料，DB 不做任何計算；`check(dp_amount <= amount)` 是驗證不是換算，餘額顯示（`amount - dp_amount`）純前端算，不落地存欄位 |
+| P2-38 | `order_items` 資料表 + RLS（DB 層） | `UNVERIFIED` | name/code 快照凍結（`trg_order_item_immutable_cols`，非管理員不能改）；`unit_price`/`line_discount` 由第二支 trigger（`trg_order_item_price_guard`）另外把關——只有管理員或 partner 開了 `can_edit_offer` 才能填/改這兩欄，跟備註/顏色/尺寸/數量完全分開判斷；分店 INSERT/UPDATE/DELETE 都要求訂單狀態仍是 `REGISTERED`（已取消訂單的明細凍結，比照 0005 訂單本身的凍結精神）。分店寫入 policy 刻意是**正數**（`ORDER_ITEM_PARTNER_WRITE_POLICIES 3`）——跟 0012 的 `partner_package_items`（分店寫入永遠是 0）方向相反，因為這裡改的是**訂單自己的明細**，不是 SANCI 策劃的 Package 目錄 |
+| P2-39 | 訂單建立時自動複製 Package 內容 | `UNVERIFIED` | `createCustomerAndOrder`（cabang 端 Server Action）成功建單且有選 Package 時，把 `partner_package_items` 逐行複製成 `order_items`（名稱/代碼從 `sanci_products` 現查現寫入，不信任 client 快照）。**Best-effort**：複製失敗不影響、不回滾已建立的訂單（跟 invoice 附件同一套邏輯），但失敗會回報成 UI 警告橫幅，不會靜默吞掉（LESSONS #10）。每行用確定性 `client_request_id`（`{訂單請求碼}:item:{product_id}`）防止重試造成重複 |
+| P2-40 | Isi Pesanan 畫面（cabang + admin 訂單詳情頁） | `UNVERIFIED` | cabang 端：列表顯示名稱/代碼/數量/備註/顏色/尺寸，點「Ubah」開小視窗改備註/顏色/尺寸/數量或刪除——**沒有價格欄位**，UI 上完全不提供（DB trigger 也會擋）。admin 端：同樣列表多加「單價」「單行扣減金額」兩欄與新增/編輯/刪除，admin 一律放行（`oi_admin_all`） |
+| P2-41 | `partner_orders.shipping_address` | `UNVERIFIED` | 新建/編輯訂單表單都有這個欄位，新建時**只在欄位還是空的時候**用選定客戶的 address/city/province 自動帶入（LESSONS #1：不覆蓋使用者已經打的字），欄位本身永遠獨立、永遠可改，**沒有**被加進 0005 的凍結欄位清單。cabang 與 admin 訂單詳情頁都顯示 |
+| P2-42 | Google 試算表：新增 J/K/L 欄 | `UNVERIFIED` | `integrations/sheets-orders/`：欄位從 A..K（11 欄）擴充到 **A..N（14 欄）**——J 訂金、K 付款條件、L 收貨地址，原本 M/N 移到 M/N（建立/修改時間），L 欄以後的「使用者自己的備註區」跟著位移到 O 欄以後。**README.md 原本承諾的「只寫 A..K」被打破，已在 README §2 用專門段落誠實說明**，並加上舊格式分頁偵測：分頁標題列跟新格式（14 欄）對不上就直接拒絕同步那個分頁（記執行紀錄，不影響其他分頁），要求使用者手動改名/搬移舊分頁再重跑。0013→0014 中間狀態（只跑了 0013 沒跑 0014）優雅降級：I 欄照常，J/K/L 三欄各自獨立偵測缺欄位並留空，不會拖累其他欄位 |
+| P2-43 | 三語系文案＋Activity 標籤 | `UNVERIFIED` | `common.ts` 新增 `dpAmount`/`paymentCondition`/`shippingAddress`/`orderItems`/`colorCode`/`customSize`/`unitPrice`/`lineDiscount` 與三句 `auditOrderItem*`；`admin.ts`/`cabang.ts` 各自新增權限卡片、Isi Pesanan、Alamat Pengiriman相關文案。`audit-format.ts` 依 LESSONS #28：`name_snapshot`/`code_snapshot` 給標籤（不是 SKIP——對非技術讀者有意義）、`unit_price`/`line_discount`/`dp_amount` 走 `formatIDR`、`ORDER_ITEM_CREATED/UPDATED/DELETED` 三個動作碼。`line_discount` 的中／印尼／英文標籤刻意避開「折扣/Diskon/Discount」這個詞（用「Potongan Baris/Line deduction/单行扣减金额」），原因見 `GLOSSARY.md` 的補充說明——避免讓人誤以為系統開始算折扣了 |
+
+**Migration `0014_permissions_items_shipping.sql` 狀態**：`UNVERIFIED`(production) — **尚待 Jenzo 在 Supabase SQL Editor 執行**。本機 Postgres 16 完整重放 `0001→…→0013→0014` 後：驗證區塊 **38 項全數符合期望**（含負面／型別斷言 `ORDER_ITEM_FK_ORDER_NOT_CASCADE 0`、`ORDER_ITEM_FK_PRODUCT_NOT_CASCADE 0`、`ITEM_PRICE_GUARD_EXEC_PUBLIC 0`、`ITEM_IMMUTABLE_GUARD_EXEC_PUBLIC 0`、`POLICY_NEW_COLS_DEFAULT_FALSE 2`，以及十二個 audit 保留斷言＋`REFS_CHECK_CUSTOMER 1`）；行為測試 **22 項全過**（flag 關閉時分店讀自己訂單的方案金額仍是 0 列、INSERT 也被 RLS 擋；flag 打開後分店讀自己訂單 1 列、讀不到 partner B 的訂單；`dp_amount > amount` 被 CHECK 擋；分店 INSERT...RETURNING 建立 order_items 成功——證明 LESSONS #25 的自我回查陷阱在這裡不存在；own-branch 改備註成功、other-branch 改 0 列不報錯；已取消訂單的明細編輯被擋 0 列；`can_edit_offer` 關閉時價格欄位被 trigger 擋、但備註等欄位仍可正常編輯；`shipping_address` 分店可直接改；分店可刪除自己訂單的明細；`ORDER_ITEM_CREATED`／`ORDER_OFFER_*`／`PACKAGE_ITEM_CREATED`／`PERMISSION_CHANGED` 四類既有審計動作全部照常觸發且 partner/branch 正確解析；anon 對 order_items／order_sanci_offers 皆讀到 0 列）；`pg_dump -s` 冪等連跑 3 次零漂移（濾除 `\restrict`/`\unrestrict` 雜訊，LESSONS #33）。⚠️ **0014 後 0001 檔尾數字變為 RLS_ENABLED 19 / POLICIES 46，TRIGGERS 仍是 27**（已本機實測；`order_items` 以 `order_` 開頭，五個 trigger 不會被 0001 的 `partner%` 計數納入）。0004/0005/0008/0009/0010/0011/0012 各檔尾**一個數字都沒變**；0013 檔尾結構本身不變，**只有 `OFFER_POLICIES`（1→4）與 `OFFER_NONADMIN_POLICIES`（0→3）刻意改變**，兩者都在 README.md 用專門段落強調過。typecheck ✓ eslint ✓ build ✓（`/offline` 仍為 `○` 靜態預渲染）。
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **折扣/markup/現金折讓計算引擎完全沒有建**——原委派要求的核心功能。理由詳見上方切片說明開頭與 `0014_permissions_items_shipping.sql` 檔頭。這不是「以後再做」的待辦，是「需要 Jenzo 親自確認要不要推翻自己剛定的規則」的決策點，回報給 Jenzo 時務必單獨標出來讓他看到。
+- **`can_discount` 權限旗標不存在**——沒有折扣機制可管，第三個旗標因此沒有意義，只做了 `can_view_offer`/`can_edit_offer` 兩個。
+- **每個人的個別權限不存在**（沿用既有規則）：Penawaran SANCI 開放與否是「整個 partner」層級，不是「這個分店帳號」層級——本系統一店一帳號，本來就沒有更細的顆粒度。
+- **現金項目上不支援打百分比**：`unit_price`/`line_discount` 都是絕對金額（Rp），不接受「打 9 折」這種百分比輸入——這也是「不做計算」這條線的直接延伸。
+- **一鍵列印 SO/DO/Invoice 是下一刀**：owner 提供的三份 Excel 範本（Sales Order/Surat Jalan/Invoice 格式）裡的欄位需求，這一刀已經全部覆蓋到資料層（DP、付款條件、收貨地址、明細行的顏色/尺寸/備註/包裝欄位大部分已有對應），但「照著範本排版產生可列印文件」本身完全沒做，是刻意留給下一刀的獨立範圍。
+- **已取消訂單的明細不能編輯**：跟訂單本身凍結的精神一致（0005），不是遺漏。
+- **Google 試算表欄位範圍承諾被打破**：README 原本說「只寫 A..K，L 欄以後永不碰」，這次因為新增三欄而變成「只寫 A..N，O 欄以後永不碰」——舊格式分頁會被自動偵測並拒絕同步（不會盲目覆寫使用者手動加在舊 L 欄的備註），細節見 `integrations/sheets-orders/README.md` 新增的「⚠️ 欄位範圍變更」段落，這件事需要明確轉達給 Jenzo。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

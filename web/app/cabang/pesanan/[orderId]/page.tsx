@@ -12,6 +12,7 @@ import { getMessages } from "@/lib/i18n";
 import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
 import InvoiceSection from "./invoice-section";
+import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,40 @@ async function fetchOrderExtras(
     },
     state: "ok",
   };
+}
+
+/**
+ * shipping_address (migrasi 0014) dibaca TERPISAH — kolomnya bisa saja
+ * belum ada (LESSONS #12).
+ */
+async function fetchShippingAddress(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ status: "ok"; data: string | null } | { status: "missing-column" } | { status: "error" }> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("shipping_address")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  return { status: "ok", data: (data as { shipping_address: string | null } | null)?.shipping_address ?? null };
+}
+
+/**
+ * order_items (migrasi 0014) — tabel BARU, degradasi lewat 42P01 (LESSONS
+ * #12), sama pola dengan InvoiceSection/OrderDetailActions extras.
+ */
+async function fetchOrderItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ items: OrderItemRow[]; unavailable: boolean }> {
+  const { data, error } = await supabase
+    .from("order_items")
+    .select("id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
+  if (error) return { items: [], unavailable: error.code === "42P01" };
+  return { items: (data ?? []) as OrderItemRow[], unavailable: false };
 }
 
 export default async function PesananDetailPage({
@@ -272,6 +307,11 @@ export default async function PesananDetailPage({
     cancelInfoUnavailable = res.unavailable;
   }
 
+  const [shippingResult, itemsResult] = await Promise.all([
+    fetchShippingAddress(supabase, order.id),
+    fetchOrderItems(supabase, order.id),
+  ]);
+
   return (
     <main className="pwrap">
       <div className="backrow">
@@ -357,6 +397,12 @@ export default async function PesananDetailPage({
             </dd>
             <dt>{m.common.notes}</dt>
             <dd>{order.notes || "—"}</dd>
+            {shippingResult.status === "ok" && (
+              <>
+                <dt>{m.common.shippingAddress}</dt>
+                <dd style={{ whiteSpace: "pre-wrap" }}>{shippingResult.data || "—"}</dd>
+              </>
+            )}
             <dt>{m.common.createdAt}</dt>
             <dd>
               {new Date(order.created_at).toLocaleString(m.common.dateLocale, {
@@ -372,6 +418,15 @@ export default async function PesananDetailPage({
 
         {extrasAvailable && (
           <InvoiceSection orderId={order.id} hasInvoice={!!extras.invoiceUrl} invoiceExt={invoiceExt} canManage={canManage} />
+        )}
+
+        {itemsResult.unavailable ? null : (
+          <OrderItemsSection
+            orderId={order.id}
+            items={itemsResult.items}
+            canManage={canManage}
+            copyWarning={false}
+          />
         )}
 
         {order.status === "CANCELLED" && (
@@ -414,6 +469,7 @@ export default async function PesananDetailPage({
             fulfillmentPath={extras.fulfillmentPath}
             purchaseAmount={extras.purchaseAmount}
             extrasAvailable={extrasAvailable}
+            shippingAddress={shippingResult.status === "ok" ? shippingResult.data : null}
           />
         ) : (
           <p className="footnote">

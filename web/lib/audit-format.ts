@@ -53,6 +53,24 @@ function fieldLabel(m: Messages, key: string): string | undefined {
     // (0001→0013) dan yang muncul hanya `partner_purchase_amount` (nama lain)
     // dan `amount` milik tabel ini. Jadi pemetaan ini tidak bisa salah sasaran.
     amount: c.sanciOffer,
+    // 0014 — DP/Kondisi Pembayaran menempel di order_sanci_offers (data yang
+    // diketik manusia, bukan hasil hitungan — lihat catatan "PENYIMPANGAN
+    // SADAR" di kepala migration 0014). shipping_address menempel di
+    // partner_orders. Ketiganya angka/teks TUNGGAL, jadi aman dipetakan
+    // langsung seperti kolom lain di peta ini.
+    dp_amount: c.dpAmount,
+    payment_condition: c.paymentCondition,
+    shipping_address: c.shippingAddress,
+    // 0014 — order_items. name_snapshot/code_snapshot SENGAJA diberi label
+    // (bukan masuk SKIP di bawah): keduanya salinan beku nama/kode produk,
+    // bermakna langsung bagi pembaca non-teknis (beda dari UUID relasi).
+    name_snapshot: c.name,
+    code_snapshot: c.code,
+    note: c.notes,
+    color_code: c.colorCode,
+    custom_size: c.customSize,
+    unit_price: c.unitPrice,
+    line_discount: c.lineDiscount,
   };
   return map[key];
 }
@@ -102,7 +120,14 @@ function asLabel(m: Messages, key: string, v: unknown): string {
   // penjaga `typeof v === "number"` di bawah memang menangkapnya. Kalau suatu
   // hari tabel LAIN memakai nama kolom `amount`, mata uangnya harus tetap
   // Rupiah atau baris ini harus dipersempit — lihat catatan di fieldLabel().
-  if ((key === "partner_purchase_amount" || key === "amount") && typeof v === "number") {
+  if (
+    (key === "partner_purchase_amount" ||
+      key === "amount" ||
+      key === "dp_amount" ||
+      key === "unit_price" ||
+      key === "line_discount") &&
+    typeof v === "number"
+  ) {
     return formatIDR(v);
   }
   const s = String(v);
@@ -173,6 +198,11 @@ const ACTION_KEYS: Record<string, keyof Messages["common"]> = {
   ORDER_OFFER_CREATED: "auditOrderOfferSet",
   ORDER_OFFER_UPDATED: "auditOrderOfferUpdated",
   ORDER_OFFER_DELETED: "auditOrderOfferRemoved",
+  // 0014 — isi pesanan per baris (order_items). Tabel ini tidak punya kolom
+  // status, jadi hanya tiga aksi generik ini yang bisa muncul.
+  ORDER_ITEM_CREATED: "auditOrderItemCreated",
+  ORDER_ITEM_UPDATED: "auditOrderItemUpdated",
+  ORDER_ITEM_DELETED: "auditOrderItemDeleted",
   CUSTOMER_CREATED: "auditCustomerCreated",
   CUSTOMER_UPDATED: "auditCustomerUpdated",
   CUSTOMER_PHONE_CHANGED: "auditCustomerPhoneChanged",

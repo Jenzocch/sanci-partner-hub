@@ -317,6 +317,20 @@ const id = {
   editScopeInvalid: "Cakupan edit tidak valid.",
   permSaveFailed: "Tidak bisa menyimpan hak akses sekarang.",
 
+  // ---- Izin Penawaran SANCI per partner (offer-permissions-form.tsx, migrasi 0014) ----
+  offerPermTitle: "Izin Penawaran SANCI",
+  offerPermDesc:
+    "Mengatur apakah staf cabang {partner} boleh melihat/mengisi Penawaran SANCI pada pesanan CABANG MEREKA SENDIRI. " +
+    "Cabang tetap tidak pernah melihat penawaran partner lain, apa pun pengaturan ini.",
+  offerPermViewLabel: "Boleh melihat Penawaran SANCI",
+  offerPermViewDesc: "Staf cabang bisa melihat nilai penawaran, uang muka (DP), dan kondisi pembayaran pada pesanan cabang mereka sendiri.",
+  offerPermEditLabel: "Boleh mengisi/mengubah Penawaran SANCI",
+  offerPermEditDesc:
+    "Staf cabang bisa mengisi/mengubah nilai penawaran, uang muka, kondisi pembayaran, dan harga per baris pada pesanan cabang mereka sendiri. " +
+    "Menghapus penawaran tetap khusus SANCI Admin.",
+  offerPermSaveBtn: "Simpan izin penawaran",
+  offerPermSaveFailed: "Tidak bisa menyimpan izin penawaran sekarang.",
+
   // ---- Katalog Produk SANCI per partner (catalog-access-form.tsx) ----
   catalogAccessTitle: "Katalog Produk SANCI",
   catalogAccessDesc: "Jika terbuka, semua cabang partner ini bisa melihat katalog produk SANCI.",
@@ -510,6 +524,44 @@ const id = {
     "Hapus nilai penawaran untuk pesanan ini? Nilai terakhirnya tetap tercatat di Activity.",
   orderOfferInvalid: "Nilai penawaran tidak valid. Isi angka Rupiah, contoh: 1.500.000.",
   orderOfferFeatureOffAction: "Fitur penawaran SANCI belum aktif — migrasi belum dijalankan.",
+  orderOfferDpFieldLabel: "Uang Muka (DP, Rp)",
+  orderOfferPaymentConditionFieldLabel: "Kondisi Pembayaran",
+  orderOfferPaymentConditionPlaceholder: "Contoh: Full payment, DP 50%",
+  orderOfferRemainingLabel: "Sisa Bayar",
+  orderOfferDpExceedsAmount: "Uang muka tidak boleh melebihi nilai penawaran.",
+  orderOfferNoPermissionView: "Partner ini belum diizinkan melihat Penawaran SANCI cabangnya — atur di tab Hak Akses.",
+  orderOfferNoPermissionEdit: "Partner ini belum diizinkan mengisi Penawaran SANCI dari cabang.",
+
+  // ---- Isi Pesanan (order-items-section.tsx, migrasi 0014) ----
+  orderItemsCardTitle: "Isi Pesanan",
+  orderItemsEmpty: "Belum ada isi pesanan.",
+  orderItemsFeatureOff: "Fitur isi pesanan belum aktif — migrasi database belum dijalankan.",
+  orderItemsCopyWarningPartial: "Sebagian isi paket gagal disalin otomatis ke pesanan ini — tambahkan baris manual bila perlu.",
+  orderItemColName: "Nama",
+  orderItemColCode: "Kode",
+  orderItemColQty: "Jumlah",
+  orderItemColNote: "Catatan",
+  orderItemColColor: "Warna",
+  orderItemColSize: "Ukuran",
+  orderItemEditBtn: "Ubah",
+  orderItemDeleteBtn: "Hapus",
+  orderItemDeleteConfirm: "Hapus baris \"{name}\" dari pesanan ini? Tindakan ini tidak bisa dibatalkan.",
+  orderItemAddBtn: "Tambah Baris",
+  orderItemModalTitleAdd: "Tambah Baris Pesanan",
+  orderItemModalTitleEdit: "Ubah Baris Pesanan",
+  orderItemNameFieldLabel: "Nama Produk",
+  orderItemNameRequired: "Nama produk wajib diisi.",
+  orderItemQtyFieldLabel: "Jumlah",
+  orderItemNoteFieldLabel: "Catatan",
+  orderItemColorFieldLabel: "Kode Warna",
+  orderItemSizeFieldLabel: "Ukuran Custom",
+  orderItemUnitPriceFieldLabel: "Harga Satuan (Rp)",
+  orderItemLineDiscountFieldLabel: "Potongan Baris (Rp)",
+  orderItemPriceFieldsLockedHint: "Kolom harga hanya bisa diisi kalau partner punya izin \"Boleh mengisi/mengubah Penawaran SANCI\".",
+  orderItemSaveFailed: "Tidak bisa menyimpan baris ini sekarang.",
+  orderItemDeleteFailed: "Tidak bisa menghapus baris ini sekarang.",
+  orderItemQtyInvalid: "Jumlah harus angka bulat lebih dari 0.",
+  orderItemPriceInvalid: "Nilai harga tidak valid.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -796,6 +848,20 @@ const en = {
   editScopeInvalid: "Edit scope is not valid.",
   permSaveFailed: "Cannot save access settings right now.",
 
+  // ---- SANCI offer permissions per partner (offer-permissions-form.tsx, migration 0014) ----
+  offerPermTitle: "SANCI offer permissions",
+  offerPermDesc:
+    "Controls whether {partner}'s branch staff can view/set the SANCI offer on orders from THEIR OWN BRANCH. " +
+    "Branches never see another partner's offer, regardless of this setting.",
+  offerPermViewLabel: "Can view the SANCI offer",
+  offerPermViewDesc: "Branch staff can see the offer amount, down payment (DP), and payment condition on their own branch's orders.",
+  offerPermEditLabel: "Can set/edit the SANCI offer",
+  offerPermEditDesc:
+    "Branch staff can set/edit the offer amount, down payment, payment condition, and per-line prices on their own branch's orders. " +
+    "Deleting an offer stays SANCI-admin only.",
+  offerPermSaveBtn: "Save offer permissions",
+  offerPermSaveFailed: "Cannot save offer permissions right now.",
+
   catalogAccessTitle: "SANCI Product Catalog",
   catalogAccessDesc: "If open, every branch of this partner can see the SANCI product catalog.",
   catalogOpenLabel: "Open",
@@ -974,6 +1040,44 @@ const en = {
     "Remove the offer amount for this order? The last value stays recorded in Activity.",
   orderOfferInvalid: "That offer amount is not valid. Enter a Rupiah number, for example 1,500,000.",
   orderOfferFeatureOffAction: "The SANCI offer feature is not active yet — the migration has not been run.",
+  orderOfferDpFieldLabel: "Down payment (DP, Rp)",
+  orderOfferPaymentConditionFieldLabel: "Payment condition",
+  orderOfferPaymentConditionPlaceholder: "Example: Full payment, DP 50%",
+  orderOfferRemainingLabel: "Remaining balance",
+  orderOfferDpExceedsAmount: "The down payment cannot exceed the offer amount.",
+  orderOfferNoPermissionView: "This partner isn't allowed to view its branches' SANCI offer yet — set it on the Access tab.",
+  orderOfferNoPermissionEdit: "This partner isn't allowed to set the SANCI offer from a branch yet.",
+
+  // ---- Order items (order-items-section.tsx, migration 0014) ----
+  orderItemsCardTitle: "Order items",
+  orderItemsEmpty: "No order items yet.",
+  orderItemsFeatureOff: "The order items feature is not active yet — the database migration has not been run.",
+  orderItemsCopyWarningPartial: "Some package items failed to copy into this order automatically — add lines manually if needed.",
+  orderItemColName: "Name",
+  orderItemColCode: "Code",
+  orderItemColQty: "Qty",
+  orderItemColNote: "Note",
+  orderItemColColor: "Color",
+  orderItemColSize: "Size",
+  orderItemEditBtn: "Edit",
+  orderItemDeleteBtn: "Delete",
+  orderItemDeleteConfirm: "Delete the line \"{name}\" from this order? This cannot be undone.",
+  orderItemAddBtn: "Add line",
+  orderItemModalTitleAdd: "Add order line",
+  orderItemModalTitleEdit: "Edit order line",
+  orderItemNameFieldLabel: "Product name",
+  orderItemNameRequired: "Product name is required.",
+  orderItemQtyFieldLabel: "Quantity",
+  orderItemNoteFieldLabel: "Note",
+  orderItemColorFieldLabel: "Color code",
+  orderItemSizeFieldLabel: "Custom size",
+  orderItemUnitPriceFieldLabel: "Unit price (Rp)",
+  orderItemLineDiscountFieldLabel: "Line deduction (Rp)",
+  orderItemPriceFieldsLockedHint: "Price fields can only be filled in if the partner has the \"Can set/edit the SANCI offer\" permission.",
+  orderItemSaveFailed: "Cannot save this line right now.",
+  orderItemDeleteFailed: "Cannot delete this line right now.",
+  orderItemQtyInvalid: "Quantity must be a whole number greater than 0.",
+  orderItemPriceInvalid: "That price value is not valid.",
 } satisfies Shape;
 
 const zh = {
@@ -1221,6 +1325,20 @@ const zh = {
   editScopeInvalid: "修改范围无效。",
   permSaveFailed: "现在无法保存权限设置。",
 
+  // ---- SANCI 方案金额权限（offer-permissions-form.tsx，迁移 0014） ----
+  offerPermTitle: "SANCI 方案金额权限",
+  offerPermDesc:
+    "设置 {partner} 的分店员工是否可以查看／填写自己分店订单的 SANCI 方案金额。" +
+    "不管这里怎么设置，分店永远看不到其他合作商的方案金额。",
+  offerPermViewLabel: "可以查看 SANCI 方案金额",
+  offerPermViewDesc: "分店员工可以查看自己分店订单的方案金额、订金、付款条件。",
+  offerPermEditLabel: "可以填写／修改 SANCI 方案金额",
+  offerPermEditDesc:
+    "分店员工可以填写／修改自己分店订单的方案金额、订金、付款条件，以及每一行的价格。" +
+    "删除方案金额仍然只有 SANCI 管理员能做。",
+  offerPermSaveBtn: "保存方案金额权限",
+  offerPermSaveFailed: "现在无法保存方案金额权限。",
+
   catalogAccessTitle: "SANCI 产品目录",
   catalogAccessDesc: "开启后，该合作商的所有分店都可以查看 SANCI 产品目录。",
   catalogOpenLabel: "开放",
@@ -1392,6 +1510,44 @@ const zh = {
   orderOfferClearConfirm: "确定删除该订单的方案金额？最后一次的数值仍会保留在操作记录里。",
   orderOfferInvalid: "方案金额不正确。请填写印尼盾数字，例如 1.500.000。",
   orderOfferFeatureOffAction: "SANCI 方案金额功能尚未启用 —— 迁移脚本还没有执行。",
+  orderOfferDpFieldLabel: "订金（Rp）",
+  orderOfferPaymentConditionFieldLabel: "付款条件",
+  orderOfferPaymentConditionPlaceholder: "示例：全款、订金 50%",
+  orderOfferRemainingLabel: "尾款",
+  orderOfferDpExceedsAmount: "订金不能超过方案金额。",
+  orderOfferNoPermissionView: "该合作商还没有查看自己分店 SANCI 方案金额的权限 —— 到「权限」分页设置。",
+  orderOfferNoPermissionEdit: "该合作商的分店还没有填写 SANCI 方案金额的权限。",
+
+  // ---- 订单明细（order-items-section.tsx，迁移 0014） ----
+  orderItemsCardTitle: "订单明细",
+  orderItemsEmpty: "该订单暂无明细。",
+  orderItemsFeatureOff: "订单明细功能尚未启用 —— 数据库迁移脚本还没有执行。",
+  orderItemsCopyWarningPartial: "部分套装内容未能自动复制到这笔订单 —— 需要的话请手动新增。",
+  orderItemColName: "名称",
+  orderItemColCode: "代码",
+  orderItemColQty: "数量",
+  orderItemColNote: "备注",
+  orderItemColColor: "颜色",
+  orderItemColSize: "尺寸",
+  orderItemEditBtn: "修改",
+  orderItemDeleteBtn: "删除",
+  orderItemDeleteConfirm: "确定要删除这笔订单里的「{name}」吗？此操作无法撤销。",
+  orderItemAddBtn: "新增一行",
+  orderItemModalTitleAdd: "新增订单明细",
+  orderItemModalTitleEdit: "修改订单明细",
+  orderItemNameFieldLabel: "产品名称",
+  orderItemNameRequired: "产品名称为必填项。",
+  orderItemQtyFieldLabel: "数量",
+  orderItemNoteFieldLabel: "备注",
+  orderItemColorFieldLabel: "颜色代码",
+  orderItemSizeFieldLabel: "定制尺寸",
+  orderItemUnitPriceFieldLabel: "单价（Rp）",
+  orderItemLineDiscountFieldLabel: "单行扣减金额（Rp）",
+  orderItemPriceFieldsLockedHint: "只有合作商拥有「可以填写／修改 SANCI 方案金额」权限时才能填写价格栏位。",
+  orderItemSaveFailed: "现在无法保存这一行。",
+  orderItemDeleteFailed: "现在无法删除这一行。",
+  orderItemQtyInvalid: "数量必须是大于 0 的整数。",
+  orderItemPriceInvalid: "价格数值不正确。",
 } satisfies Shape;
 
 export const admin = { id, en, zh };
