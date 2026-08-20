@@ -382,6 +382,36 @@ sistem…」，輸入系統訂單編號，把該筆訂單的表頭與明細（P1
 - **Q6「Delivery By」找不到對應的系統欄位，完全不填**——盤點過所有訂單相關欄位都對不上這格的語意，寧可留給人工填也不亂猜寫錯資料；如果 Jenzo 確認它該對應到某個系統欄位，可以再補映射。
 - **明細只有 migrasi 0014 之後建立的訂單才有**——舊訂單系統裡本來就沒有逐行商品資料，工具會照樣填表頭，明細留空並在總結視窗說明原因。
 
+### Chip 視覺體系重構（純呈現層，2026-08-20）— `UNVERIFIED`
+
+Owner 原話：「那些標籤有點看不懂，不夠明確」——Package 相關畫面上代碼／庫存／
+啟用狀態三種完全不同性質的小標籤（chip）長得一樣重，使用者分不出是哪一種資訊。
+純呈現層修正，**零查詢/action/資料流變動**：在 `web/app/globals.css` 的 STYLE
+CONTRACT 裡把 chip 分成四個家族，一次定義、全站套用（`.chip.stock` 走
+`lib/catalog-shared.ts` 的 `STOCK_STATUS_CHIP`，`.chip.ACTIVE/.DRAFT/.SUSPENDED/
+.INACTIVE` 是既有全站沿用的字面 class 名稱，所以 CSS 一改、六個目標畫面之外的
+既有頁面（Partner/Cabang/Staf/Akun 狀態）也一併變得一致，不是刻意擴大範圍，是
+共用 class 系統本身就是這樣運作）：
+- **代碼**（產品代碼/套裝代碼/訂單編號）→ `.code`：等寬字型＋描邊（不再是純填色）
+  ＋小標籤圖示（CSS `mask` 內嵌 SVG，base64，非圖示庫）——讀起來像「一個可查詢
+  的 ID」。
+- **庫存狀態** → `.chip.stock.ok/.warn/.bad`：維持填色圓角膠囊，新增前導圓點——
+  顏色不再是唯一線索。
+- **啟用狀態**（Aktif/Draf/Ditangguhkan/Nonaktif）→ 描邊文字徽章＋方形小點，
+  刻意跟庫存狀態反過來（不是填色）——紅色的「Ditangguhkan」不會再跟紅色的
+  「Habis」長得像同一種東西。
+- **數量** → 新增 `.chip.qty`（"×3" 樣式徽章），套用在訂單明細（admin +
+  cabang 兩側的 `order-items-section.tsx`）。
+- `new-order-form.tsx` 確認沒有渲染任何 package chip（純下拉選單）——不動。
+
+**驗證**：`tsc --noEmit`／`eslint`／`npm run build` 全綠（`/offline` 仍 `○`）；
+本環境網路白名單擋 Supabase（沿用既有已知限制），登入頁以外的畫面截圖沒有
+意義，改用實際 `globals.css` 建一個獨立靜態頁在 Playwright 截圖驗證四種
+chip 家族在亮/暗模式、390/1280px 下的呈現（見 commit 說明），非透過真實登入
+流程——**待 Jenzo 在 production 用真帳號在 Admin → Produk 網格、Isi Package
+畫面實際看過**才算 VERIFIED。零新增 UI 文案（設計改用視覺識別而非加字），
+故無新 i18n 字串、無需 forbidden-zh 掃描新增項。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

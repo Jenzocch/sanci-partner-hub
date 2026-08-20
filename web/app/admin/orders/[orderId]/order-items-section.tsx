@@ -66,7 +66,11 @@ export default function OrderItemsSection({
                 <tr key={it.id}>
                   <td style={{ fontWeight: 650 }}>{it.name_snapshot}</td>
                   <td>{it.code_snapshot ? <span className="code">{it.code_snapshot}</span> : "—"}</td>
-                  <td>{it.quantity}</td>
+                  <td>
+                    <span className="chip qty" aria-label={`${m.admin.orderItemColQty} ${it.quantity}`}>
+                      ×{it.quantity}
+                    </span>
+                  </td>
                   <td>{it.color_code || "—"}</td>
                   <td>{it.custom_size || "—"}</td>
                   <td>{it.unit_price != null ? formatIDR(it.unit_price) : "—"}</td>

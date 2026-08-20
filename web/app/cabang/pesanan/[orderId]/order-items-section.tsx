@@ -53,9 +53,15 @@ export default function OrderItemsSection({
               <div className="spread">
                 <span>
                   <strong>{it.name_snapshot}</strong>
-                  {it.code_snapshot && <span className="small muted"> · {it.code_snapshot}</span>}
-                  {" · "}
-                  {m.cabang.orderItemColQty}: {it.quantity}
+                  {it.code_snapshot && (
+                    <>
+                      {" "}
+                      <span className="code">{it.code_snapshot}</span>
+                    </>
+                  )}{" "}
+                  <span className="chip qty" aria-label={`${m.cabang.orderItemColQty} ${it.quantity}`}>
+                    ×{it.quantity}
+                  </span>
                 </span>
                 {canManage && (
                   <button type="button" className="btn sm" onClick={() => setEditing(it)}>

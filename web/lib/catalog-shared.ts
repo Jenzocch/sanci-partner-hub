@@ -20,11 +20,17 @@ export function stockStatusLabel(m: Messages, s: StockStatus): string {
   return m.common.stockOutOfStock;
 }
 
-/** Kelas chip semantik per status stok (STYLE CONTRACT: .chip.ok/.warn/.bad). */
+/**
+ * Kelas chip semantik per status stok (STYLE CONTRACT §2b — chip taxonomy).
+ * `.chip.stock` menambahkan titik/dot di depan supaya warna TIDAK PERNAH
+ * jadi satu-satunya penanda (aksesibilitas) dan supaya chip stok tidak
+ * pernah terlihat sama seperti chip status entitas (ACTIVE/INACTIVE dst)
+ * yang kebetulan memakai warna yang sama — dua family class yang berbeda.
+ */
 export const STOCK_STATUS_CHIP: Record<StockStatus, string> = {
-  AVAILABLE: "chip ok",
-  LIMITED: "chip warn",
-  OUT_OF_STOCK: "chip bad",
+  AVAILABLE: "chip stock ok",
+  LIMITED: "chip stock warn",
+  OUT_OF_STOCK: "chip stock bad",
 };
 
 export type ProductStatus = "ACTIVE" | "INACTIVE";

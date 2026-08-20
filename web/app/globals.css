@@ -124,6 +124,42 @@
      .sr-only         label text for screen readers only
 
    ---------------------------------------------------------------------------
+   2b. CHIP TAXONOMY  (owner brief 2026-08-20 — "labels are unclear, use
+       colour/outline/icons, think from the user's logic")
+   ---------------------------------------------------------------------------
+   Small labels used to collapse into ONE visual weight — a product CODE, a
+   STOCK level and an entity STATUS all rendered as the same size/shape pill,
+   so users could not tell what KIND of information they were looking at.
+   Fixed ONCE here as shared classes, not per-page:
+     .code                reference data / an ID (product code, package
+                          code, order number). Monospace, OUTLINED (border,
+                          not a saturated fill) + a small tag glyph — reads
+                          as "look this up", never as a state.
+     .chip.stock.ok/.warn/.bad   STOCK level (Tersedia/Terbatas/Habis) —
+                          filled pill + a leading DOT. Colour is never the
+                          only cue (accessibility): dot + fill + the word
+                          itself all carry it. Built by STOCK_STATUS_CHIP in
+                          lib/catalog-shared.ts — don't hand-write this class
+                          string, import the constant.
+     .chip.ACTIVE/.DRAFT/.SUSPENDED/.INACTIVE   entity STATUS (partner /
+                          branch / package / product / account) — an
+                          OUTLINED text badge + a SQUARE dot. Deliberately
+                          NOT a filled pill, so it can never be mistaken for
+                          a stock chip that happens to land on the same
+                          colour (a red "Ditangguhkan" next to a red
+                          "Habis" must not look like the same kind of red).
+     .chip.qty             "×3" quantity badge — flat fill, no border, no
+                          dot, tabular numerals. Visually distinct from both
+                          of the above; never used for a code or a status.
+   Bare `.chip.ok/.warn/.bad/.neutral/.accent` (no `.stock` class, no literal
+   status word) is UNCHANGED — the original plain pill, still correct for a
+   single lone status with nothing beside it to be confused with (order
+   status via status-badge.tsx, fulfillment path chip).
+   New screens: reuse these four exactly, in this order of preference —
+   don't invent a fifth chip family for something that is really a code, a
+   stock level, a status or a count.
+
+   ---------------------------------------------------------------------------
    3. NEW CLASSES — wave-2 should adopt these
    ---------------------------------------------------------------------------
    Layout
@@ -238,6 +274,12 @@
   --dur:.18s; --ease:cubic-bezier(.32,.72,0,1);
   --tap:44px; --side-w:240px; --main-max:1760px; --form-max:720px; --read-max:560px;
   --gutter:16px;
+
+  /* .code's tag glyph (chip taxonomy, 2026-08-20). One inline SVG (Heroicons
+     "tag", MIT), base64 so no character-escaping footguns in a data: URI;
+     drawn with background-color:currentColor through a mask, so it always
+     matches the chip's own text colour in both themes with zero extra rule. */
+  --icon-tag:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2U9ImJsYWNrIj48cGF0aCBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGQ9Ik05LjU2OCAzSDUuMjVBMi4yNSAyLjI1IDAgMCAwIDMgNS4yNXY0LjMxOGMwIC41OTcuMjM3IDEuMTcuNjU5IDEuNTkxbDkuNTgxIDkuNTgxYy42OTkuNjk5IDEuNzguODcyIDIuNjA3LjMzYTE4LjA5NSAxOC4wOTUgMCAwIDAgNS4yMjMtNS4yMjNjLjU0Mi0uODI3LjM2OS0xLjkwOC0uMzMtMi42MDdMMTEuMTYgMy42NkEyLjI1IDIuMjUgMCAwIDAgOS41NjggM1oiLz48cGF0aCBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGQ9Ik02IDZoLjAwOHYuMDA4SDZWNloiLz48L3N2Zz4=");
 }
 
 @media (min-width:768px){
@@ -760,22 +802,76 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 .biglink.cta:hover{background:var(--accent-2);border-color:var(--accent-2)}
 .biglink.cta .arrow{color:var(--on-accent);opacity:.8}
 
-/* ── 12. Chips, codes, badges ──────────────────────────────────────────── */
+/* ── 12. Chips, codes, badges ─────────────────────────────────────────────
+   Chip taxonomy — see §2b above for the full rationale. Four families, each
+   with its own shape, so a code/a stock level/a status/a count never look
+   like the same kind of thing next to each other. */
 .chip{
   display:inline-block;padding:4px 12px;border-radius:var(--r-pill);
   font-size:var(--fs-caption);font-weight:650;letter-spacing:.01em;
   background:var(--off-bg);color:var(--off);white-space:nowrap;
 }
-.chip.ACTIVE,.chip.ok{background:var(--ok-bg);color:var(--ok)}
-.chip.DRAFT,.chip.warn{background:var(--warn-bg);color:var(--warn)}
-.chip.SUSPENDED,.chip.bad{background:var(--bad-bg);color:var(--bad)}
-.chip.INACTIVE,.chip.neutral{background:var(--off-bg);color:var(--off)}
+/* Bare semantic pill — order status (status-badge.tsx) and the fulfillment
+   chip. Unchanged shape: a single status with nothing beside it to clash
+   with doesn't need the extra disambiguation the families below carry. */
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.bad{background:var(--bad-bg);color:var(--bad)}
+.chip.neutral{background:var(--off-bg);color:var(--off)}
 .chip.accent{background:var(--accent-soft);color:var(--accent-2)}
+
+/* STOCK — traffic-light semantics. Filled pill (inherits .ok/.warn/.bad
+   above) PLUS a leading dot, so colour is never the only cue carrying the
+   meaning (accessibility). Class string comes from STOCK_STATUS_CHIP in
+   lib/catalog-shared.ts — "chip stock ok/warn/bad". */
+.chip.stock{display:inline-flex;align-items:center;gap:6px}
+.chip.stock::before{
+  content:"";width:7px;height:7px;border-radius:50%;
+  background:currentColor;flex:none;
+}
+
+/* ENTITY STATUS — Aktif/Draf/Ditangguhkan/Nonaktif on partner/branch/
+   package/product/account. Deliberately the OPPOSITE shape from stock: an
+   outlined text badge (no fill) with a SQUARE dot, so e.g. a suspended
+   partner (red) can never read as an out-of-stock product (also red) — the
+   two are different kinds of "problem" and now look different, not just a
+   different word. */
+.chip.ACTIVE,.chip.DRAFT,.chip.SUSPENDED,.chip.INACTIVE{
+  display:inline-flex;align-items:center;gap:6px;
+  background:none;border:1px solid currentColor;
+}
+.chip.ACTIVE{color:var(--ok)}
+.chip.DRAFT{color:var(--warn)}
+.chip.SUSPENDED{color:var(--bad)}
+.chip.INACTIVE{color:var(--off)}
+.chip.ACTIVE::before,.chip.DRAFT::before,.chip.SUSPENDED::before,.chip.INACTIVE::before{
+  content:"";width:6px;height:6px;border-radius:2px;
+  background:currentColor;flex:none;
+}
+
+/* QUANTITY — "×3" badge: flat neutral fill, no border, no dot, tabular
+   numerals so digits don't jitter in a list. Never a code, never a status. */
+.chip.qty{
+  background:var(--surface3);color:var(--ink2);
+  font-variant-numeric:tabular-nums;
+}
+
+/* CODE — reference data, not a status: monospace, OUTLINED (a border, not a
+   saturated fill like the chips above) plus a small tag glyph so it reads
+   as "an ID to look up" at a glance, before anyone parses the characters. */
 .code{
-  display:inline-block;padding:3px 9px;border-radius:var(--r-sm);
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px 3px 7px;border-radius:var(--r-sm);
   background:var(--brass-bg);color:var(--brass-ink);
+  border:1px solid var(--line2);
   font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:650;
   letter-spacing:.01em;
+}
+.code::before{
+  content:"";width:10px;height:10px;flex:none;
+  -webkit-mask:var(--icon-tag) center/contain no-repeat;
+  mask:var(--icon-tag) center/contain no-repeat;
+  background-color:currentColor;opacity:.7;
 }
 
 /* ── 13. Feedback: banners, errors, empty, loading ─────────────────────── */
