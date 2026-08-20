@@ -15,7 +15,9 @@ import MarkArrivedButton from "./mark-arrived-button";
 import InternalNoteForm from "./internal-note-form";
 import OrderOfferForm from "./order-offer-form";
 import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
+import DocumentsSection, { type OrderDocumentListRow } from "./documents-section";
 import { getInvoiceSignedUrl } from "../../actions-orders";
+import type { DocType } from "@/lib/documents-shared";
 import { getMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -273,6 +275,46 @@ async function fetchOrderItems(
 }
 
 /**
+ * order_documents + order_document_items (migrasi 0016) — SO/DO/Invoice per
+ * pesanan. Tabel BARU, jadi degradasinya 42P01 (tabel hilang), pola sama
+ * dengan fetchInternalNotes/fetchOrderOffer/fetchOrderItems di atas. Embed
+ * `order_document_items(order_item_id, quantity)` aman lewat FK SUNGGUHAN
+ * (document_id → order_documents.id, LESSONS #24) — kalau tabelnya belum
+ * ada, SELURUH query ini gagal dengan 42P01, ditangkap di sini, TIDAK
+ * menggagalkan sisa halaman (LESSONS #12).
+ */
+async function fetchOrderDocuments(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ documents: OrderDocumentListRow[]; unavailable: boolean }> {
+  const { data, error } = await supabase
+    .from("order_documents")
+    .select("id, doc_type, doc_number, doc_date, notes, order_document_items(order_item_id, quantity)")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
+  if (error) return { documents: [], unavailable: isMissingTableError(error) };
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    doc_type: DocType;
+    doc_number: string;
+    doc_date: string;
+    notes: string | null;
+    order_document_items: { order_item_id: string; quantity: number }[] | null;
+  }[];
+  return {
+    documents: rows.map((r) => ({
+      id: r.id,
+      doc_type: r.doc_type,
+      doc_number: r.doc_number,
+      doc_date: r.doc_date,
+      notes: r.notes,
+      items: Object.fromEntries((r.order_document_items ?? []).map((it) => [it.order_item_id, it.quantity])),
+    })),
+    unavailable: false,
+  };
+}
+
+/**
  * shipping_address (migrasi 0014) dibaca TERPISAH dari query utama — kolom
  * bisa saja belum ada (LESSONS #12).
  */
@@ -354,18 +396,27 @@ export default async function AdminOrderDetailPage({
   const sales = one(order.sales);
   const pic = one(order.pic);
 
-  const [cancelResult, packageIdResult, fulfillmentResult, notesResult, offerResult, itemsResult, shippingResult] =
-    await Promise.all([
-      order.status === "CANCELLED"
-        ? fetchCancelInfo(supabase, order.id)
-        : Promise.resolve<ColumnFetch<CancelInfo | null>>({ status: "ok", data: null }),
-      fetchPackageId(supabase, order.id),
-      fetchFulfillmentInfo(supabase, order.id),
-      fetchInternalNotes(supabase, order.id),
-      fetchOrderOffer(supabase, order.id),
-      fetchOrderItems(supabase, order.id),
-      fetchShippingAddress(supabase, order.id),
-    ]);
+  const [
+    cancelResult,
+    packageIdResult,
+    fulfillmentResult,
+    notesResult,
+    offerResult,
+    itemsResult,
+    shippingResult,
+    documentsResult,
+  ] = await Promise.all([
+    order.status === "CANCELLED"
+      ? fetchCancelInfo(supabase, order.id)
+      : Promise.resolve<ColumnFetch<CancelInfo | null>>({ status: "ok", data: null }),
+    fetchPackageId(supabase, order.id),
+    fetchFulfillmentInfo(supabase, order.id),
+    fetchInternalNotes(supabase, order.id),
+    fetchOrderOffer(supabase, order.id),
+    fetchOrderItems(supabase, order.id),
+    fetchShippingAddress(supabase, order.id),
+    fetchOrderDocuments(supabase, order.id),
+  ]);
   const packageId = packageIdResult.status === "ok" ? packageIdResult.data : null;
   const packageDetail = packageId ? await fetchPackageDetail(supabase, packageId) : null;
 
@@ -693,6 +744,19 @@ export default async function AdminOrderDetailPage({
         </div>
       ) : (
         <OrderItemsSection orderId={order.id} items={itemsResult.items} copyWarning={false} />
+      )}
+
+      {documentsResult.unavailable ? (
+        <div className="card">
+          <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.admin.docCardTitle}</h3>
+          <div className="emptybox">{m.admin.docFeatureOff}</div>
+        </div>
+      ) : (
+        <DocumentsSection
+          orderId={order.id}
+          orderCreatedDate={order.created_at.slice(0, 10)}
+          documents={documentsResult.documents}
+        />
       )}
 
       {/* Catatan Internal SANCI — partner TIDAK PERNAH melihat kartu ini;

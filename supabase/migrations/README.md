@@ -22,12 +22,13 @@ tanpa perlu membaca SQL-nya.
 | 0013 | `0013_order_offer_amount.sql` | Irisan ketujuh: nilai penawaran SANCI per pesanan — tabel `order_sanci_offers` (satu baris per pesanan, `order_id` sebagai PRIMARY KEY sehingga penulisannya upsert idempoten). **Khusus admin SANCI, baca maupun tulis**; pengguna cabang nol akses, SELECT sekalipun — ditegakkan RLS, bukan disembunyikan layar. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_OFFER`. |
 | 0014 | `0014_permissions_items_shipping.sql` | Irisan kedelapan: 2 flag izin (`can_view_offer`/`can_edit_offer`) di `partner_access_policies` yang MEMBUKA akses cabang ke `order_sanci_offers` miliknya sendiri (3 policy SELECT/INSERT/UPDATE baru — evolusi janji 0013 §4); `dp_amount`/`payment_condition` di `order_sanci_offers`; tabel BARU `order_items` (snapshot isi pesanan per baris + catatan/warna/ukuran, disalin otomatis dari isi Package saat pesanan dibuat, boleh diedit cabang selama pesanan aktif — harga per baris digerbangi `can_edit_offer` lewat trigger); `partner_orders.shipping_address` (selalu bisa diedit, TIDAK masuk daftar beku 0005). Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_ITEM`. **Sengaja TIDAK membangun** rantai perhitungan diskon/markup/potongan-tunai yang direncanakan awal — bentrok langsung dengan `GLOSSARY.md`/`FEATURES.md` yang ditulis di commit yang sama (0013) yang menyatakan sistem ini tidak menghitung diskon; lihat kepala berkas 0014 untuk penjelasan lengkap. |
 | 0015 | `0015_order_discount_chain.sql` | Irisan kesembilan: konflik 0013/0014 SUDAH diputuskan owner (2026-08-20, FEATURES.md §"衝突已裁決") — rantai diskon TINGKAT PESANAN sekarang DIBANGUN. 4 kolom baru di `order_sanci_offers`: `discount_pcts` (jsonb, array % berurutan, maks 6, divalidasi trigger), `markup_pct` (opsional, CHECK 0–100), `cash_discount` (default 0, CHECK ≥0), `final_amount` (WAJIB, DIHITUNG trigger BEFORE INSERT/UPDATE — TIDAK PERNAH dipercaya dari client). Constraint `dp_amount<=amount` (0014) DIGANTI `dp_amount<=final_amount`. Flag izin ketiga `can_discount` di `partner_access_policies` (DEFAULT false) + trigger gerbang baru (`fn_guard_order_offer_discount_fields`) — can_discount adalah gerbang TAMBAHAN di ATAS can_edit_offer (RLS 0014 TIDAK diubah), bukan flag sejajar; matriks lengkap di kepala berkas §6. `fn_audit_row` **TIDAK didefinisikan ulang** — migrasi PERTAMA sejak 0009 yang tidak menyentuhnya (tidak ada tabel baru, kolom baru otomatis ikut lewat `to_jsonb`). |
+| 0016 | `0016_order_documents.sql` | Irisan kesepuluh: dokumen penjualan per-pesanan — Sales Order (SO)/Surat Jalan (DO)/Invoice dibangkitkan di dalam sistem. Owner menolak desain naif "tiga tampilan dari satu order" (原話: "每個的日期不同, 內容跟件數在so,do 不同,invoice 也不同") — dokumen adalah ENTITAS sendiri. 2 tabel BARU: `order_documents` (satu baris = satu dokumen, `doc_number` unik dihitung SERVER ACTION bukan trigger, `doc_date`/`notes` sendiri-sendiri) dan `order_document_items` (baris isi, menunjuk `order_items` + kuantitas KHUSUS dokumen ini, `unique(document_id,order_item_id)`). Guard over-shipment (`fn_guard_document_item_overship`, BEFORE INSERT/UPDATE): DO dan INVOICE masing-masing punya kuota TERPISAH terhadap `order_items.quantity`; SO dilewati (snapshot penuh). RLS admin-only PENUH (`for all`), nol policy cabang di kedua tabel. Dua RPC SECURITY DEFINER (`fn_create_order_document`, `fn_replace_order_document_items`) membungkus insert/replace header+baris dalam SATU transaksi supaya guard over-shipment dan "dokumen tanpa isi karena separuh gagal" tidak pernah terjadi bersamaan. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_DOCUMENT` (satu-hop lewat `order_id`) dan `ORDER_DOCUMENT_ITEM` (DUA-hop lewat `document_id→order_documents.order_id`). |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015 → 0016`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -39,18 +40,19 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 
 | Yang dijalankan ulang | Yang rusak diam-diam |
 |---|---|
-| 0001 | `s_partner_read` kembali ke versi lama → **setiap "Simpan staf" dari cabang gagal**; `fn_audit_row` kehilangan awalan `PACKAGE`, `CUSTOMER_PHONE_CHANGED`, `ORDER_ATTRIBUTION_CORRECTED`, `ORDER_CANCELLED`, `ORDER_CUSTOMER_ARRIVED`, awalan `ORDER_INTERNAL_NOTE`, awalan `PRODUCT` & `CATALOG_ACCESS`, awalan `PACKAGE_ITEM`, awalan `ORDER_OFFER` (0013), serta awalan `ORDER_ITEM` (0014). |
-| 0004 | `c_partner_read` kembali ke versi lama → **setiap "Simpan pelanggan" dari cabang gagal**; `fn_check_order_refs` berhenti memeriksa pemilik paket **dan pemilik pelanggan (lubang P2 milik 0011 terbuka lagi)**; `fn_audit_row` seperti di atas, `ORDER_OFFER` dan `ORDER_ITEM` termasuk. |
-| 0005 | `fn_audit_row` kehilangan tambahan 0008 (PACKAGE / PHONE_CHANGED / ATTRIBUTION), 0009 (ARRIVED / INTERNAL_NOTE), 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER) dan 0014 (ORDER_ITEM). |
+| 0001 | `s_partner_read` kembali ke versi lama → **setiap "Simpan staf" dari cabang gagal**; `fn_audit_row` kehilangan awalan `PACKAGE`, `CUSTOMER_PHONE_CHANGED`, `ORDER_ATTRIBUTION_CORRECTED`, `ORDER_CANCELLED`, `ORDER_CUSTOMER_ARRIVED`, awalan `ORDER_INTERNAL_NOTE`, awalan `PRODUCT` & `CATALOG_ACCESS`, awalan `PACKAGE_ITEM`, awalan `ORDER_OFFER` (0013), awalan `ORDER_ITEM` (0014), serta awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` (0016). |
+| 0004 | `c_partner_read` kembali ke versi lama → **setiap "Simpan pelanggan" dari cabang gagal**; `fn_check_order_refs` berhenti memeriksa pemilik paket **dan pemilik pelanggan (lubang P2 milik 0011 terbuka lagi)**; `fn_audit_row` seperti di atas, `ORDER_OFFER`, `ORDER_ITEM` dan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` (0016) termasuk. |
+| 0005 | `fn_audit_row` kehilangan tambahan 0008 (PACKAGE / PHONE_CHANGED / ATTRIBUTION), 0009 (ARRIVED / INTERNAL_NOTE), 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER), 0014 (ORDER_ITEM) dan 0016 (ORDER_DOCUMENT / ORDER_DOCUMENT_ITEM). |
 | 0006 | tidak ada — 0006 hanya menulis dua helper, dan sejak 0007 isi 0001 sudah sama. |
-| 0008 | `fn_check_order_refs` **berhenti memeriksa pemilik pelanggan** (lubang P2 milik 0011 terbuka lagi — pemeriksaan paket sendiri selamat karena 0008 memang memuatnya); `fn_audit_row` kehilangan tambahan 0009 (ARRIVED / INTERNAL_NOTE), 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER) dan 0014 (ORDER_ITEM). |
-| 0009 | `fn_audit_row` kehilangan tambahan 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER) dan 0014 (ORDER_ITEM). |
-| 0010 | `fn_audit_row` kehilangan tambahan 0012 (awalan `PACKAGE_ITEM` **dan** pencarian partner lewat paket induknya), 0013 (awalan `ORDER_OFFER`) dan 0014 (awalan `ORDER_ITEM` **dan** ketiganya kehilangan pencarian partner/branch lewat pesanannya bersama-sama) — sudah diukur, bukan dugaan. DEFAULT `enabled` **tidak** kembali ke `true`: `create table if not exists` tidak dijalankan lagi pada tabel yang sudah ada, dan 0010 tetap tidak mendefinisikan ulang apa pun milik 0011. |
-| 0011 | tidak ada — 0011 tidak mendefinisikan ulang `fn_audit_row` (dinyatakan lewat komentar di dalam berkasnya) maupun apa pun milik 0012/0013/0014. |
-| 0012 | `fn_audit_row` kehilangan tambahan 0013 (awalan `ORDER_OFFER`) dan 0014 (awalan `ORDER_ITEM`), termasuk pencarian partner/branch lewat pesanan untuk keduanya. Awalan `PACKAGE_ITEM` miliknya sendiri **tetap ada** (sudah diukur satu per satu di Postgres 16 lokal). |
-| 0013 | `fn_audit_row` kehilangan tambahan 0014 SAJA — awalan `ORDER_ITEM` dan pencarian partner/branch lewat pesanannya. **Selain itu**, `order_sanci_offers` juga kehilangan TIGA policy cabang baru milik 0014 (`oso_partner_read`/`_insert`/`_update` — `DROP POLICY IF EXISTS oso_admin_all` di 0013 tidak menyentuh nama policy itu, tapi 0013 juga tidak MEMBUATNYA lagi, jadi kalau 0014 belum pernah dijalankan ulang sesudahnya, urutan asli tetap aman; risiko hanya muncul kalau 0013 dijalankan ulang SETELAH 0014 sempat berjalan tanpa 0014 ikut dijalankan ulang lagi — lihat catatan ⚠️ di blok verifikasi 0014). Awalan `ORDER_OFFER` miliknya sendiri **tetap ada**. |
-| 0014 | **Sudah diukur di Postgres 16 lokal, bukan diperkirakan**: `order_sanci_offers_dp_le_amount_check` (constraint LAMA milik 0014 sendiri, `dp_amount<=amount`) **muncul KEMBALI** berdampingan dengan `order_sanci_offers_dp_le_final_check` (constraint BARU milik 0015, `dp_amount<=final_amount`) — 0014 §2 memakai `if not exists (select … where conname = 'order_sanci_offers_dp_le_amount_check')` untuk idempotensi, dan begitu 0015 sudah pernah men-DROP constraint itu, kondisi "belum ada" jadi BENAR lagi sehingga 0014 MEMBUATNYA ULANG. Akibatnya KEDUA constraint aktif bersamaan: kalau `final_amount` lebih BESAR dari `amount` (markup > jumlah diskon), constraint lama yang sudah seharusnya digantikan diam-diam kembali membatasi DP ke `amount`, menolak nilai DP yang SAH menurut aturan 0015 (`dp<=final_amount`) tanpa satu pun peringatan di layar Aktivitas. **Yang TIDAK ikut rusak** (diukur eksplisit, bukan diasumsikan): kedua trigger 0015 (`trg_order_offer_discount_guard`, `trg_order_offer_final_compute`), ketiga policy `oso_partner_*`, dan `fn_audit_row` — 0014 tidak mendefinisikan ulang atau menyentuh satu pun dari ketiganya. **Pemulihan**: jalankan ulang 0015 sekali lagi — constraint lama ter-DROP kembali, hanya `dp_le_final_check` yang tersisa (diverifikasi: re-run persis skenario ini menghasilkan tepat satu constraint `dp_le_*`). **Pemulihan untuk kasus 0013 dijalankan ulang** (baris di atas): jalankan ulang 0014 sekali lagi — ketiga policy `oso_partner_*` dan awalan `ORDER_ITEM` kembali utuh (fungsi `fn_audit_row` versi 0014 tetap identik dengan versi yang dipakai 0015, jadi menjalankan ulang 0014 di sini tidak mengubah pemetaan aksi apa pun). |
-| 0015 | tidak ada — 0015 adalah berkas terakhir dalam rantai saat ini. Versi `fn_audit_row` yang berlaku (dari 0014, TIDAK didefinisikan ulang oleh 0015) memuat SELURUH perilaku 0004+0005+0008+0009+0010+0012+0013+0014, jadi kalau berkas LAMA mana pun dijalankan ulang lalu diikuti 0014 (bukan 0015 — 0015 tidak menyentuh `fn_audit_row` sama sekali), pemetaan aksinya tetap pulih lewat mekanisme 0014 yang sudah dijelaskan di baris atas. Yang HANYA dipulihkan oleh 0015 sendiri adalah baris di atas (constraint `dp_le_*` kalau 0014 sempat dijalankan ulang sesudah 0015). |
+| 0008 | `fn_check_order_refs` **berhenti memeriksa pemilik pelanggan** (lubang P2 milik 0011 terbuka lagi — pemeriksaan paket sendiri selamat karena 0008 memang memuatnya); `fn_audit_row` kehilangan tambahan 0009 (ARRIVED / INTERNAL_NOTE), 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER), 0014 (ORDER_ITEM) dan 0016 (ORDER_DOCUMENT / ORDER_DOCUMENT_ITEM). |
+| 0009 | `fn_audit_row` kehilangan tambahan 0010 (PRODUCT / CATALOG_ACCESS), 0012 (PACKAGE_ITEM), 0013 (ORDER_OFFER), 0014 (ORDER_ITEM) dan 0016 (ORDER_DOCUMENT / ORDER_DOCUMENT_ITEM). |
+| 0010 | `fn_audit_row` kehilangan tambahan 0012 (awalan `PACKAGE_ITEM` **dan** pencarian partner lewat paket induknya), 0013 (awalan `ORDER_OFFER`), 0014 (awalan `ORDER_ITEM` **dan** ketiganya kehilangan pencarian partner/branch lewat pesanannya bersama-sama) dan 0016 (awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` **dan** kedua bloknya — satu-hop dan dua-hop) — sudah diukur, bukan dugaan. DEFAULT `enabled` **tidak** kembali ke `true`: `create table if not exists` tidak dijalankan lagi pada tabel yang sudah ada, dan 0010 tetap tidak mendefinisikan ulang apa pun milik 0011. |
+| 0011 | tidak ada — 0011 tidak mendefinisikan ulang `fn_audit_row` (dinyatakan lewat komentar di dalam berkasnya) maupun apa pun milik 0012/0013/0014/0016. |
+| 0012 | `fn_audit_row` kehilangan tambahan 0013 (awalan `ORDER_OFFER`), 0014 (awalan `ORDER_ITEM`) dan 0016 (awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM`), termasuk pencarian partner/branch lewat pesanan untuk ketiganya. Awalan `PACKAGE_ITEM` miliknya sendiri **tetap ada** (sudah diukur satu per satu di Postgres 16 lokal). |
+| 0013 | `fn_audit_row` kehilangan tambahan 0014 (awalan `ORDER_ITEM` dan pencarian partner/branch lewat pesanannya) dan 0016 (awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM`). **Selain itu**, `order_sanci_offers` juga kehilangan TIGA policy cabang baru milik 0014 (`oso_partner_read`/`_insert`/`_update` — `DROP POLICY IF EXISTS oso_admin_all` di 0013 tidak menyentuh nama policy itu, tapi 0013 juga tidak MEMBUATNYA lagi, jadi kalau 0014 belum pernah dijalankan ulang sesudahnya, urutan asli tetap aman; risiko hanya muncul kalau 0013 dijalankan ulang SETELAH 0014 sempat berjalan tanpa 0014 ikut dijalankan ulang lagi — lihat catatan ⚠️ di blok verifikasi 0014). Awalan `ORDER_OFFER` miliknya sendiri **tetap ada**. |
+| 0014 | **Sudah diukur di Postgres 16 lokal, bukan diperkirakan**: `order_sanci_offers_dp_le_amount_check` (constraint LAMA milik 0014 sendiri, `dp_amount<=amount`) **muncul KEMBALI** berdampingan dengan `order_sanci_offers_dp_le_final_check` (constraint BARU milik 0015, `dp_amount<=final_amount`) — 0014 §2 memakai `if not exists (select … where conname = 'order_sanci_offers_dp_le_amount_check')` untuk idempotensi, dan begitu 0015 sudah pernah men-DROP constraint itu, kondisi "belum ada" jadi BENAR lagi sehingga 0014 MEMBUATNYA ULANG. Akibatnya KEDUA constraint aktif bersamaan: kalau `final_amount` lebih BESAR dari `amount` (markup > jumlah diskon), constraint lama yang sudah seharusnya digantikan diam-diam kembali membatasi DP ke `amount`, menolak nilai DP yang SAH menurut aturan 0015 (`dp<=final_amount`) tanpa satu pun peringatan di layar Aktivitas. `fn_audit_row` JUGA kehilangan tambahan 0016 (awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM`) — 0014 sama sekali tidak tahu kedua tabel itu ada. **Yang TIDAK ikut rusak** (diukur eksplisit, bukan diasumsikan): kedua trigger 0015 (`trg_order_offer_discount_guard`, `trg_order_offer_final_compute`), ketiga policy `oso_partner_*`, dan struktur/RLS/RPC `order_documents`/`order_document_items` (0016 tidak mendefinisikan ulang atau menyentuh satu pun dari semuanya — hanya `fn_audit_row` yang bersinggungan). **Pemulihan**: jalankan ulang 0015 sekali lagi untuk memulihkan constraint `dp_le_*` (constraint lama ter-DROP kembali, hanya `dp_le_final_check` yang tersisa — diverifikasi: re-run persis skenario ini menghasilkan tepat satu constraint `dp_le_*`), lalu jalankan ulang **0016** sekali lagi untuk memulihkan `fn_audit_row` (satu-satunya berkas yang memuat awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM`, 0015 tidak menyentuhnya). **Pemulihan untuk kasus 0013 dijalankan ulang** (baris di atas): jalankan ulang 0014 lalu 0016 — 0014 memulihkan ketiga policy `oso_partner_*` dan awalan `ORDER_ITEM` (fungsi `fn_audit_row` versi 0014 tetap identik dengan versi dasar 0015/0016, jadi menjalankan ulang 0014 di sini tidak mengubah pemetaan aksi 0004–0014 apa pun), lalu 0016 memulihkan awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` yang ikut hilang saat 0014 dijalankan ulang. |
+| 0015 | tidak ada untuk struktur/RLS/RPC 0016 (0015 tidak menyentuhnya) — tapi karena 0015 juga tidak mendefinisikan ulang `fn_audit_row`, menjalankan ulang 0015 SENDIRIAN tidak mengubah pemetaan aksi apa pun (baik untung maupun rugi). Versi `fn_audit_row` yang berlaku SEKARANG adalah dari 0016 (bukan lagi 0014), yang memuat SELURUH perilaku 0004+0005+0008+0009+0010+0012+0013+0014 DITAMBAH `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` — jadi kalau berkas LAMA mana pun dijalankan ulang, pemulihan pemetaan aksi sekarang selalu **0016** (bukan lagi 0014), kecuali constraint `dp_le_*` yang tetap milik 0015 (lihat baris 0014 di atas untuk kombinasi keduanya). |
+| 0016 | tidak ada — 0016 adalah berkas terakhir dalam rantai saat ini. |
 
 Khusus lubang P2 (`fn_check_order_refs` tanpa pemeriksaan pelanggan): ia TIDAK
 menghasilkan satu pun pesan error atau gejala di layar. Yang terjadi hanyalah
@@ -561,6 +563,66 @@ tabel atau policy baru, dan kedua trigger barunya ada di tabel berawalan
 `order_items` sebelumnya). Blok 0004/0005/0008/0009/0010/0011/0012/0014 TIDAK
 berubah satu angka pun.
 
+### 0016
+
+| Cek | nilai |
+|---|---|
+| DOC_TABLE / DOC_ITEM_TABLE | 1 / 1 |
+| DOC_TYPE_CHECK | 1 |
+| DOC_NUMBER_UNIQUE | 1 |
+| DOC_ITEM_QTY_CHECK | 1 |
+| DOC_ITEM_UNIQUE | 1 |
+| DOC_FK_ORDER_RESTRICT / DOC_FK_ORDER_NOT_CASCADE | 1 / **0** |
+| DOC_ITEM_FK_DOCUMENT_CASCADE / DOC_ITEM_FK_DOCUMENT_NOT_RESTRICT | **1** / **0** |
+| DOC_ITEM_FK_ORDER_ITEM_RESTRICT / DOC_ITEM_FK_ORDER_ITEM_NOT_CASCADE | 1 / 0 |
+| DOC_RLS / DOC_ITEM_RLS | 1 / 1 |
+| DOC_POLICIES / DOC_ITEM_POLICIES | 1 / 1 |
+| DOC_NONADMIN_POLICIES / DOC_ITEM_NONADMIN_POLICIES | **0** / **0** |
+| DOC_TRIGGERS / DOC_ITEM_TRIGGERS | 3 / 4 |
+| OVERSHIP_GUARD_EXEC_PUBLIC | **0** (LESSONS #26) |
+| CREATE_RPC / REPLACE_RPC | 1 / 1 |
+| CREATE_RPC_SECDEF / REPLACE_RPC_SECDEF | 1 / 1 |
+| RPC_EXEC_PUBLIC / RPC_EXEC_ANON | **0** / **0** |
+| RPC_EXEC_AUTHENTICATED | **1** |
+| AUDIT_ORDER_DOCUMENT / AUDIT_ORDER_DOCUMENT_ITEM | 1 / 1 |
+| AUDIT_DOC_LOOKUP_1HOP / AUDIT_DOC_ITEM_LOOKUP_2HOP | 1 / 1 |
+| AUDIT_KEEP_0014_ITEM / AUDIT_KEEP_0013_OFFER | 1 / 1 |
+| AUDIT_KEEP_0012_PKG_ITEM / AUDIT_KEEP_0012_PKG_LOOKUP | 1 / 1 |
+| AUDIT_KEEP_0010_PRODUCT / AUDIT_KEEP_0010_CATALOG | 1 / 1 |
+| AUDIT_KEEP_0009_ARRIVED / AUDIT_KEEP_0009_NOTE | 1 / 1 |
+| AUDIT_KEEP_0008_PKG / AUDIT_KEEP_0008_PHONE / AUDIT_KEEP_0008_ATTR | 1 / 1 / 1 |
+| AUDIT_KEEP_0005 / AUDIT_KEEP_0004 | 1 / 1 |
+| REFS_CHECK_CUSTOMER | **1** |
+
+46 baris total, semua sudah diukur di Postgres 16 lokal (bukan diperkirakan;
+replay penuh `0001→…→0015→0016`) — lihat blok verifikasi lengkap di kepala
+berkas `0016_order_documents.sql` untuk penjelasan tiap angka. Idempotensi
+diverifikasi terpisah: 0016 dijalankan ulang 3× di atas rantai penuh,
+`pg_dump -s` (disaring dari noise `\restrict`/`\unrestrict`, LESSONS #33)
+menghasilkan **nol diff** setiap kali, dan ke-46 angka di atas tetap sama
+persis pada percobaan ke-3.
+
+Angka blok verifikasi berkas LAMA setelah 0016 — SUDAH DIUKUR di Postgres 16
+lokal (menjalankan ulang 0001 sendirian di atas rantai penuh `0001→…→0016`):
+
+| Cek (blok 0001) | sebelum 0016 | setelah 0016 |
+|---|---|---|
+| TABLES | 9 | 9 (TIDAK berubah — 0016 tidak menyentuh sembilan tabel Phase 1) |
+| RLS_ENABLED | 19 | **21** (+`order_documents`, +`order_document_items`) |
+| POLICIES | 46 | **48** (+`od_admin_all`, +`odi_admin_all` — satu policy `for all` per tabel) |
+| TRIGGERS | 27 | **27, TIDAK berubah** — kedua tabel baru berawalan `order_`, sama seperti `order_internal_notes`/`order_sanci_offers`/`order_items` sebelumnya, jadi TIDAK ikut terhitung blok 0001 yang hanya menghitung tabel berawalan `partner%` |
+
+Blok 0004/0005/0008/0009/0010/0011/0012/0013/0014/0015 **TIDAK berubah satu
+angka pun** setelah 0016 (diukur langsung, bukan diasumsikan) — 0016 tidak
+menyentuh struktur tabel mana pun yang dihitung blok-blok itu, dan tidak
+mendefinisikan ulang apa pun selain `fn_audit_row` (yang hanya diperiksa lewat
+`AUDIT_KEEP_*`/`REFS_CHECK_CUSTOMER`, semuanya tetap 1). Rerun-recovery
+diverifikasi eksplisit: menjalankan ulang 0001 di atas rantai penuh membuat
+`fn_audit_row` kehilangan awalan `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` (diukur
+langsung — `prosrc like '%ORDER_DOCUMENT%'` berubah dari `true` ke `false`);
+menjalankan ulang **0016 sekali lagi** memulihkannya sepenuhnya (angka kembali
+`true`, dan seluruh 46 baris verifikasi tetap sama seperti run pertama).
+
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 
 `phone_normalized` dihitung Server Action (`normalizePhoneID()`), bukan SQL —
@@ -785,3 +847,50 @@ Enam batas milik 0015, semuanya sudah diukur, bukan dugaan:
    dijalankan di production sebelum migrasi mana pun berikutnya), asumsi
    "backfill = amount" di kepala berkas 0015 §3 perlu ditinjau ulang — tidak
    berlaku otomatis untuk skema yang berbeda.
+
+Lima batas milik 0016, semuanya sudah diukur, bukan dugaan:
+
+1. **Penomoran `doc_number` (prefix+suffix) dihitung di Server Action, BUKAN
+   di database.** `order_documents.doc_number` hanya punya `unique` — angka
+   yang dihitung `web/app/admin/actions-documents.ts` (hitung dokumen bertipe
+   sama yang sudah ada untuk order ini, +1) adalah PERKIRAAN yang bisa salah
+   kalau dua admin membuat dokumen tipe sama di detik yang sama; constraint
+   `unique`-lah yang tidak pernah salah, dan Server Action WAJIB menangkap
+   23505 pada `doc_number` (bukan pada `client_request_id` — LESSONS #21/#27)
+   lalu mengulang dengan suffix berikutnya. Memanggil `fn_create_order_document`
+   langsung (mis. dari SQL Editor) TANPA logika retry ini bisa menghasilkan
+   dua dokumen bertipe sama untuk order yang sama dengan suffix yang SAMA
+   kalau nomornya dihitung manual dengan asumsi yang salah — bukan risiko
+   keamanan (unique constraint tetap menolaknya), tapi bisa membingungkan
+   siapa pun yang tidak tahu pola ini.
+2. **Guard over-shipment (§3 kepala berkas) TIDAK memvalidasi SO sama
+   sekali** — SO dianggap snapshot penuh pesanan dan boleh berisi kuantitas
+   berapa pun untuk `order_item_id` apa pun, termasuk melebihi
+   `order_items.quantity`-nya sendiri. Ini SENGAJA (SO bukan janji
+   pengiriman/penagihan bertahap), bukan celah yang belum ditutup.
+3. **`fn_create_order_document`/`fn_replace_order_document_items` TIDAK
+   memeriksa bahwa `order_item_id` yang dikirim benar-benar milik
+   `order_id`/dokumen yang bersangkutan** — keduanya hanya mengandalkan FK
+   `order_document_items.order_item_id → order_items(id)` (baris HARUS ada di
+   `order_items`, tapi tidak dipaksa berasal dari PESANAN yang sama dengan
+   dokumennya). Karena kedua RPC ini admin-only (RLS + pemeriksaan
+   `fn_is_admin()` di baris pertama) dan admin bisa melihat SEMUA pesanan,
+   ini bukan lubang lintas-partner (beda dari `fn_check_order_refs`
+   0011/LESSONS soal lubang P2) — tapi salah klik di UI (pilih item dari
+   pesanan yang salah) tidak akan ditolak database. Kalau suatu hari dibutuhkan,
+   penjagaannya adalah CHECK tambahan di kedua RPC yang membandingkan
+   `order_items.order_id` dengan parameter `p_order_id`/`order_documents.order_id`
+   milik dokumen — belum dibangun di sini, bukan lupa.
+4. **Isi dokumen TIDAK dibekukan dari `order_items`.** `order_document_items`
+   menunjuk `order_item_id` (FK, bukan snapshot nama/kode) — kalau
+   `name_snapshot`/`code_snapshot` sebuah `order_items` diedit BESOK (mis.
+   admin memperbaiki salah ketik), dokumen KEMARIN yang menunjuk baris itu
+   akan ikut terbaca dengan nama/kode yang BARU saat dicetak ulang. Ini
+   konsisten dengan pola `partner_package_items` (0012, "isi Package tidak
+   dibekukan ke dalam pesanan") — kalau pembekuan penuh per-dokumen suatu
+   hari dibutuhkan, itu tabel snapshot terpisah, keputusan tersendiri.
+5. **`quantity` di `order_document_items` tidak punya batas atas selain tipe
+   kolomnya** (sama seperti `order_items`/`partner_package_items`) — CHECK-nya
+   hanya `> 0`, dan guard over-shipment (§3) membatasi TOTAL lintas dokumen
+   bertipe sama, bukan satu baris tunggal — satu baris tunggal boleh
+   sebesar sisa kuota yang masih ada.

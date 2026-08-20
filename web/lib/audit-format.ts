@@ -81,6 +81,15 @@ function fieldLabel(m: Messages, key: string): string | undefined {
     markup_pct: c.markupPct,
     cash_discount: c.cashDiscount,
     final_amount: c.finalAmount,
+    // 0016 — order_documents/order_document_items. doc_type/doc_number/
+    // doc_date diberi label (bermakna langsung bagi pembaca non-teknis,
+    // pola sama dengan name_snapshot/code_snapshot di atas) — `quantity`
+    // sudah dipetakan sejak 0012, dipakai lagi di sini apa adanya. Labelnya
+    // hidup di admin.ts (kartu Dokumen, admin-only), bukan common.ts — satu-
+    // satunya layar yang membaca kolom-kolom ini adalah Aktivitas admin.
+    doc_type: m.admin.docColType,
+    doc_number: m.admin.docNumberLabel,
+    doc_date: m.admin.docColDate,
   };
   return map[key];
 }
@@ -124,6 +133,14 @@ function valueLabel(m: Messages, value: string): string | undefined {
     PARTNER_ALL_BRANCHES: c.scopePartnerAll,
     SELECTED_BRANCHES: c.scopeSelectedBranches,
     BRANCH_USER: c.roleBranchUser,
+    // 0016 — order_documents.doc_type. Dipetakan lewat valueLabel (BUKAN
+    // dibiarkan tampil sebagai kode mentah) untuk konsistensi dengan seluruh
+    // enum lain di peta ini — teksnya SAMA di ketiga bahasa (SO/DO/Invoice
+    // adalah istilah dagang, GLOSSARY.md — tidak diterjemahkan), tapi tetap
+    // lewat Messages supaya satu titik perubahan kalau suatu hari perlu.
+    SO: c.docTypeSO,
+    DO: c.docTypeDO,
+    INVOICE: c.docTypeInvoice,
   };
   return map[value];
 }
@@ -207,6 +224,13 @@ const SKIP = new Set([
   // sudah terbaca di layar Isi Package; UUID-nya tidak berarti apa-apa bagi
   // pembaca non-teknis dan tidak boleh bocor ke Aktivitas (SPEC §69).
   "product_id",
+  // Ditambahkan migrasi 0016: document_id (UUID relasi ke order_documents,
+  // pola sama dengan package_id) dan order_item_id (UUID relasi ke
+  // order_items, pola sama dengan product_id) — keduanya di
+  // order_document_items. Nomor dokumen/nama item yang bersangkutan sudah
+  // terbaca di layar; UUID-nya tidak berarti apa-apa bagi pembaca non-teknis.
+  "document_id",
+  "order_item_id",
   // Ditambahkan slice 7 (0013): `order_id` adalah UUID relasi ke partner_orders,
   // perlakuannya sama dengan customer_id / package_id / product_id di atas.
   // Ia SUDAH bocor sebelum ini — setiap baris ORDER_INTERNAL_NOTE_CREATED
@@ -238,6 +262,15 @@ const ACTION_KEYS: Record<string, keyof Messages["common"]> = {
   ORDER_ITEM_CREATED: "auditOrderItemCreated",
   ORDER_ITEM_UPDATED: "auditOrderItemUpdated",
   ORDER_ITEM_DELETED: "auditOrderItemDeleted",
+  // 0016 — dokumen pesanan (order_documents) dan baris isinya
+  // (order_document_items). Kedua tabel tidak punya kolom status, jadi hanya
+  // tiga aksi generik masing-masing yang bisa muncul.
+  ORDER_DOCUMENT_CREATED: "auditOrderDocumentCreated",
+  ORDER_DOCUMENT_UPDATED: "auditOrderDocumentUpdated",
+  ORDER_DOCUMENT_DELETED: "auditOrderDocumentDeleted",
+  ORDER_DOCUMENT_ITEM_CREATED: "auditOrderDocumentItemCreated",
+  ORDER_DOCUMENT_ITEM_UPDATED: "auditOrderDocumentItemUpdated",
+  ORDER_DOCUMENT_ITEM_DELETED: "auditOrderDocumentItemDeleted",
   CUSTOMER_CREATED: "auditCustomerCreated",
   CUSTOMER_UPDATED: "auditCustomerUpdated",
   CUSTOMER_PHONE_CHANGED: "auditCustomerPhoneChanged",

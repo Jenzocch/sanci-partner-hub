@@ -836,7 +836,8 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
    partner (red) can never read as an out-of-stock product (also red) — the
    two are different kinds of "problem" and now look different, not just a
    different word. */
-.chip.ACTIVE,.chip.DRAFT,.chip.SUSPENDED,.chip.INACTIVE{
+.chip.ACTIVE,.chip.DRAFT,.chip.SUSPENDED,.chip.INACTIVE,
+.chip.SO,.chip.DO,.chip.INVOICE{
   display:inline-flex;align-items:center;gap:6px;
   background:none;border:1px solid currentColor;
 }
@@ -844,7 +845,15 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 .chip.DRAFT{color:var(--warn)}
 .chip.SUSPENDED{color:var(--bad)}
 .chip.INACTIVE{color:var(--off)}
-.chip.ACTIVE::before,.chip.DRAFT::before,.chip.SUSPENDED::before,.chip.INACTIVE::before{
+/* Document-type badge (0016) — SAME outlined+square-dot mechanics as the
+   entity-status family above (reused, not a new chip family: §2b says reuse
+   the four exactly), just three more named members so SO/DO/Invoice each
+   get a stable, distinct identity next to their .code doc_number chip. */
+.chip.SO{color:var(--accent-2)}
+.chip.DO{color:var(--ok)}
+.chip.INVOICE{color:var(--warn)}
+.chip.ACTIVE::before,.chip.DRAFT::before,.chip.SUSPENDED::before,.chip.INACTIVE::before,
+.chip.SO::before,.chip.DO::before,.chip.INVOICE::before{
   content:"";width:6px;height:6px;border-radius:2px;
   background:currentColor;flex:none;
 }

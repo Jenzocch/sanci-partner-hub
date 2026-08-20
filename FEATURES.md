@@ -412,6 +412,88 @@ chip 家族在亮/暗模式、390/1280px 下的呈現（見 commit 說明），�
 畫面實際看過**才算 VERIFIED。零新增 UI 文案（設計改用視覺識別而非加字），
 故無新 i18n 字串、無需 forbidden-zh 掃描新增項。
 
+### Phase 2 第十切片（訂單文件 SO/DO/Invoice 一鍵產生，2026-08-20）
+
+Owner 拍板：分店建單後，SANCI 逐筆人工決定要出哪些文件、出給誰看，取代原本
+「複製 Google Sheet 分頁」的手工流程。Owner 明確糾正天真設計（原話「每個的
+日期不同, 內容跟件數在so,do 不同,invoice 也不同」）——**SO/DO/Invoice 不是
+同一張訂單的三種視圖**：三份文件各自有自己的日期，DO 跟 Invoice 各自有自己
+的品項選擇跟數量（部分出貨/部分請款是真實情境：今天用一張 DO 出 3 件，下週
+再用第二張 DO 補 2 件）。這一刀把文件本身變成獨立實體（`order_documents` +
+`order_document_items`），不是從 `partner_orders` 算出來的唯讀視圖。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-52 | `order_documents` + `order_document_items` 資料表（DB 層） | `UNVERIFIED` | 兩張新表；`doc_number` 純資料庫層 `unique`（真正防線），編號本身在 Server Action 算（prefix+序號，不信任端；併發撞號時抓 23505 重算）；`order_document_items` 透過 `order_item_id` FK 指到既有 `order_items`（不重複複製名稱/代碼，維持單一事實來源），`quantity` 是**這份文件自己的**數量，可以小於訂單總數量（partial 出貨/請款） |
+| P2-53 | 出貨/請款上限守衛（DB trigger） | `UNVERIFIED` | `fn_guard_document_item_overship`：DO 類型所有文件的 quantity 加總不得超過該 order_item 的 quantity；INVOICE 類型**獨立**算一套一模一樣的規則（出貨不佔用請款額度，反之亦然）；SO 類型完全跳過（SO 是整張訂單的快照，沒有「剩餘」這個概念）。錯誤訊息點名品項名稱＋剩餘數量，印尼文，非資料庫原始代碼 |
+| P2-54 | 兩個 RPC 保證交易原子性 | `UNVERIFIED` | `fn_create_order_document`（建立文件表頭＋所有品項行，一次交易內）、`fn_replace_order_document_items`（Ubah 時整批刪除舊行＋寫入新行＋更新表頭日期/備註，同樣一次交易）——避免「表頭建好了但品項一半寫失敗」這種介於中間的壞狀態。兩者皆 admin-only（`fn_is_admin()` 檢查＋RLS 雙重防線） |
+| P2-55 | RLS：admin-only 全面（DB 層） | `UNVERIFIED` | 兩張表各一條 `for all using fn_is_admin() with check fn_is_admin()`，**零**分店 policy（負面斷言 `DOC_NONADMIN_POLICIES`/`DOC_ITEM_NONADMIN_POLICIES` 皆 0）。分店可見度是刻意留白的未來選項——要開放時加 SELECT policy，不用改資料結構（模式沿用 0013→0014 的先例） |
+| P2-56 | Admin 訂單詳情頁「Dokumen」卡片 | `UNVERIFIED` | `documents-section.tsx`：文件清單（type badge／`.code` 編號／日期／行數）＋三個建立按鈕（+Buat SO/DO/Invoice）；建立/編輯共用一個 modal（日期欄＋品項選擇表格：名稱/代碼、已訂購、已涵蓋（該類型其他文件的加總）、剩餘、輸入數量預設為剩餘、0=不納入）；type badge 用 chip 分類法擴充三個新成員 `.chip.SO/.DO/.INVOICE`（沿用既有描邊+方點機制，不是第五個 family）。0016 未跑時整張卡片降級成「功能尚未啟用」，頁面其餘部分不受影響（探測既有模式） |
+| P2-57 | 列印頁 `/admin/orders/[orderId]/documents/[documentId]/print` | `UNVERIFIED` | Server component（沿用 `app/admin/layout.tsx` 既有的 admin 驗證，本頁不重複加驗證邏輯）；三種文件各自的版面（結構仿照 owner 提供的三份 Excel 範本，不是像素級複製）：SO 含表頭區塊、品項表、小計/折扣鏈/DP/尾款、銀行轉帳區塊、雙簽名欄、完整 Syarat & Ketentuan 條款全文（從範本 A47:A51 逐字取出）；DO 只有名稱/備註/數量三欄＋總數量＋三個簽名欄；Invoice 含買方資訊/PO 對應訂單編號/品項含價格/小計/DP/尾款/銀行區塊。`@media print` 隱藏 admin chrome 與列印按鈕本身，A4 版面，**黑底白字寫死，不跟 app 深色模式**。銀行/公司常數集中在新檔 `web/lib/company-info.ts`（值取自 Invoice 範本：BCA／542-5816168／PT WAHANA ERA INOVASI，City 取 SO 範本「KCP Jakarta Selatan」較完整的版本），檔頭註明是靜態設定、要改在這裡改，沒有畫面可以編輯 |
+| P2-58 | 三語系文案＋Activity 標籤 | `UNVERIFIED` | `common.ts` 新增 `docTypeSO/DO/Invoice`（GLOSSARY.md 新增條目，跟 Invoice 同一原則：三語言都不翻譯，維持英文縮寫）＋六句 `auditOrderDocument*`/`auditOrderDocumentItem*`；`admin.ts` 新增 33 個鍵×三語（卡片標題、按鈕、modal 欄位、錯誤訊息）。`audit-format.ts` 依 LESSONS #28：`document_id`/`order_item_id` 補進 `SKIP`（UUID，兩個都是新關聯欄位）；`doc_type`/`doc_number`/`doc_date` 進欄位標籤表；`doc_type` 的值（SO/DO/INVOICE）透過 `valueLabel` 對應到自己（維持原樣但走 `Messages`，跟其他 enum 一致，非留白）；`ORDER_DOCUMENT_*`/`ORDER_DOCUMENT_ITEM_*` 各三個動作碼進 `ACTION_KEYS`。**列印文件本身的標籤刻意硬編印尼文、不跑 `Messages`**——這是客戶會簽名的紙本，簽字的客戶看得懂印尼文，不該因為 admin 當下切到哪個介面語言就跟著變，理由完整寫在 `GLOSSARY.md` 新增段落與列印頁檔頭註解裡；系統介面（卡片/按鈕/表單提示）仍完整三語系，這是兩件事。 |
+
+**Migration `0016_order_documents.sql` 狀態**：**`UNVERIFIED`（本機驗證通過，
+production 尚未執行）** — 本機 Postgres 16 完整重放 `0001→…→0015→0016` 後：
+驗證區塊 **46 項全數符合期望**（含四個關鍵負面斷言 `DOC_NONADMIN_POLICIES`
+0、`DOC_ITEM_NONADMIN_POLICIES` 0、`RPC_EXEC_PUBLIC`/`RPC_EXEC_ANON` 0、
+`OVERSHIP_GUARD_EXEC_PUBLIC` 0，以及十三個 `AUDIT_KEEP_*`/`REFS_CHECK_CUSTOMER`
+保留斷言全 1）；行為測試 **24 項全過**（`supabase/test-harness/40_behavior_
+0016.sql`，延伸既有 harness）：admin 建立 SO 文件成功且含多行品項；分店對兩
+張新表皆讀到 **0 列**，透過 RPC 建立文件也被擋（42501）；建立第二張 DO 得到
+`-2` 尾碼、重複用同一個編號建立第三次撞到 `doc_number` 唯一約束（非
+`client_request_id`，證實併發重試邏輯抓對錯誤）；跨兩張 DO 出貨 3+3（總量 5）
+在第二張被拒且訊息點名品項與剩餘量（sisa 2），3+2 精確用完額度則成功；同一
+品項的 INVOICE 額度**獨立**於 DO——DO 用完 5 件後 INVOICE 仍可開滿 5 件，但
+INVOICE 自己開滿後第二張 INVOICE 就被拒（sisa 0）；編輯既有 DO 行數量超過剩
+餘被拒且整筆交易回滾（原始數量原封不動，非部分寫入）、精確用完剩餘額度的編
+輯則成功；admin 刪除文件允許，cascade 清空品項行，稽核記錄文件刪除**與**
+cascade 品項刪除兩者；`ORDER_DOCUMENT_CREATED`（一跳）與
+`ORDER_DOCUMENT_ITEM_CREATED`（two-hop：`document_id→order_documents.
+order_id→partner_orders`）皆正確解析出 partner **與** branch；既有 9 種舊切
+片動作碼中此 harness 可觸發的 6 種全部照常出現（其餘 3 種——`ORDER_
+ATTRIBUTION_CORRECTED`／`ORDER_CUSTOMER_ARRIVED`／`ORDER_INTERNAL_NOTE_
+CREATED`——本機 harness 本來就不會觸發，`fn_audit_row` 原始碼裡仍完整保留這
+三個字串，由 migration 自己的 `AUDIT_KEEP_*` 斷言在原始碼層級驗證，非執行期
+驗證）。冪等連跑 3 次 `pg_dump -s`（濾除 `\restrict`/`\unrestrict` 雜訊，
+LESSONS #33）**零漂移**，46 項驗證數字在第 3 次重跑後逐字相同。⚠️ **0016 後
+0001 檔尾數字變為 RLS_ENABLED 21 / POLICIES 48**（已本機實測，非推估；
+`order_documents`/`order_document_items` 各一條 `for all` policy）**，
+TRIGGERS 仍是 27**（兩張新表都以 `order_` 開頭，不計入 0001 只算 `partner%`
+字首的計數，與 `order_items`/`order_sanci_offers`/`order_internal_notes`
+同一模式）。0004/0005/0008/0009/0010/0011/0012/0013/0014/0015 十個舊檔尾**一
+個數字都沒變**（已逐一實測）。重跑順序復原實測：重跑 0001 會讓 `fn_audit_row`
+遺失 `ORDER_DOCUMENT`/`ORDER_DOCUMENT_ITEM` 字首（`prosrc like '%ORDER_
+DOCUMENT%'` 從 `true` 變 `false`），**單跑一次 0016 完全復原**（46 項驗證數
+字回到跟第一次執行完全相同）。typecheck ✓ eslint ✓ build ✓（`/offline` 仍
+`○` 靜態預渲染）；新增簡體字串已跑禁用詞掃描，零命中；`id`/`en` 兩區塊掃描
+CJK 殘留，零新增命中（既有註解裡的中文字屬本輪之前就存在，非本輪引入）。
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **分店完全看不到任何文件**——DB RLS 是唯一防線（零 SELECT policy），不是
+  UI 藏起來。要開放時是加 policy，不是改資料結構（沿用 0013 先例的設計哲學）。
+- **`fn_create_order_document`/`fn_replace_order_document_items` 不驗證
+  `order_item_id` 真的屬於這張訂單**——兩個 RPC 都 admin-only，admin 本來就
+  能看到所有訂單，所以不是跨 partner 外洩風險，但畫面上選錯訂單的品項不會
+  被資料庫擋下。詳細記在 `migrations/README.md`「批次milik 0016」第 3 點。
+- **SO 文件的「品項預設帶入全部」是應用層（Server Action）行為，不是資料庫
+  行為**——RPC 本身對 SO 完全不做預設，只是忠實寫入呼叫者給的品項清單；這
+  代表本機 DB 行為測試（40_behavior_0016.sql）測的是 RPC 機制本身，SO 的預
+  設邏輯待 Jenzo 在 production 用真實 UI 操作驗證。
+- **一份文件的品項不會凍結成獨立快照**——`order_document_items` 透過
+  `order_item_id` 指回 `order_items`，如果 `order_items` 的
+  `name_snapshot`/`code_snapshot`之後被 admin 修正，舊文件重新列印會顯示新
+  名稱。要完全凍結需要另一張快照表，是另一個決定。
+- **文件品項數量沒有上限**（除了型別本身）——CHECK 只有 `> 0`，跟
+  `order_items`/`partner_package_items` 同一慣例。
+- **列印頁不支援直接產生 PDF 附件寄送**——`window.print()`／瀏覽器「另存為
+  PDF」是唯一路徑，沒有伺服器端產生 PDF 檔案並上傳/寄出的功能。
+- **Email/PDF 附件寄送、UI 編輯銀行區塊、逐行折扣覆寫發票價格**——三者皆刻
+  意不做，跟委派描述裡列的「刻意不做」清單一致（Invoice 價格完全來自
+  `order_items`，不支援每份文件自己覆寫單價）。
+- **production 尚未執行本 migration**——所有驗證數字皆本機 Postgres 16 測得，
+  待 Jenzo 在 Supabase SQL Editor 貼上 `0016_order_documents.sql` 全文執行，
+  回貼 46 項驗證結果核對後方可升級為 `VERIFIED(production)`。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

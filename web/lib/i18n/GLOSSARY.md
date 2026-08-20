@@ -32,6 +32,8 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Penjual | Sales | 销售员 | Sales |
 | Penanggung jawab | PIC | 负责人 | PIC |
 | Invoice | Invoice | Invoice | Invoice |
+| Dokumen — Sales Order (0016) | SO | SO | SO |
+| Dokumen — Surat Jalan (0016) | DO | DO | DO |
 | Belanja di toko mitra | Total Belanja di Toko | 店内消费金额 | Store Purchase |
 | Pelanggan sudah datang | Pelanggan Tiba | 客户已到店 | Customer Arrived |
 | Catatan khusus SANCI | Catatan Internal | 内部备注 | Internal Note |
@@ -136,11 +138,27 @@ Line deduction / 单行扣减金额"的叫法——它是**单行**的手填扣�
 **English** — plain English, not enterprise jargon. "Add Staff", not
 "Create Personnel Record". Sentence case for buttons and labels.
 
+**"SO"/"DO"（Sales Order／Surat Jalan，0016 拍板）**：跟 Invoice 同一条原则
+——三种语言都直接用英文缩写 SO/DO，不硬翻。印尼语原本就习惯说 "Surat Jalan"，
+但系统内的单据编号前缀（`DO-...`）与合作商/员工日常口语已经是 "DO" 这个缩写，
+翻成"送货单"或"运单"反而是系统里从未出现过的新词，会让人对不上号；SO 同理
+（不翻成"销售订单"）。三份印出来的纸本单据本身维持印尼语硬编码（不跑 i18n，
+见下方说明），这条只影响系统介面里*指称*这三种单据的文字（卡片标题、按鈕、
+篩選等），不影响紙本內容本身的語言。
+
+**列印文件（SO/DO/Invoice 紙本）本身不跑 i18n，永遠是印尼文**：這三份文件是
+客戶會簽名的正式商業文件，紙本的語言不該跟著登入 admin 當下切换的介面語言
+變動——签字的客户看得懂印尼文，不代表懂 admin 恰好切到的英文/简体中文介面。
+標籤直接寫死在 `web/app/admin/orders/[orderId]/documents/[documentId]/print/page.tsx`，
+不經過 `Messages`，理由寫在該檔案的註解裡。系統介面本身（卡片/按鈕/表單提示）
+仍然完整三語系，跟紙本內容是兩件事。
+
 ## Yang TIDAK diterjemahkan
 
 - Nama merek: SANCI, Golden Home, dan nama partner/cabang lain
 - Nomor pesanan (`GH-BSD-260817-0001`) dan kode partner/cabang/produk
 - **Invoice** — di KETIGA bahasa, alasannya di atas
+- **SO / DO** — di KETIGA bahasa (dokumen pesanan, 0016), alasan sama dengan Invoice
 - **WhatsApp** — di ketiga bahasa
 - **PIC** — tetap "PIC" di Bahasa Indonesia dan Inggris (sudah jadi kata
   sehari-hari), tapi di 中文 diterjemahkan jadi **负责人**: singkatan Inggris

@@ -84,6 +84,11 @@ const id = {
   // "Invoice" TIDAK diterjemahkan di bahasa mana pun (GLOSSARY.md): kata itu
   // sudah dipakai sehari-hari, terjemahannya justru bikin salah paham.
   invoice: "Invoice",
+  // "SO"/"DO" (Sales Order/Surat Jalan) — SAMA alasannya dengan Invoice di
+  // atas (GLOSSARY.md), dipakai migrasi 0016 (dokumen pesanan).
+  docTypeSO: "SO",
+  docTypeDO: "DO",
+  docTypeInvoice: "Invoice",
 
   // Status pesanan (dipakai lib/orders-shared.ts)
   orderStatusRegistered: "Terdaftar",
@@ -160,6 +165,12 @@ const id = {
   auditOrderItemCreated: "Item pesanan ditambahkan",
   auditOrderItemUpdated: "Item pesanan diubah",
   auditOrderItemDeleted: "Item pesanan dihapus",
+  auditOrderDocumentCreated: "Dokumen pesanan dibuat",
+  auditOrderDocumentUpdated: "Dokumen pesanan diubah",
+  auditOrderDocumentDeleted: "Dokumen pesanan dihapus",
+  auditOrderDocumentItemCreated: "Baris dokumen ditambahkan",
+  auditOrderDocumentItemUpdated: "Baris dokumen diubah",
+  auditOrderDocumentItemDeleted: "Baris dokumen dihapus",
   auditCustomerCreated: "Pelanggan dibuat",
   auditCustomerUpdated: "Pelanggan diubah",
   auditCustomerPhoneChanged: "Nomor telepon pelanggan diubah",
@@ -310,6 +321,9 @@ const en = {
   contactName: "Contact",
   role: "Role",
   invoice: "Invoice",
+  docTypeSO: "SO",
+  docTypeDO: "DO",
+  docTypeInvoice: "Invoice",
 
   orderStatusRegistered: "Registered",
   orderStatusCancelled: "Cancelled",
@@ -369,6 +383,12 @@ const en = {
   auditOrderItemCreated: "Order item added",
   auditOrderItemUpdated: "Order item edited",
   auditOrderItemDeleted: "Order item removed",
+  auditOrderDocumentCreated: "Order document created",
+  auditOrderDocumentUpdated: "Order document edited",
+  auditOrderDocumentDeleted: "Order document deleted",
+  auditOrderDocumentItemCreated: "Document line added",
+  auditOrderDocumentItemUpdated: "Document line edited",
+  auditOrderDocumentItemDeleted: "Document line removed",
   auditCustomerCreated: "Customer added",
   auditCustomerUpdated: "Customer edited",
   auditCustomerPhoneChanged: "Customer phone number changed",
@@ -509,6 +529,9 @@ const zh = {
   contactName: "联系人",
   role: "角色",
   invoice: "Invoice",
+  docTypeSO: "SO",
+  docTypeDO: "DO",
+  docTypeInvoice: "Invoice",
 
   orderStatusRegistered: "已登记",
   orderStatusCancelled: "已取消",
@@ -567,6 +590,12 @@ const zh = {
   auditOrderItemCreated: "订单明细已新增",
   auditOrderItemUpdated: "订单明细已修改",
   auditOrderItemDeleted: "订单明细已删除",
+  auditOrderDocumentCreated: "订单文档已创建",
+  auditOrderDocumentUpdated: "订单文档已修改",
+  auditOrderDocumentDeleted: "订单文档已删除",
+  auditOrderDocumentItemCreated: "文档内容行已新增",
+  auditOrderDocumentItemUpdated: "文档内容行已修改",
+  auditOrderDocumentItemDeleted: "文档内容行已删除",
   auditCustomerCreated: "客户已创建",
   auditCustomerUpdated: "客户已修改",
   auditCustomerPhoneChanged: "客户电话已修改",
