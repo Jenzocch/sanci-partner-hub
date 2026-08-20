@@ -247,7 +247,7 @@ owner 對可見度的原話是「Admin 填，先只有 SANCI 看得到」。「*
 | P2-34 | 三語系文案＋Activity 標籤 | `UNVERIFIED` | §69 | `common.ts` 加 `sanciOffer` 與三句 `auditOrderOffer*`；`admin.ts` 加 18 個鍵×三語。`audit-format.ts` 依 LESSONS #28 補齊三件事：`ORDER_OFFER_*` 三個動作標籤、`amount` 進欄位標籤表**並走 `formatIDR`**（否則 Activity 上出現裸數字 `1500000`）、以及 **`order_id` 補進 `SKIP`**——順手修掉一個既有的洩漏：0009 的 `ORDER_INTERNAL_NOTE_CREATED` 從上線起就一直把 `order_id` 的原始 UUID 印在 Activity 上，因為當初沒回頭巡這個檔案 |
 | P2-35 | Google 試算表單向鏡像 | `UNVERIFIED` | — | `integrations/sheets-orders/`：`Code.gs`（可直接貼的 Apps Script）＋繁中操作手冊。**一個合作商一個分頁**，以 A 欄「訂單編號」upsert，只寫 A..K 十一欄、**L 欄以後永不觸碰**（那是使用者自己加備註的地方）、**永不刪列**（取消的訂單只是狀態變 Dibatalkan）。用**專用 sync 帳號 + anon key**，檔頭寫明**絕不可用 service_role**。`order_sanci_offers` 走**第二個請求**而非 embed：0013 沒跑時只是該欄空白，不會整份表拉不到資料 |
 
-**Migration `0013_order_offer_amount.sql` 狀態**：`UNVERIFIED`(production) — **尚待 Jenzo 在 Supabase SQL Editor 執行**。本機 Postgres 16 完整重放 `0001→0003→0004→0005→0006→0007→0008→0009→0010→0011→0012→0013` 後：驗證區塊 **27 項全數符合期望**（含四個關鍵負面／型別斷言 `OFFER_NONADMIN_POLICIES 0`、`OFFER_NO_CLIENT_REQUEST_ID 0`、`OFFER_FK_NOT_CASCADE 0`、`OFFER_AMOUNT_TYPE numeric(15,2)`，以及十一個 audit 保留斷言＋`REFS_CHECK_CUSTOMER 1`）；行為測試 **40/40 PASS**（admin 增改刪、upsert 同一 `order_id` 只有一列、`created_by` 由 trigger 帶入、`updated_at` 走 `trg_touch`、amount −1 與 null 被擋、amount 0 被接受、**分店讀自己訂單的方案金額 0 列**、分店 insert 被 RLS 擋、update/delete 影響 0 列、anon 0 列、FK RESTRICT 實測擋下刪訂單、`ORDER_OFFER_CREATED/UPDATED/DELETED` 三個動作都帶出正確的 partner **與** branch、`before`/`after` 帶出新舊金額、分店讀不到 `audit_logs`）；`fn_audit_row` 回歸實測 `PACKAGE_CREATED`／`PRODUCT_CREATED`／`PRODUCT_STATUS_CHANGED`／`CATALOG_ACCESS_UPDATED`／`PACKAGE_ITEM_CREATED`（partner 正確、branch 仍為 null）／`ORDER_CUSTOMER_ARRIVED`／`ORDER_INTERNAL_NOTE_CREATED`／`ORDER_CANCELLED`／`CUSTOMER_PHONE_CHANGED` 全部照舊，且零筆裸表名動作碼；冪等連跑 3 次 `pg_dump -s` 零漂移。⚠️ **0013 後 0001 檔尾數字變為 RLS_ENABLED 18 / POLICIES 38，但 TRIGGERS 仍是 27**（已本機實測，非推估；`order_sanci_offers` 以 `order_` 開頭，三個 trigger 不會被 0001 的 `partner%` 計數納入，與 `order_internal_notes` 相同、與 `partner_package_items` 相反）。0004/0005/0009/0010/0011/0012 六個檔尾**一個數字都沒變**（已逐一實測）。亂序重跑實測：0012 最後跑會掉 `ORDER_OFFER` 但**保住** `PACKAGE_ITEM`；0010 最後跑兩個都掉；**單跑一次 0013 全部復原**。typecheck ✓ eslint ✓ build ✓（`/offline` 仍為 `○` 靜態預渲染）。
+**Migration `0013_order_offer_amount.sql` 狀態**：**`VERIFIED`(production)** — 2026-08-20 Jenzo 執行成功並回貼驗證結果，**27 項數字與期望完全相符**（含 `OFFER_NONADMIN_POLICIES 0`、`OFFER_AMOUNT_TYPE numeric(15,2)`、十一個 audit 保留斷言全 1、`REFS_CHECK_CUSTOMER 1`）。本機 Postgres 16 完整重放 `0001→0003→0004→0005→0006→0007→0008→0009→0010→0011→0012→0013` 後：驗證區塊 **27 項全數符合期望**（含四個關鍵負面／型別斷言 `OFFER_NONADMIN_POLICIES 0`、`OFFER_NO_CLIENT_REQUEST_ID 0`、`OFFER_FK_NOT_CASCADE 0`、`OFFER_AMOUNT_TYPE numeric(15,2)`，以及十一個 audit 保留斷言＋`REFS_CHECK_CUSTOMER 1`）；行為測試 **40/40 PASS**（admin 增改刪、upsert 同一 `order_id` 只有一列、`created_by` 由 trigger 帶入、`updated_at` 走 `trg_touch`、amount −1 與 null 被擋、amount 0 被接受、**分店讀自己訂單的方案金額 0 列**、分店 insert 被 RLS 擋、update/delete 影響 0 列、anon 0 列、FK RESTRICT 實測擋下刪訂單、`ORDER_OFFER_CREATED/UPDATED/DELETED` 三個動作都帶出正確的 partner **與** branch、`before`/`after` 帶出新舊金額、分店讀不到 `audit_logs`）；`fn_audit_row` 回歸實測 `PACKAGE_CREATED`／`PRODUCT_CREATED`／`PRODUCT_STATUS_CHANGED`／`CATALOG_ACCESS_UPDATED`／`PACKAGE_ITEM_CREATED`（partner 正確、branch 仍為 null）／`ORDER_CUSTOMER_ARRIVED`／`ORDER_INTERNAL_NOTE_CREATED`／`ORDER_CANCELLED`／`CUSTOMER_PHONE_CHANGED` 全部照舊，且零筆裸表名動作碼；冪等連跑 3 次 `pg_dump -s` 零漂移。⚠️ **0013 後 0001 檔尾數字變為 RLS_ENABLED 18 / POLICIES 38，但 TRIGGERS 仍是 27**（已本機實測，非推估；`order_sanci_offers` 以 `order_` 開頭，三個 trigger 不會被 0001 的 `partner%` 計數納入，與 `order_internal_notes` 相同、與 `partner_package_items` 相反）。0004/0005/0009/0010/0011/0012 六個檔尾**一個數字都沒變**（已逐一實測）。亂序重跑實測：0012 最後跑會掉 `ORDER_OFFER` 但**保住** `PACKAGE_ITEM`；0010 最後跑兩個都掉；**單跑一次 0013 全部復原**。typecheck ✓ eslint ✓ build ✓（`/offline` 仍為 `○` 靜態預渲染）。
 
 **本切片刻意不做（已知邊界，非遺漏）**：
 - **分店／合作商看不到方案金額**。這是 owner 當下的決定（「先只有 SANCI 看得到」），不是技術限制。要開放的話是**加一條 SELECT policy**，資料結構不用動——這正是當初不把它做成 `partner_orders` 欄位的理由。
@@ -267,6 +267,18 @@ owner 對可見度的原話是「Admin 填，先只有 SANCI 看得到」。「*
 剛定下的規則，這一刀**沒有**建折扣計算的部分，只做了跟現有規則相容的子集，並
 把衝突原原本本記在 `0014_permissions_items_shipping.sql` 檔頭與
 `supabase/migrations/README.md`（0014 段落）裡，供 Jenzo 親自決定。
+
+**衝突已裁決（2026-08-20，主對話 orchestrator 持第一手證據裁定）**：GLOSSARY
+那句「系統不計算折扣」是 **0013 施工 agent 自己的過度推廣**——它開工時 Jenzo
+還沒說明折扣算法，它把 0009/0010 的舊邊界（目錄零價格、方案人工決定）擴大
+解釋成了「永不計算」。而 Jenzo 本人在 0013 施工期間**明確拍板**了訂單層級的
+折扣鏈：多段 % 連乘 → 可選加成 % → 減現金折讓（去尾數）→ 系統算最終價，並
+逐字確認了算例（10.000.000 → [8,10] → +10% → −8.000 = 9.100.000）。時間順序
+上 Jenzo 的拍板**晚於**該 agent 取得的上下文，且 GLOSSARY 那段自己就寫著
+「要做折扣鏈計算需要 Jenzo 重新拍板」——拍板已經發生，只是寫規則的 agent
+無從知道。裁決結果：折扣鏈計算引擎**要做**（第九切片 0015），0010「產品目錄
+零價格」鐵律**不受影響**（這是訂單成交價，不是目錄定價）。GLOSSARY 已同步
+修正。0014 停下來問而不是自己選邊，是正確行為（LESSONS #34 成立不變）。
 
 實際做出來的三件事：① 兩個獨立的**分店可見度開關**（不是原委派要求的三個——
 第三個 `can_discount` 因為沒有折扣機制可管而不存在），讓個別合作商的分店可以
