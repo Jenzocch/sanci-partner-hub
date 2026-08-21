@@ -129,7 +129,7 @@ Build ✓ Type Check ✓ Lint ✓ Tests ✓ Permission tests ✓ RLS tests ✓ D
 
 ### Audit round 3（安全＋正確性全面審計，2026-08-17）
 
-Jenzo 指示「認真 audit」。四領域分工,安全與正確性兩塊由 Opus 完成(UI/UX 與效能兩塊首輪遭額度中斷,**尚未補跑**)。
+Jenzo 指示「認真 audit」。四領域分工,安全與正確性兩塊由 Opus 完成(UI/UX 與效能兩塊首輪遭額度中斷,**已於 2026-08-21 補跑完畢**——見下方「UI/UX 與效能 audit 補跑」段落)。
 
 **結論:P0 = 0、安全 P1 = 0** — 跨 Partner 邊界(P0 原則)逐條追過守住:三個 storage bucket 路徑約定、order_internal_notes、audit_logs 全部確認分店無可達路徑;13 處 embed cast 的 null 防護無一遺漏;所有寫入身分皆 server 端查表核發,無 client 傳值決定權限的路徑。
 
@@ -681,6 +681,67 @@ Owner 原話（跨多則訊息累積）："分行的編號呢" — 分店自己�
 - **`customers.attributed_staff_id` 只有兩條寫入路徑**（見 P2-69），透過
   `web/app/cabang/pelanggan/actions.ts` 的 `updateCustomer`（只能改既有
   客戶，不能建立）永遠不會寫到這個欄位。
+
+### UI/UX 與效能 audit 補跑，2026-08-21
+
+補跑 Audit round 3（2026-08-17）四領域裡因額度中斷而沒做完的兩塊。上一輪的
+安全＋正確性結論不受影響，這一輪**完全沒有碰資料庫**——零 migration、零 RLS、
+零 schema 變更，也沒有動任何 Server Action 的寫入語意。
+
+審計範圍是**今天的整個 app**，不是 2026-08-17 當時的樣子：8/17 之後新增的
+Apple 風設計系統 v2、三語系、chip 視覺體系、Package 產品組成、訂單折扣鏈、
+一鍵產生 SO/DO/Invoice、客戶管理頁與 Kalkulator Penawaran 全部納入。
+
+**結論：P1 = 2、P2 = 6、P3 = 3，全部已修**；另有 4 項因為需要 owner 判斷或
+會動到平行作業中的共用契約，**只回報不動手**（列在最後）。
+
+#### 已修
+
+| 級別 | 問題 | 修法 |
+|---|---|---|
+| **P1** | `/offline` 是**唯一必須離線可開**的畫面（`public/sw.js` 會把它快取進每台手機），卻在 client bundle 裡塞了整份 `MESSAGES`——common+cabang+admin×三語共 946 個 key，只為了讀 3 個字串。單一物件字面值的屬性無法 tree-shake，所以整本字典都進去了：頁面 JS **45.4 kB**（First Load 148 kB），而其他頁面基準是 103 kB | 改成只 import `common` 這一片（仍是同一份 `satisfies Shape` 真理來源，**沒有複製任何譯文**）。實測 **45.4 kB → 7.67 kB（−83%）**，First Load 148 → 110 kB，且 `/offline` 仍是 `○` 靜態預渲染 |
+| **P1** | 兩個訂單詳情頁把互相獨立的查詢排成一串。`/cabang/pesanan/[orderId]`：extras → canManage 那批 → cancelInfo → shipping/items/offer 共**四個**依序的來回，但四者都只需要查主查詢就已知的 `order.id`/`partner_id`/`branch_id`；同一頁還把 `partner_access_policies` **同一列**連續查兩次（`edit_scope` 一次、offer flags 一次，拆開只是為了讓 `can_discount` 的 42703 不要拖垮 `edit_scope`）。`/admin/orders/[orderId]`：`partner_branches` 與 `audit_logs` 各自又是一個獨立階段 | 全部收進既有的 `Promise.all` 波次。cabang 端從約 **9 個序列來回降到 5**，admin 端從 **6 降到 3**；`packageDetail` 與 invoice signed URL 真的依賴前一波但彼此無關，改成同一波。這是分店 staf 每天用手機開最多次的畫面 |
+| P2 | 訂單狀態 chip **admin 與 cabang 兩套視覺語言**：cabang 走 `status-badge.tsx` 的 `.chip.ok`/`.chip.neutral`（實心藥丸），admin 兩處卻用 `.chip.ACTIVE`/`.chip.SUSPENDED`（**實體狀態**家族：描邊＋方點）。STYLE CONTRACT §2b 明文把「order status via status-badge.tsx」列為實心藥丸的例子，而且 REGISTERED/CANCELLED 的訂單並不是「Aktif/Ditangguhkan」的實體——在 `/admin/orders` 同一列裡，訂單狀態 chip 與 partner 狀態 chip 會並排出現，正是這套分類法當初要消滅的歧義 | 比照 `catalog-shared.ts` 的 `STOCK_STATUS_CHIP`，在 `lib/orders-shared.ts` 新增 `ORDER_STATUS_CHIP`，三個呼叫點（admin 列表、admin 詳情、`status-badge.tsx`）全部改成 import 常數，class 字串只定義一次 |
+| P2 | 兩個折扣鏈表單的分隔線寫 `var(--border, #e5e5e5)`。**合約裡根本沒有 `--border` 這個 token**（是 `--line`），所以永遠走 fallback 的寫死色：亮色底下剛好正確，深色模式下變成黑底上一條近白色的亮線 | 改用 `var(--line)`；上方那個 `fontSize:14` 的 `<h3>` 一併換成合約本來就為這個角色準備的 `.overline` |
+| P2 | **admin 側 `loading.tsx` 一個都沒有**，cabang 側有 7 個。每個 admin 頁都是 `force-dynamic` 且卡在 Supabase 查詢上，所以切換導航時畫面停在舊頁、沒有任何「正在載入」的訊號。（§165 記載改版時「loading 改 skeleton」，但實際上只落在 cabang） | 依既有 cabang 模式（只用合約 class、零文案所以不需要 i18n）補上五個常用 admin 路由：`/admin`、`/admin/orders`、`/admin/orders/[orderId]`、`/admin/produk`、`/admin/pelanggan`；`/admin` 那個同時當作更深層 partner 路由的後備 |
+| P2 | `/admin/produk` 一次載入**全部產品**（今天 169 筆，且無分頁），而它的 `<img>` **沒有 `loading="lazy"`**——首次載入就把 169 張照片全部抓下來。cabang 端同一份資料的 `/cabang/produk` 從上線起就是 lazy 的 | 補上 `loading="lazy"` + `decoding="async"`，與 cabang 端一致；Package 內容的縮圖同樣補上 |
+| P2 | 站內 tab／麵包屑／返回鍵用的是 `<a href>` 而非 `<Link>`：Partner／Cabang／Pelanggan 三個詳情頁的分頁切換、admin 麵包屑、cabang 三個「回首頁」。結果是只改一個 query string 也要**整份文件重新載入**——JS 重新解析、重新 hydrate，`app/admin/layout.tsx` 的兩個驗證查詢也跟著重跑一次 | 全部改 `next/link`。**刻意不動兩處**：`offline-card.tsx` 的「再試一次」（本來就要強制真的重新連網，原本就有 eslint-disable 與註解說明）、`documents-section.tsx` 的列印連結（開新分頁） |
+| P2 | `/admin/pelanggan` 每筆客戶都撈 `address`／`email` **但兩個都沒有畫在畫面上**，而這份清單沒有上限；同一頁的五個讀取（客戶＋四張主檔）也是「先一個階段、再一個平行階段」，儘管彼此無關 | 兩個 select（wide／narrow）都拿掉那兩欄；五個讀取併成同一波，只留「0018 沒跑時才會觸發」的 narrow 重試維持序列 |
+| P3 | Kalkulator 購物車 56px 縮圖的「沒有照片」字樣是 **10px**，低於合約寫死的全站 13px 下限（同一角色的 `produk.module.css` 用的是 `var(--fs-caption)`，因為那個框大得多） | 13px 字串在 56px 框裡本來也放不下，所以改成單純的灰底方塊——本身已經讀得出「沒有照片」，不用靠縮到違反合約的字級 |
+| P3 | 兩個型錄畫面的分類 filter chip 都是 `min-height: 36px` 且**沒有手機加大**，對照合約寫明的 `--tap: 44px`；globals.css 的 `.btn.sm` 早就有 <768px 加大到 44px 的處理。這正是 staf 站在客戶面前用手指點的東西 | 兩個 CSS Module 都補上 `<768px → var(--tap)`；桌機維持 36px（滑鼠不需要） |
+| P3 | 產品 `<img>` 上的 eslint-disable 註解寫「詳見 `lib/catalog-shared.ts` 的說明」，但**那份說明根本不存在** | 把它真的寫出來：為什麼這裡用原生 `<img>` 而不是 `next/image`（公開 Supabase bucket＋照片在上傳時就已壓縮過一次），以及代價是呼叫端必須自己負責 lazy／預留空間／`onError` placeholder——這次在 `/admin/produk` 抓到的漏 `loading="lazy"` 正是這個代價沒被履行 |
+
+#### 查過確認沒問題（記下來避免下輪重複查）
+
+- **三語系文案衛生零缺失**：`id`/`en` 兩區塊掃 CJK 殘留零命中；zh 區塊掃 GLOSSARY 的 15 個繁體禁用詞零命中；全 app JSX 文字節點掃硬編英文/印尼文，只命中 `Partner Hub`（品牌名，本來就不翻）。key 集合有 `satisfies Shape` 把關，漏翻是編譯期錯誤。
+- **service_role 沒有外洩**：`lib/supabase/admin.ts` 出現在 `"use client"` grep 結果裡只是因為**註解裡提到這個字串**，檔案本身沒有 `"use client"`，也沒有任何 client 元件 import 它。同理 `app/admin/partners/[id]/page.tsx`。
+- **沒有橫向捲動**：`body{overflow-x:hidden}` ＋ `.tablewrap{overflow-x:auto}`，寬表格在自己的容器裡捲，頁面本身不會。
+- **z-index 疊法正確**：modal/overlay 40 > sticky 頂欄 30 > kalkulator sticky 底欄 25。
+- **沒有真正的 N+1 迴圈查詢**（唯一一個在下方「只回報」第 1 點）。
+- **`<img>` 全部有 `onError` → placeholder**，不會留破圖。
+
+#### 只回報、沒有動手（需要 owner 或另一次排程判斷）
+
+1. **`copyPackageItemsToOrder`（`app/cabang/pesanan/actions.ts`）是真正的 N+1**：每個 package 品項各做一次 SELECT（存在性檢查）再一次 INSERT，而且是**依序**的——20 個產品的 package ＝ 建單當下 40 個序列來回，全部發生在弱網下最不能拖的寫入路徑上。**沒有自己改**，因為它牽涉 idempotency 語意（`client_request_id` 的唯一約束才是真防線，LESSONS #3/#21）與逐行錯誤彙總；改成批次寫入是正確方向，但屬於要單獨驗證的改動，不該在 UI audit 裡順手做。
+2. **i18n context 把用不到的那一半送給每個 client**：`I18nProvider` 收的是完整 `Messages`，所以每個 `/cabang/**` 頁面都夾帶整份 **admin 文案（500 個 key，33 kB 原始／9.3 kB gzip）**，每個 `/admin/**` 頁面則夾帶整份 cabang（252 key，15.6 kB／4.9 kB gzip）。已**驗證前提成立**：`app/cabang/**` 零處讀 `m.admin.*`，`app/admin/**` 零處讀 `m.cabang.*`，而讀 `m.admin.*` 的 `lib/audit-format.ts` 只被 admin 頁面使用——所以按區切分是安全的。**沒有自己改**：型別安全的做法要動 `Messages`/`I18nProvider`/`useMessages` 這個共用契約，而現在有另一個 agent 正在 `calc-cart-handoff` 分支改同一批呼叫 `useMessages()` 的檔案，正是 LESSONS #31 講的情境。（偷懶版——傳空物件再 cast——會把編譯期保證變成畫面上的 `undefined`，等於拆掉 `satisfies Shape`，不可取。）
+3. **`@supabase/supabase-js` 整包（184 kB 原始／約 68 kB gzip，含這個 app 從未使用的 Realtime client）進了 6 條路由的 first-load**：`/`、`/cabang`、`/admin/produk`、`/admin/partners/[id]`、`/cabang/pesanan/[orderId]`、`/cabang/pesanan/baru`——就是這幾頁比 103 kB 基準高出約 70 kB 的原因。除了登入頁真的需要它在關鍵路徑上，其餘都只在「按登出」或「上傳檔案」時才用得到，可以改成動態 import。**沒有自己改**：會動到上傳與登出路徑的 async 結構，那裡有弱網/補償邏輯（LESSONS #2/#18/#29），值得單獨一刀。
+4. **三個 admin 清單沒有 `.limit()`**：`/admin/produk`（169 筆且持續增加）、`/admin/pelanggan`（36 筆匯入＋所有分店建的客戶）、`/admin`（partner，量小無妨）。cabang 端對應頁面都有 100/200 的上限。**沒有自己加上限**：在沒有分頁的情況下加 cap，會讓 admin 搜尋悄悄漏掉超過上限的客戶——那是「這個客戶不存在」等級的誤導，屬於產品決定（要一起做分頁），不是 audit 可以順手決定的。
+
+另外兩件小事記錄但不修：`.seg` 在手機是 40px（合約寫 44px）、admin 的寬表格沒有 `.mobile-only` 卡片版（`.desktop-only`/`.mobile-only`/`.reccard` 在 admin 側零使用）——後者在 admin＝桌面的定位下是合理取捨，但 §4 的遷移對照表把它列為 wave-2 應該要做的事，兩者的落差記在這裡供 owner 決定。
+
+**驗證**：`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、`npx eslint .` ✓、
+`rm -rf .next && npm run build` ✓，對**整棵 `web/`** 跑（LESSONS #31）。`/offline`
+仍為 `○` 靜態預渲染，且體積從 45.4 kB 降到 7.67 kB。零新增 i18n key（新增的
+skeleton 完全沒有文案），故無新的禁用詞掃描項目。本輪**沒有任何 migration／
+schema／RLS 變動**，也沒有修改任何 Server Action 的寫入語意——`audit-format.ts`
+依 LESSONS #28 逐項檢查過，本輪沒有新增/更名任何會進 audit diff 的欄位或動作碼，
+所以該檔案不需要動（是「檢查過不用改」，不是漏做）。
+
+**尚待真人驗證**（本環境網路白名單擋 supabase.co，沿用既有限制）：以上皆為
+靜態分析＋建置產物實測，chip 分類、skeleton、觸控目標、深色模式分隔線這四項
+需要 Jenzo 用真帳號在手機＋桌面實看過才能升級 VERIFIED——這與 §158-167 設計
+系統 v2 本身待驗的狀態一致，可以同一次看完。
+
 
 ## 已知刻意保留的「怪東西」
 

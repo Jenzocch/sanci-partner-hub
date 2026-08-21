@@ -205,6 +205,13 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：不去改 0017（CHECK constraint 本身沒有錯，也不該為了遷就一個新加的行為而改舊 migration 的規則定義）也不去改 0018（BEFORE 觸發器的空字串→NULL 轉換是刻意且合理的設計，不是 bug）——改的是**測試檔本身**：更新 T1 的斷言，讓它反映「完整鏈跑起來之後」真正會發生的行為（空字串成功存成 NULL，不是被拒絕），並在測試檔和 README 裡清楚寫明這是哪個 migration 造成的行為轉變、什麼時候發現的、為什麼原本的斷言不再適用。测试文件（不是 migration 本身）是可以隨著系統真實行為演進而更新的，只要更新的理由寫清楚、覆蓋率沒有因此變少。
 - **教訓**：**「這個 migration 的 CHECK/policy/trigger 我完全沒有碰」不等於「跟它相關的行為測試斷言依然成立」——後面的 migration 只要在同一張表上加一個會改寫欄位值的 BEFORE 觸發器，就足以讓前面某個完全獨立、完全沒被觸碰的 CHECK constraint 的可觀測行為整個變掉。** 這跟 LESSONS #35（具名 constraint 被 DROP+CREATE 取代）是同一個家族但機制不同：#35 是「後面的 migration 直接拿掉了前面建立的東西」，這裡是「後面的 migration 沒有拿掉任何東西，只是在它前面加了一層會動手腳的關卡」——兩種都要求同一個習慣：**新 migration 在同一張表上裝 BEFORE 觸發器時，問一句「這張表现有的每一條 CHECK constraint，收到的值還會是呼叫端原本送出的那個值嗎？」**，而不是只確認「我自己這條 CHECK 邏輯有沒有被改」。這類 bug 只有对着完整重放鏈跑舊測試檔才抓得到，光看 migration SQL 文字或只跑新測試檔都看不出來。
 
+### 38. 一個大物件字面值的「屬性」不能被 tree-shake——client 元件只讀其中三個字串，整本字典還是會進 bundle〔本專案 2026-08-21，UI/UX+效能 audit 補跑時實測〕
+- **情境**：`lib/i18n/messages/index.ts` 把三語系文案組成單一常數 `MESSAGES`（common+cabang+admin × id/en/zh，共 946 個 key）。`app/offline/offline-card.tsx` 是 client 元件，`import { MESSAGES } from "@/lib/i18n/messages"` 之後只用到 `offlineTitle`／`offlineBody`／`retry` **三個字串**。
+- **實測炸點**：`next build` 顯示 `/offline` 的頁面 JS 是 **45.4 kB**（First Load 148 kB），而其他頁面的共用基準是 103 kB。改成只 `import { common } from "@/lib/i18n/messages/common"` 之後降到 **7.67 kB**（First Load 110 kB）——**同一個檔案、同一份譯文、只換了 import 的粒度，就少掉 83%**。
+- **為什麼直覺會失靈**：大家對 tree-shaking 的印象是「沒用到的就會被拿掉」，但 bundler 能搖掉的單位是**匯出的繫結（export binding）**，不是物件內部的屬性。`export const MESSAGES = {...}` 是**一個**繫結；只要有人碰它，整個物件字面值就必須完整保留（屬性隨時可能被動態索引——這裡確實就是 `MESSAGES[locale]`）。拆成 `common`/`cabang`/`admin` 三個獨立 export 之後，才有三個可以各自被搖掉的單位。
+- **這次特別貴的原因**：中招的偏偏是 `/offline`——**唯一一個被 service worker 快取進每台使用者手機、而且必須在完全沒有網路時打得開**的畫面（LESSONS #23 講的就是它）。「離線後援頁面」扛著 45 kB 用不到的 admin 文案，跟 #23 的教訓是同一個家族：後援機制本身悄悄背上了它不需要的東西。
+- **教訓**：**client 元件 import 一個「字典型」常數之前，先問「這個 export 的繫結有多大，不是我用到多少」。** 共用文案/設定/對照表要按使用區塊拆成多個 export，而不是一個大物件加深層路徑存取。驗證方法只有一個：**看 `next build` 的 Route 表格，把可疑頁面跟共用基準相減**——原始碼看起來完全正常，typecheck/eslint 全綠，只有建置產物的數字會說話（呼應 #7：成功訊息不是證據）。同一輪也用這招定位到 `@supabase/supabase-js` 整包（含本專案從未使用的 Realtime client，約 68 kB gzip）進了六條路由的 first-load。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
