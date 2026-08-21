@@ -189,6 +189,20 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
   const finalTotal = computeChainFinal(subtotal, parsedDiscounts, parsedMarkup, parsedCash);
   const finalDisplay = Math.max(finalTotal, 0);
 
+  // Rincian uang PER LANGKAH diskon — hanya untuk ditampilkan (bukan sumber
+  // finalTotal, sama seperti afterDiscountDisplay/afterMarkupDisplay di atas).
+  // Dihitung berurutan: setiap langkah memotong dari hasil langkah SEBELUMNYA
+  // (rantai perkalian, bukan menjumlah persen), supaya "Diskon 2 (10%)" yang
+  // ditampilkan benar-benar 10% dari harga SETELAH Diskon 1 — bukan 10% dari
+  // harga awal (0015 §5 — itulah kenapa 8%+10% ≠ 18%).
+  let discountRunning = subtotal;
+  const discountSteps = parsedDiscounts.map((pct, i) => {
+    const before = discountRunning;
+    discountRunning = before * (1 - pct / 100);
+    return { n: i + 1, pct, amount: Math.round(before - discountRunning) };
+  });
+  const totalDiscountAmount = subtotal - afterDiscountDisplay;
+
   function handleConvertToOrder() {
     if (lines.length === 0) return;
     writeCalcHandoff({
@@ -462,6 +476,18 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                 <span>{m.cabang.calcBreakdownSubtotal}</span>
                 <span>{formatIDR(subtotal)}</span>
               </div>
+              {discountSteps.map((step) => (
+                <div className={styles.breakdownRow} key={step.n}>
+                  <span>{m.cabang.calcDiscountStepAmount.replace("{n}", String(step.n)).replace("{pct}", String(step.pct))}</span>
+                  <span>−{formatIDR(step.amount)}</span>
+                </div>
+              ))}
+              {discountSteps.length > 0 && (
+                <div className={styles.breakdownRow}>
+                  <span>{m.cabang.calcBreakdownTotalDiscount}</span>
+                  <span>−{formatIDR(totalDiscountAmount)}</span>
+                </div>
+              )}
               <div className={styles.breakdownRow}>
                 <span>{m.cabang.calcBreakdownAfterDiscount}</span>
                 <span>{formatIDR(afterDiscountDisplay)}</span>
