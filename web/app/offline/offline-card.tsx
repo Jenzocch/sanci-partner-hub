@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MESSAGES } from "@/lib/i18n/messages";
+// Sengaja mengimpor SLICE `common` saja, bukan `MESSAGES` dari
+// lib/i18n/messages: `MESSAGES` adalah satu objek literal berisi common +
+// cabang + admin untuk KETIGA bahasa (946 kunci), dan properti di dalam satu
+// objek literal tidak bisa di-tree-shake — mengimpornya menyeret seluruhnya
+// ke dalam bundle. Halaman ini cuma memakai tiga kunci, tapi dulu membayar
+// ~45 kB JS untuk itu, dan justru halaman INILAH yang disimpan service
+// worker di ponsel setiap pengguna dan harus terbuka tanpa jaringan sama
+// sekali. `common` tetap satu sumber kebenaran yang sama (masih terikat
+// `satisfies Shape`), jadi tidak ada terjemahan yang diduplikasi di sini.
+import { common } from "@/lib/i18n/messages/common";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, type Locale } from "@/lib/i18n/types";
 
 /**
@@ -31,7 +40,7 @@ export default function OfflineCard() {
     document.documentElement.lang = found;
   }, []);
 
-  const m = MESSAGES[locale].common;
+  const m = common[locale];
 
   return (
     <div className="authcard center">

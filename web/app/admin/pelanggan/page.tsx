@@ -14,12 +14,13 @@ function isMissingColumnErr(err: QueryErr): boolean {
   return !!err && err.code === "42703";
 }
 
+// Sengaja TIDAK memuat address/email: halaman ini tidak menampilkan
+// keduanya, dan daftar ini belum dibatasi jumlahnya — mengambil kolom yang
+// tidak dipakai berarti membayar untuk setiap baris pelanggan, selamanya.
 type CustomerRow = {
   id: string;
   full_name: string;
   phone: string;
-  address: string | null;
-  email: string | null;
   customer_code: string | null;
   source_id: string | null;
   sales_staff_id: string | null;
@@ -52,40 +53,41 @@ export default async function PelangganPage({
   let customers: CustomerRow[] = [];
   let customersErr: QueryErr = null;
   let codeFeatureOn = true;
-  {
-    const wide = await supabase
-      .from("customers")
-      .select(
-        "id, full_name, phone, address, email, customer_code, source_id, sales_staff_id, created_via_partner_id, created_via_branch_id, created_at"
-      )
-      .order("created_at", { ascending: false });
-    if (wide.error && isMissingColumnErr(wide.error)) {
-      codeFeatureOn = false;
-      const narrow = await supabase
+
+  // Kelima pembacaan ini saling bebas, jadi berangkat bersama — dulu daftar
+  // pelanggan menunggu selesai lebih dulu, baru empat sisanya jalan.
+  const [wide, { data: sources, error: sourcesErr }, { data: sales, error: salesErr }, { data: partners }, { data: branches }] =
+    await Promise.all([
+      supabase
         .from("customers")
         .select(
-          "id, full_name, phone, address, email, customer_code, created_via_partner_id, created_via_branch_id, created_at"
+          "id, full_name, phone, customer_code, source_id, sales_staff_id, created_via_partner_id, created_via_branch_id, created_at"
         )
-        .order("created_at", { ascending: false });
-      customersErr = narrow.error;
-      customers = ((narrow.data ?? []) as Omit<CustomerRow, "source_id" | "sales_staff_id">[]).map((c) => ({
-        ...c,
-        source_id: null,
-        sales_staff_id: null,
-      }));
-    } else {
-      customersErr = wide.error;
-      customers = (wide.data ?? []) as CustomerRow[];
-    }
-  }
-
-  const [{ data: sources, error: sourcesErr }, { data: sales, error: salesErr }, { data: partners }, { data: branches }] =
-    await Promise.all([
+        .order("created_at", { ascending: false }),
       supabase.from("customer_sources").select("id, code, label, status").order("code"),
       supabase.from("sanci_sales_staff").select("id, code, name, status").order("code"),
       supabase.from("partners").select("id, name"),
       supabase.from("partner_branches").select("id, name, partner_id"),
     ]);
+
+  // Percobaan ulang yang sempit hanya terjadi kalau 0018 belum dijalankan
+  // (42703) — kasus langka, jadi boleh tetap berurutan di sini.
+  if (wide.error && isMissingColumnErr(wide.error)) {
+    codeFeatureOn = false;
+    const narrow = await supabase
+      .from("customers")
+      .select("id, full_name, phone, customer_code, created_via_partner_id, created_via_branch_id, created_at")
+      .order("created_at", { ascending: false });
+    customersErr = narrow.error;
+    customers = ((narrow.data ?? []) as Omit<CustomerRow, "source_id" | "sales_staff_id">[]).map((c) => ({
+      ...c,
+      source_id: null,
+      sales_staff_id: null,
+    }));
+  } else {
+    customersErr = wide.error;
+    customers = (wide.data ?? []) as CustomerRow[];
+  }
 
   const migrationMissing = isMissingTableErr(sourcesErr) || isMissingTableErr(salesErr) || !codeFeatureOn;
 
