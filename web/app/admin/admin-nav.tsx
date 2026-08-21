@@ -20,6 +20,7 @@ export default function AdminNav() {
   const isPartners = pathname === "/admin" || pathname.startsWith("/admin/partners");
   const isOrders = pathname.startsWith("/admin/orders");
   const isProducts = pathname.startsWith("/admin/produk");
+  const isCustomers = pathname.startsWith("/admin/pelanggan");
 
   return (
     <nav className="side">
@@ -28,12 +29,16 @@ export default function AdminNav() {
         <span className="sub">Partner Hub</span>
       </div>
       {/* Urutan mengikuti logika pemakaian harian: pemantauan pesanan dulu,
-          katalog produk, pengaturan partner setelahnya. */}
+          katalog produk, pelanggan (input harian tim sales SANCI-direct),
+          pengaturan partner setelahnya. */}
       <Link href="/admin/orders" className={`navlink${isOrders ? " on" : ""}`}>
         {m.admin.navOrders}
       </Link>
       <Link href="/admin/produk" className={`navlink${isProducts ? " on" : ""}`}>
         {m.admin.navProducts}
+      </Link>
+      <Link href="/admin/pelanggan" className={`navlink${isCustomers ? " on" : ""}`}>
+        {m.admin.navCustomers}
       </Link>
       <Link href="/admin" className={`navlink${isPartners ? " on" : ""}`}>
         {m.admin.navPartners}

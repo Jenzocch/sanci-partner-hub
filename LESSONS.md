@@ -190,6 +190,13 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：這一類「後面的 migration 用不同名字取代前面 migration 建的 constraint/index」的情況，都要在**前面那個 migration 自己的區塊註解**旁邊補一句「這個名字如果被後面的檔案 DROP 掉，重新執行本檔會把它加回來」，並在 `migrations/README.md` ATURAN BESI 表格裡，用實測結果（不是推論）記录「重跑前面那個檔案，唯一真的改變的是這條 constraint，兩個 trigger 和三個 policy 完全沒事」——逐項量測過才能這樣寫，不能用「應該不會有事」帶過。
 - **教訓**：ATURAN BESI 目前整理的兩種模式（`CREATE OR REPLACE FUNCTION` 覆蓋、policy 名字沒被新檔案 DROP）都是「最後跑的贏」；具名 constraint 的 DROP+CREATE 模式是**第三種**、方向相反的模式（「中間跑的那個，因為看不到後面發生的事，會把後面的成果撤銷」）——每次一個新 migration 用不同名字取代舊 migration 建立的東西時，都要問一句「如果舊那份被重新執行，它的冪等判斷式現在還成立嗎」，不能只套用前兩種模式的直覺。
 
+### 36. `ON CONFLICT (col) WHERE <predicate>` 對「已經存在但不符合 predicate」的舊列完全視而不見——拿它做 idempotent 種子資料，只要那一列的狀態被改過，重跑就會靜默造出重複資料〔本專案 2026-08-21，0018 施工當下實測發現〕
+- **情境**：`customer_sources`/`sanci_sales_staff` 的唯一性刻意設計成「只在 ACTIVE 之間唯一」（partial unique index `where status = 'ACTIVE'`，跟 0010 同一種寫法）。第一版種子資料直覺地把 index 的 predicate 原樣搬進 `INSERT ... ON CONFLICT (code) WHERE (status = 'ACTIVE') DO NOTHING`，心想「跟 index 用同一個 predicate 一定安全」。
+- **實測炸點**：`update customer_sources set status='INACTIVE' where code='D'` 之後重跑同一段種子 INSERT——`code='D'` 那一列已經是 INACTIVE，不再落在 `WHERE status='ACTIVE'` 這個 conflict target 的範圍內，Postgres 判定「沒有衝突」，於是真的又 INSERT 了一筆 `code='D', status='ACTIVE'` 的新資料。結果同一個代碼同時存在兩列（一列 INACTIVE 一列 ACTIVE），且完全沒有任何錯誤或警告——這正是 LESSONS #9（repo 裡的 migration ≠ production 已套用，Jenzo 隨時可能重貼同一份 SQL）會撞上的場景。
+- **為什麼直覺會失靈**：`ON CONFLICT` 的「有沒有衝突」是拿**新列的值**去測 conflict target 那個 index 的 predicate 是否成立，不是去問「這個 code 在系統裡是不是已經有一列了」。種子資料的 INSERT 一律帶預設值 `status DEFAULT 'ACTIVE'`，所以新列永遠落在 predicate 裡；已存在的舊列如果狀態被改到 predicate 外，就從「衝突偵測」的視野裡直接消失——這跟一般人以為的「這個 index 應該會擋住重複」是反的。
+- **修法**：種子資料的冪等判斷要問「這個 code 不論狀態存不存在」，不是「這個 code 在 ACTIVE 集合裡存不存在」——改成 `INSERT ... SELECT ... WHERE NOT EXISTS (SELECT 1 FROM t WHERE t.code = v.code)`（check-then-insert，不看狀態）。這類一次性、非併發的 migration 種子資料，check-then-insert 的非原子性不是風險（跟 LESSONS #3 禁止的「SELECT-lalu-INSERT 防重複」是不同場景——那條講的是防止*使用者*併發寫入產生重複，這裡是 migration 腳本單執行緒地建初始資料）。
+- **教訓**：**partial unique index 的 predicate 是為了「業務規則允許什麼」設計的（只在 ACTIVE 之間唯一），不是為了「種子資料重跑安不安全」設計的——兩個問題答案不一定一樣，拿前者的 predicate 直接套進 `ON CONFLICT` 之前，要先問一句「如果這一列的狀態被改到 predicate 之外，會發生什麼事」。** 這類 bug 平常的驗證方式（跑一次、看種子筆數正確）完全測不出來——只有「先改狀態、再重跑」這個明確模擬 LESSONS #9 場景的動作才抓得到，本專案是施工當下主動這樣測才發現，不是事後回報的事故。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

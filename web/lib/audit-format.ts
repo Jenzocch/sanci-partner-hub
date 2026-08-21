@@ -90,6 +90,12 @@ function fieldLabel(m: Messages, key: string): string | undefined {
     doc_type: m.admin.docColType,
     doc_number: m.admin.docNumberLabel,
     doc_date: m.admin.docColDate,
+    // 0018 — customer_sources.label (baris masternya sendiri, bukan
+    // customers.source_id/sales_staff_id — keduanya SKIP di bawah, sama
+    // pola dengan package_id/product_id: UUID relasi murni yang lebih
+    // bermakna ditampilkan lewat kode/nama yang sudah terbaca di layar
+    // lain, bukan sebagai diff mentah di Aktivitas).
+    label: c.label,
   };
   return map[key];
 }
@@ -231,6 +237,13 @@ const SKIP = new Set([
   // terbaca di layar; UUID-nya tidak berarti apa-apa bagi pembaca non-teknis.
   "document_id",
   "order_item_id",
+  // Ditambahkan migrasi 0018: source_id/sales_staff_id pada customers adalah
+  // UUID relasi ke customer_sources/sanci_sales_staff, perlakuannya sama
+  // dengan package_id/product_id di atas — bermakna lewat customer_code
+  // (sudah tampil apa adanya sejak 0017) dan lewat kode/label yang terbaca
+  // di layar Kode Sumber Tamu/Kode Sales, bukan lewat UUID mentah di diff.
+  "source_id",
+  "sales_staff_id",
   // Ditambahkan slice 7 (0013): `order_id` adalah UUID relasi ke partner_orders,
   // perlakuannya sama dengan customer_id / package_id / product_id di atas.
   // Ia SUDAH bocor sebelum ini — setiap baris ORDER_INTERNAL_NOTE_CREATED
@@ -274,6 +287,15 @@ const ACTION_KEYS: Record<string, keyof Messages["common"]> = {
   CUSTOMER_CREATED: "auditCustomerCreated",
   CUSTOMER_UPDATED: "auditCustomerUpdated",
   CUSTOMER_PHONE_CHANGED: "auditCustomerPhoneChanged",
+  // 0018 — customer_sources/sanci_sales_staff. Kedua tabel punya kolom
+  // `status`, jadi *_STATUS_CHANGED muncul dengan sendirinya lewat cabang
+  // generik fn_audit_row (sama pola dengan PRODUCT_STATUS_CHANGED).
+  CUSTOMER_SOURCE_CREATED: "auditCustomerSourceCreated",
+  CUSTOMER_SOURCE_UPDATED: "auditCustomerSourceUpdated",
+  CUSTOMER_SOURCE_STATUS_CHANGED: "auditCustomerSourceStatusChanged",
+  SALES_STAFF_CREATED: "auditSalesStaffCreated",
+  SALES_STAFF_UPDATED: "auditSalesStaffUpdated",
+  SALES_STAFF_STATUS_CHANGED: "auditSalesStaffStatusChanged",
   PACKAGE_CREATED: "auditPackageCreated",
   PACKAGE_UPDATED: "auditPackageUpdated",
   PACKAGE_STATUS_CHANGED: "auditPackageStatusChanged",

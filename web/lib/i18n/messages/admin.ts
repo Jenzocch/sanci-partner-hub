@@ -18,6 +18,7 @@ const id = {
   navOrders: "Pesanan Partner",
   navPartners: "Partner",
   navProducts: "Produk",
+  navCustomers: "Pelanggan",
 
   // ---- Dipakai lintas layar admin ----
   openBtn: "Buka",
@@ -629,6 +630,67 @@ const id = {
   docNumberLabel: "Nomor Dokumen",
   docPrintBtn: "Cetak / Simpan PDF",
   docBackToOrderBtn: "Kembali ke Pesanan",
+
+  // ---- Pelanggan (app/admin/pelanggan/page.tsx) — Phase 2 slice 13, migrasi 0018 ----
+  customerCreatedViaSanci: "SANCI langsung",
+  customerCreatedViaUnknownPartner: "Partner tidak diketahui",
+  customerTabList: "Daftar Pelanggan",
+  customerTabSources: "Kode Sumber Tamu",
+  customerTabSales: "Kode Sales",
+  customerSearchPlaceholder: "Cari nama / telepon / kode…",
+  customerEmpty: "Belum ada pelanggan.",
+  customerEmptyFiltered: 'Tidak ada pelanggan yang cocok dengan "{q}".',
+  customerColCode: "Kode Pelanggan",
+  customerColSourceSales: "Sumber · Sales",
+  customerColCreatedVia: "Dibuat Lewat",
+  customerCodeMigrationMsg: "Fitur kode pelanggan otomatis belum aktif — migrasi belum dijalankan.",
+
+  // ---- Tambah Pelanggan (add-customer-button.tsx) ----
+  customerNameRequired: "Nama pelanggan wajib diisi.",
+  customerPhoneInvalid: "Nomor telepon tidak valid.",
+  customerSourceSalesPairRequired:
+    "Sumber dan Sales harus diisi berdua, atau dikosongkan berdua — tidak bisa hanya salah satu.",
+  customerAddBtn: "+ Tambah Pelanggan",
+  customerAddModalTitle: "Tambah Pelanggan",
+  customerSavedMsg: "Pelanggan tersimpan.",
+  customerNoCodeGenerated: "Tidak ada kode (Sumber/Sales tidak diisi).",
+  customerNameFieldLabel: "Nama pelanggan *",
+  customerPhoneFieldLabel: "Telepon *",
+  customerSourceFieldLabel: "Sumber",
+  customerSalesFieldLabel: "Sales",
+  customerSourceSalesEmptyOption: "— Pilih —",
+  customerSourceSalesHint:
+    "Isi Sumber dan Sales berdua untuk mendapat Kode Pelanggan otomatis, atau kosongkan berdua kalau tidak perlu.",
+  customerCreateBtn: "Simpan Pelanggan",
+
+  // ---- Master "Kode Sumber Tamu" / "Kode Sales" (master-data-section.tsx) ----
+  sourceCodeFieldLabel: "Kode *",
+  sourceLabelFieldLabel: "Label *",
+  sourceAddBtn: "+ Tambah Sumber",
+  sourceAddModalTitle: "Tambah Kode Sumber Tamu",
+  sourceEditModalTitle: "Ubah Kode Sumber Tamu",
+  sourceEmpty: "Belum ada kode sumber tamu.",
+  sourceColLabel: "Label",
+  salesCodeFieldLabel: "Kode *",
+  salesNameFieldLabel: "Nama *",
+  salesAddBtn: "+ Tambah Sales",
+  salesAddModalTitle: "Tambah Kode Sales",
+  salesEditModalTitle: "Ubah Kode Sales",
+  salesEmpty: "Belum ada kode sales.",
+  salesColName: "Nama",
+  customerMasterDeactivateTitle: "Nonaktifkan {text}?",
+  customerMasterDeactivateBody:
+    "Kode ini tidak akan bisa dipilih untuk pelanggan baru. Pelanggan lama yang sudah memakai kode ini tidak berubah.",
+
+  // ---- Server Actions (actions-customers.ts) ----
+  sourceCodeInvalid: "Kode harus 1–4 huruf besar (A–Z).",
+  sourceLabelRequired: "Label wajib diisi.",
+  sourceCodeTaken: "Kode sumber ini sudah dipakai kode aktif lain.",
+  sourceStatusChangeFailed: "Tidak bisa mengubah status sumber sekarang.",
+  salesCodeInvalid: "Kode harus 1–4 huruf besar (A–Z).",
+  salesNameRequired: "Nama wajib diisi.",
+  salesCodeTaken: "Kode sales ini sudah dipakai kode aktif lain.",
+  salesStatusChangeFailed: "Tidak bisa mengubah status sales sekarang.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -637,6 +699,7 @@ const en = {
   navOrders: "Partner orders",
   navPartners: "Partners",
   navProducts: "Products",
+  navCustomers: "Customers",
 
   openBtn: "Open",
   filterStatusAll: "Status: all",
@@ -1208,12 +1271,73 @@ const en = {
   docNumberLabel: "Document number",
   docPrintBtn: "Print / Save PDF",
   docBackToOrderBtn: "Back to order",
+
+  // ---- Customers (app/admin/pelanggan/page.tsx) — Phase 2 slice 13, migration 0018 ----
+  customerCreatedViaSanci: "SANCI direct",
+  customerCreatedViaUnknownPartner: "Unknown partner",
+  customerTabList: "Customer List",
+  customerTabSources: "Source Codes",
+  customerTabSales: "Sales Codes",
+  customerSearchPlaceholder: "Search name / phone / code…",
+  customerEmpty: "No customers yet.",
+  customerEmptyFiltered: 'No customers match "{q}".',
+  customerColCode: "Customer Code",
+  customerColSourceSales: "Source · Sales",
+  customerColCreatedVia: "Created Via",
+  customerCodeMigrationMsg: "The automatic customer code feature is not active yet — the migration has not been run.",
+
+  // ---- Add Customer (add-customer-button.tsx) ----
+  customerNameRequired: "Customer name is required.",
+  customerPhoneInvalid: "Invalid phone number.",
+  customerSourceSalesPairRequired: "Source and Sales must be filled in together, or left blank together — not just one.",
+  customerAddBtn: "+ Add Customer",
+  customerAddModalTitle: "Add Customer",
+  customerSavedMsg: "Customer saved.",
+  customerNoCodeGenerated: "No code (Source/Sales not filled in).",
+  customerNameFieldLabel: "Customer name *",
+  customerPhoneFieldLabel: "Phone *",
+  customerSourceFieldLabel: "Source",
+  customerSalesFieldLabel: "Sales",
+  customerSourceSalesEmptyOption: "— Select —",
+  customerSourceSalesHint:
+    "Fill in both Source and Sales to get an automatic Customer Code, or leave both blank if not needed.",
+  customerCreateBtn: "Save Customer",
+
+  // ---- Master "Source Codes" / "Sales Codes" (master-data-section.tsx) ----
+  sourceCodeFieldLabel: "Code *",
+  sourceLabelFieldLabel: "Label *",
+  sourceAddBtn: "+ Add Source",
+  sourceAddModalTitle: "Add Source Code",
+  sourceEditModalTitle: "Edit Source Code",
+  sourceEmpty: "No source codes yet.",
+  sourceColLabel: "Label",
+  salesCodeFieldLabel: "Code *",
+  salesNameFieldLabel: "Name *",
+  salesAddBtn: "+ Add Sales",
+  salesAddModalTitle: "Add Sales Code",
+  salesEditModalTitle: "Edit Sales Code",
+  salesEmpty: "No sales codes yet.",
+  salesColName: "Name",
+  customerMasterDeactivateTitle: "Deactivate {text}?",
+  customerMasterDeactivateBody:
+    "This code will no longer be selectable for new customers. Existing customers already using it are unchanged.",
+
+  // ---- Server Actions (actions-customers.ts) ----
+  sourceCodeInvalid: "Code must be 1–4 uppercase letters (A–Z).",
+  sourceLabelRequired: "Label is required.",
+  sourceCodeTaken: "This source code is already used by another active code.",
+  sourceStatusChangeFailed: "Could not change the source's status right now.",
+  salesCodeInvalid: "Code must be 1–4 uppercase letters (A–Z).",
+  salesNameRequired: "Name is required.",
+  salesCodeTaken: "This sales code is already used by another active code.",
+  salesStatusChangeFailed: "Could not change the sales status right now.",
 } satisfies Shape;
 
 const zh = {
   navOrders: "合作商订单",
   navPartners: "合作商",
   navProducts: "产品",
+  navCustomers: "客户",
 
   openBtn: "打开",
   filterStatusAll: "状态：全部",
@@ -1739,6 +1863,64 @@ const zh = {
   docNumberLabel: "文档编号",
   docPrintBtn: "打印／保存 PDF",
   docBackToOrderBtn: "返回订单",
+
+  // ---- 客户（app/admin/pelanggan/page.tsx）—— Phase 2 第十三切片，迁移 0018 ----
+  customerCreatedViaSanci: "SANCI 直营",
+  customerCreatedViaUnknownPartner: "未知合作商",
+  customerTabList: "客户列表",
+  customerTabSources: "来源代码",
+  customerTabSales: "销售员代码",
+  customerSearchPlaceholder: "搜索姓名／电话／代码…",
+  customerEmpty: "还没有客户。",
+  customerEmptyFiltered: '没有符合"{q}"的客户。',
+  customerColCode: "客户代码",
+  customerColSourceSales: "来源·销售员",
+  customerColCreatedVia: "创建方式",
+  customerCodeMigrationMsg: "客户代码自动生成功能尚未启用 —— 迁移脚本还没有执行。",
+
+  // ---- 新增客户（add-customer-button.tsx） ----
+  customerNameRequired: "客户姓名必须填写。",
+  customerPhoneInvalid: "电话号码格式不正确。",
+  customerSourceSalesPairRequired: "来源和销售员必须同时填写，或者都留空 —— 不能只填一个。",
+  customerAddBtn: "+ 新增客户",
+  customerAddModalTitle: "新增客户",
+  customerSavedMsg: "客户已保存。",
+  customerNoCodeGenerated: "没有代码（来源／销售员未填写）。",
+  customerNameFieldLabel: "客户姓名 *",
+  customerPhoneFieldLabel: "电话 *",
+  customerSourceFieldLabel: "来源",
+  customerSalesFieldLabel: "销售员",
+  customerSourceSalesEmptyOption: "— 请选择 —",
+  customerSourceSalesHint: "同时填写来源和销售员可自动生成客户代码，不需要的话两个都留空即可。",
+  customerCreateBtn: "保存客户",
+
+  // ---- 主档"来源代码"／"销售代码"（master-data-section.tsx） ----
+  sourceCodeFieldLabel: "代码 *",
+  sourceLabelFieldLabel: "标签 *",
+  sourceAddBtn: "+ 新增来源",
+  sourceAddModalTitle: "新增来源代码",
+  sourceEditModalTitle: "修改来源代码",
+  sourceEmpty: "还没有来源代码。",
+  sourceColLabel: "标签",
+  salesCodeFieldLabel: "代码 *",
+  salesNameFieldLabel: "姓名 *",
+  salesAddBtn: "+ 新增销售员",
+  salesAddModalTitle: "新增销售员代码",
+  salesEditModalTitle: "修改销售员代码",
+  salesEmpty: "还没有销售员代码。",
+  salesColName: "姓名",
+  customerMasterDeactivateTitle: "停用 {text}？",
+  customerMasterDeactivateBody: "停用后新客户将无法选择这个代码。已经使用这个代码的老客户不受影响。",
+
+  // ---- Server Actions（actions-customers.ts） ----
+  sourceCodeInvalid: "代码必须是 1—4 个大写字母（A—Z）。",
+  sourceLabelRequired: "标签必须填写。",
+  sourceCodeTaken: "这个来源代码已经被另一个启用中的代码占用。",
+  sourceStatusChangeFailed: "现在无法修改来源的状态。",
+  salesCodeInvalid: "代码必须是 1—4 个大写字母（A—Z）。",
+  salesNameRequired: "姓名必须填写。",
+  salesCodeTaken: "这个销售员代码已经被另一个启用中的代码占用。",
+  salesStatusChangeFailed: "现在无法修改销售员的状态。",
 } satisfies Shape;
 
 export const admin = { id, en, zh };

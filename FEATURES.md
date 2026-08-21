@@ -615,6 +615,34 @@ Owner 需求："UI 清楚,有照片,有數量有編號跟文字，價格"——�
   `updateOrderItemFields` 這兩個既有 Server Action 也**完全沒有被修改**（只
   是從新畫面呼叫既有函式）。
 
+### Phase 2 第十三切片（customer_code 自動編碼，2026-08-21，owner 定案）
+
+Owner 原話（要靈活編輯）："SANCI 已經手動給自己的直客編號，格式
+`{SourceCode}/{YY}-{SalesCode}/{SeqNo}`（例：`A/25-C/001`、`E/26-KEN/019`）——
+現在要讓系統自動生成，但來源代碼表跟業務員名單都要能新增/停用，不能寫死"。
+0017 匯入的 36 筆舊資料本身**不受影響**（`customer_code` 是它們自己的文字
+欄位，這一刀完全沒有回頭改寫過去的值——只有「以後新增的 SANCI 直客」才會
+走自動編號）。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-65 | Migration `0018_customer_code_generation.sql`：兩張 admin-only 主檔 `customer_sources`（5 筆種子）/`sanci_sales_staff`（7 筆種子）、`customers.source_id`/`sales_staff_id`（皆 `ON DELETE RESTRICT`）、`customer_code_seq`（純 SEQUENCE，非 counter-table——沒有分區鍵，見檔頭理由）、trigger `fn_set_customer_code`（BEFORE INSERT customers：兩欄都填才生成，客戶端已填的 `customer_code` 永不覆蓋） | `UNVERIFIED` | 本機 Postgres 16 完整重放 `0001→…→0017→0018`：驗證區塊 **43 項全數符合期望**（含直接在驗證區塊本身插入測試客戶、讀回真實生成的字串比對——不是只斷言 trigger「存在」）；`fn_audit_row` 定義來源確認是 0016（0017 沒碰過），完整複製後只加兩行 CASE（`CUSTOMER_SOURCE`/`SALES_STAFF`），十五個 `AUDIT_KEEP_*` + `REFS_CHECK_CUSTOMER` 全 1。行為測試 `supabase/test-harness/60_behavior_0018.sql` **20/20 PASS**：種子資料核對（5 來源+7 業務員，逐筆比對 code/label/name）；生成格式**逐字**比對（`A/26-NS/003`，用 sequence `last_value` 算出精確期望值，不是只驗證格式）；preset 值不被覆蓋；只填 source_id（沒填 sales_staff_id）不生成；連續 loop-insert 10 筆確認 10 個不重複連號；分店帳號兩張主檔皆讀 0 筆、寫入被拒；停用來源不回頭改舊客戶的 `customer_code`、也不擋用其他啟用中來源建新客戶；FK RESTRICT 擋刪除仍被引用的來源/業務員（直接 SQL DELETE 測試）；`CUSTOMER_SOURCE_CREATED`/`SALES_STAFF_CREATED`/`CUSTOMER_SOURCE_STATUS_CHANGED` 稽核事件核實出現。冪等連跑 3 次 `pg_dump -s`（濾除 `\restrict`，LESSONS #33）**零漂移**；額外驗證 `pg_dump -s` **不含**序列目前值（只有 `START WITH 1` 定義，`last_value`/`setval` 不在 schema-only dump 裡）——避免序列狀態被誤判為 drift。**施工中修正一個真實 bug，不是憑空猜的**：種子資料原本寫 `ON CONFLICT (code) WHERE status='ACTIVE' DO NOTHING`，本機實測發現當某代碼被 admin 停用後重跑遷移會**靜默插入第二筆同代碼的 ACTIVE 資料**（partial index 的 WHERE 子句不再命中已停用的舊列）——改成 `WHERE NOT EXISTS (SELECT 1 FROM ... WHERE code = v.code)`（不分狀態）後重測確認修好，寫進 LESSONS |
+| P2-66 | `web/app/admin/pelanggan/`：新頁面，列表（搜尋姓名/電話/代碼 + 顯示來源/業務員/Kode Pelanggan chip + 建立方式區分 SANCI 直營 vs 哪個 partner/branch）+「Tambah Pelanggan」彈窗（Sumber/Sales 下拉，成對驗證，存檔後明示生成的代碼）+ 兩個主檔管理分頁（Kode Sumber Tamu / Kode Sales，表格+狀態切換+新增表單，仿 `partner-actions.tsx`/`package-actions.tsx` 的 confirm+rowcount 慣例） | `UNVERIFIED` | `web/app/admin/actions-customers.ts`（新檔）：`createCustomerAdmin`/`createCustomerSource`/`updateCustomerSource`/`setCustomerSourceStatus`/`createSalesStaff`/`updateSalesStaff`/`setSalesStaffStatus`，全部走 `pesan(m)`/`safeWrite`/`client_request_id` 冪等 + 42P01/42703 優雅降級（0018 尚未執行時列表頁自動退化成只顯示基本欄位，不隱藏整頁）。`actions-lookup.ts` 新增 `customer`/`customerSource`/`salesStaff` 白名單。三語系（id/en/zh）全部走 `Messages`，新增約 50 個 key；簡體字串禁用詞掃描零命中。`admin-nav.tsx` 新增「Pelanggan」入口，順序放在 Produk 之後、Partner 之前（沿用既有註解「日常使用頻率」邏輯）。`web/lib/audit-format.ts`：`source_id`/`sales_staff_id` 歸入 SKIP（純 UUID 關聯，跟 `package_id`/`product_id` 同類——`customer_code` 本身已經是人類看得懂的值，Activity 畫面不需要再顯示 UUID）；`customer_sources.label` 新增欄位標籤；六個新稽核動作（`CUSTOMER_SOURCE_*`/`SALES_STAFF_*`）加入 `ACTION_KEYS`。`GLOSSARY.md` 新增「Kode Pelanggan」「Sumber」兩列 + 一段說明：`sanci_sales_staff` 沿用既有「Sales」譯法（跟 order 建立時的 Sales/PIC 下拉是同一個詞、不同表，畫面分頁本身已足夠區分，不另造新詞）。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、`npx eslint .` ✓、`rm -rf .next && npm run build` ✓（`/admin/pelanggan` 出現在路由表，`/offline` 仍 `○` 靜態預渲染） |
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **沒有批次改派業務員/來源的工具**——已生成的 `customer_code` 是凍結文字，
+  改主檔的 code/label 只影響**之後**新生成的客戶，不會回頭改寫任何一筆舊
+  客戶的 `customer_code`（migration 頭部已寫明這是刻意決定：主檔代碼是穩定
+  識別碼，改名是 admin 罕見的主動操作，不是需要「同步回歷史」的東西）。
+- **沒有針對個別 source/sales 客製化代碼格式**——所有生成都走同一個公式
+  `{SourceCode}/{YY}-{SalesCode}/{SeqNo}`，不支援某個來源用不同格式。
+- **停用主檔一列不會提示/擋下正在使用該列的客戶**——FK RESTRICT 只在真的
+  嘗試「刪除」時擋（UI 完全沒有刪除入口，只有停用），停用本身永遠允許。
+- **匯入腳本（`web/scripts/import-customers/`）完全沒被碰**——36 筆舊資料的
+  `customer_code` 保持純文字，不會回填 `source_id`/`sales_staff_id`（它們
+  歷史上用的 sales 縮寫如 "Ken" 本來就不在 owner 現在給的 7 人名單裡，這是
+  預期中的落差，不是遺漏）。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

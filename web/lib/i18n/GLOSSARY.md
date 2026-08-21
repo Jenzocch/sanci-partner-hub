@@ -31,6 +31,8 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | — datang ke showroom | Kunjungan Showroom | 到店选购 | Showroom Visit |
 | Penjual | Sales | 销售员 | Sales |
 | Penanggung jawab | PIC | 负责人 | PIC |
+| Kode identitas pelanggan SANCI-direct, dibangkitkan otomatis (0018) | Kode Pelanggan | 客户代码 | Customer Code |
+| Cara pelanggan SANCI-direct masuk — master data admin (0018) | Sumber | 来源 | Source |
 | Invoice | Invoice | Invoice | Invoice |
 | Dokumen — Sales Order (0016) | SO | SO | SO |
 | Dokumen — Surat Jalan (0016) | DO | DO | DO |
@@ -135,6 +137,18 @@ SANCI 及各合作商名称、订单编号与各种代码。
 金额）是人手动输入的数字/文字。`line_discount` 维持"Potongan Baris /
 Line deduction / 单行扣减金额"的叫法——它是**单行**的手填扣减，与订单
 层级的折扣链（0015）是两个不同的东西，名字刻意分开以免混淆。
+
+**"Sales"这个词，0018 沿用既有决定，没有重新造词**：`sanci_sales_staff`
+（SANCI 自己内部的业务员名单，用来生成 `customer_code` 里的 SalesCode）
+跟上面"Penjual｜Sales｜销售员"这一行说的是**同一个词**，三语言维持完全
+相同的翻译（Sales / Sales / 销售员）——但指的是**不同的表**：那一行原本
+指 `partner_staff`（各合作商店家自己的员工，订单建立时选的"Sales/PIC"），
+0018 的 `sanci_sales_staff` 是 SANCI 自己的业务团队，两者结构相似但完全
+独立，不共用同一张表，也不共用同一个下拉选单（详见 migration 0018 头部
+的 disambiguation）。词汇选择上刻意不造新词区分（例如不叫"SANCI Sales"）
+——画面本身的分类（"Kode Sales" 独立分页、跟 partner_staff 的 Sales/PIC
+下拉完全不同的位置）已经足够让使用者分清楚是哪一份名单，硬要在词汇上加
+前缀反而制造新的、GLOSSARY 里没有的术语。
 
 **English** — plain English, not enterprise jargon. "Add Staff", not
 "Create Personnel Record". Sentence case for buttons and labels.
