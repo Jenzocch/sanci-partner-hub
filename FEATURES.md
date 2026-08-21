@@ -772,10 +772,11 @@ Apple 風設計系統 v2、三語系、chip 視覺體系、Package 產品組成�
 
 #### 只回報、沒有動手（需要 owner 或另一次排程判斷）
 
-1. **`copyPackageItemsToOrder`（`app/cabang/pesanan/actions.ts`）是真正的 N+1**：每個 package 品項各做一次 SELECT（存在性檢查）再一次 INSERT，而且是**依序**的——20 個產品的 package ＝ 建單當下 40 個序列來回，全部發生在弱網下最不能拖的寫入路徑上。**沒有自己改**，因為它牽涉 idempotency 語意（`client_request_id` 的唯一約束才是真防線，LESSONS #3/#21）與逐行錯誤彙總；改成批次寫入是正確方向，但屬於要單獨驗證的改動，不該在 UI audit 裡順手做。
+1. ~~**`copyPackageItemsToOrder`（`app/cabang/pesanan/actions.ts`）是真正的 N+1**：每個 package 品項各做一次 SELECT（存在性檢查）再一次 INSERT，而且是**依序**的——20 個產品的 package ＝ 建單當下 40 個序列來回，全部發生在弱網下最不能拖的寫入路徑上。**沒有自己改**，因為它牽涉 idempotency 語意（`client_request_id` 的唯一約束才是真防線，LESSONS #3/#21）與逐行錯誤彙總；改成批次寫入是正確方向，但屬於要單獨驗證的改動，不該在 UI audit 裡順手做。~~ **已在下方「`copyPackageItemsToOrder` 批次寫入，2026-08-21」補完**——單獨驗證過 RLS/trigger/upsert 語意後改成一次 upsert。
 2. ~~**i18n context 把用不到的那一半送給每個 client**：`I18nProvider` 收的是完整 `Messages`，所以每個 `/cabang/**` 頁面都夾帶整份 admin 文案，每個 `/admin/**` 頁面則夾帶整份 cabang。沒有自己改：型別安全的做法要動共用契約，而現在有另一個 agent 正在改同一批呼叫 `useMessages()` 的檔案，正是 LESSONS #31 講的情境。~~ **已在下方「i18n 按區拆分，2026-08-21」補完**——`calc-cart-handoff` 已併入 main，共用契約已可安全動。
 3. **`@supabase/supabase-js` 整包（184 kB 原始／約 68 kB gzip，含這個 app 從未使用的 Realtime client）進了 6 條路由的 first-load**：`/`、`/cabang`、`/admin/produk`、`/admin/partners/[id]`、`/cabang/pesanan/[orderId]`、`/cabang/pesanan/baru`——就是這幾頁比 103 kB 基準高出約 70 kB 的原因。除了登入頁真的需要它在關鍵路徑上，其餘都只在「按登出」或「上傳檔案」時才用得到，可以改成動態 import。**沒有自己改**：會動到上傳與登出路徑的 async 結構，那裡有弱網/補償邏輯（LESSONS #2/#18/#29），值得單獨一刀。
 4. **三個 admin 清單沒有 `.limit()`**：`/admin/produk`（169 筆且持續增加）、`/admin/pelanggan`（36 筆匯入＋所有分店建的客戶）、`/admin`（partner，量小無妨）。cabang 端對應頁面都有 100/200 的上限。**沒有自己加上限**：在沒有分頁的情況下加 cap，會讓 admin 搜尋悄悄漏掉超過上限的客戶——那是「這個客戶不存在」等級的誤導，屬於產品決定（要一起做分頁），不是 audit 可以順手決定的。
+5. **`copyCalcCartItemsToOrder`（同一個 `actions.ts`，kalkulator 交接用的姊妹函式）跟 `copyPackageItemsToOrder` 改之前一模一樣的 N+1 形狀**：逐品項 SELECT 存在性檢查＋INSERT、依序執行，外加自己專屬的 price-guard 降級重試（trigger 拒絕 unit_price 時再送一次不含價格的版本）。2026-08-21「`copyPackageItemsToOrder` 批次寫入」那一刀動工時發現、讀過確認共享同一種來回次數問題，**刻意沒有動它**——委派範圍明講只改 Package 那個函式，price-guard 降級重試的批次寫入設計（ON CONFLICT DO NOTHING 不容易表達「這批裡有些要降級、有些不用」）需要單獨想清楚，不該跟著順手改。
 
 另外兩件小事記錄但不修：`.seg` 在手機是 40px（合約寫 44px）、admin 的寬表格沒有 `.mobile-only` 卡片版（`.desktop-only`/`.mobile-only`/`.reccard` 在 admin 側零使用）——後者在 admin＝桌面的定位下是合理取捨，但 §4 的遷移對照表把它列為 wave-2 應該要做的事，兩者的落差記在這裡供 owner 決定。
 
@@ -872,6 +873,93 @@ diff）。`/offline` 仍是 `○` 靜態預渲染、7.67 kB,不受影響。
 開發者工具量過線上頁面的實際網路傳輸量(本環境網路白名單擋
 supabase.co,無法完整登入測試)——跟本檔其他項目一樣,建議跟其他待驗證項目
 一起用真帳號驗一次。
+
+
+### `copyPackageItemsToOrder` 批次寫入，2026-08-21
+
+接續上面「UI/UX 與效能 audit 補跑」的只回報項目 #1。單獨排程、單獨驗證，跟
+UI/UX audit 那一輪切開，因為這裡牽涉 idempotency 語意，不該順手做。
+
+**改了什麼**：`app/cabang/pesanan/actions.ts` 的 `copyPackageItemsToOrder`
+（建立訂單時把 Package 的品項複製進 `order_items`）從「每個品項各一次
+SELECT 存在性檢查、再一次 INSERT，依序執行」改成「先把整批要寫入的列組好，
+一次 `.upsert(rows, { onConflict: "client_request_id", ignoreDuplicates:
+true })`」：
+
+- **來回次數**：20 個產品的 package，建單當下從 **40 個依序來回（20×
+  SELECT+INSERT）降到 1 個**——不管品項數是多少都是 1。
+- **函式對外契約完全沒變**：簽名還是
+  `copyPackageItemsToOrder(supabase, orderId, packageId, orderClientRequestId):
+  Promise<{ok:true}|{ok:false}>`，呼叫點（`createCustomerAndOrder`）與
+  `itemsCopyWarning` 的處理方式都沒動。product join 失敗（`!product`）的
+  品項一樣標記 `anyFailed`、一樣不寫入——跟改之前逐字一致。
+- **沒有新 migration，沒有動 RLS／trigger**：純 app 層改動。
+
+**為什麼這樣做保住 idempotency（給審閱者的證明，不用重新推導）**：
+
+1. `order_items.client_request_id text unique`（migration 0014）是**全域**
+   unique constraint，本來就是這裡唯一真正的防重複防線（LESSONS #3/#21）——
+   舊寫法的「SELECT 存在再 INSERT」本身不是防線，這條 constraint 才是；新
+   寫法沒有拿掉它，只是換一種方式**利用**它。
+2. `ignoreDuplicates: true` 編譯成 PostgREST 的
+   `Prefer: resolution=ignore-duplicates`，對應 Postgres 的
+   `INSERT ... ON CONFLICT (client_request_id) DO NOTHING`。`DO NOTHING`
+   是**逐列**判斷衝不衝突,不是整個 statement all-or-nothing——retry 時同一
+   批品項裡「已經落地的」被個別跳過,「還沒落地的」照常寫入,跟舊寫法逐列
+   SELECT-then-INSERT 給的保證完全一樣,只是省掉中間那一趟 SELECT。
+3. `ignoreDuplicates: true`（不是預設的 `false`／merge-duplicates）意味著
+   PostgREST **不會**生成 `DO UPDATE`,所以這次批次寫入實際觸發的 RLS 只有
+   `oi_partner_insert`（INSERT policy）,已存在的舊列完全不會被這次呼叫
+   touch 到,不需要額外考慮 UPDATE policy（`oi_partner_update`）。
+4. `RETURNING`（`.select("id")`）不包含被 `ON CONFLICT DO NOTHING` 跳過的
+   列——所以 retry 時 `data.length < rows.length` 是**預期行為**,不是失敗
+   訊號。這裡直接沿用既有的 `safeWrite`（`web/lib/safe-write.ts`）:它只在
+   有 `error` 或 `data` 是 `null`/`undefined` 時判定失敗,空陣列 `[]` 一樣
+   算 `ok: true`——不需要在 `copyPackageItemsToOrder` 裡額外判斷「回傳筆數
+   夠不夠」。
+
+**讀過確認沒問題（不是猜測，逐項讀原始碼/type 定義得出）**：
+
+- **RLS INSERT policy**（`oi_partner_insert`, migration 0014）：`WITH CHECK`
+  子句讀 `order_items.order_id`（新列自己的欄位,不是回查 order_items 本身,
+  不是 LESSONS #25 那種自我回查陷阱）,判斷式是
+  `exists (select 1 from partner_orders o where o.id = order_items.order_id
+  and fn_can_edit_branch(o.branch_id) and o.status = 'REGISTERED')`。Postgres
+  的 RLS 是逐列套用,不因為是不是同一個 INSERT 語句裡的多列而改變——這批要
+  寫入的列全部共用**同一個** `order_id`（同一張剛建立的訂單）,所以批次跟
+  逐列送的判斷結果完全相同。
+- **order_items 上的 trigger**（migration 0014 §6–7）：`trg_audit`、
+  `trg_set_created_by`、`trg_order_item_price_guard` 全部是
+  `FOR EACH ROW`,不是 `FOR EACH STATEMENT`,函式本身也沒有任何跨列/序列
+  相依的邏輯（不像 `fn_next_order_seq` 那種取號函式）——多列 INSERT 下,
+  Postgres 對每一列各自呼叫一次,結果跟 N 次單列 INSERT 逐字相同。
+  `trg_order_item_price_guard` 特別檢查過：Package 品項的 payload 從未帶
+  `unit_price`/`line_discount`,而 guard 本身開頭就是「這兩欄都沒被觸碰就
+  直接放行,不查表」,所以這個 trigger 在這條路徑上實際上完全不會執行到
+  查表那段。
+- **`@supabase/supabase-js` 版本**（`package.json` 釘 `^2.49.0`,環境實際
+  裝到 `2.112.3`）：`node_modules/@supabase/postgrest-js/src/
+  PostgrestQueryBuilder.ts` 的 `upsert()` 簽名確實支援
+  `{ onConflict, ignoreDuplicates }`,原始碼裡逐字確認過它組出
+  `Prefer: resolution=ignore-duplicates` 表頭與 `on_conflict` query
+  string——不是猜測既有版本的行為。
+
+**沒有拿現成 Supabase 環境測過（本環境網路白名單擋 supabase.co,跟本檔其他
+項目一樣的既有限制）**：以上全部是讀 migration SQL＋`postgrest-js`
+原始碼＋PostgREST/Postgres 已知的 `ON CONFLICT` 語意得出的結論,**不是**
+拿真的資料庫跑出來的觀察。尚待 Jenzo 用真帳號驗證：①用一個有多品項
+（建議 ≥5 個）Package 建立訂單,確認 `order_items` 裡每個品項都完整落地、
+`quantity`/`name_snapshot`/`code_snapshot` 正確;②刻意製造一次「回應遺失、
+client 重送」的情境（例如提交後立刻切斷網路,或用既有的 debug 手法模擬逾時
+重試),確認重送不會產生重複的 `order_items` 列,而且沒落地的品項這次真的
+補上了。
+
+**驗證**：`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、
+`npx eslint .` ✓、`rm -rf .next && npm run build` ✓，對整棵 `web/` 一起跑
+（LESSONS #31）。`copyCalcCartItemsToOrder`（kalkulator 交接用的姊妹函式,
+`actions.ts` 同檔案較後段）讀過確認**共享同一種 N+1 形狀**（逐品項
+SELECT 存在性檢查＋INSERT,外加自己的 price-guard 降級重試邏輯）——**刻意
+沒有動它**,照委派範圍留給另一次排程判斷,這裡只記錄下來避免下一輪漏看。
 
 ## 已知刻意保留的「怪東西」
 
