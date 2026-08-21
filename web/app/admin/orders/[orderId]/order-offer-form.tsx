@@ -254,8 +254,8 @@ export default function OrderOfferForm({
               </div>
 
               {canDiscount !== false && (
-                <div style={{ marginBottom: 10, paddingTop: 6, borderTop: "1px solid var(--border, #e5e5e5)" }}>
-                  <h3 style={{ fontSize: 14, marginBottom: 4 }}>{m.admin.orderOfferDiscountSectionTitle}</h3>
+                <div style={{ marginBottom: 10, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                  <div className="overline">{m.admin.orderOfferDiscountSectionTitle}</div>
                   <p className="small muted" style={{ marginBottom: 10 }}>
                     {m.admin.orderOfferDiscountHint}
                   </p>

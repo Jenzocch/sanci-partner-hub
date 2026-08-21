@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
+  ORDER_STATUS_CHIP,
   fulfillmentLabel,
   orderStatusLabel,
   displayPhoneID,
@@ -307,7 +308,7 @@ export default async function AdminOrdersPage({
                       <td>{r.package_name}</td>
                       <td>{r.partner_sales_staff_id ? staffMap.get(r.partner_sales_staff_id) ?? "—" : "—"}</td>
                       <td>
-                        <span className={`chip ${r.status === "REGISTERED" ? "ACTIVE" : "SUSPENDED"}`}>
+                        <span className={ORDER_STATUS_CHIP[r.status]}>
                           {orderStatusLabel(m, r.status)}
                         </span>
                       </td>

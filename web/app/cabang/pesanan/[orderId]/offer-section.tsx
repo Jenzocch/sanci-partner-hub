@@ -257,8 +257,8 @@ export default function OfferSection({
               </div>
 
               {canDiscount && (
-                <div style={{ marginBottom: 10, paddingTop: 6, borderTop: "1px solid var(--border, #e5e5e5)" }}>
-                  <h3 style={{ fontSize: 14, marginBottom: 4 }}>{m.cabang.cabangOfferDiscountSectionTitle}</h3>
+                <div style={{ marginBottom: 10, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                  <div className="overline">{m.cabang.cabangOfferDiscountSectionTitle}</div>
                   <p className="small muted" style={{ marginBottom: 10 }}>
                     {m.cabang.cabangOfferDiscountHint}
                   </p>

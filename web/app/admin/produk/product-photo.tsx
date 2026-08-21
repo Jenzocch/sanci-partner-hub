@@ -35,6 +35,13 @@ export default function ProductPhoto({ url, name }: { url: string | null; name: 
         <img
           src={url ?? undefined}
           alt={name}
+          // Katalog ini sudah 169 produk dan terus bertambah, dan halaman
+          // /admin/produk memuat SEMUANYA sekaligus (tanpa paging). Tanpa
+          // loading="lazy" browser mengunduh ke-169 foto pada muat pertama —
+          // beberapa MB sebelum layar pertama selesai. Sisi cabang
+          // (produk-list-client.tsx) sudah lazy sejak awal; ini menyamakan.
+          loading="lazy"
+          decoding="async"
           onError={() => setGagal(true)}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />

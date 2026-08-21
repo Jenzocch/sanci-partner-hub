@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  ORDER_STATUS_CHIP,
   fulfillmentLabel,
   orderStatusLabel,
   displayPhoneID,
@@ -405,6 +406,8 @@ export default async function AdminOrderDetailPage({
     itemsResult,
     shippingResult,
     documentsResult,
+    partnerBranchesResult,
+    auditResult,
   ] = await Promise.all([
     order.status === "CANCELLED"
       ? fetchCancelInfo(supabase, order.id)
@@ -416,40 +419,46 @@ export default async function AdminOrderDetailPage({
     fetchOrderItems(supabase, order.id),
     fetchShippingAddress(supabase, order.id),
     fetchOrderDocuments(supabase, order.id),
+    // Semua cabang milik partner yang SAMA (semua status) — dipakai dua hal:
+    // dropdown Koreksi Atribusi (hanya yang AKTIF, bukan cabang saat ini) dan
+    // menerjemahkan branch_id di riwayat audit jadi nama, bukan UUID mentah
+    // (SPEC §15/§16: Correct Attribution hanya boleh memindahkan cabang, tidak
+    // pernah memindahkan partner — jadi partner lain tidak pernah muncul di sini).
+    // Hanya butuh order.partner_id/order.id yang sudah diketahui sejak query
+    // utama, jadi ikut gelombang ini alih-alih menjadi dua tahap berurutan
+    // tambahan di bawah.
+    supabase
+      .from("partner_branches")
+      .select("id, name, status")
+      .eq("partner_id", order.partner_id)
+      .order("name"),
+    supabase
+      .from("audit_logs")
+      .select("id, action, actor_role, created_at, before, after, reason")
+      .eq("entity_type", "partner_orders")
+      .eq("entity_id", order.id)
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
-  const packageId = packageIdResult.status === "ok" ? packageIdResult.data : null;
-  const packageDetail = packageId ? await fetchPackageDetail(supabase, packageId) : null;
 
+  // packageDetail dan invoiceUrl BENAR-BENAR bergantung pada hasil di atas
+  // (perlu package_id / invoice_url dulu), tapi tidak saling bergantung —
+  // jadi keduanya satu gelombang, bukan dua.
+  const packageId = packageIdResult.status === "ok" ? packageIdResult.data : null;
   const fulfillment = fulfillmentResult.status === "ok" ? fulfillmentResult.data : null;
-  const invoiceResult = fulfillment?.invoice_url
-    ? await getInvoiceSignedUrl(fulfillment.invoice_url)
-    : null;
+  const [packageDetail, invoiceResult] = await Promise.all([
+    packageId ? fetchPackageDetail(supabase, packageId) : Promise.resolve(null),
+    fulfillment?.invoice_url ? getInvoiceSignedUrl(fulfillment.invoice_url) : Promise.resolve(null),
+  ]);
   const invoiceUrl = invoiceResult && "url" in invoiceResult ? invoiceResult.url : null;
 
-  // Semua cabang milik partner yang SAMA (semua status) — dipakai dua hal:
-  // dropdown Koreksi Atribusi (hanya yang AKTIF, bukan cabang saat ini) dan
-  // menerjemahkan branch_id di riwayat audit jadi nama, bukan UUID mentah
-  // (SPEC §15/§16: Correct Attribution hanya boleh memindahkan cabang, tidak
-  // pernah memindahkan partner — jadi partner lain tidak pernah muncul di sini).
-  const { data: partnerBranchesData } = await supabase
-    .from("partner_branches")
-    .select("id, name, status")
-    .eq("partner_id", order.partner_id)
-    .order("name");
-  const partnerBranches = (partnerBranchesData ?? []) as { id: string; name: string; status: string }[];
+  const partnerBranches = (partnerBranchesResult.data ?? []) as { id: string; name: string; status: string }[];
   const branchNameById = new Map(partnerBranches.map((b) => [b.id, b.name]));
   const otherBranches: BranchOption[] = partnerBranches
     .filter((b) => b.status === "ACTIVE" && b.id !== order.branch_id)
     .map((b) => ({ id: b.id, name: b.name }));
 
-  const { data: auditData } = await supabase
-    .from("audit_logs")
-    .select("id, action, actor_role, created_at, before, after, reason")
-    .eq("entity_type", "partner_orders")
-    .eq("entity_id", order.id)
-    .order("created_at", { ascending: false })
-    .limit(100);
-  const audit = (auditData ?? []) as AuditRow[];
+  const audit = (auditResult.data ?? []) as AuditRow[];
 
   return (
     <div>
@@ -458,7 +467,7 @@ export default async function AdminOrderDetailPage({
       </div>
       <div className="pagehead">
         <h1>{order.order_number}</h1>
-        <span className={`chip ${order.status === "REGISTERED" ? "ACTIVE" : "SUSPENDED"}`} style={{ fontSize: 14, padding: "5px 14px" }}>
+        <span className={ORDER_STATUS_CHIP[order.status]} style={{ fontSize: 14, padding: "5px 14px" }}>
           {orderStatusLabel(m, order.status)}
         </span>
       </div>

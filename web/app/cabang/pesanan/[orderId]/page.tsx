@@ -288,7 +288,7 @@ export default async function PesananDetailPage({
   }
   if (!pu) redirect("/");
 
-  const { data: puPolicy } = await supabase
+  const puPolicyPromise = supabase
     .from("partner_access_policies")
     .select("edit_scope")
     .eq("partner_id", pu.partner_id)
@@ -328,7 +328,11 @@ export default async function PesananDetailPage({
     const row = narrow.data as { can_view_offer: boolean; can_edit_offer: boolean } | null;
     return { canViewOffer: row?.can_view_offer ?? false, canEditOffer: row?.can_edit_offer ?? false, canDiscount: false };
   }
-  const offerFlags = await fetchOfferFlags();
+  // Kedua pembacaan di atas menyentuh TABEL dan BARIS yang sama
+  // (partner_access_policies untuk partner ini) dan tidak saling bergantung —
+  // dipisah hanya supaya 42703 dari can_discount tidak ikut menjatuhkan
+  // edit_scope. Dijalankan berbarengan, bukan berurutan.
+  const [{ data: puPolicy }, offerFlags] = await Promise.all([puPolicyPromise, fetchOfferFlags()]);
 
   // RLS pada partner_orders membatasi baris: order di cabang yang tidak boleh
   // dilihat pengguna ini tidak akan pernah muncul di sini.
@@ -383,33 +387,58 @@ export default async function PesananDetailPage({
   // menggambar tombol yang tidak akan berhasil dipakai).
   const canManage = canEditBranch && order.status === "REGISTERED";
 
-  const { extras, state: extrasState } = await fetchOrderExtras(supabase, order.id);
+  // Semua pembacaan sisa halaman hanya butuh order.id/partner_id/branch_id —
+  // yang sudah diketahui sejak query utama di atas. Dulu mereka berjalan
+  // sebagai EMPAT tahap berurutan (extras → blok canManage → cancelInfo →
+  // shipping/items/offer); urutannya cuma akibat tata letak kode, bukan
+  // ketergantungan data. Digabung jadi SATU gelombang: 4 perjalanan
+  // bolak-balik ke Supabase menjadi 1, di halaman yang paling sering dibuka
+  // staf cabang lewat jaringan seluler.
+  const [
+    extrasResult,
+    manageData,
+    cancelResult,
+    shippingResult,
+    itemsResult,
+    offerData,
+  ] = await Promise.all([
+    fetchOrderExtras(supabase, order.id),
+    // Staf untuk dropdown Sales/PIC diambil dari CABANG PESANAN (bisa beda dari
+    // cabang login saat PARTNER_ALL_BRANCHES mengubah order cabang lain) — bukan
+    // cabang pengguna sendiri (SPEC menuntut ini secara eksplisit).
+    canManage
+      ? Promise.all([
+          supabase.from("partner_staff").select("id, full_name, status").eq("partner_id", order.partner_id),
+          supabase
+            .from("partner_staff_assignments")
+            .select("staff_id, role")
+            .eq("branch_id", order.branch_id)
+            .is("end_at", null),
+          // Package (migration 0008) — tabel belum ada (42P01) atau kosong dianggap
+          // sama: turun ke input teks bebas, tanpa error (LESSONS #12).
+          supabase.from("partner_packages").select("id, name").eq("partner_id", order.partner_id).eq("status", "ACTIVE").order("name"),
+          fetchOrderPackageId(supabase, order.id),
+        ])
+      : Promise.resolve(null),
+    order.status === "CANCELLED"
+      ? fetchCancelInfo(supabase, order.id)
+      : Promise.resolve<{ info: CancelInfo | null; unavailable: boolean }>({ info: null, unavailable: false }),
+    fetchShippingAddress(supabase, order.id),
+    fetchOrderItems(supabase, order.id),
+    offerFlags.canViewOffer ? fetchOrderOfferCabang(supabase, order.id) : Promise.resolve(null),
+  ]);
+
+  const { extras, state: extrasState } = extrasResult;
   const extrasAvailable = extrasState === "ok";
   // "invoice.pdf" → "pdf" — dipakai InvoiceSection untuk menebak cara
   // menampilkan (gambar vs PDF) dari path yang tersimpan.
   const invoiceExt = extras.invoiceUrl?.split(".").pop()?.toLowerCase() ?? null;
 
-  // Staf untuk dropdown Sales/PIC diambil dari CABANG PESANAN (bisa beda dari
-  // cabang login saat PARTNER_ALL_BRANCHES mengubah order cabang lain) — bukan
-  // cabang pengguna sendiri (SPEC menuntut ini secara eksplisit).
   let staffOptions: StaffOption[] = [];
   let packages: PackageOption[] = [];
   let currentPackageId: string | null = null;
-  let cancelInfo: CancelInfo | null = null;
-  let cancelInfoUnavailable = false;
-  if (canManage) {
-    const [{ data: staffList }, { data: assignments }, { data: packageRows }, fetchedPackageId] = await Promise.all([
-      supabase.from("partner_staff").select("id, full_name, status").eq("partner_id", order.partner_id),
-      supabase
-        .from("partner_staff_assignments")
-        .select("staff_id, role")
-        .eq("branch_id", order.branch_id)
-        .is("end_at", null),
-      // Package (migration 0008) — tabel belum ada (42P01) atau kosong dianggap
-      // sama: turun ke input teks bebas, tanpa error (LESSONS #12).
-      supabase.from("partner_packages").select("id, name").eq("partner_id", order.partner_id).eq("status", "ACTIVE").order("name"),
-      fetchOrderPackageId(supabase, order.id),
-    ]);
+  if (manageData) {
+    const [{ data: staffList }, { data: assignments }, { data: packageRows }, fetchedPackageId] = manageData;
     const roleByStaff = new Map<string, string>();
     (assignments ?? []).forEach((a: Assignment) => roleByStaff.set(a.staff_id, a.role));
     staffOptions = (staffList ?? [])
@@ -418,17 +447,8 @@ export default async function PesananDetailPage({
     packages = (packageRows ?? []).map((p) => ({ id: p.id, name: p.name }));
     currentPackageId = fetchedPackageId;
   }
-  if (order.status === "CANCELLED") {
-    const res = await fetchCancelInfo(supabase, order.id);
-    cancelInfo = res.info;
-    cancelInfoUnavailable = res.unavailable;
-  }
-
-  const [shippingResult, itemsResult, offerData] = await Promise.all([
-    fetchShippingAddress(supabase, order.id),
-    fetchOrderItems(supabase, order.id),
-    offerFlags.canViewOffer ? fetchOrderOfferCabang(supabase, order.id) : Promise.resolve(null),
-  ]);
+  const cancelInfo: CancelInfo | null = cancelResult.info;
+  const cancelInfoUnavailable = cancelResult.unavailable;
 
   return (
     <main className="pwrap">

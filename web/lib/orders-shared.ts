@@ -82,6 +82,26 @@ export function orderStatusLabel(m: Messages, s: OrderStatus): string {
   return s === "REGISTERED" ? m.common.orderStatusRegistered : m.common.orderStatusCancelled;
 }
 
+/**
+ * Kelas chip untuk status pesanan (STYLE CONTRACT §2b — chip taxonomy).
+ * Sengaja memakai family PIL POLOS (`.chip.ok`/`.chip.neutral`), BUKAN family
+ * status entitas (`.chip.ACTIVE`/`.chip.SUSPENDED`): §2b menyebut "order
+ * status via status-badge.tsx" sebagai contoh pil polos, dan sebuah pesanan
+ * yang REGISTERED/CANCELLED bukan entitas yang Aktif/Ditangguhkan — di
+ * /admin/orders kedua jenis chip itu bisa muncul pada baris yang SAMA
+ * (status pesanan di satu kolom, status partner di kolom lain), persis
+ * kerancuan yang taksonomi ini dibuat untuk menghilangkan.
+ *
+ * Sama seperti STOCK_STATUS_CHIP di lib/catalog-shared.ts: JANGAN tulis
+ * tangan string kelasnya di halaman, import konstanta ini — supaya sisi admin
+ * dan sisi cabang tidak pernah lagi menggambar hal yang sama dengan dua
+ * bahasa visual yang berbeda.
+ */
+export const ORDER_STATUS_CHIP: Record<OrderStatus, string> = {
+  REGISTERED: "chip ok",
+  CANCELLED: "chip neutral",
+};
+
 export interface CustomerRow {
   id: string;
   full_name: string;

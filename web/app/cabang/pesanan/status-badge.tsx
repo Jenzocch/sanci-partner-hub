@@ -1,10 +1,5 @@
-import { orderStatusLabel, type OrderStatus } from "@/lib/orders-shared";
+import { ORDER_STATUS_CHIP, orderStatusLabel, type OrderStatus } from "@/lib/orders-shared";
 import type { Messages } from "@/lib/i18n";
-
-const CLASS: Record<OrderStatus, string> = {
-  REGISTERED: "chip ok",
-  CANCELLED: "chip neutral",
-};
 
 /**
  * Lencana status order, label selalu dari orderStatusLabel (satu sumber
@@ -19,7 +14,7 @@ export default function StatusBadge({
   messages: Messages;
 }) {
   return (
-    <span className={CLASS[status] ?? "chip ok"}>
+    <span className={ORDER_STATUS_CHIP[status] ?? "chip ok"}>
       {orderStatusLabel(messages, status)}
     </span>
   );
