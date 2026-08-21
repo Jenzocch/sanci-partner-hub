@@ -33,6 +33,38 @@ export const STOCK_STATUS_CHIP: Record<StockStatus, string> = {
   OUT_OF_STOCK: "chip stock bad",
 };
 
+/**
+ * CATATAN FOTO PRODUK — kenapa `<img>` biasa, bukan `next/image`.
+ *
+ * Beberapa berkas (produk-list-client.tsx, kalkulator-client.tsx,
+ * admin/produk/product-photo.tsx, package-items-client.tsx) mematikan aturan
+ * `@next/next/no-img-element` dan menunjuk ke catatan ini, jadi alasannya
+ * ditulis SEKALI di sini alih-alih diulang di setiap tempat:
+ *
+ *  - `photo_url` menunjuk ke bucket publik Supabase (`product-photos`), bukan
+ *    aset lokal di /public. `next/image` untuk host luar butuh
+ *    `images.remotePatterns` di next.config.ts, dan setiap permintaan lalu
+ *    melewati pengoptimal gambar Vercel (kuota + biaya per gambar).
+ *  - Fotonya SUDAH dikompresi saat diunggah dengan ukuran seragam (PRESET_
+ *    PRODUK: sisi panjang 1280px, WebP q0.82) — itu memang strategi proyek
+ *    ini: kompresi sekali di hulu, lalu disajikan apa adanya lewat CDN
+ *    bucket. Jadi manfaat utama `next/image` (mengecilkan berkas raksasa)
+ *    sebagian besar sudah didapat di tempat lain.
+ *
+ * Yang TETAP jadi kewajiban setiap pemakai, karena `<img>` tidak
+ * memberikannya gratis seperti `next/image`:
+ *  - `loading="lazy"` di SETIAP daftar/grid (audit 2026-08-21 menemukan
+ *    /admin/produk memuat 169 foto sekaligus karena atribut ini terlewat),
+ *  - ruang yang sudah dipesan lebih dulu (`aspect-ratio` atau width+height
+ *    tetap pada pembungkusnya) supaya tata letak tidak melompat,
+ *  - penanganan `onError` → placeholder, bukan ikon rusak bawaan browser.
+ *
+ * Catatan terbuka: thumbnail 48px di package-items-client.tsx tetap
+ * mengunduh sumber 1280px. Memperbaikinya perlu varian ukuran (entah lewat
+ * `next/image` atau turunan kedua saat unggah) — keputusan produk/biaya,
+ * bukan sekadar perapian, jadi sengaja tidak diputuskan sepihak.
+ */
+
 export type ProductStatus = "ACTIVE" | "INACTIVE";
 
 export interface SanciProductRow {

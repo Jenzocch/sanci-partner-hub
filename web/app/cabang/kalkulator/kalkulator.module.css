@@ -77,6 +77,12 @@
 }
 .filterchip:hover { background: var(--surface3); }
 .filterOn { background: var(--accent-soft); color: var(--accent-2); }
+/* Di ponsel chip kategori ini adalah target sentuh sungguhan (staf memilihnya
+   sambil berdiri di depan pelanggan), jadi naik ke --tap seperti .btn.sm di
+   globals.css. Di desktop 36px sudah cukup karena penunjuknya mouse. */
+@media (max-width: 767px) {
+  .filterchip { min-height: var(--tap); }
+}
 
 /* ── Keranjang (tab "Keranjang") ── */
 .cartLine {
@@ -88,7 +94,13 @@
   width: 56px; height: 56px; flex: none; border-radius: var(--r-md);
   overflow: hidden; background: var(--surface2);
   display: flex; align-items: center; justify-content: center;
-  color: var(--faint); font-size: 10px; text-align: center; line-height: 1.2; padding: 2px;
+  /* STYLE CONTRACT: tidak ada teks di bawah 13px di seluruh aplikasi.
+     Kotak 56px ini terlalu sempit untuk label teks, jadi placeholder-nya
+     disembunyikan secara visual (kotak abu-abu polos sudah cukup jelas
+     "tidak ada foto") — bukan dikecilkan sampai melanggar kontrak.
+     produk.module.css memakai var(--fs-caption) karena kotaknya jauh
+     lebih besar. */
+  font-size: 0; overflow: hidden; padding: 2px;
 }
 .lineThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .lineBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }

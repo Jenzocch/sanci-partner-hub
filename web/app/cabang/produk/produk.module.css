@@ -103,6 +103,12 @@
 }
 .filterchip:hover { background: var(--surface3); }
 .filterOn { background: var(--accent-soft); color: var(--accent-2); }
+/* Di ponsel chip kategori ini adalah target sentuh sungguhan, jadi naik ke
+   --tap seperti .btn.sm di globals.css (kontrak: minimum 44px). Di desktop
+   36px sudah cukup karena penunjuknya mouse. */
+@media (max-width: 767px) {
+  .filterchip { min-height: var(--tap); }
+}
 
 .detailphoto {
   width: 100%;
