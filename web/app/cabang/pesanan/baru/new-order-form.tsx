@@ -16,6 +16,7 @@ import {
 } from "@/lib/orders-shared";
 import { readCalcHandoff, clearCalcHandoff, type CalcHandoff } from "@/lib/calculator-shared";
 import {
+  copyCalcCartItemsToOrder,
   createCustomerAndOrder,
   createCustomerOnly,
   getOrderSummary,
@@ -91,6 +92,10 @@ export default function NewOrderForm({
   const [calcHandoff, setCalcHandoff] = useState<CalcHandoff | null>(null);
   const [calcApply, setCalcApply] = useState(false);
   const [calcOutcomeMsg, setCalcOutcomeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  /** Hasil copyCalcCartItemsToOrder — TERPISAH dari calcOutcomeMsg (rantai
+   * diskon) karena keduanya dua tulisan best-effort yang independen: satu
+   * bisa berhasil sementara yang lain gagal, dan staf perlu tahu keduanya. */
+  const [calcItemsMsg, setCalcItemsMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     setCalcHandoff(readCalcHandoff());
@@ -184,15 +189,21 @@ export default function NewOrderForm({
 
   /**
    * Dipanggil SETELAH pesanan berhasil dibuat (kedua jalur sukses di
-   * onSubmitOrder). Best-effort murni — sama pola dengan copyPackageItemsToOrder
-   * di actions.ts: kegagalan di sini TIDAK PERNAH membatalkan pesanan yang
-   * sudah tersimpan, hanya dilaporkan lewat calcOutcomeMsg supaya staf tahu
-   * (LESSONS #10, jangan diam-diam menelan kegagalan sebagian). Hand-off
-   * selalu dihapus sesudahnya (sekali pakai) terlepas dari hasilnya.
+   * onSubmitOrder). DUA tulisan best-effort independen — sama pola dengan
+   * copyPackageItemsToOrder di actions.ts: kegagalan di sini TIDAK PERNAH
+   * membatalkan pesanan yang sudah tersimpan, masing-masing dilaporkan lewat
+   * state banner-nya sendiri supaya staf tahu APA yang berhasil dan APA yang
+   * tidak (LESSONS #10, jangan diam-diam menelan kegagalan sebagian — dan
+   * jangan mencampur dua hasil independen jadi satu pesan yang kabur). Hand-off
+   * selalu dihapus sesudahnya (sekali pakai) terlepas dari hasil keduanya.
+   *
+   * `orderClientRequestId` HARUS ditangkap pemanggil SEBELUM
+   * `requestIdRef.current` di-null-kan (lihat onSubmitOrder) — inilah kunci
+   * idempotency deterministik per baris di copyCalcCartItemsToOrder.
    */
-  async function applyCalcHandoffIfNeeded(orderId: string) {
+  async function applyCalcHandoffIfNeeded(orderId: string, orderClientRequestId: string) {
     if (!calcApply || !calcHandoff) return;
-    const out = await submitSafely({
+    const offerOut = await submitSafely({
       kind: "update",
       messages: m,
       run: () =>
@@ -206,11 +217,49 @@ export default function NewOrderForm({
           String(calcHandoff.cashDiscount)
         ),
     });
-    const applied = out.status === "ok" && !("error" in out.result);
+    const offerApplied = offerOut.status === "ok" && !("error" in offerOut.result);
     setCalcOutcomeMsg({
-      ok: applied,
-      text: applied ? m.cabang.calcHandoffAppliedOk : m.cabang.calcHandoffAppliedFailed,
+      ok: offerApplied,
+      text: offerApplied ? m.cabang.calcHandoffAppliedOk : m.cabang.calcHandoffAppliedFailed,
     });
+
+    if (calcHandoff.lines.length > 0) {
+      const itemsOut = await submitSafely({
+        kind: "update",
+        messages: m,
+        run: () =>
+          copyCalcCartItemsToOrder(
+            orderId,
+            orderClientRequestId,
+            calcHandoff.lines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty }))
+          ),
+      });
+      if (itemsOut.status === "ok") {
+        const r = itemsOut.result;
+        if (r.created === 0) {
+          setCalcItemsMsg({ ok: false, text: m.cabang.calcItemsAppliedFailed });
+        } else if (r.created < r.total) {
+          setCalcItemsMsg({
+            ok: false,
+            text: m.cabang.calcItemsAppliedPartial.replace("{n}", String(r.created)).replace("{total}", String(r.total)),
+          });
+        } else {
+          const base = m.cabang.calcItemsAppliedOk.replace("{n}", String(r.created));
+          setCalcItemsMsg({
+            ok: true,
+            text: r.priceGuardDegraded ? `${base} ${m.cabang.calcItemsAppliedPriceNote}` : base,
+          });
+        }
+      } else {
+        // Respons hilang / offline — bukan bukti gagal, tapi juga tidak bisa
+        // diklaim sukses tanpa konfirmasi server (LESSONS #2). Item ini tidak
+        // punya `lookup` seperti order/customer (bukan create tunggal, tapi
+        // batch per-baris) — pesan generik yang jujur, staf disuruh mengecek
+        // Isi Pesanan sendiri kalau ragu.
+        setCalcItemsMsg({ ok: false, text: m.cabang.calcItemsAppliedFailed });
+      }
+    }
+
     clearCalcHandoff();
     setCalcHandoff(null);
     setCalcApply(false);
@@ -260,6 +309,7 @@ export default function NewOrderForm({
     setPartialMsg(null);
     setInvoiceMsg(null);
     setCalcOutcomeMsg(null);
+    setCalcItemsMsg(null);
     // Hand-off (kalau ada) sudah dikonsumsi (dipakai atau diabaikan) sebelum
     // sampai di sini — pesanan berikutnya di sesi form yang sama TIDAK boleh
     // diam-diam memakai angka kalkulator yang sudah dipakai untuk pesanan lain.
@@ -394,7 +444,7 @@ export default function NewOrderForm({
       requestIdRef.current = null;
       if (summary.status === "found") {
         await withInvoice(out.id);
-        await applyCalcHandoffIfNeeded(out.id);
+        await applyCalcHandoffIfNeeded(out.id, rid);
         setOrderResult({ ...summary.order, customerId: foundCustomer?.id ?? "" });
         setPhase("order_success");
       } else {
@@ -427,7 +477,7 @@ export default function NewOrderForm({
     draft.clear();
     requestIdRef.current = null;
     await withInvoice(res.data.id);
-    await applyCalcHandoffIfNeeded(res.data.id);
+    await applyCalcHandoffIfNeeded(res.data.id, rid);
     setOrderResult(res.data);
     setPhase("order_success");
   }
@@ -440,6 +490,9 @@ export default function NewOrderForm({
         {orderResult.itemsCopyWarning && <div className="banner warn">{orderResult.itemsCopyWarning}</div>}
         {calcOutcomeMsg && (
           <div className={`banner ${calcOutcomeMsg.ok ? "ok" : "warn"}`}>{calcOutcomeMsg.text}</div>
+        )}
+        {calcItemsMsg && (
+          <div className={`banner ${calcItemsMsg.ok ? "ok" : "warn"}`}>{calcItemsMsg.text}</div>
         )}
         <dl className="kv">
           <dt>{m.common.orderNumber}</dt>

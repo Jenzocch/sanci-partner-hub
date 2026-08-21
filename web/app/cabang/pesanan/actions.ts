@@ -1374,6 +1374,135 @@ export async function getOrderInvoiceSignedUrl(orderId: string): Promise<Invoice
 }
 
 /* ------------------------------------------------------------------ *
+ * Kalkulator Penawaran → order_items (order_items, migrasi 0014). Hand-off
+ * SEKALI PAKAI dari /cabang/kalkulator (lib/calculator-shared.ts::CalcHandoff)
+ * — dipanggil client SETELAH pesanan berhasil dibuat, di titik yang SAMA
+ * dengan setOrderOfferBranch di bawah (applyCalcHandoffIfNeeded,
+ * new-order-form.tsx), HANYA kalau staf menekan "Gunakan angka ini" pada
+ * banner hand-off. Sepupu langsung copyPackageItemsToOrder di atas — pola
+ * idempotency/error-handling SENGAJA disalin, bukan diciptakan baru.
+ * ------------------------------------------------------------------ */
+
+const MAX_CALC_ITEM_UNIT_PRICE = 9_999_999_999_999;
+
+export type CopyCalcItemsOutcome = {
+  total: number;
+  created: number;
+  /**
+   * true kalau minimal satu baris berhasil dibuat TAPI tanpa unit_price —
+   * trg_order_item_price_guard (migrasi 0014) menolak kolom harga karena
+   * partner tidak (lagi) punya can_edit_offer. Baris itu tetap dibuat (nama/
+   * kode/qty utuh), hanya harganya yang gugur — degradasi yang SESUAI izin,
+   * bukan kegagalan (LESSONS #10: dilaporkan ke pemanggil, tidak ditelan
+   * diam-diam maupun disamarkan jadi error keras).
+   */
+  priceGuardDegraded: boolean;
+};
+
+/**
+ * Menyalin baris keranjang Kalkulator Penawaran ke order_items. Pola SAMA
+ * PERSIS dengan copyPackageItemsToOrder di atas:
+ *   - name_snapshot/code_snapshot DIAMBIL ULANG dari sanci_products lewat
+ *     product_id (bukan dipercaya dari client/localStorage — LESSONS #6).
+ *     unit_price/quantity TETAP dari input: harga di kalkulator memang angka
+ *     yang diketik BEBAS oleh staf (tidak ada harga otoritatif di katalog
+ *     untuk diambil ulang — 0010, lihat catatan di calculator-shared.ts), dan
+ *     quantity adalah pilihan staf, bukan data otorisasi.
+ *   - client_request_id per baris DETERMINISTIK
+ *     (`{orderClientRequestId}:calc-item:{product_id}`) — retry (respons
+ *     hilang, submitSafely mengulang) tidak pernah menggandakan baris
+ *     (LESSONS #3/#21). Produk yang sama tidak pernah muncul dua kali di satu
+ *     keranjang (addToCart di kalkulator-client.tsx menggabungkan qty), jadi
+ *     product_id aman dipakai sebagai kunci — bukan indeks array yang bisa
+ *     bergeser.
+ *   - BEST-EFFORT MURNI: dipanggil SETELAH pesanan sudah tersimpan sukses;
+ *     kegagalan di sini TIDAK PERNAH melempar atau membatalkan pesanan itu
+ *     (pola sama dengan lampiran invoice / copyPackageItemsToOrder).
+ *
+ * Produk yang tidak lagi terlihat lewat sp_partner_read (ditarik dari
+ * katalog / katalog partner dinonaktifkan sejak keranjang diisi) tidak bisa
+ * diambil nama/kodenya — baris itu dilewati (dihitung sebagai gagal, sama
+ * seperti item Package yang produknya sudah hilang di copyPackageItemsToOrder).
+ *
+ * trg_order_item_price_guard (migrasi 0014) menegakkan can_edit_offer untuk
+ * unit_price/line_discount PERSIS seperti biasa — kalkulator sendiri bebas
+ * izin (0014/0015 sengaja tidak menggerbanginya di layar kalkulator), tapi
+ * jalur TULIS ini TIDAK ikut bebas (prinsip sama dengan setOrderOfferBranch:
+ * kalkulatornya saja yang bebas izin, bukan jalur tulisnya). Kalau trigger
+ * menolak (partner tidak/tidak lagi punya can_edit_offer), baris itu DICOBA
+ * ULANG TANPA unit_price — nama/kode/qty tetap tersimpan. Ini BUKAN
+ * kegagalan yang dilaporkan sebagai error; ini degradasi yang sesuai izin
+ * (lihat priceGuardDegraded di atas). Baris yang tidak menyertakan harga
+ * sama sekali (staf tidak mengisi/mengisi 0) tidak pernah menyentuh trigger
+ * ini — unit_price tidak disertakan dalam INSERT sama sekali, bukan dikirim
+ * sebagai 0.
+ */
+export async function copyCalcCartItemsToOrder(
+  orderId: string,
+  orderClientRequestId: string,
+  lines: { productId: string; unitPrice: number; qty: number }[]
+): Promise<CopyCalcItemsOutcome> {
+  const supabase = await createClient();
+  if (lines.length === 0) return { total: 0, created: 0, priceGuardDegraded: false };
+
+  type ProductLite = { id: string; name: string; code: string | null };
+  const productIds = Array.from(new Set(lines.map((l) => l.productId)));
+  const { data: products, error } = await supabase
+    .from("sanci_products")
+    .select("id, name, code")
+    .in("id", productIds);
+  if (error) return { total: lines.length, created: 0, priceGuardDegraded: false };
+  const byId = new Map(((products as ProductLite[] | null) ?? []).map((p) => [p.id, p]));
+
+  let created = 0;
+  let priceGuardDegraded = false;
+
+  for (const line of lines) {
+    const product = byId.get(line.productId);
+    if (!product) continue;
+
+    const reqId = `${orderClientRequestId}:calc-item:${line.productId}`;
+    const { data: existing, error: existingErr } = await supabase
+      .from("order_items")
+      .select("id")
+      .eq("client_request_id", reqId)
+      .maybeSingle();
+    if (existingErr) continue;
+    if (existing) {
+      created++;
+      continue;
+    }
+
+    const qty = Math.max(1, Math.min(MAX_ITEM_QTY, Math.round(line.qty) || 1));
+    const basePayload: Record<string, unknown> = {
+      order_id: orderId,
+      product_id: line.productId,
+      name_snapshot: product.name,
+      code_snapshot: product.code,
+      quantity: qty,
+      client_request_id: reqId,
+    };
+    const includesPrice =
+      Number.isFinite(line.unitPrice) && line.unitPrice > 0 && line.unitPrice <= MAX_CALC_ITEM_UNIT_PRICE;
+    const payload = includesPrice ? { ...basePayload, unit_price: line.unitPrice } : basePayload;
+
+    let written = await safeWrite(supabase.from("order_items").insert(payload).select("id").single());
+    if (
+      !written.ok &&
+      written.reason === "db" &&
+      includesPrice &&
+      written.detail.includes("Kolom harga per baris")
+    ) {
+      priceGuardDegraded = true;
+      written = await safeWrite(supabase.from("order_items").insert(basePayload).select("id").single());
+    }
+    if (written.ok) created++;
+  }
+
+  return { total: lines.length, created, priceGuardDegraded };
+}
+
+/* ------------------------------------------------------------------ *
  * Penawaran SANCI dari sisi cabang (order_sanci_offers, migrasi 0014 +
  * 0015). Mirror dari web/app/admin/actions-orders.ts::setOrderOffer, tapi
  * lewat modul cabang sendiri karena sisi ini punya lapisan identitas/pesan
