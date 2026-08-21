@@ -13,7 +13,7 @@ import { updateStaff, deactivateStaff, transferStaff } from "../../../../actions
 // actions-staff.ts) — hanya LABEL yang ditampilkan mengikuti bahasa.
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"] as const;
 
-type Staff = { id: string; full_name: string; phone: string | null; role: string };
+type Staff = { id: string; full_name: string; phone: string | null; role: string; code?: string | null };
 type OtherBranch = { id: string; name: string };
 
 export default function StaffActions({
@@ -62,6 +62,7 @@ export default function StaffActions({
           fullName: String(fd.get("full_name") || ""),
           phone: String(fd.get("phone") || ""),
           role: String(fd.get("role") || staff.role),
+          code: String(fd.get("code") || ""),
         }),
       messages: m,
     });
@@ -149,6 +150,17 @@ export default function StaffActions({
               <div className="field">
                 <label htmlFor="es_phone">{m.common.phone}</label>
                 <input id="es_phone" name="phone" type="tel" defaultValue={staff.phone || ""} />
+              </div>
+              <div className="field">
+                <label htmlFor="es_code">{m.admin.staffCodeFieldLabel}</label>
+                <input
+                  id="es_code"
+                  name="code"
+                  type="text"
+                  defaultValue={staff.code || ""}
+                  style={{ textTransform: "uppercase" }}
+                />
+                <div className="hint">{m.admin.staffCodeHint}</div>
               </div>
               <div className="field">
                 <label htmlFor="es_role">{m.admin.staffRoleFieldLabel}</label>

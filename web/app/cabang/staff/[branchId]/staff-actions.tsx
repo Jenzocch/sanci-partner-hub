@@ -11,7 +11,7 @@ import { updateStaff, deactivateStaff } from "../../../admin/actions-staff";
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
 
-type Staff = { id: string; full_name: string; phone: string | null; role: string };
+type Staff = { id: string; full_name: string; phone: string | null; role: string; code?: string | null };
 
 export default function StaffActions({ staff }: { staff: Staff }) {
   const router = useRouter();
@@ -48,6 +48,7 @@ export default function StaffActions({ staff }: { staff: Staff }) {
           fullName: String(fd.get("full_name") || ""),
           phone: String(fd.get("phone") || ""),
           role: String(fd.get("role") || staff.role),
+          code: String(fd.get("code") || ""),
         }),
     });
     if (out.status !== "ok") {
@@ -107,6 +108,17 @@ export default function StaffActions({ staff }: { staff: Staff }) {
               <div className="field">
                 <label htmlFor="ces_phone">{m.common.phone}</label>
                 <input id="ces_phone" name="phone" type="tel" defaultValue={staff.phone || ""} />
+              </div>
+              <div className="field">
+                <label htmlFor="ces_code">{m.cabang.staffCodeFieldLabel}</label>
+                <input
+                  id="ces_code"
+                  name="code"
+                  type="text"
+                  defaultValue={staff.code || ""}
+                  style={{ textTransform: "uppercase" }}
+                />
+                <div className="hint">{m.cabang.staffCodeHint}</div>
               </div>
               <div className="field">
                 <label htmlFor="ces_role">{m.common.role} *</label>

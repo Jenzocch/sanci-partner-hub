@@ -70,14 +70,32 @@ export default async function CabangStaffPage({
   const isOwnBranch = branchId === pu.branch_id;
   const canEdit = isOwnBranch || pol?.edit_scope === "PARTNER_ALL_BRANCHES";
 
-  const [{ data: staffList }, { data: assignments }] = await Promise.all([
-    supabase.from("partner_staff").select("id, full_name, phone, status").eq("partner_id", pu.partner_id),
-    supabase
-      .from("partner_staff_assignments")
-      .select("staff_id, branch_id, role, end_at")
-      .eq("branch_id", branchId)
-      .is("end_at", null),
-  ]);
+  // code (migrasi 0019) BISA belum ada sebagai kolom kalau kodenya sudah naik
+  // lebih dulu (LESSONS #12) — coba SELECT lebar dulu, turun ke SELECT sempit
+  // kalau 42703, supaya daftar staf dasar tetap tampil walau fitur baru ini
+  // belum aktif.
+  type StaffRow = { id: string; full_name: string; phone: string | null; status: string; code?: string | null };
+  let staffList: StaffRow[] = [];
+  {
+    const wide = await supabase
+      .from("partner_staff")
+      .select("id, full_name, phone, status, code")
+      .eq("partner_id", pu.partner_id);
+    if (wide.error && wide.error.code === "42703") {
+      const narrow = await supabase
+        .from("partner_staff")
+        .select("id, full_name, phone, status")
+        .eq("partner_id", pu.partner_id);
+      staffList = ((narrow.data ?? []) as Omit<StaffRow, "code">[]).map((s) => ({ ...s, code: null }));
+    } else {
+      staffList = (wide.data ?? []) as StaffRow[];
+    }
+  }
+  const { data: assignments } = await supabase
+    .from("partner_staff_assignments")
+    .select("staff_id, branch_id, role, end_at")
+    .eq("branch_id", branchId)
+    .is("end_at", null);
 
   const assignByStaff = new Map<string, Assignment>();
   (assignments ?? []).forEach((a: Assignment) => assignByStaff.set(a.staff_id, a));
@@ -112,6 +130,7 @@ export default async function CabangStaffPage({
             <div key={s.id} className="staffcard">
               <div className="row1">
                 <span className="nm">{s.full_name}</span>
+                {s.code ? <span className="code">{s.code}</span> : null}
                 <span className="chip ACTIVE">{m.common.statusActive.toUpperCase()}</span>
               </div>
               <div className="rl">
@@ -120,7 +139,7 @@ export default async function CabangStaffPage({
               {canEdit ? (
                 <div className="ops">
                   <StaffActions
-                    staff={{ id: s.id, full_name: s.full_name, phone: s.phone, role: a.role }}
+                    staff={{ id: s.id, full_name: s.full_name, phone: s.phone, role: a.role, code: s.code }}
                   />
                 </div>
               ) : (

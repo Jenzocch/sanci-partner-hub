@@ -15,9 +15,43 @@ type ActionResult<T> = { data: T } | { error: ActionError };
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"] as const;
 
+// partner_staff.code (migrasi 0019) — huruf besar/angka, 1-10 karakter, sama
+// persis dengan CHECK constraint partner_staff_code_format di database.
+// Kosong/undefined SAH (field opsional, "additive, not mandatory" — kode
+// hanya dipakai kalau cabang mau customer_code otomatis).
+const STAFF_CODE_RE = /^[A-Z0-9]{1,10}$/;
+
+/** Trim + uppercase — supaya "as" dan "AS" dianggap kode yang sama oleh pengguna. */
+function normalizeStaffCode(raw: string | undefined): string | null {
+  const trimmed = (raw ?? "").trim().toUpperCase();
+  return trimmed || null;
+}
+
+/**
+ * partner_staff punya DUA unique constraint (client_request_id untuk
+ * idempotency, partner_staff_code_partner_key untuk kode staf) — LESSONS
+ * #21/#27: 23505 saja tidak cukup, harus dilihat CONSTRAINT-nya. Dipanggil
+ * SETELAH isRequestIdConflict diperiksa (idempotency selalu diperiksa lebih
+ * dulu, sama urutan pola actions-products.ts).
+ */
+function isStaffCodeConflict(outcome: { code?: string; detail?: string }): boolean {
+  return outcome.code === "23505" && (outcome.detail ?? "").includes("partner_staff_code_partner_key");
+}
+function isStaffCodeFormatError(outcome: { code?: string }): boolean {
+  return outcome.code === "23514";
+}
+
+/**
+ * LESSONS #12 — kode boleh naik duluan sebelum migration 0019 dijalankan.
+ * Postgres menjawab 42703 (undefined_column) kalau `code` belum ada.
+ */
+function isMissingColumnError(outcome: { code?: string }): boolean {
+  return outcome.code === "42703";
+}
+
 export async function createStaff(
   branchId: string,
-  input: { fullName: string; phone?: string; role: string; clientRequestId: string }
+  input: { fullName: string; phone?: string; role: string; code?: string; clientRequestId: string }
 ): Promise<ActionResult<{ id: string }>> {
   const m = await getMessages();
   const PESAN = pesan(m);
@@ -25,6 +59,10 @@ export async function createStaff(
   const fullName = input.fullName.trim();
   if (!fullName) return { error: { field: "full_name", message: m.admin.staffFullNameRequired } };
   const role = ROLES.includes(input.role as (typeof ROLES)[number]) ? input.role : "Lainnya";
+  const code = normalizeStaffCode(input.code);
+  if (code && !STAFF_CODE_RE.test(code)) {
+    return { error: { field: "code", message: m.admin.staffCodeInvalidFormat } };
+  }
 
   const { data: branch } = await supabase
     .from("partner_branches")
@@ -46,18 +84,23 @@ export async function createStaff(
     // terputus setelah staf tersimpan tetapi sebelum penugasan cabang dibuat.
     staffId = existing.id;
   } else {
-    const written = await safeWrite(
-      supabase
-        .from("partner_staff")
-        .insert({
-          partner_id: branch.partner_id,
-          full_name: fullName,
-          phone: input.phone?.trim() || null,
-          client_request_id: input.clientRequestId,
-        })
-        .select("id")
-        .single()
+    // LESSONS #12: kode boleh naik duluan sebelum migration 0019 — coba dulu
+    // DENGAN kolom `code`, dan kalau Postgres menjawab 42703 (kolom belum
+    // ada), coba ulang TANPA kolom itu sama sekali (bukan `code: null` —
+    // KEHADIRAN kunci itu sendiri di payload yang bikin PostgREST menolak,
+    // terlepas dari nilainya).
+    const baseStaffInsert = {
+      partner_id: branch.partner_id,
+      full_name: fullName,
+      phone: input.phone?.trim() || null,
+      client_request_id: input.clientRequestId,
+    };
+    let written = await safeWrite(
+      supabase.from("partner_staff").insert({ ...baseStaffInsert, code }).select("id").single()
     );
+    if (!written.ok && written.reason === "db" && isMissingColumnError(written)) {
+      written = await safeWrite(supabase.from("partner_staff").insert(baseStaffInsert).select("id").single());
+    }
 
     if (written.ok) {
       staffId = written.data.id;
@@ -80,6 +123,14 @@ export async function createStaff(
         return { error: { message: PESAN.belumTersimpan } };
       } else if (recheck) {
         return { error: { message: PESAN.belumPastiBaru } };
+        // LESSONS #21/#27: idempotency (client_request_id) sudah diperiksa di
+        // atas (recheck) — dua cabang di bawah ini menangani constraint KEDUA
+        // (partner_staff_code_partner_key) dan CHECK format kode, keduanya
+        // kesalahan pengguna sungguhan (bukan "mungkin sudah mendarat").
+      } else if (written.reason === "db" && isStaffCodeConflict(written)) {
+        return { error: { field: "code", message: m.admin.staffCodeTaken } };
+      } else if (written.reason === "db" && isStaffCodeFormatError(written)) {
+        return { error: { field: "code", message: m.admin.staffCodeInvalidFormat } };
       } else {
         return { error: { message: PESAN.serverSibuk } };
       }
@@ -122,7 +173,7 @@ export async function createStaff(
 
 export async function updateStaff(
   staffId: string,
-  input: { fullName: string; phone?: string; role: string }
+  input: { fullName: string; phone?: string; role: string; code?: string }
 ): Promise<ActionResult<true>> {
   const m = await getMessages();
   const PESAN = pesan(m);
@@ -130,16 +181,28 @@ export async function updateStaff(
   const fullName = input.fullName.trim();
   if (!fullName) return { error: { field: "full_name", message: m.admin.staffFullNameRequired } };
   const role = ROLES.includes(input.role as (typeof ROLES)[number]) ? input.role : "Lainnya";
+  const code = normalizeStaffCode(input.code);
+  if (code && !STAFF_CODE_RE.test(code)) {
+    return { error: { field: "code", message: m.admin.staffCodeInvalidFormat } };
+  }
 
-  const saved = await safeWrite(
-    supabase
-      .from("partner_staff")
-      .update({ full_name: fullName, phone: input.phone?.trim() || null })
-      .eq("id", staffId)
-      .select("partner_id")
-      .single()
+  const baseStaffUpdate = { full_name: fullName, phone: input.phone?.trim() || null };
+  let saved = await safeWrite(
+    supabase.from("partner_staff").update({ ...baseStaffUpdate, code }).eq("id", staffId).select("partner_id").single()
   );
+  if (!saved.ok && saved.reason === "db" && isMissingColumnError(saved)) {
+    // LESSONS #12 — sama pola dengan createStaff di atas.
+    saved = await safeWrite(
+      supabase.from("partner_staff").update(baseStaffUpdate).eq("id", staffId).select("partner_id").single()
+    );
+  }
   if (!saved.ok) {
+    if (saved.reason === "db" && isStaffCodeConflict(saved)) {
+      return { error: { field: "code", message: m.admin.staffCodeTaken } };
+    }
+    if (saved.reason === "db" && isStaffCodeFormatError(saved)) {
+      return { error: { field: "code", message: m.admin.staffCodeInvalidFormat } };
+    }
     return {
       error: {
         message: saved.reason === "unconfirmed" ? PESAN.belumPastiUbah : PESAN.serverSibuk,

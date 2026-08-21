@@ -643,6 +643,45 @@ Owner 原話（要靈活編輯）："SANCI 已經手動給自己的直客編號�
   歷史上用的 sales 縮寫如 "Ken" 本來就不在 owner 現在給的 7 人名單裡，這是
   預期中的落差，不是遺漏）。
 
+### Phase 2 第十四切片（分店客戶自動編碼，2026-08-21）
+
+> ⚠️ **格式尚未經 Jenzo 在加入業務代碼後重新確認 —— 請務必檢查！**
+> `{PartnerCode}-{BranchCode}-{StaffCode}/{YY}/{SeqNo}`，**實際生成範例：
+> `GH-BSD-AS/26/001`**（Golden Home、BSD 分店、業務員代碼 AS、2026 年、
+> 該分店今年第一筆）。詳見 `scratchpad/plan-0019-branch-customer-code.md`
+> ——owner 只確認到「要有分行編號＋業務代碼」，具體格式是這一刀依照既有
+> `order_number`（0004）風格提出的工作設計，尚未逐字拍板。如果形狀不對，
+> 需要新一版遷移調整（`customer_code` 已生成的舊資料不會自動改寫，同
+> 0018 的「凍結文字」原則）。
+
+Owner 原話（跨多則訊息累積）："分行的編號呢" — 分店自己的客戶也要有代碼，
+但規則要跟 0018 的 SANCI 直客不同；"可以自動產生,但是可以清楚知道哪一個
+分行"；"要加上業務/店員代碼"（跟 0018"Sales"精神一樣，但用
+`partner_staff`，不是 `sanci_sales_staff`）；"gd-bsd-多這種的類似"——風格
+沿用既有 `order_number`（0004）。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-67 | Migration `0019_branch_customer_code.sql`：`partner_staff.code`（新欄，nullable，unique 於 `(partner_id, code)`）、`customers.attributed_staff_id`（新欄，FK→`partner_staff` `ON DELETE RESTRICT`）、新表 `partner_customer_counters`（PER 分店 PER 年，年度到就重置——跟 0018 的 GLOBAL sequence 刻意不同，理由見檔頭）、`fn_next_customer_seq`（mirror `fn_next_order_seq` 鎖列邏輯）、`fn_check_customer_staff_ref`（驗證 `attributed_staff_id` 屬於同一個 partner，mirror `fn_check_order_refs`）、`fn_set_customer_code` **重新定義**（不是新 trigger——同一個函式用 if/elsif 同時處理 0018 SANCI 直客 與 0019 分店建立兩條路徑，理由寫在檔頭；0018 路徑逐字保留未動） | `UNVERIFIED` | 本機 Postgres 16 完整重放 `0001→…→0018→0019`：驗證區塊 **21 項全數符合期望**（結構檢查，不含真實 insert——理由：0018 的做法是在驗證區塊直接寫測試客戶進 `customers`，因為 `customer_sources`/`sanci_sales_staff` 是該遷移自己 seed 的全新主檔；0019 若比照會需要寫一筆測試 Partner/Branch 進生產表，污染 Jenzo 的 Partner 清單，所以字串證明改放測試套件而非遷移本身）。行為測試 `supabase/test-harness/70_behavior_0019.sql` **18/18 PASS**：`partner_staff.code` 唯一性 scope 是 `(partner_id, code)`，同代碼在不同 partner 可重複但同 partner 內被擋；生成字串**逐字**比對（`PA-A1-SA/26/001`，用 counter `last_seq` 算出精確期望值）；員工沒設代碼／完全沒指派員工兩種情況都是 `customer_code` 留 NULL、不報錯；0018／0019 兩條路徑在同一筆資料上**永遠不會同時觸發**（分別驗證 SANCI 直客與分店建立各自只長出自己的形狀）；`attributed_staff_id` 指到別的 partner 的員工被 `fn_check_customer_staff_ref` 擋下；FK RESTRICT 擋刪除還被引用的員工；年度邊界重置（模擬 2026→2027，同分店歸零、不同分店互不影響）；`fn_next_customer_seq` 拒絕分店帳號直接呼叫、`partner_customer_counters` 對分店帳號回傳 0 筆（LESSONS #26）；`STAFF_UPDATED`/`CUSTOMER_CREATED` 稽核事件照常出現，`fn_audit_row` 不需重新定義。冪等連跑 3 次 `pg_dump -s`（濾除 `\restrict`，LESSONS #33）**零漂移**；counter 表既有列不受重跑影響（遷移本身沒有對它 INSERT，只有 `CREATE TABLE IF NOT EXISTS`）。重跑復原鏈實測：重跑 0018 會讓 `fn_set_customer_code` 掉回舊版（分店路徑消失），重跑 0019 一次即可完全恢復（`prosrc` 直接量測，非推論）。**回歸零**：0014-0018 既有 92 項行為斷言全數重跑，92 PASS 0 FAIL。**施工中發現一個 0018 遺留的既有互動（不是 0019 造成的迴歸，已個別驗證：只裝 0001-0018、不裝 0019 也會出現同樣現象）**：`0018` 的 `trg_set_customer_code` 把空字串 `customer_code=''` 靜默轉成 `NULL`（設計用意是讓半填的表單不報一個看不懂的 23514），但這個轉換發生在 CHECK constraint（0017）看到值**之前**，導致 `50_behavior_0017.sql` 原本斷言「空字串會被 CHECK 拒絕」的 T1 從 0018 上線那一刻起就不再成立——已更新該測試以斷言目前真實行為並記入 LESSONS #37，`0017_customer_code_email.sql` 本身（CHECK constraint 定義）一個字元都沒被動過 |
+| P2-68 | 分店端 UI：`web/app/cabang/staff/[branchId]/**` 與 admin 端 `web/app/admin/partners/[id]/branches/[branchId]/**`（新增/修改員工表單）皆加上「Kode Staf」欄位（選填、大寫字母/數字、建立時從姓名自動建議初始值但可自由覆蓋/清空——純 UI 便利，資料庫從不強制）；兩處員工列表卡片顯示代碼 chip。分店端 `web/app/cabang/pelanggan/**`（列表卡片 + 詳情頁）新增顯示 `customer_code` chip（原本這兩頁完全沒有這個欄位——0017/0018 只加了 admin 端顯示）| `UNVERIFIED` | `web/app/admin/actions-staff.ts`（分店與 admin 端共用同一份）：`createStaff`/`updateStaff` 新增 `code` 參數，走 `pesan(m)`/`safeWrite`/兩個 unique constraint（`client_request_id`/`partner_staff_code_partner_key`，LESSONS #21/#27 逐一翻譯錯誤訊息）+ 42703 優雅降級（LESSONS #12）。`web/lib/staff-code-suggest.ts`（新檔）：兩處表單共用同一份初始值建議邏輯，避免 LESSONS #27 那種「複製到兩處、只驗一處」的漂移。三語系（id/en/zh）新增約 12 個 key，簡體字串禁用詞掃描零命中。`web/lib/audit-format.ts`：`attributed_staff_id` 歸入 SKIP（純 UUID 關聯，`partner_staff.code` 本身則**不需要**新增規則——早就靠 `code: c.code` 這條通用欄位名對照涵蓋，跟 partners/branches/customer_sources/sanci_sales_staff 的 `code` 共用同一條規則）。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、`npx eslint .` ✓、`rm -rf .next && npm run build` ✓、`/offline` 仍 `○` 靜態預渲染 |
+| P2-69 | **業務員歸屬設計決策**：`web/app/cabang/pesanan/actions.ts` 的 `createCustomerAndOrder`（建客戶+訂單同一步，最常見路徑）重用**已經**被 `verifyActiveStaffInBranch` 驗證過的 `sales_staff_id` 作為新客戶的 `attributed_staff_id`（驗證順序特意移到建客戶**之前**，避免驗證失敗卻已經留下孤兒客戶）；`createCustomerOnly`（獨立「Simpan Pelanggan Saja」按鈕，跟訂單表單共用同一個 `<form>`）新增可選 `salesStaffId` 參數——表單上業務員欄位如果使用者填了就一併送出並驗證，沒填（最常見情形）則 `attributed_staff_id` 留 NULL，不報錯。**沒有新增獨立的員工選擇器 UI**——因為讀了現有程式碼後確認訂單建立表單裡本來就有一個業務員下拉選單，兩個入口共用同一份即可 | `UNVERIFIED` | 決策依據見 migration `0019_branch_customer_code.sql` 頭部「KEPUTUSAN DESAIN ATRIBUSI STAF」整段，含讀碼證據（三個具體事實：訂單建立已強制業務員欄位、獨立存客戶按鈕原本完全不送業務員、分店端 Pelanggan 頁面沒有建立表單只有列表+編輯） |
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **格式未經 owner 逐字拍板**（見上方警示框）——這是本切片最重要的待確認
+  項目，優先於其他所有細節。
+- **沒有批次替既有員工補上代碼的工具**——舊員工 `code` 維持 `IS NULL`，
+  直到分店/admin 自己用「Ubah Staf」逐一補上（跟 0018 對舊主檔代碼的
+  態度一致）。
+- **資料庫層沒有驗證「員工必須是 ACTIVE 狀態」才能生成代碼**——沿用 0018
+  對 `source_id`/`sales_staff_id` 的同一個立場（FK 不管狀態）；真正擋
+  INACTIVE 員工的是應用層的 `verifyActiveStaffInBranch`，不是資料庫。
+- **沒有讓分店自己搬移/合併員工代碼衝突的工具**——`(partner_id, code)`
+  唯一性衝突時，Server Action 直接回報「這個代碼已被使用」，沒有自動改名
+  或建議替代代碼的機制。
+- **`customers.attributed_staff_id` 只有兩條寫入路徑**（見 P2-69），透過
+  `web/app/cabang/pelanggan/actions.ts` 的 `updateCustomer`（只能改既有
+  客戶，不能建立）永遠不會寫到這個欄位。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

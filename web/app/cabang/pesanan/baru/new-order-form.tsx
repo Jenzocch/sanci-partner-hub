@@ -293,6 +293,12 @@ export default function NewOrderForm({
     }
     const fd = new FormData(form);
     const rid = requestIdRef.current!;
+    // sales_staff_id ada di form YANG SAMA (section Order) — kalau staf
+    // sudah dipilih sebelum tombol ini ditekan, ikut disertakan sebagai
+    // atribusi pelanggan (customers.attributed_staff_id, migrasi 0019).
+    // Kosong sama sekali (jalur paling umum untuk tombol ini) tetap sah,
+    // TIDAK diwajibkan.
+    const salesStaffIdRaw = String(fd.get("sales_staff_id") || "");
     const out = await submitSafely({
       messages: m,
       run: () =>
@@ -300,6 +306,7 @@ export default function NewOrderForm({
           fullName: String(fd.get("full_name") || ""),
           phone,
           notes: String(fd.get("notes") || ""),
+          salesStaffId: salesStaffIdRaw || undefined,
           clientRequestId: rid,
         }),
       lookup: () => lookupCustomerRequestId(rid),

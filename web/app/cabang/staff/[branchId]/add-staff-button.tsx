@@ -7,6 +7,7 @@ import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { useMessages } from "@/lib/i18n/provider";
+import { suggestStaffCode } from "@/lib/staff-code-suggest";
 import { createStaff } from "../../../admin/actions-staff";
 import { lookupByRequestId } from "../../../admin/actions-lookup";
 
@@ -51,6 +52,7 @@ export default function AddStaffButton({
           fullName: String(fd.get("full_name") || ""),
           phone: String(fd.get("phone") || ""),
           role: String(fd.get("role") || "Sales"),
+          code: String(fd.get("code") || ""),
           clientRequestId: rid,
         }),
       lookup: () => lookupByRequestId("staff", rid),
@@ -89,6 +91,18 @@ export default function AddStaffButton({
     );
   }
 
+  /**
+   * Saran inisial (kemudahan UI MURNI) — HANYA mengisi kalau field kode
+   * masih kosong (tidak pernah menimpa yang sudah diketik/diubah tangan,
+   * sama prinsip dengan LESSONS #1: draf/isian tangan pengguna tidak boleh
+   * ditimpa balik).
+   */
+  function handleFullNameBlur(e: React.FocusEvent<HTMLInputElement>) {
+    const codeEl = draft.formRef.current?.elements.namedItem("code") as HTMLInputElement | null;
+    if (!codeEl || codeEl.value.trim()) return;
+    codeEl.value = suggestStaffCode(e.target.value);
+  }
+
   const [branchNotePre, branchNotePost] = m.cabang.staffBranchAutoNote.split("{branch}");
 
   return (
@@ -106,12 +120,18 @@ export default function AddStaffButton({
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.full_name ? " invalid" : ""}`}>
             <label htmlFor="cas_name">{m.common.fullName} *</label>
-            <input id="cas_name" name="full_name" type="text" />
+            <input id="cas_name" name="full_name" type="text" onBlur={handleFullNameBlur} />
             {errs.full_name && <div className="err-text">{errs.full_name}</div>}
           </div>
           <div className="field">
             <label htmlFor="cas_phone">{m.common.phone}</label>
             <input id="cas_phone" name="phone" type="tel" inputMode="tel" />
+          </div>
+          <div className={`field${errs.code ? " invalid" : ""}`}>
+            <label htmlFor="cas_code">{m.cabang.staffCodeFieldLabel}</label>
+            <input id="cas_code" name="code" type="text" style={{ textTransform: "uppercase" }} />
+            <div className="hint">{m.cabang.staffCodeHint}</div>
+            {errs.code && <div className="err-text">{errs.code}</div>}
           </div>
           <div className="field">
             <label htmlFor="cas_role">{m.common.role} *</label>

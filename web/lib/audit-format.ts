@@ -252,6 +252,17 @@ const SKIP = new Set([
   // LESSONS #28. Nomor pesanannya sudah terbaca di judul halaman detail
   // pesanan; UUID-nya tidak berarti apa-apa bagi pembacanya.
   "order_id",
+  // Ditambahkan migrasi 0019: attributed_staff_id pada customers adalah
+  // UUID relasi ke partner_staff, perlakuannya sama dengan source_id/
+  // sales_staff_id (0018) di atas — bermakna lewat customer_code (sudah
+  // tampil apa adanya) dan lewat nama/kode staf yang terbaca di layar Staf,
+  // bukan lewat UUID mentah di diff. `code` pada partner_staff SENDIRI
+  // TIDAK masuk SKIP — itu nilai bisnis yang harus tampil apa adanya (sudah
+  // otomatis dapat label lewat `code: c.code` generik di fieldLabel() di
+  // atas, dipakai bersama partners.code/partner_branches.code/customer_
+  // sources.code/sanci_sales_staff.code — dipetakan per NAMA KOLOM, bukan
+  // per tabel, jadi tidak perlu baris baru).
+  "attributed_staff_id",
 ]);
 
 // Kode aksi audit → KUNCI kalimat di common.ts (dipakai halaman Activity).

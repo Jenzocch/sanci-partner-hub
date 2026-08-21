@@ -88,8 +88,21 @@ export default async function BranchDetailPage({
   }
 
   if (tab === "staff") {
-    const [{ data: staffList }, { data: assignments }, { data: allBranches }] = await Promise.all([
-      supabase.from("partner_staff").select("id, full_name, phone, status").eq("partner_id", partnerId),
+    // code (migrasi 0019) BISA belum ada sebagai kolom kalau kodenya sudah
+    // naik lebih dulu (LESSONS #12) — coba SELECT lebar dulu, turun ke SELECT
+    // sempit kalau 42703, supaya tab Staf tetap tampil walau fitur ini belum aktif.
+    type StaffRow = { id: string; full_name: string; phone: string | null; status: string; code?: string | null };
+    let staffList: StaffRow[] = [];
+    {
+      const wide = await supabase.from("partner_staff").select("id, full_name, phone, status, code").eq("partner_id", partnerId);
+      if (wide.error && wide.error.code === "42703") {
+        const narrow = await supabase.from("partner_staff").select("id, full_name, phone, status").eq("partner_id", partnerId);
+        staffList = ((narrow.data ?? []) as Omit<StaffRow, "code">[]).map((s) => ({ ...s, code: null }));
+      } else {
+        staffList = (wide.data ?? []) as StaffRow[];
+      }
+    }
+    const [{ data: assignments }, { data: allBranches }] = await Promise.all([
       supabase
         .from("partner_staff_assignments")
         .select("staff_id, branch_id, role, end_at")
@@ -117,6 +130,7 @@ export default async function BranchDetailPage({
               <div key={s.id} className="staffcard">
                 <div className="row1">
                   <span className="nm">{s.full_name}</span>
+                  {s.code ? <span className="code">{s.code}</span> : null}
                   <span className="chip ACTIVE">{m.common.statusActive}</span>
                 </div>
                 <div className="rl">
@@ -124,7 +138,7 @@ export default async function BranchDetailPage({
                 </div>
                 <div className="ops">
                   <StaffActions
-                    staff={{ id: s.id, full_name: s.full_name, phone: s.phone, role: a.role }}
+                    staff={{ id: s.id, full_name: s.full_name, phone: s.phone, role: a.role, code: s.code }}
                     otherBranches={otherBranches}
                   />
                 </div>

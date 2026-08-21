@@ -7,6 +7,7 @@ import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { useMessages } from "@/lib/i18n/provider";
+import { suggestStaffCode } from "@/lib/staff-code-suggest";
 import { createStaff } from "../../../../actions-staff";
 import { lookupByRequestId } from "../../../../actions-lookup";
 
@@ -60,6 +61,7 @@ export default function AddStaffButton({
           fullName: String(fd.get("full_name") || ""),
           phone: String(fd.get("phone") || ""),
           role: String(fd.get("role") || "Sales"),
+          code: String(fd.get("code") || ""),
           clientRequestId: rid,
         }),
       lookup: () => lookupByRequestId("staff", rid),
@@ -99,6 +101,16 @@ export default function AddStaffButton({
     );
   }
 
+  /**
+   * Saran inisial (kemudahan UI MURNI) — HANYA mengisi kalau field kode
+   * masih kosong (LESSONS #1: isian tangan pengguna tidak boleh ditimpa).
+   */
+  function handleFullNameBlur(e: React.FocusEvent<HTMLInputElement>) {
+    const codeEl = draft.formRef.current?.elements.namedItem("code") as HTMLInputElement | null;
+    if (!codeEl || codeEl.value.trim()) return;
+    codeEl.value = suggestStaffCode(e.target.value);
+  }
+
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
       <div className="modal" role="dialog" aria-modal="true">
@@ -112,12 +124,18 @@ export default function AddStaffButton({
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
           <div className={`field${errs.full_name ? " invalid" : ""}`}>
             <label htmlFor="as_name">{m.admin.staffNameFieldLabel}</label>
-            <input id="as_name" name="full_name" type="text" />
+            <input id="as_name" name="full_name" type="text" onBlur={handleFullNameBlur} />
             {errs.full_name && <div className="err-text">{errs.full_name}</div>}
           </div>
           <div className="field">
             <label htmlFor="as_phone">{m.common.phone}</label>
             <input id="as_phone" name="phone" type="tel" inputMode="tel" />
+          </div>
+          <div className={`field${errs.code ? " invalid" : ""}`}>
+            <label htmlFor="as_code">{m.admin.staffCodeFieldLabel}</label>
+            <input id="as_code" name="code" type="text" style={{ textTransform: "uppercase" }} />
+            <div className="hint">{m.admin.staffCodeHint}</div>
+            {errs.code && <div className="err-text">{errs.code}</div>}
           </div>
           <div className="field">
             <label htmlFor="as_role">{m.admin.staffRoleFieldLabel}</label>

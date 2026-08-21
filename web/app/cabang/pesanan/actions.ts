@@ -411,7 +411,25 @@ export async function lookupOrderRequestId(clientRequestIdBase: string): Promise
 
 type ResolveCustomerInput =
   | { mode: "existing"; customerId: string }
-  | { mode: "new"; fullName: string; phone: string; notes?: string };
+  | {
+      mode: "new";
+      fullName: string;
+      phone: string;
+      notes?: string;
+      /**
+       * customers.attributed_staff_id (migration 0019) — "staf partner mana
+       * yang diatribusikan sebagai pembawa pelanggan ini", dipakai trigger
+       * fn_set_customer_code untuk generate kode branch-created. WAJIB SUDAH
+       * divalidasi verifyActiveStaffInBranch oleh PEMANGGIL sebelum sampai
+       * di sini — fungsi ini sendiri TIDAK memvalidasi ulang (lihat kepala
+       * berkas migration 0019 § "KEPUTUSAN DESAIN ATRIBUSI STAF": staf order
+       * yang sudah terbukti aktif & milik cabang/partner yang sama dipakai
+       * ULANG, tidak ada validasi kedua). undefined/kosong → attributed_
+       * staff_id ditulis null, TIDAK error (additive, bukan wajib — sikap
+       * yang sama dipakai 0018 untuk source_id/sales_staff_id).
+       */
+      attributedStaffId?: string;
+    };
 
 type ResolveCustomerOutcome =
   | { ok: true; customer: CustomerLite }
@@ -458,22 +476,38 @@ async function resolveOrCreateCustomer(
     .maybeSingle();
   if (preExisting) return { ok: true, customer: preExisting };
 
-  const written = await safeWrite(
-    supabase
-      .from("customers")
-      .insert({
-        full_name: fullName,
-        phone: phoneTrim,
-        phone_normalized: normalized,
-        notes,
-        created_via_partner_id: identity.partnerId,
-        created_via_branch_id: identity.branchId,
-        created_by: identity.userId,
-        client_request_id: clientRequestId,
-      })
-      .select("id, full_name, phone")
-      .single()
+  const baseCustomerInsert: Record<string, unknown> = {
+    full_name: fullName,
+    phone: phoneTrim,
+    phone_normalized: normalized,
+    notes,
+    created_via_partner_id: identity.partnerId,
+    created_via_branch_id: identity.branchId,
+    created_by: identity.userId,
+    client_request_id: clientRequestId,
+  };
+
+  // attributed_staff_id (migration 0019) — kode boleh naik duluan sebelum
+  // migrasi (LESSONS #12): coba dulu DENGAN kolom ini, dan hanya kalau
+  // Postgres menjawab 42703 (kolom belum ada) baru dicoba ulang TANPA kolom
+  // itu — pola yang sama persis dengan insertOrderWithPackageFallback di
+  // atas. Kolom ini TIDAK PERNAH bikin pembuatan pelanggan gagal total.
+  const withAttribution: Record<string, unknown> = input.attributedStaffId
+    ? { ...baseCustomerInsert, attributed_staff_id: input.attributedStaffId }
+    : baseCustomerInsert;
+  let written = await safeWrite(
+    supabase.from("customers").insert(withAttribution).select("id, full_name, phone").single()
   );
+  if (
+    !written.ok &&
+    written.reason === "db" &&
+    isMissingColumnError({ code: written.code }) &&
+    input.attributedStaffId
+  ) {
+    written = await safeWrite(
+      supabase.from("customers").insert(baseCustomerInsert).select("id, full_name, phone").single()
+    );
+  }
 
   if (written.ok) return { ok: true, customer: written.data };
 
@@ -501,19 +535,41 @@ export async function createCustomerOnly(input: {
   fullName: string;
   phone: string;
   notes?: string;
+  /**
+   * customers.attributed_staff_id (migrasi 0019) — OPSIONAL, bukan wajib.
+   * Jalur "Simpan Pelanggan Saja" tidak mewajibkan staf sama sekali (fallback
+   * lebih ringan dari createCustomerAndOrder, sesuai keputusan desain di
+   * kepala berkas migration 0019): kalau staf pengguna ISI di form (field
+   * sales_staff_id yang sama dengan section Order) sebelum menekan tombol
+   * ini, diteruskan ke sini dan divalidasi verifyActiveStaffInBranch persis
+   * pola order. Kalau kosong (jalur paling umum untuk tombol ini), attributed_
+   * staff_id ditulis null — TIDAK error, customer_code otomatis tetap null.
+   */
+  salesStaffId?: string;
   clientRequestId: string;
 }): Promise<ActionResult<{ customerId: string; fullName: string; phone: string }>> {
   const m = await getMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
   if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
   const identity = idOutcome.identity;
 
+  let attributedStaffId: string | undefined;
+  if (input.salesStaffId) {
+    const staffCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
+    if (staffCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
+    if (staffCheck === "invalid") {
+      return { error: { field: "sales_staff_id", message: m.cabang.errSalesInvalidStaff } };
+    }
+    attributedStaffId = input.salesStaffId;
+  }
+
   const resolved = await resolveOrCreateCustomer(
     m,
     supabase,
     identity,
-    { mode: "new", fullName: input.fullName, phone: input.phone, notes: input.notes },
+    { mode: "new", fullName: input.fullName, phone: input.phone, notes: input.notes, attributedStaffId },
     input.clientRequestId
   );
   if (!resolved.ok) return { error: resolved.error };
@@ -740,10 +796,48 @@ export async function createCustomerAndOrder(input: {
   if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
   const identity = idOutcome.identity;
 
+  // Staf divalidasi DI SINI, SEBELUM pelanggan dibuat (dipindah dari posisi
+  // aslinya setelah resolveOrCreateCustomer — migrasi 0019): customers.
+  // attributed_staff_id butuh salesStaffId yang SUDAH terbukti aktif & milik
+  // cabang/partner ini SEBELUM baris pelanggan ditulis, supaya trigger
+  // fn_check_customer_staff_ref/fn_set_customer_code selalu menerima staf
+  // yang valid, dan supaya validasi staf yang gagal tidak pernah lolos
+  // MENINGGALKAN baris pelanggan baru yang yatim (lihat kepala berkas
+  // migration 0019 § "KEPUTUSAN DESAIN ATRIBUSI STAF").
+  if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: m.cabang.errSalesRequired } };
+
+  const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
+  if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
+  if (salesCheck === "invalid") {
+    return {
+      error: { field: "sales_staff_id", message: m.cabang.errSalesInvalidStaff },
+    };
+  }
+  let picStaffId: string | null = null;
+  if (input.picStaffId) {
+    const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, identity.branchId, identity.partnerId);
+    if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
+    if (picCheck === "invalid") {
+      return { error: { field: "pic_staff_id", message: m.cabang.errPicInvalidStaff } };
+    }
+    picStaffId = input.picStaffId;
+  }
+
   const custReqId = `${input.clientRequestId}:customer`;
   const resolveInput: ResolveCustomerInput = input.customerId
     ? { mode: "existing", customerId: input.customerId }
-    : { mode: "new", fullName: input.fullName || "", phone: input.phone || "", notes: undefined };
+    : {
+        mode: "new",
+        fullName: input.fullName || "",
+        phone: input.phone || "",
+        notes: undefined,
+        // salesStaffId di atas SUDAH divalidasi verifyActiveStaffInBranch —
+        // dipakai ULANG sebagai atribusi pelanggan (customers.
+        // attributed_staff_id, migrasi 0019). Hanya berlaku untuk pelanggan
+        // BARU — pelanggan yang sudah ada (mode "existing") TIDAK PERNAH
+        // ditimpa (trigger fn_set_customer_code hanya jalan BEFORE INSERT).
+        attributedStaffId: input.salesStaffId,
+      };
 
   const resolved = await resolveOrCreateCustomer(m, supabase, identity, resolveInput, custReqId);
   if (!resolved.ok) return { error: resolved.error };
@@ -766,25 +860,6 @@ export async function createCustomerAndOrder(input: {
   if (!path.ok) return { error: path.error };
   const amount = validatePurchaseAmount(m, input.purchaseAmountRaw);
   if (!amount.ok) return { error: amount.error };
-
-  if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: m.cabang.errSalesRequired } };
-
-  const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
-  if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
-  if (salesCheck === "invalid") {
-    return {
-      error: { field: "sales_staff_id", message: m.cabang.errSalesInvalidStaff },
-    };
-  }
-  let picStaffId: string | null = null;
-  if (input.picStaffId) {
-    const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, identity.branchId, identity.partnerId);
-    if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
-    if (picCheck === "invalid") {
-      return { error: { field: "pic_staff_id", message: m.cabang.errPicInvalidStaff } };
-    }
-    picStaffId = input.picStaffId;
-  }
 
   const orderReqId = `${input.clientRequestId}:order`;
   const partialMsg = m.cabang.partialOrderFailed;

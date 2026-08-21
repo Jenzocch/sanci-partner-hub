@@ -31,8 +31,9 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | — datang ke showroom | Kunjungan Showroom | 到店选购 | Showroom Visit |
 | Penjual | Sales | 销售员 | Sales |
 | Penanggung jawab | PIC | 负责人 | PIC |
-| Kode identitas pelanggan SANCI-direct, dibangkitkan otomatis (0018) | Kode Pelanggan | 客户代码 | Customer Code |
+| Kode identitas pelanggan, dibangkitkan otomatis — SANCI-direct (0018) ATAU branch-created (0019), dua skema BERBEDA menulis kolom yang SAMA | Kode Pelanggan | 客户代码 | Customer Code |
 | Cara pelanggan SANCI-direct masuk — master data admin (0018) | Sumber | 来源 | Source |
+| Kode identitas staf partner, dipakai dalam Kode Pelanggan branch-created (0019) — beda dari Sales/PIC pada pesanan, ini KODE-nya, bukan pilihannya | Kode Staf | 员工代码 | Staff Code |
 | Invoice | Invoice | Invoice | Invoice |
 | Dokumen — Sales Order (0016) | SO | SO | SO |
 | Dokumen — Surat Jalan (0016) | DO | DO | DO |
@@ -149,6 +150,17 @@ Line deduction / 单行扣减金额"的叫法——它是**单行**的手填扣�
 ——画面本身的分类（"Kode Sales" 独立分页、跟 partner_staff 的 Sales/PIC
 下拉完全不同的位置）已经足够让使用者分清楚是哪一份名单，硬要在词汇上加
 前缀反而制造新的、GLOSSARY 里没有的术语。
+
+**"Kode Staf"（partner_staff.code，0019）不是新的角色概念，只是给已有的
+Sales/PIC 员工加一个可选的短代码**：`partner_staff` 从 0004 起就是订单建
+立时"Sales/PIC"下拉菜单指向的同一张表，0019 只加了一个可以留空的 `code`
+栏位——不是新增一种员工、也不影响 Sales/PIC 下拉本身的显示方式（那里
+继续显示 `full_name`，不是 code）。跟 0018 的 `sanci_sales_staff`（SANCI
+内部业务员名单，生成 SANCI-direct 客户代码用）完全是两回事：一个属于
+合作商门店自己的员工，一个属于 SANCI 内部团队；两者的"代码"分别进入两
+种**不同格式**的客户代码（0018 是 `A/26-C/033`，0019 是
+`GH-BSD-AS/26/001`），字符位置不会互相混淆（详见 migration 0019 头部的
+不冲突证明）。
 
 **English** — plain English, not enterprise jargon. "Add Staff", not
 "Create Personnel Record". Sentence case for buttons and labels.

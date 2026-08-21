@@ -9,6 +9,8 @@ export type CustomerListItem = {
   id: string;
   fullName: string;
   phoneNormalized: string;
+  /** customer_code (migrasi 0017/0018/0019) — null kalau belum digenerate. */
+  customerCode: string | null;
   orderCount: number;
 };
 
@@ -74,7 +76,10 @@ export default function CustomerListClient({
         <div className="cardlist">
           {filtered.map((it) => (
             <Link key={it.id} href={`/cabang/pelanggan/${it.id}`} className="reccard">
-              <div className="rc-title">{it.fullName}</div>
+              <div className="rc-top">
+                <div className="rc-title">{it.fullName}</div>
+                {it.customerCode && <span className="code">{it.customerCode}</span>}
+              </div>
               <div className="rc-sub">{it.phoneNormalized ? displayPhoneID(it.phoneNormalized) : m.cabang.noPhoneNumber}</div>
               <div className="rc-meta">{m.cabang.customerOrderCount.replace("{n}", String(it.orderCount))}</div>
               <span className="rc-arrow" aria-hidden="true">&rsaquo;</span>

@@ -19,17 +19,34 @@
 
 set role app_test_user;
 
--- ── T1: blank string rejected for customer_code ─────────────
+-- ── T1: blank string for customer_code — updated 2026-08-21 (0019 work) ──
+-- DISCOVERED during 0019 verification, NOT a 0019 regression: reproduced
+-- identically on a database with ONLY 0001..0018 applied (before 0019
+-- existed at all) — see LESSONS.md #37. From 0018 onward, `trg_set_
+-- customer_code` (BEFORE INSERT) deliberately coerces '' to NULL for
+-- customer_code ("kealpaan yang wajar tidak boleh jadi error 23514 yang
+-- membingungkan" — 0018's own comment) BEFORE the 0017 blank-guard CHECK
+-- ever evaluates the value (Postgres runs BEFORE ROW triggers, THEN CHECK
+-- constraints, on the trigger-modified row). The 0017 CHECK constraint
+-- ITSELF is byte-for-byte unchanged and still WOULD reject a literal ''
+-- if nothing coerced it first — but as of 0018 there is always such a
+-- trigger on this table in the real replay order this suite runs in, so
+-- that path is no longer reachable through any real INSERT. Updated to
+-- assert the CURRENT, real end-to-end behavior instead of silently losing
+-- coverage for an unreachable code path.
 select public.test_login('33333333-3333-3333-3333-333333333333');
 
 do $$
+declare v_code text;
 begin
   insert into public.customers (full_name, phone, phone_normalized, customer_code)
-  values ('Blank Code Test', '0812', '62812', '');
-  raise exception 'FAIL T1 blank customer_code was accepted';
-exception
-  when check_violation then
-    raise notice 'PASS T1 blank customer_code rejected by CHECK';
+  values ('Blank Code Test', '0812', '62812', '')
+  returning customer_code into v_code;
+  if v_code is null then
+    raise notice 'PASS T1 blank customer_code coerced to NULL by trg_set_customer_code (0018+), not rejected — documented behavior change';
+  else
+    raise exception 'FAIL T1 expected blank customer_code to become NULL, got %', v_code;
+  end if;
 end;
 $$;
 

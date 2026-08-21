@@ -26,6 +26,7 @@ type CustomerDetailRow = {
   notes: string | null;
   created_via_partner_id: string | null;
   created_via_branch_id: string | null;
+  customer_code?: string | null;
 };
 
 type OrderHistoryRow = {
@@ -84,15 +85,39 @@ export default async function PelangganDetailPage({
     .maybeSingle();
 
   // RLS (fn_can_view_customer) membatasi baris — pelanggan yang tidak boleh
-  // dilihat cabang ini tidak akan pernah muncul di sini.
-  const { data, error } = await supabase
-    .from("customers")
-    .select(
-      "id, full_name, phone, phone_normalized, whatsapp, address, city, province, notes, " +
-        "created_via_partner_id, created_via_branch_id"
-    )
-    .eq("id", customerId)
-    .maybeSingle();
+  // dilihat cabang ini tidak akan pernah muncul di sini. customer_code
+  // (migrasi 0017/0018/0019) BISA belum ada sebagai kolom kalau kodenya
+  // sudah naik lebih dulu (LESSONS #12) — coba SELECT lebar dulu, turun ke
+  // SELECT sempit kalau 42703, supaya halaman detail tetap tampil.
+  let data: CustomerDetailRow | null = null;
+  let error: { code?: string } | null = null;
+  {
+    const wide = await supabase
+      .from("customers")
+      .select(
+        "id, full_name, phone, phone_normalized, whatsapp, address, city, province, notes, " +
+          "created_via_partner_id, created_via_branch_id, customer_code"
+      )
+      .eq("id", customerId)
+      .maybeSingle();
+    if (wide.error && wide.error.code === "42703") {
+      const narrow = await supabase
+        .from("customers")
+        .select(
+          "id, full_name, phone, phone_normalized, whatsapp, address, city, province, notes, " +
+            "created_via_partner_id, created_via_branch_id"
+        )
+        .eq("id", customerId)
+        .maybeSingle();
+      error = narrow.error;
+      data = narrow.data
+        ? ({ ...(narrow.data as unknown as Record<string, unknown>), customer_code: null } as unknown as CustomerDetailRow)
+        : null;
+    } else {
+      error = wide.error;
+      data = wide.data as CustomerDetailRow | null;
+    }
+  }
 
   if (error) {
     if (isMissingTableError(error)) {
@@ -117,7 +142,7 @@ export default async function PelangganDetailPage({
   }
   if (!data) notFound();
 
-  const customer = data as unknown as CustomerDetailRow;
+  const customer = data;
 
   // Sama seperti canEditBranch di /cabang/pesanan/[orderId]: cabang yang
   // membuat pelanggan ini selalu boleh mengubah; cabang lain hanya boleh
@@ -164,6 +189,14 @@ export default async function PelangganDetailPage({
           )}
         </div>
         <dl className="kv">
+          {customer.customer_code && (
+            <>
+              <dt>{m.common.code}</dt>
+              <dd>
+                <span className="code">{customer.customer_code}</span>
+              </dd>
+            </>
+          )}
           <dt>{m.common.phone}</dt>
           <dd>{displayPhoneID(customer.phone_normalized)}</dd>
           <dt>{m.common.whatsapp}</dt>

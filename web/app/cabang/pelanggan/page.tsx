@@ -32,11 +32,27 @@ export default async function PelangganListPage() {
 
   // RLS (fn_can_view_customer) sudah membatasi baris ke pelanggan yang boleh
   // dilihat cabang ini — tidak perlu filter tambahan di sini (SPEC §32).
-  const { data: customers, error } = await supabase
-    .from("customers")
-    .select("id, full_name, phone_normalized")
-    .order("full_name")
-    .limit(100);
+  // customer_code (migrasi 0017/0018/0019) BISA belum ada sebagai kolom kalau
+  // kodenya sudah naik lebih dulu (LESSONS #12) — coba SELECT lebar dulu,
+  // turun ke SELECT sempit kalau 42703, supaya daftar dasar tetap tampil.
+  type CustomerRow = { id: string; full_name: string; phone_normalized: string; customer_code?: string | null };
+  let customers: CustomerRow[] = [];
+  let error: { code?: string } | null = null;
+  {
+    const wide = await supabase
+      .from("customers")
+      .select("id, full_name, phone_normalized, customer_code")
+      .order("full_name")
+      .limit(100);
+    if (wide.error && wide.error.code === "42703") {
+      const narrow = await supabase.from("customers").select("id, full_name, phone_normalized").order("full_name").limit(100);
+      error = narrow.error;
+      customers = ((narrow.data ?? []) as Omit<CustomerRow, "customer_code">[]).map((c) => ({ ...c, customer_code: null }));
+    } else {
+      error = wide.error;
+      customers = (wide.data ?? []) as CustomerRow[];
+    }
+  }
 
   let errorKind: "missing_table" | "other" | null = null;
   if (error) {
@@ -59,6 +75,7 @@ export default async function PelangganListPage() {
     id: c.id,
     fullName: c.full_name,
     phoneNormalized: c.phone_normalized,
+    customerCode: c.customer_code ?? null,
     orderCount: orderCounts.get(c.id) ?? 0,
   }));
 

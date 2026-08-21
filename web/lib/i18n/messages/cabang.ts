@@ -230,6 +230,8 @@ const id = {
   addStaffModalTitle: "Tambah Staf",
   staffBranchAutoNote: "Cabang: {branch} — otomatis dari halaman ini, tidak bisa dipilih.",
   roleFieldHint: "Peran bisnis di toko — terpisah dari hak akses login sistem.",
+  staffCodeFieldLabel: "Kode Staf",
+  staffCodeHint: "Opsional — dipakai untuk nomor otomatis pelanggan cabang ini (mis. AS). Kosongkan kalau belum perlu.",
   editStaffModalTitle: "Ubah Staf",
   confirmDeactivateStaff: "Nonaktifkan {name}? Riwayat tetap tersimpan.",
 
@@ -539,6 +541,8 @@ const en = {
   addStaffModalTitle: "Add staff",
   staffBranchAutoNote: "Branch: {branch} — automatic from this page, can't be changed.",
   roleFieldHint: "Their role at the store — separate from system login access.",
+  staffCodeFieldLabel: "Staff Code",
+  staffCodeHint: "Optional — used for this branch's automatic customer numbers (e.g. AS). Leave blank if not needed yet.",
   editStaffModalTitle: "Edit staff",
   confirmDeactivateStaff: "Deactivate {name}? Their history stays saved.",
 
@@ -832,6 +836,8 @@ const zh = {
   addStaffModalTitle: "新增员工",
   staffBranchAutoNote: "分店:{branch} —— 由本页面自动带入,不能选择。",
   roleFieldHint: "这是员工在店里的职务,和系统登录权限是两回事。",
+  staffCodeFieldLabel: "员工代码",
+  staffCodeHint: "选填 —— 用于本店客户的自动编号(例如 AS)。暂时不需要可以留空。",
   editStaffModalTitle: "修改员工",
   confirmDeactivateStaff: "停用 {name}?历史记录会保留。",
 
