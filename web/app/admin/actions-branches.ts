@@ -9,7 +9,7 @@ import {
   isRequestIdConflict,
   safeWrite,
 } from "@/lib/safe-write";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -27,7 +27,7 @@ export async function createBranch(
     clientRequestId: string;
   }
 ): Promise<ActionResult<{ id: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
@@ -121,7 +121,7 @@ export async function updateBranch(
     contactPhone?: string;
   }
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
@@ -162,7 +162,7 @@ export async function setBranchStatus(
   id: string,
   status: "ACTIVE" | "SUSPENDED"
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const { data: branch, error } = await supabase
     .from("partner_branches")

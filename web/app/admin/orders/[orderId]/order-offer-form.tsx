@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import { setOrderOffer, clearOrderOffer } from "../../actions-orders";
 
@@ -56,7 +56,7 @@ export default function OrderOfferForm({
   canDiscount?: boolean;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [clearing, setClearing] = useState(false);

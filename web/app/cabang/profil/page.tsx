@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getMessages } from "@/lib/i18n";
+import { getCabangMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilCabangPage() {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const {
     data: { user },

@@ -6,7 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { updateBranch, setBranchStatus } from "../../../../actions-branches";
 
 type Branch = {
@@ -22,7 +22,7 @@ type Branch = {
 
 export default function BranchActions({ branch }: { branch: Branch }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

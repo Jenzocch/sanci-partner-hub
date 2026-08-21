@@ -19,7 +19,7 @@ import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
 import DocumentsSection, { type OrderDocumentListRow } from "./documents-section";
 import { getInvoiceSignedUrl } from "../../actions-orders";
 import type { DocType } from "@/lib/documents-shared";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -348,7 +348,7 @@ export default async function AdminOrderDetailPage({
   params: Promise<{ orderId: string }>;
 }) {
   const { orderId } = await params;
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
 
   const { data, error } = await supabase

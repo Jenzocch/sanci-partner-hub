@@ -26,7 +26,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
 import { normalizePhoneID } from "@/lib/orders-shared";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -57,7 +57,7 @@ export async function createCustomerAdmin(input: {
   salesStaffId?: string | null;
   clientRequestId: string;
 }): Promise<ActionResult<{ id: string; customerCode: string | null }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -158,7 +158,7 @@ export async function createCustomerSource(input: {
   label: string;
   clientRequestId: string;
 }): Promise<ActionResult<{ id: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const code = normalizeShortCode(input.code);
@@ -232,7 +232,7 @@ export async function updateCustomerSource(
   id: string,
   input: { code: string; label: string }
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const code = normalizeShortCode(input.code);
@@ -265,7 +265,7 @@ export async function setCustomerSourceStatus(
   id: string,
   status: "ACTIVE" | "INACTIVE"
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("customer_sources")
@@ -291,7 +291,7 @@ export async function createSalesStaff(input: {
   name: string;
   clientRequestId: string;
 }): Promise<ActionResult<{ id: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const code = normalizeShortCode(input.code);
@@ -365,7 +365,7 @@ export async function updateSalesStaff(
   id: string,
   input: { code: string; name: string }
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const code = normalizeShortCode(input.code);
@@ -398,7 +398,7 @@ export async function setSalesStaffStatus(
   id: string,
   status: "ACTIVE" | "INACTIVE"
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sanci_sales_staff")

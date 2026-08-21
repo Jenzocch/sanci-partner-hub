@@ -6,14 +6,14 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { updatePackage, setPackageStatus } from "../../actions-packages";
 
 type Pkg = { id: string; name: string; code: string; description: string | null; status: string };
 
 export default function PackageActions({ pkg }: { pkg: Pkg }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

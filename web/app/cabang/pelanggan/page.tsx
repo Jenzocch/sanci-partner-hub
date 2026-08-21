@@ -2,13 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
-import { getMessages } from "@/lib/i18n";
+import { getCabangMessages } from "@/lib/i18n";
 import CustomerListClient, { type CustomerListItem } from "./customer-list-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function PelangganListPage() {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const {
     data: { user },

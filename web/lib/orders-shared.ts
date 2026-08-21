@@ -9,7 +9,14 @@
  * Mengembalikan null jika input tidak bisa dianggap nomor valid
  * (terlalu pendek/panjang setelah dibersihkan).
  */
-import type { Messages } from "./i18n/messages";
+import type { CommonMessages } from "./i18n/messages";
+
+/**
+ * Dipakai dari `/cabang/**` DAN `/admin/**`, dan cuma pernah membaca
+ * `common` — jadi tipenya bentuk struktural minimal ini, cocok baik dengan
+ * `CabangMessages` maupun `AdminMessages` tanpa konversi di titik panggil.
+ */
+type HasCommon = { common: CommonMessages };
 
 export function normalizePhoneID(raw: string): string | null {
   const digits = raw.replace(/[^0-9]/g, "");
@@ -44,16 +51,16 @@ export type FulfillmentPath = "DIRECT_DELIVERY" | "SHOWROOM_VISIT";
  * Label pendek untuk chip/kolom tabel.
  *
  * Teksnya hidup di lib/i18n/messages/common.ts, bukan di sini — halaman WAJIB
- * memanggil fungsi ini dengan `Messages` miliknya (server: `await
- * getMessages()`, client: `useMessages()`). Jangan pernah menulis ulang
- * labelnya di komponen.
+ * memanggil fungsi ini dengan `common` miliknya (server: `await
+ * getCabangMessages()`/`getAdminMessages()`, client: `useCabangMessages()`/
+ * `useAdminMessages()`). Jangan pernah menulis ulang labelnya di komponen.
  */
-export function fulfillmentLabel(m: Messages, p: FulfillmentPath): string {
+export function fulfillmentLabel(m: HasCommon, p: FulfillmentPath): string {
   return p === "DIRECT_DELIVERY" ? m.common.fulfillmentDirect : m.common.fulfillmentShowroom;
 }
 
 /** Penjelasan lengkap untuk pilihan di form (bahasa pegawai toko sehari-hari). */
-export function fulfillmentDesc(m: Messages, p: FulfillmentPath): string {
+export function fulfillmentDesc(m: HasCommon, p: FulfillmentPath): string {
   return p === "DIRECT_DELIVERY"
     ? m.common.fulfillmentDirectDesc
     : m.common.fulfillmentShowroomDesc;
@@ -78,7 +85,7 @@ export function parseIDRInput(raw: string): number | null {
 }
 
 /** Label status pesanan — jangan pernah menampilkan kode mentah di UI. */
-export function orderStatusLabel(m: Messages, s: OrderStatus): string {
+export function orderStatusLabel(m: HasCommon, s: OrderStatus): string {
   return s === "REGISTERED" ? m.common.orderStatusRegistered : m.common.orderStatusCancelled;
 }
 

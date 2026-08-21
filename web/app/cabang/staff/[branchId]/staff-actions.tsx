@@ -6,7 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 import { updateStaff, deactivateStaff } from "../../../admin/actions-staff";
 
 const ROLES = ["Sales", "Resepsionis / CS", "Manajer", "Lainnya"];
@@ -15,7 +15,7 @@ type Staff = { id: string; full_name: string; phone: string | null; role: string
 
 export default function StaffActions({ staff }: { staff: Staff }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useCabangMessages();
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

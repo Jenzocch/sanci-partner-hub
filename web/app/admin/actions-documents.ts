@@ -22,8 +22,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { pesan, safeWrite, isRequestIdConflict } from "@/lib/safe-write";
-import { getMessages } from "@/lib/i18n";
-import type { Messages } from "@/lib/i18n/messages";
+import { getAdminMessages } from "@/lib/i18n";
+import type { AdminMessages } from "@/lib/i18n/messages";
 import { DOC_TYPE_PREFIX, fetchItemCoverage, type DocType } from "@/lib/documents-shared";
 
 type ActionError = { field?: string; message: string };
@@ -89,7 +89,7 @@ export type DocumentItemInput = { orderItemId: string; quantity: string };
  * kesalahan pengguna.
  */
 function parseDocumentItems(
-  m: Messages,
+  m: AdminMessages,
   raw: DocumentItemInput[]
 ): { ok: true; value: { order_item_id: string; quantity: number }[] } | { ok: false; error: ActionError } {
   const out: { order_item_id: string; quantity: number }[] = [];
@@ -116,7 +116,7 @@ function parseDocumentItems(
  * kode di bawah menerjemahkannya jadi pesan generik (bukan raw text).
  */
 async function validateAgainstRemaining(
-  m: Messages,
+  m: AdminMessages,
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string,
   docType: DocType,
@@ -169,7 +169,7 @@ export async function createOrderDocument(
   notes: string,
   clientRequestId: string
 ): Promise<ActionResult<{ id: string; docNumber: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -303,7 +303,7 @@ export async function updateOrderDocument(
   itemsRaw: DocumentItemInput[],
   notes: string
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -338,7 +338,7 @@ export async function updateOrderDocument(
 }
 
 export async function deleteOrderDocument(documentId: string): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("order_documents")
@@ -369,7 +369,7 @@ export async function getOrderDocumentItemCoverage(
 ): Promise<
   ActionResult<{ items: { id: string; name: string; code: string | null; ordered: number; covered: number }[] }>
 > {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const coverage = await fetchItemCoverage(supabase, orderId, docType, excludeDocumentId);
   if ("error" in coverage) return { error: { message: m.admin.docFeatureOff } };

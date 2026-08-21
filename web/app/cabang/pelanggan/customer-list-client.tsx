@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { displayPhoneID, normalizePhoneID } from "@/lib/orders-shared";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 
 export type CustomerListItem = {
   id: string;
@@ -21,7 +21,7 @@ export default function CustomerListClient({
   items: CustomerListItem[];
   errorKind: "missing_table" | "other" | null;
 }) {
-  const m = useMessages();
+  const m = useCabangMessages();
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {

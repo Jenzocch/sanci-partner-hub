@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 import { getOrderInvoiceSignedUrl } from "../actions";
 import { INVOICE_ACCEPT, unggahInvoice } from "../invoice-upload";
 
@@ -28,7 +28,7 @@ export default function InvoiceSection({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useCabangMessages();
   const [url, setUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">(hasInvoice ? "loading" : "idle");
   const { submitting, begin, release } = useSubmitGuard();

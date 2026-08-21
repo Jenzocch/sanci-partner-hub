@@ -6,7 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { updateStaff, deactivateStaff, transferStaff } from "../../../../actions-staff";
 
 // Nilai yang DIKIRIM ke server tetap literal ini (samakan dengan ROLES di
@@ -24,7 +24,7 @@ export default function StaffActions({
   otherBranches: OtherBranch[];
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
     Sales: m.admin.staffRoleSales,
     "Resepsionis / CS": m.admin.staffRoleReception,

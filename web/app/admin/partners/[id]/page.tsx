@@ -12,7 +12,7 @@ import UserToggleButton from "./user-toggle-button";
 import AddUserButton from "./add-user-button";
 import ResetPasswordButton from "./reset-password-button";
 import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
-import { getMessages, type Messages } from "@/lib/i18n";
+import { getAdminMessages, type AdminMessages } from "@/lib/i18n";
 import PartnerLogo from "@/lib/partner-logo";
 // Hanya fungsi pembaca boolean — nilai kuncinya tidak pernah keluar dari modul
 // itu, dan modul itu tidak boleh diimpor komponen "use client" mana pun.
@@ -20,7 +20,7 @@ import { isServiceRoleConfigured } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-function statusLabel(m: Messages, s: string): string {
+function statusLabel(m: AdminMessages, s: string): string {
   const map: Record<string, string> = {
     ACTIVE: m.common.statusActive,
     DRAFT: m.common.statusDraft,
@@ -99,7 +99,7 @@ export default async function PartnerDetailPage({
   const { id } = await params;
   const sp = await searchParams;
   const tab = sp.tab || "overview";
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
 
   const { data: partner } = await supabase

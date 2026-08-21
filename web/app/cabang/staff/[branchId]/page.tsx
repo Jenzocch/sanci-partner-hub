@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getMessages } from "@/lib/i18n";
+import { getCabangMessages } from "@/lib/i18n";
 import AddStaffButton from "./add-staff-button";
 import StaffActions from "./staff-actions";
 
@@ -14,7 +14,7 @@ export default async function CabangStaffPage({
 }: {
   params: Promise<{ branchId: string }>;
 }) {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const { branchId } = await params;
   const supabase = await createClient();
   const {

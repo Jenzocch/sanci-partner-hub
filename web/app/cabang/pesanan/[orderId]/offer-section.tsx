@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import { setOrderOfferBranch } from "../actions";
 
@@ -49,7 +49,7 @@ export default function OfferSection({
   offer: OfferData;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useCabangMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errMsg, setErrMsg] = useState<string | null>(null);

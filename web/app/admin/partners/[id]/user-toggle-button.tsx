@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { toggleUserStatus } from "../../actions-users";
 
 export default function UserToggleButton({ userId, active }: { userId: string; active: boolean }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [busy, setBusy] = useState(false);
 
   async function onClick() {

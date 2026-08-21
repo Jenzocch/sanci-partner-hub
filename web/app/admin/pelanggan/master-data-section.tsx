@@ -17,7 +17,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import {
   createCustomerSource,
   updateCustomerSource,
@@ -40,7 +40,7 @@ export default function MasterDataSection({
   migrationMissing: boolean;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [addOpen, setAddOpen] = useState(false);
   const [addErrs, setAddErrs] = useState<Record<string, string>>({});

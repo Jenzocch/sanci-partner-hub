@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AddCustomerButton from "./add-customer-button";
 import MasterDataSection from "./master-data-section";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ export default async function PelangganPage({
 }: {
   searchParams: Promise<{ q?: string; tab?: string }>;
 }) {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const sp = await searchParams;
   const q = (sp.q || "").trim().toLowerCase();
   const tab = sp.tab === "sumber" || sp.tab === "sales" ? sp.tab : "list";

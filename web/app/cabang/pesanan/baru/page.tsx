@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getMessages } from "@/lib/i18n";
+import { getCabangMessages } from "@/lib/i18n";
 import NewOrderForm from "./new-order-form";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ async function fetchFulfillmentAvailable(
 }
 
 export default async function PesananBaruPage() {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const {
     data: { user },

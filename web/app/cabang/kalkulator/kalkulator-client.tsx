@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import DraftBanner from "@/lib/draft-banner";
 import {
@@ -40,7 +40,7 @@ export type KalkulatorProduct = {
  * sekali, konsisten dengan prinsip "tidak ada yang tersimpan selagi dipakai".
  */
 export default function KalkulatorClient({ products }: { products: KalkulatorProduct[] }) {
-  const m = useMessages();
+  const m = useCabangMessages();
   const router = useRouter();
 
   const [tab, setTab] = useState<"produk" | "keranjang">("produk");

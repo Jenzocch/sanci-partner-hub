@@ -6,7 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { createCustomerAdmin } from "../actions-customers";
 import { lookupByRequestId } from "../actions-lookup";
 
@@ -23,7 +23,7 @@ export default function AddCustomerButton({
   codeFeatureOn: boolean;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

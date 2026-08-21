@@ -7,7 +7,7 @@ import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { normalizePhoneID } from "@/lib/orders-shared";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 import { updateCustomer } from "../actions";
 
 type Customer = {
@@ -24,7 +24,7 @@ type Customer = {
 export default function CustomerEditActions({ customer }: { customer: Customer }) {
   const router = useRouter();
   const [modal, setModal] = useState<null | "edit">(null);
-  const m = useMessages();
+  const m = useCabangMessages();
 
   return (
     <>
@@ -58,7 +58,7 @@ function EditCustomerModal({
   const { submitting, begin, release } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);
-  const m = useMessages();
+  const m = useCabangMessages();
   // Kunci draf per customerId — draf pelanggan lain tidak boleh tercampur.
   const draft = useLocalDraft("customer-edit", customer.id, true);
 

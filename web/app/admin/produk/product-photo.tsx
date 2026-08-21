@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 
 /**
  * Thumbnail foto produk untuk grid /admin/produk. Kalau foto tidak ada ATAU
@@ -11,7 +11,7 @@ import { useMessages } from "@/lib/i18n/provider";
  * kotak foto yang konsisten di grid).
  */
 export default function ProductPhoto({ url, name }: { url: string | null; name: string }) {
-  const m = useMessages();
+  const m = useAdminMessages();
   const [gagal, setGagal] = useState(false);
   const showPlaceholder = !url || gagal;
 

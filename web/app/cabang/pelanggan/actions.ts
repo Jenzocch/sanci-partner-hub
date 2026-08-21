@@ -17,7 +17,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { pesan, safeWrite } from "@/lib/safe-write";
 import { isMissingTableError, normalizePhoneID } from "@/lib/orders-shared";
-import { getMessages, type Messages } from "@/lib/i18n";
+import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 
@@ -51,7 +51,7 @@ async function getIdentity(supabase: SupabaseServerClient): Promise<IdentityOutc
 }
 
 function identityErrorMessage(
-  m: Messages,
+  m: CabangMessages,
   outcome: Extract<IdentityOutcome, { status: "no-user" | "load-error" }>
 ): string {
   return outcome.status === "load-error" ? m.cabang.errAccountLoadRetry : m.cabang.errSessionInvalid;
@@ -69,7 +69,7 @@ export async function updateCustomer(input: {
   province?: string;
   notes?: string;
 }): Promise<UpdateCustomerResult> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);

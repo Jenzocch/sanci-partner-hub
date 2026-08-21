@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { markCustomerArrived } from "../../actions-orders";
 
 /**
@@ -24,7 +24,7 @@ export default function MarkArrivedButton({
   orderNumber: string;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [netMsg, setNetMsg] = useState<string | null>(null);

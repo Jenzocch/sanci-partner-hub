@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 import styles from "./produk.module.css";
 
 export type ProdukItem = {
@@ -16,7 +16,7 @@ export type ProdukItem = {
 };
 
 export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
-  const m = useMessages();
+  const m = useCabangMessages();
   const [q, setQ] = useState("");
   const [kategori, setKategori] = useState<string | null>(null);
   const [selected, setSelected] = useState<ProdukItem | null>(null);

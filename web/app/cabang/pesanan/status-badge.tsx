@@ -1,9 +1,9 @@
 import { ORDER_STATUS_CHIP, orderStatusLabel, type OrderStatus } from "@/lib/orders-shared";
-import type { Messages } from "@/lib/i18n";
+import type { CabangMessages } from "@/lib/i18n";
 
 /**
  * Lencana status order, label selalu dari orderStatusLabel (satu sumber
- * kebenaran). Menerima `messages` sebagai prop (bukan useMessages()) karena
+ * kebenaran). Menerima `messages` sebagai prop (bukan useCabangMessages()) karena
  * dipakai dari server component maupun client component.
  */
 export default function StatusBadge({
@@ -11,7 +11,7 @@ export default function StatusBadge({
   messages,
 }: {
   status: OrderStatus;
-  messages: Messages;
+  messages: CabangMessages;
 }) {
   return (
     <span className={ORDER_STATUS_CHIP[status] ?? "chip ok"}>

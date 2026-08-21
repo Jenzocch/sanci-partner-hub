@@ -5,16 +5,19 @@
 //   - Visibilitas katalog di-set per PARTNER oleh SANCI (buka/tutup).
 //   - TANPA harga sama sekali — penawaran disampaikan SANCI secara manual.
 
-import type { Messages } from "./i18n/messages";
+import type { CommonMessages } from "./i18n/messages";
 
 export type StockStatus = "AVAILABLE" | "LIMITED" | "OUT_OF_STOCK";
 
 /**
- * Label status stok. Teksnya hidup di lib/i18n/messages/common.ts — halaman
- * memanggil fungsi ini dengan `Messages` miliknya (server: `await
- * getMessages()`, client: `useMessages()`).
+ * Label status stok. Teksnya hidup di lib/i18n/messages/common.ts. Dipakai
+ * dari `/cabang/**` DAN `/admin/**`, dan cuma pernah membaca `common` — jadi
+ * tipenya `{ common: CommonMessages }`, cocok baik dengan `CabangMessages`
+ * maupun `AdminMessages` tanpa konversi di titik panggil (server: `await
+ * getCabangMessages()`/`getAdminMessages()`, client: `useCabangMessages()`/
+ * `useAdminMessages()`).
  */
-export function stockStatusLabel(m: Messages, s: StockStatus): string {
+export function stockStatusLabel(m: { common: CommonMessages }, s: StockStatus): string {
   if (s === "AVAILABLE") return m.common.stockAvailable;
   if (s === "LIMITED") return m.common.stockLimited;
   return m.common.stockOutOfStock;

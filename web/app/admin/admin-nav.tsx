@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import LocaleSwitcher from "@/lib/i18n/locale-switcher";
 
 export default function AdminNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
 
   async function signOut() {
     await createClient().auth.signOut();

@@ -17,7 +17,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
 import { parseIDRInput } from "@/lib/orders-shared";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -82,7 +82,7 @@ export async function correctOrderAttribution(
   newBranchId: string,
   reason: string
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const trimmedReason = reason.trim();
@@ -136,7 +136,7 @@ export async function correctOrderAttribution(
 export async function markCustomerArrived(
   orderId: string
 ): Promise<ActionResult<{ customerArrivedAt: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -208,7 +208,7 @@ export async function addInternalNote(
   note: string,
   clientRequestId: string
 ): Promise<ActionResult<{ id: string; createdAt: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const trimmed = note.trim();
@@ -347,7 +347,7 @@ export async function setOrderOffer(
     finalAmount: number;
   }>
 > {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -514,7 +514,7 @@ export async function setOrderOffer(
  * dan menyuruh pengguna mencoba lagi selamanya — persis pola LESSONS #21.
  */
 export async function clearOrderOffer(orderId: string): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -568,7 +568,7 @@ type OrderItemInput = {
 };
 
 function parseItemFields(
-  m: Awaited<ReturnType<typeof getMessages>>,
+  m: Awaited<ReturnType<typeof getAdminMessages>>,
   input: OrderItemInput
 ):
   | {
@@ -624,7 +624,7 @@ export async function addOrderItem(
   orderId: string,
   input: OrderItemInput & { clientRequestId: string }
 ): Promise<ActionResult<{ id: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const parsed = parseItemFields(m, input);
@@ -683,7 +683,7 @@ export async function updateOrderItem(
   itemId: string,
   input: OrderItemInput
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const parsed = parseItemFields(m, input);
@@ -719,7 +719,7 @@ export async function updateOrderItem(
 }
 
 export async function deleteOrderItem(itemId: string): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const { data, error } = await supabase.from("order_items").delete().eq("id", itemId).select("id").maybeSingle();
   if (error) {

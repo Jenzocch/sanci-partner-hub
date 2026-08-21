@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { resetPartnerUserPassword } from "../../actions-users";
 
 /**
@@ -34,7 +34,7 @@ export default function ResetPasswordButton({
   // sedang dipakai — submitSafely mewajibkannya, supaya pemanggil yang lupa
   // ketahuan saat build, bukan muncul sebagai kalimat Indonesia di layar
   // berbahasa lain.
-  const messages = useMessages();
+  const messages = useAdminMessages();
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);

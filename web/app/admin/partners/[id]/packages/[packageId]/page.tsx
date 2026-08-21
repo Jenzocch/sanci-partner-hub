@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 import type { StockStatus } from "@/lib/catalog-shared";
 import PackageItemsClient, { type PackageItem, type CatalogProduct } from "./package-items-client";
 
@@ -21,7 +21,7 @@ export default async function PackageItemsPage({
   params: Promise<{ id: string; packageId: string }>;
 }) {
   const { id, packageId } = await params;
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
 
   // Paket DIAMBIL dengan dua syarat sekaligus: id-nya benar DAN ia milik

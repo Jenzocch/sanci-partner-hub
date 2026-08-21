@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 
 export default function SignOutButton() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const m = useMessages();
+  const m = useCabangMessages();
 
   async function onClick() {
     setBusy(true);

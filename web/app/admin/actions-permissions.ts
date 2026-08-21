@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -14,7 +14,7 @@ export async function updatePolicy(
   partnerId: string,
   input: { visibilityScope: string; editScope: string }
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
 
   if (!VIS.includes(input.visibilityScope as (typeof VIS)[number])) {
@@ -58,7 +58,7 @@ export async function updateOfferPermissions(
   partnerId: string,
   input: { canViewOffer: boolean; canEditOffer: boolean; canDiscount: boolean }
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
 
   const { error } = await supabase.from("partner_access_policies").upsert(

@@ -21,7 +21,7 @@ import {
   isRequestIdConflict,
   safeWrite,
 } from "@/lib/safe-write";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -41,7 +41,7 @@ export async function addPackageItem(
   quantity: number,
   clientRequestId: string
 ): Promise<ActionResult<{ id: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -133,7 +133,7 @@ export async function updatePackageItemQuantity(
   itemId: string,
   quantity: number
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -165,7 +165,7 @@ export async function updatePackageItemQuantity(
 }
 
 export async function removePackageItem(itemId: string): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 

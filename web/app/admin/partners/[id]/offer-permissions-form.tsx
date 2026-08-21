@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { updateOfferPermissions } from "../../actions-permissions";
 
 /**
@@ -42,7 +42,7 @@ export default function OfferPermissionsForm({
   canDiscount: boolean;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const { submitting, begin, release } = useSubmitGuard();
   const [err, setErr] = useState<string | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);

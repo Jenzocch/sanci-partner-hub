@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
-import { getMessages } from "@/lib/i18n";
+import { getCabangMessages } from "@/lib/i18n";
 import LocaleSwitcher from "@/lib/i18n/locale-switcher";
 import SignOutButton from "./sign-out-button";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 type Branch = { id: string; name: string; address: string; city: string | null };
 
 export default async function CabangHome() {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const {
     data: { user },

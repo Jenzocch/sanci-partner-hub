@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 import { updateOrderItemFields, deleteOrderItemCabang } from "../actions";
 
 export type OrderItemRow = {
@@ -37,7 +37,7 @@ export default function OrderItemsSection({
   copyWarning: boolean;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useCabangMessages();
   const [editing, setEditing] = useState<OrderItemRow | null>(null);
 
   return (
@@ -108,7 +108,7 @@ function EditItemModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const m = useMessages();
+  const m = useCabangMessages();
   const { submitting, begin, release } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);

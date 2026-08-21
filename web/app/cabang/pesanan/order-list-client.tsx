@@ -3,13 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { orderStatusLabel, displayPhoneID, type OrderStatus } from "@/lib/orders-shared";
-import { useMessages } from "@/lib/i18n/provider";
-import type { Messages } from "@/lib/i18n";
+import { useCabangMessages } from "@/lib/i18n/provider";
+import type { CabangMessages } from "@/lib/i18n";
 import StatusBadge from "./status-badge";
 
 /** Filter status (SPEC §97) — "Semua" tetap menampilkan Dibatalkan, tidak boleh hilang dari pencarian. */
 type StatusFilter = "ALL" | OrderStatus;
-function statusFilters(m: Messages): { value: StatusFilter; label: string }[] {
+function statusFilters(m: CabangMessages): { value: StatusFilter; label: string }[] {
   return [
     { value: "ALL", label: m.cabang.filterAll },
     { value: "REGISTERED", label: orderStatusLabel(m, "REGISTERED") },
@@ -49,7 +49,7 @@ export default function OrderListClient({
   ownBranchId: string;
   crossBranchVisible: boolean;
 }) {
-  const m = useMessages();
+  const m = useCabangMessages();
   const STATUS_FILTERS = statusFilters(m);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");

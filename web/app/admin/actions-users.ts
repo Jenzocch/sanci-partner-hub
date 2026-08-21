@@ -5,13 +5,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pesan, WRITE_TIMEOUT_MS, confirmByRequestId, safeWrite } from "@/lib/safe-write";
-import { getMessages, type Messages } from "@/lib/i18n";
+import { getAdminMessages, type AdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
 
 export async function toggleUserStatus(userId: string): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const { data: user } = await supabase
     .from("partner_users")
@@ -74,7 +74,7 @@ const MIN_PANJANG_SANDI = 10;
 // pemanggilnya tidak berubah banyak. Jaga makna kata-katanya persis: ini
 // menjelaskan keamanan kata sandi (sistem menyimpan sidik jari, bukan kata
 // sandi itu sendiri) dan keadaan setengah-jadi yang JUJUR, bukan disamarkan.
-function pesanAkun(m: Messages) {
+function pesanAkun(m: AdminMessages) {
   return {
     tidakBerwenang: m.admin.userNotAuthorized,
     cekIzinGagal: m.admin.userPermCheckFailed,
@@ -89,7 +89,7 @@ function pesanAkun(m: Messages) {
 }
 
 /** Keadaan setengah jadi — WAJIB jujur, tidak boleh disebut berhasil (LESSONS #2/#7). */
-function pesanSetengahJadi(m: Messages, email: string): string {
+function pesanSetengahJadi(m: AdminMessages, email: string): string {
   return m.admin.userHalfCreated.replace("{email}", email);
 }
 
@@ -202,7 +202,7 @@ export async function createPartnerUser(
   partnerId: string,
   input: { name: string; branchId: string; email: string; password: string }
 ): Promise<ActionResult<{ id: string; email: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const PESAN_AKUN = pesanAkun(m);
   const supabase = await createClient();
@@ -389,7 +389,7 @@ export async function createPartnerUser(
 // `reset*`). Jaga makna persis: menjelaskan bahwa kata sandi lama tetap
 // berlaku sampai penggantian sukses, dan keadaan "belum pasti" TIDAK boleh
 // disebut berhasil.
-function pesanReset(m: Messages) {
+function pesanReset(m: AdminMessages) {
   return {
     kunciBelumDiatur: m.admin.resetServiceKeyMissing,
     akunTidakAda: m.admin.resetAccountNotFound,
@@ -454,7 +454,7 @@ export async function resetPartnerUserPassword(
   userId: string,
   password: string
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const PESAN_AKUN = pesanAkun(m);
   const PESAN_RESET = pesanReset(m);

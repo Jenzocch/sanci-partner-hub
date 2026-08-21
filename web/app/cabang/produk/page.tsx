@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
 import type { StockStatus } from "@/lib/catalog-shared";
-import { getMessages, type Messages } from "@/lib/i18n";
+import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 import ProdukListClient, { type ProdukItem } from "./produk-list-client";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ type ProductQueryRow = {
   stock_status: StockStatus;
 };
 
-function BackRow({ m }: { m: Messages }) {
+function BackRow({ m }: { m: CabangMessages }) {
   return (
     <div className="backrow">
       <Link href="/cabang" className="linkbtn">
@@ -30,7 +30,7 @@ function BackRow({ m }: { m: Messages }) {
 }
 
 export default async function ProdukPage() {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const {
     data: { user },

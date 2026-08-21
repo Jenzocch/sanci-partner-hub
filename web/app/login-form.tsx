@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCommonMessages } from "@/lib/i18n/provider";
 
 export default function LoginForm({ signOutOnly }: { signOutOnly?: boolean }) {
-  const m = useMessages().common;
+  const m = useCommonMessages();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

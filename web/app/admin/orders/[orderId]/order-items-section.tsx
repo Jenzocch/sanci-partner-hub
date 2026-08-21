@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import { addOrderItem, updateOrderItem, deleteOrderItem } from "../../actions-orders";
 
@@ -36,7 +36,7 @@ export default function OrderItemsSection({
   copyWarning: boolean;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [modal, setModal] = useState<null | "add" | OrderItemRow>(null);
 
   return (
@@ -119,7 +119,7 @@ function ItemModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const m = useMessages();
+  const m = useAdminMessages();
   const { submitting, begin, release } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);

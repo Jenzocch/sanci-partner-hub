@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { addInternalNote } from "../../actions-orders";
 import { lookupByRequestId } from "../../actions-lookup";
 
@@ -15,7 +15,7 @@ import { lookupByRequestId } from "../../actions-lookup";
  */
 export default function InternalNoteForm({ orderId }: { orderId: string }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [note, setNote] = useState("");
   const [errMsg, setErrMsg] = useState<string | null>(null);

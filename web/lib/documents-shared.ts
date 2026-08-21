@@ -3,10 +3,18 @@
 // admin actions + kedua sisi UI (kartu Dokumen di halaman detail pesanan,
 // dan halaman cetak).
 
-import type { Messages } from "./i18n/messages";
+import type { CommonMessages } from "./i18n/messages";
 import type { createClient } from "./supabase/server";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Cuma pernah membaca `common` — cocok baik dengan `CabangMessages` maupun
+ * `AdminMessages` tanpa konversi di titik panggil (saat ini semua pemanggil
+ * ada di `/admin/**`, tapi bentuk minimal ini tetap benar kalau suatu hari
+ * kartu Dokumen juga tampil di sisi cabang).
+ */
+type HasCommon = { common: CommonMessages };
 
 export type DocType = "SO" | "DO" | "INVOICE";
 
@@ -23,7 +31,7 @@ export const DOC_TYPE_PREFIX: Record<DocType, string> = {
  * lib/orders-shared.ts/lib/catalog-shared.ts (satu titik perubahan kalau
  * suatu hari kata pengantarnya perlu diterjemahkan).
  */
-export function docTypeLabel(m: Messages, t: DocType): string {
+export function docTypeLabel(m: HasCommon, t: DocType): string {
   if (t === "SO") return m.common.docTypeSO;
   if (t === "DO") return m.common.docTypeDO;
   return m.common.docTypeInvoice;

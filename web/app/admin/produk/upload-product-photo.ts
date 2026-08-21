@@ -3,7 +3,7 @@
 import { compressImage, PRESET_PRODUK } from "@/lib/compress-image";
 import { submitSafely } from "@/lib/safe-write";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
-import type { Messages } from "@/lib/i18n";
+import type { AdminMessages } from "@/lib/i18n";
 import { setProductPhoto } from "../actions-products";
 
 /**
@@ -22,8 +22,8 @@ import { setProductPhoto } from "../actions-products";
  * melihat foto lama dari cache/CDN dan menyimpulkan gagal simpan.
  *
  * Teks peringatannya hidup di lib/i18n/messages/admin.ts (kunci
- * `photoUploadFailed`) — pemanggil menyerahkan `Messages` miliknya sendiri
- * (komponen client, jadi selalu lewat `useMessages()`).
+ * `photoUploadFailed`) — pemanggil menyerahkan `AdminMessages` miliknya sendiri
+ * (komponen client, jadi selalu lewat `useAdminMessages()`).
  */
 
 /**
@@ -32,7 +32,7 @@ import { setProductPhoto } from "../actions-products";
  * produk sudah dipastikan tersimpan lebih dulu (aturan sama dengan logo
  * partner: foto adalah langkah terakhir, kegagalannya cuma peringatan).
  */
-export async function unggahFotoProduk(productId: string, file: File, messages: Messages): Promise<string | null> {
+export async function unggahFotoProduk(productId: string, file: File, messages: AdminMessages): Promise<string | null> {
   // Foto produk: sisi 1280 px supaya tajam di grid katalog + foto besar detail, bukan 512 px logo.
   const kecil = await compressImage(file, PRESET_PRODUK, messages);
   if (!kecil.ok) return `${messages.admin.photoUploadFailed} ${kecil.message}`;

@@ -10,7 +10,7 @@ import {
   isRequestIdConflict,
   safeWrite,
 } from "@/lib/safe-write";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> =
@@ -26,7 +26,7 @@ export async function createPartner(input: {
   clientRequestId: string;
   confirmDuplicate?: boolean;
 }): Promise<ActionResult<{ id: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
@@ -121,7 +121,7 @@ export async function updatePartner(
   id: string,
   input: { name: string; code?: string; contactName?: string; contactPhone?: string }
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const { data: partner } = await supabase
@@ -183,7 +183,7 @@ export async function setPartnerLogo(
   // bucket logo milik partner ini yang boleh masuk ke kolom logo_url.
   // Garis miring di akhir alamat proyek dibuang dulu — kalau tidak, pencocokan
   // di bawah gagal diam-diam dan logo tidak pernah tersimpan.
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
   const prefix = `${base}/storage/v1/object/public/partner-logos/${id}/`;
@@ -208,7 +208,7 @@ export async function setPartnerStatus(
   id: string,
   status: "ACTIVE" | "SUSPENDED" | "INACTIVE"
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
 
   if (status === "ACTIVE") {
@@ -247,7 +247,7 @@ export async function setPartnerStatus(
 }
 
 export async function deleteDraftPartner(id: string, typedCode: string) {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const { data: partner } = await supabase
     .from("partners")

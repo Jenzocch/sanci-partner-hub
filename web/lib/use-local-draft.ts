@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Messages } from "./i18n/messages";
+import type { CommonMessages } from "./i18n/messages";
 
 /**
  * Draf lokal otomatis (SPEC §58, LESSONS #1).
@@ -36,8 +36,8 @@ export function draftKey(formName: string, recordId?: string | null): string {
  * berbeda. Tanggal panjang (lebih dari seminggu) memakai `dateLocale` supaya
  * urutan hari/bulan/tahun ikut kebiasaan pembacanya.
  */
-export function waktuRelatif(m: Messages, savedAt: number, now: number = Date.now()): string {
-  const c = m.common;
+export function waktuRelatif(m: CommonMessages, savedAt: number, now: number = Date.now()): string {
+  const c = m;
   const isi = (t: string, n: number) => t.replace("{n}", String(n));
   const detik = Math.max(0, Math.round((now - savedAt) / 1000));
   if (detik < 60) return c.timeJustNow;

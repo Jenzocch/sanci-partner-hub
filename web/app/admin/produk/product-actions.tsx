@@ -7,13 +7,13 @@ import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { type SanciProductRow, type StockStatus } from "@/lib/catalog-shared";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { setProductStatus, setProductStockStatus, updateProduct } from "../actions-products";
 import { unggahFotoProduk } from "./upload-product-photo";
 
 export default function ProductActions({ product }: { product: SanciProductRow }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [modal, setModal] = useState<null | "edit">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

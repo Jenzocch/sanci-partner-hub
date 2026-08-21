@@ -5,11 +5,11 @@ import AddStaffButton from "./add-staff-button";
 import StaffActions from "./staff-actions";
 import BranchActions from "./branch-actions";
 import { formatActorRole, formatAuditAction, formatAuditDiff } from "@/lib/audit-format";
-import { getMessages, type Messages } from "@/lib/i18n";
+import { getAdminMessages, type AdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-function statusLabel(m: Messages, s: string): string {
+function statusLabel(m: AdminMessages, s: string): string {
   const map: Record<string, string> = {
     ACTIVE: m.common.statusActive,
     DRAFT: m.common.statusDraft,
@@ -31,7 +31,7 @@ export default async function BranchDetailPage({
   const { id: partnerId, branchId } = await params;
   const sp = await searchParams;
   const tab = sp.tab || "overview";
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
 
   const { data: branch } = await supabase

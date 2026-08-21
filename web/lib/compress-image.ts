@@ -27,7 +27,15 @@
  *     Bahasa Indonesia tetap, supaya kegagalan kompresi juga trilingual.
  */
 
-import type { Messages } from "./i18n/messages";
+import type { CommonMessages } from "./i18n/messages";
+
+/**
+ * Dipakai dari `/cabang/**` (invoice-upload.ts) DAN `/admin/**`
+ * (upload-product-photo.ts, partner-actions.tsx), dan cuma pernah membaca
+ * `common` — jadi tipenya bentuk struktural minimal ini, cocok baik dengan
+ * `CabangMessages` maupun `AdminMessages` tanpa konversi di titik panggil.
+ */
+type HasCommon = { common: CommonMessages };
 
 export const MAKS_UKURAN_BYTE = 5 * 1024 * 1024; // 5 MB sebelum dikecilkan, SAMA untuk semua preset
 
@@ -97,7 +105,7 @@ function formatMB(byte: number): string {
 }
 
 /** Pesan kesalahan disusun dari label + ambang preset, dalam bahasa `m`. */
-function pesanKompres(m: Messages, labelKey: PresetKompres["labelKey"], batasAsliByte: number) {
+function pesanKompres(m: HasCommon, labelKey: PresetKompres["labelKey"], batasAsliByte: number) {
   const label = m.common[labelKey];
   return {
     tipeSalah: m.common.compressWrongType.replace("{label}", label),
@@ -206,7 +214,7 @@ async function kompresKe(sumber: Sumber, sisiMaks: number, mutu: number): Promis
 export async function compressImage(
   file: File,
   preset: PresetKompres,
-  m: Messages
+  m: HasCommon
 ): Promise<HasilKompres> {
   const pesan = pesanKompres(m, preset.labelKey, preset.batasAsliByte);
   // Pemeriksaan yang pasti bisa dilakukan tanpa canvas — dilakukan lebih dulu.

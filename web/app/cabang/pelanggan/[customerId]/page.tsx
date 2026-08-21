@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { displayPhoneID, isMissingTableError, type OrderStatus } from "@/lib/orders-shared";
-import { getMessages } from "@/lib/i18n";
+import { getCabangMessages } from "@/lib/i18n";
 import StatusBadge from "../../pesanan/status-badge";
 import CustomerEditActions from "./customer-edit-actions";
 
@@ -52,7 +52,7 @@ export default async function PelangganDetailPage({
 }: {
   params: Promise<{ customerId: string }>;
 }) {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const { customerId } = await params;
   const supabase = await createClient();
   const {

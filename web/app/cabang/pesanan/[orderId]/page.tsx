@@ -8,7 +8,7 @@ import {
   fulfillmentLabel,
   type FulfillmentPath,
 } from "@/lib/orders-shared";
-import { getMessages } from "@/lib/i18n";
+import { getCabangMessages } from "@/lib/i18n";
 import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
 import InvoiceSection from "./invoice-section";
@@ -260,7 +260,7 @@ export default async function PesananDetailPage({
 }: {
   params: Promise<{ orderId: string }>;
 }) {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const { orderId } = await params;
   const supabase = await createClient();
   const {

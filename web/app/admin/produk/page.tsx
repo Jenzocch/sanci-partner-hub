@@ -3,7 +3,7 @@ import { STOCK_STATUS_CHIP, stockStatusLabel, type SanciProductRow, type StockSt
 import AddProductButton from "./add-product-button";
 import ProductActions from "./product-actions";
 import ProductPhoto from "./product-photo";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export default async function ProdukPage({
 }: {
   searchParams: Promise<{ q?: string; stock?: string; kategori?: string }>;
 }) {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const STOCK_OPTIONS: { value: "ALL" | StockStatus; label: string }[] = [
     { value: "ALL", label: m.admin.filterStockAll },
     { value: "AVAILABLE", label: m.common.stockAvailable },

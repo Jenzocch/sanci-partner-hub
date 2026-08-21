@@ -2,12 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AddPartnerButton from "./add-partner-button";
 import PartnerLogo from "@/lib/partner-logo";
-import { getMessages } from "@/lib/i18n";
-import type { Messages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
+import type { AdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-function statusLabel(m: Messages, s: string): string {
+function statusLabel(m: AdminMessages, s: string): string {
   const map: Record<string, string> = {
     ACTIVE: m.common.statusActive,
     DRAFT: m.common.statusDraft,
@@ -33,7 +33,7 @@ export default async function AdminPartnersPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; access?: string }>;
 }) {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const sp = await searchParams;
   const q = (sp.q || "").trim().toLowerCase();
   const statusFilter = sp.status || "ALL";

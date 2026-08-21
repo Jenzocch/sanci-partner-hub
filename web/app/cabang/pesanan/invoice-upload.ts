@@ -19,7 +19,7 @@
 import { compressImage, MAKS_UKURAN_BYTE, PRESET_INVOICE } from "@/lib/compress-image";
 import { submitSafely } from "@/lib/safe-write";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
-import type { Messages } from "@/lib/i18n";
+import type { CabangMessages } from "@/lib/i18n";
 import { setOrderInvoicePath } from "./actions";
 
 export const INVOICE_ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
@@ -27,7 +27,7 @@ export const INVOICE_ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
 type SiapUnggah = { blob: Blob; ext: string; contentType: string };
 
 async function siapkanInvoice(
-  m: Messages,
+  m: CabangMessages,
   file: File
 ): Promise<{ ok: true; data: SiapUnggah } | { ok: false; message: string }> {
   const tipe = (file.type || "").toLowerCase();
@@ -57,7 +57,7 @@ async function siapkanInvoice(
  * pemanggil (form Pesanan Baru / halaman detail) tidak boleh ikut gagal
  * karenanya.
  */
-export async function unggahInvoice(m: Messages, orderId: string, file: File): Promise<string | null> {
+export async function unggahInvoice(m: CabangMessages, orderId: string, file: File): Promise<string | null> {
   const siap = await siapkanInvoice(m, file);
   if (!siap.ok) return `${m.cabang.errInvoiceUploadFailed} ${siap.message}`;
 

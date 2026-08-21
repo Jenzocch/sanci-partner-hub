@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { correctOrderAttribution } from "../../actions-orders";
 
 export type BranchOption = { id: string; name: string };
@@ -19,7 +19,7 @@ export default function CorrectAttributionButton({
   otherBranches: BranchOption[];
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

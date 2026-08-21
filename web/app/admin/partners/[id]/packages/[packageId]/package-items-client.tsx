@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
 import {
   addPackageItem,
@@ -78,7 +78,7 @@ export default function PackageItemsClient({
   catalog: CatalogProduct[];
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const { submitting, begin, release } = useSubmitGuard();
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);

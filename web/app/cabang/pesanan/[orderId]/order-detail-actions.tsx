@@ -13,8 +13,8 @@ import {
   fulfillmentLabel,
   type FulfillmentPath,
 } from "@/lib/orders-shared";
-import { useMessages } from "@/lib/i18n/provider";
-import type { Messages } from "@/lib/i18n";
+import { useCabangMessages } from "@/lib/i18n/provider";
+import type { CabangMessages } from "@/lib/i18n";
 import { updateOrder, cancelOrder } from "../actions";
 
 export type StaffOption = { id: string; fullName: string; role: string };
@@ -41,7 +41,7 @@ const CANCEL_REASON_VALUE: Record<CancelReasonCode, string> = {
   duplicate_order: "Pesanan ganda",
   other: "Lainnya",
 };
-function cancelReasonLabel(m: Messages, code: CancelReasonCode): string {
+function cancelReasonLabel(m: CabangMessages, code: CancelReasonCode): string {
   switch (code) {
     case "customer_cancelled":
       return m.cabang.cancelReasonCustomerCancelled;
@@ -86,7 +86,7 @@ export default function OrderDetailActions({
   shippingAddress: string | null;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useCabangMessages();
   const [modal, setModal] = useState<null | "edit" | "cancel">(null);
 
   return (
@@ -176,7 +176,7 @@ function EditOrderModal({
   const { submitting, begin, release } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);
-  const m = useMessages();
+  const m = useCabangMessages();
   // Kunci draf per orderId — draf pesanan lain tidak boleh tercampur (SPEC §73).
   const draft = useLocalDraft("order-edit", orderId, true);
 
@@ -397,7 +397,7 @@ function CancelOrderModal({
   onCancelled: () => void;
 }) {
   const { submitting, begin, release } = useSubmitGuard();
-  const m = useMessages();
+  const m = useCabangMessages();
   const [reasonChoice, setReasonChoice] = useState<CancelReasonCode | "">("");
   const [customReason, setCustomReason] = useState("");
   const [err, setErr] = useState<string | null>(null);

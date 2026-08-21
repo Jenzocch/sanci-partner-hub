@@ -18,7 +18,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductStatus, StockStatus } from "@/lib/catalog-shared";
 import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -38,7 +38,7 @@ export async function createProduct(input: {
   stockStatus: StockStatus;
   clientRequestId: string;
 }): Promise<ActionResult<{ id: string }>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
@@ -128,7 +128,7 @@ export async function updateProduct(
   id: string,
   input: { name: string; code?: string; category?: string; description?: string }
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const name = input.name.trim();
@@ -169,7 +169,7 @@ export async function setProductStockStatus(
   id: string,
   stockStatus: StockStatus
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   if (!STOCK_STATUSES.includes(stockStatus)) {
     return { error: { message: m.admin.productStockStatusInvalid } };
   }
@@ -193,7 +193,7 @@ export async function setProductStatus(
   id: string,
   status: ProductStatus
 ): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   if (!PRODUCT_STATUSES.includes(status)) {
     return { error: { message: m.admin.productStatusInvalid } };
   }
@@ -220,7 +220,7 @@ export async function setProductStatus(
  * penyimpanan data produk — pemanggil hanya menampilkan peringatan.
  */
 export async function setProductPhoto(id: string, photoUrl: string): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const PESAN = pesan(m);
   // Nilai dari browser tidak dipercaya: hanya alamat publik di bucket foto
   // milik PRODUK INI yang boleh masuk ke kolom photo_url.
@@ -252,7 +252,7 @@ export async function setProductPhoto(id: string, photoUrl: string): Promise<Act
  * boleh membuka katalog ke partner yang belum disetujui).
  */
 export async function setCatalogAccess(partnerId: string, enabled: boolean): Promise<ActionResult<true>> {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const supabase = await createClient();
   const saved = await safeWrite(
     supabase

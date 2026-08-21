@@ -773,7 +773,7 @@ Apple 風設計系統 v2、三語系、chip 視覺體系、Package 產品組成�
 #### 只回報、沒有動手（需要 owner 或另一次排程判斷）
 
 1. **`copyPackageItemsToOrder`（`app/cabang/pesanan/actions.ts`）是真正的 N+1**：每個 package 品項各做一次 SELECT（存在性檢查）再一次 INSERT，而且是**依序**的——20 個產品的 package ＝ 建單當下 40 個序列來回，全部發生在弱網下最不能拖的寫入路徑上。**沒有自己改**，因為它牽涉 idempotency 語意（`client_request_id` 的唯一約束才是真防線，LESSONS #3/#21）與逐行錯誤彙總；改成批次寫入是正確方向，但屬於要單獨驗證的改動，不該在 UI audit 裡順手做。
-2. **i18n context 把用不到的那一半送給每個 client**：`I18nProvider` 收的是完整 `Messages`，所以每個 `/cabang/**` 頁面都夾帶整份 **admin 文案（500 個 key，33 kB 原始／9.3 kB gzip）**，每個 `/admin/**` 頁面則夾帶整份 cabang（252 key，15.6 kB／4.9 kB gzip）。已**驗證前提成立**：`app/cabang/**` 零處讀 `m.admin.*`，`app/admin/**` 零處讀 `m.cabang.*`，而讀 `m.admin.*` 的 `lib/audit-format.ts` 只被 admin 頁面使用——所以按區切分是安全的。**沒有自己改**：型別安全的做法要動 `Messages`/`I18nProvider`/`useMessages` 這個共用契約，而現在有另一個 agent 正在 `calc-cart-handoff` 分支改同一批呼叫 `useMessages()` 的檔案，正是 LESSONS #31 講的情境。（偷懶版——傳空物件再 cast——會把編譯期保證變成畫面上的 `undefined`，等於拆掉 `satisfies Shape`，不可取。）
+2. ~~**i18n context 把用不到的那一半送給每個 client**：`I18nProvider` 收的是完整 `Messages`，所以每個 `/cabang/**` 頁面都夾帶整份 admin 文案，每個 `/admin/**` 頁面則夾帶整份 cabang。沒有自己改：型別安全的做法要動共用契約，而現在有另一個 agent 正在改同一批呼叫 `useMessages()` 的檔案，正是 LESSONS #31 講的情境。~~ **已在下方「i18n 按區拆分，2026-08-21」補完**——`calc-cart-handoff` 已併入 main，共用契約已可安全動。
 3. **`@supabase/supabase-js` 整包（184 kB 原始／約 68 kB gzip，含這個 app 從未使用的 Realtime client）進了 6 條路由的 first-load**：`/`、`/cabang`、`/admin/produk`、`/admin/partners/[id]`、`/cabang/pesanan/[orderId]`、`/cabang/pesanan/baru`——就是這幾頁比 103 kB 基準高出約 70 kB 的原因。除了登入頁真的需要它在關鍵路徑上，其餘都只在「按登出」或「上傳檔案」時才用得到，可以改成動態 import。**沒有自己改**：會動到上傳與登出路徑的 async 結構，那裡有弱網/補償邏輯（LESSONS #2/#18/#29），值得單獨一刀。
 4. **三個 admin 清單沒有 `.limit()`**：`/admin/produk`（169 筆且持續增加）、`/admin/pelanggan`（36 筆匯入＋所有分店建的客戶）、`/admin`（partner，量小無妨）。cabang 端對應頁面都有 100/200 的上限。**沒有自己加上限**：在沒有分頁的情況下加 cap，會讓 admin 搜尋悄悄漏掉超過上限的客戶——那是「這個客戶不存在」等級的誤導，屬於產品決定（要一起做分頁），不是 audit 可以順手決定的。
 
@@ -792,6 +792,86 @@ schema／RLS 變動**，也沒有修改任何 Server Action 的寫入語意—�
 需要 Jenzo 用真帳號在手機＋桌面實看過才能升級 VERIFIED——這與 §158-167 設計
 系統 v2 本身待驗的狀態一致，可以同一次看完。
 
+
+### i18n 按區拆分，2026-08-21
+
+接續上面「UI/UX 與效能 audit 補跑」的只回報項目 #2。動工前重新驗證了它的前提
+（前一輪已驗過，這輪再核一次是因為 `calc-cart-handoff` 併入後檔案內容可能已
+變動）：全庫 grep `m.admin.*`/`messages.admin.*` 只出現在 `app/admin/**` 與
+`lib/audit-format.ts`（後者只被 `app/admin/**` import），`m.cabang.*` 只出現
+在 `app/cabang/**`，零例外——按區拆分的前提依然成立。
+
+**做了什麼**：`Bundle`/`Messages`（三區合一）型別整個拿掉，改成兩個型別不同
+的窄型別：
+
+- `CommonMessages`（`common` 這一片的形狀）
+- `CabangMessages = { common: CommonMessages; cabang: <cabang 這一片> }`
+- `AdminMessages = { common: CommonMessages; admin: <admin 這一片> }`
+
+`common.ts`/`cabang.ts`/`admin.ts` 三個翻譯真理來源檔案**完全沒動**
+（`git diff --stat` 三個檔案零差異）——只是把送到 client 的「包裝」換小。
+
+- `lib/i18n/index.ts` 的 `getMessages()` 拆成 `getCommonMessages()`／
+  `getCabangMessages()`／`getAdminMessages()`，各自在 `lib/i18n/messages/index.ts`
+  的 `pickXxxMessages()` 裡直接組出該區需要的物件，不會先組出三區合一的物件
+  再切。
+- `lib/i18n/provider.tsx` 的 `I18nProvider`/`useMessages`/`useI18n` 拆成
+  `CabangI18nProvider`/`useCabangMessages`/`useCabangI18n`、
+  `AdminI18nProvider`/`useAdminMessages`/`useAdminI18n`、以及只給登入頁用的
+  `CommonI18nProvider`——三者共用一個 12 行的 `createScope<M>()` 小工廠，沒有
+  複製貼上整個 context 樣板三次。`DraftBanner`/`LocaleSwitcher` 這兩個「cabang
+  與 admin 都會掛載」的共用元件改用 `useCommonMessages()`/`useCommonI18n()`：
+  依序探測 Cabang→Admin→Common 三個 context 中真正掛載的那一個（每個頁面永遠
+  只掛一個），不需要在 layout 疊兩層 provider。
+- 3 個掛載點（`app/admin/layout.tsx`、`app/cabang/layout.tsx`、`app/page.tsx`
+  登入頁）改成呼叫各自範圍的 `getXxxMessages()` + 掛對應的 Provider；登入頁
+  重新確認過真的只讀 `m.common.*`，改掛 `CommonI18nProvider`。
+- 45 個 `useMessages()`、35 個 `getMessages()`、42 個 `Messages` 型別匯入，
+  依所在目錄機械式改成對應區域的名字（`app/admin/**` → Admin，`app/cabang/**`
+  → Cabang）——純換名字，沒有動任何元件的渲染/業務邏輯，`git diff` 逐檔比對過。
+- 6 個共用 `lib/**` 檔案（`safe-write.ts`、`catalog-shared.ts`、
+  `orders-shared.ts`、`documents-shared.ts`、`compress-image.ts`、
+  `use-local-draft.ts`）逐一查過各自實際讀哪個切片：全部只讀 `common`，改成
+  最小結構型別 `{ common: CommonMessages }`——`CabangMessages`/`AdminMessages`
+  都自動滿足這個形狀,呼叫端不用轉型。`audit-format.ts` 讀 `common`+`admin`
+  兩者,且重新驗證過只被 `app/admin/**` import,改成 `AdminMessages`。
+
+**驗證**：`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、`npx eslint .` ✓、
+`rm -rf .next && npm run build` ✓，對整棵 `web/` 一起跑（LESSONS #31）。CJK/
+繁體禁用詞掃描對本輪 diff 零命中（沒改任何翻譯內容，三個真理來源檔案零
+diff）。`/offline` 仍是 `○` 靜態預渲染、7.67 kB,不受影響。
+
+**實測數字**——這裡要拆成兩層講清楚,兩者衡量的是不同東西：
+
+1. **`next build` 的 Route 表格幾乎沒變**（`/cabang/pesanan/[orderId]` 
+   First Load JS 改動前後都是 183 kB；`/admin/orders/[orderId]` 都是 114 kB;
+   Size 欄位的個位數 kB 差異只是改名後識別字串變長的雜訊)。這是**預期中的
+   結果,不是驗證失敗**：這個表格量的是 webpack client bundle,而這次要砍的
+   是**RSC 傳給 `<I18nProvider messages={...}>` 的 props 資料**——跟
+   `/offline` 那個修法(client 元件直接 import 大物件字面值,真的進了 JS
+   bundle)是完全不同的機制,§"Why this matters" 已經先講明這點。
+2. **真正被砍掉的是 props 資料本身**——直接量測 `pickCabangMessages`/
+   `pickAdminMessages` 回傳物件的 `JSON.stringify` 位元組數(把
+   `common.ts`/`cabang.ts`/`admin.ts` 用 `tsc` 編譯成純 JS 後用 Node 量,三
+   語言都測過,以下是 `id`(印尼語,預設語言)的數字)：
+
+   | 掛載點 | 改之前(common+cabang+admin 三區合一) | 改之後 | 省下 |
+   |---|---|---|---|
+   | `/cabang/**`(`CabangI18nProvider`) | 57,400 B 原始／15,354 B gzip | 24,229 B／7,337 B gzip | **−33,171 B 原始(−58%)／−8,017 B gzip(−52%)** |
+   | `/admin/**`(`AdminI18nProvider`) | 57,400 B 原始／15,354 B gzip | 41,000 B／11,574 B gzip | **−16,400 B 原始(−29%)／−3,780 B gzip(−25%)** |
+
+   admin 文案本輪量到 500 key／33,162 B 原始／9,317 B gzip,cabang 文案
+   256 key／16,390 B 原始／5,010 B gzip——跟上一輪 audit 記錄的「500 個
+   key,33 kB／9.3 kB」「252 key,15.6 kB／4.9 kB」數量級一致(cabang 從
+   252→256 key 是 `calc-cart-handoff` 併入後新增的幾個計算器交接文案,不是
+   這輪造成的)。cabang 端省得比 admin 端多,因為 admin 文案本來就比 cabang
+   文案大一倍多(500 vs 256 key)——對每天用手機、弱網跑單的分店 staf 來說,
+   這正好是最該省的那一半。
+
+**尚待真人驗證**：以上是靜態分析＋建置產物＋直接位元組量測,沒有真的用瀏覽器
+開發者工具量過線上頁面的實際網路傳輸量(本環境網路白名單擋
+supabase.co,無法完整登入測試)——跟本檔其他項目一樣,建議跟其他待驗證項目
+一起用真帳號驗一次。
 
 ## 已知刻意保留的「怪東西」
 

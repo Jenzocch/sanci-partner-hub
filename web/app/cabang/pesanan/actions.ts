@@ -36,7 +36,7 @@ import {
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
-import { getMessages, type Messages } from "@/lib/i18n";
+import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -86,7 +86,7 @@ async function getIdentity(supabase: SupabaseServerClient): Promise<IdentityOutc
 
 /** Pesan seragam untuk hasil getIdentity yang bukan "ok" (dipakai tiap Server Action). */
 function identityErrorMessage(
-  m: Messages,
+  m: CabangMessages,
   outcome: Extract<IdentityOutcome, { status: "no-user" | "load-error" }>
 ): string {
   return outcome.status === "load-error" ? m.cabang.errAccountLoadRetry : m.cabang.errSessionInvalid;
@@ -115,7 +115,7 @@ type PackageResolution =
  *                kolom yang bahkan tidak pernah "diisi").
  */
 async function resolvePackage(
-  m: Messages,
+  m: CabangMessages,
   supabase: SupabaseServerClient,
   partnerId: string,
   input: { packageId?: string; packageName: string; packagesAvailable?: boolean }
@@ -212,7 +212,7 @@ async function updateOrderWithPackageFallback(
  * string kosong; itu TIDAK boleh dianggap error validasi pengguna.
  */
 function validateFulfillmentPath(
-  m: Messages,
+  m: CabangMessages,
   raw: string | undefined,
   required: boolean
 ): { ok: true; value: FulfillmentPath | null } | { ok: false; error: ActionError } {
@@ -244,7 +244,7 @@ const MAX_PURCHASE_AMOUNT = 9_999_999_999_999;
  * sudah diformat/dihitung di client (SPEC §8 turunan, LESSONS #6).
  */
 function validatePurchaseAmount(
-  m: Messages,
+  m: CabangMessages,
   raw: string | undefined
 ): { ok: true; value: number | null } | { ok: false; error: ActionError } {
   const trimmed = (raw ?? "").trim();
@@ -436,7 +436,7 @@ type ResolveCustomerOutcome =
   | { ok: false; error: ActionError };
 
 async function resolveOrCreateCustomer(
-  m: Messages,
+  m: CabangMessages,
   supabase: SupabaseServerClient,
   identity: Identity,
   input: ResolveCustomerInput,
@@ -548,7 +548,7 @@ export async function createCustomerOnly(input: {
   salesStaffId?: string;
   clientRequestId: string;
 }): Promise<ActionResult<{ customerId: string; fullName: string; phone: string }>> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
@@ -789,7 +789,7 @@ export async function createCustomerAndOrder(input: {
   shippingAddress?: string;
   clientRequestId: string;
 }): Promise<CreateOrderResult> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
@@ -1006,7 +1006,7 @@ type MutableOrderRef = { id: string; partner_id: string; branch_id: string; stat
  * ditebak di sini.
  */
 async function fetchOrderForMutation(
-  m: Messages,
+  m: CabangMessages,
   supabase: SupabaseServerClient,
   orderId: string
 ): Promise<{ ok: true; order: MutableOrderRef } | { ok: false; error: ActionError }> {
@@ -1034,7 +1034,7 @@ async function fetchOrderForMutation(
  * bukan error) yang jadi pesan akses/berubah (bukan sukses palsu, LESSONS #7).
  */
 function updateFailureMessage(
-  m: Messages,
+  m: CabangMessages,
   written: { reason: "db"; code?: string; detail: string } | { reason: "unconfirmed" },
   noRowMsg: string
 ): string {
@@ -1060,7 +1060,7 @@ export async function updateOrder(input: {
   purchaseAmountRaw?: string;
   shippingAddress?: string;
 }): Promise<UpdateOrderResult> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
@@ -1166,7 +1166,7 @@ export async function cancelOrder(input: {
   orderId: string;
   reason: string;
 }): Promise<CancelOrderResult> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
   if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
@@ -1224,7 +1224,7 @@ export async function setOrderInvoicePath(input: {
   orderId: string;
   path: string;
 }): Promise<SetInvoiceResult> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);
   if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
@@ -1284,7 +1284,7 @@ export async function updateOrderItemFields(input: {
   colorCode?: string;
   customSize?: string;
 }): Promise<UpdateOrderItemResult> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
 
@@ -1325,7 +1325,7 @@ export async function updateOrderItemFields(input: {
 }
 
 export async function deleteOrderItemCabang(itemId: string, orderId: string): Promise<UpdateOrderItemResult> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const { data, error } = await supabase.from("order_items").delete().eq("id", itemId).select("id").maybeSingle();
   if (error) {
@@ -1546,7 +1546,7 @@ export async function setOrderOfferBranch(
   markupRaw: string,
   cashRaw: string
 ): Promise<OfferOutcome> {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
   const idOutcome = await getIdentity(supabase);

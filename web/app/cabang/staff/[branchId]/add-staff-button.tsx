@@ -6,7 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 import { suggestStaffCode } from "@/lib/staff-code-suggest";
 import { createStaff } from "../../../admin/actions-staff";
 import { lookupByRequestId } from "../../../admin/actions-lookup";
@@ -21,7 +21,7 @@ export default function AddStaffButton({
   branchName: string;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useCabangMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

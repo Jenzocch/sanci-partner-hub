@@ -7,14 +7,14 @@ import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { type StockStatus } from "@/lib/catalog-shared";
-import { useMessages } from "@/lib/i18n/provider";
+import { useAdminMessages } from "@/lib/i18n/provider";
 import { createProduct } from "../actions-products";
 import { lookupByRequestId } from "../actions-lookup";
 import { unggahFotoProduk } from "./upload-product-photo";
 
 export default function AddProductButton() {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [open, setOpen] = useState(false);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

@@ -17,7 +17,16 @@
  */
 
 import type { PostgrestSingleResponse } from "@supabase/supabase-js";
-import type { Messages } from "./i18n/messages";
+import type { CommonMessages } from "./i18n/messages";
+
+/**
+ * Dipakai dari `/cabang/**` DAN `/admin/**` sekaligus, dan cuma pernah
+ * membaca `m.common.*` — jadi tipenya bentuk struktural minimal ini, bukan
+ * `CabangMessages`/`AdminMessages` penuh. `CabangMessages` dan `AdminMessages`
+ * keduanya punya field `common` berbentuk sama, jadi keduanya otomatis cocok
+ * di sini tanpa konversi apa pun di titik panggil.
+ */
+type HasCommon = { common: CommonMessages };
 
 export const WRITE_TIMEOUT_MS = 15_000;
 export const LOOKUP_TIMEOUT_MS = 10_000;
@@ -30,18 +39,18 @@ export const LOOKUP_TIMEOUT_MS = 10_000;
  * pendek yang sama seperti dulu, supaya pemanggil cukup menambah satu baris:
  *
  *   // Server Action ("use server") — boleh membaca cookie sendiri:
- *   const PESAN = pesan(await getMessages());
+ *   const PESAN = pesan(await getCabangMessages()); // atau getAdminMessages()
  *   return { error: { message: PESAN.serverSibuk } };
  *
  *   // Komponen client:
- *   const PESAN = pesan(useMessages());
+ *   const PESAN = pesan(useCabangMessages()); // atau useAdminMessages()
  *
  * Kenapa fungsi dan bukan kunci mentah yang diterjemahkan pemanggil: Server
  * Action mengembalikan `{ error: { message } }` yang langsung ditampilkan
  * komponen. Kalau yang dikirim kunci, SETIAP komponen harus tahu cara
  * menerjemahkannya — satu yang lupa = kode mentah di layar pengguna.
  */
-export function pesan(m: Messages) {
+export function pesan(m: HasCommon) {
   return {
     offline: m.common.netOffline,
     belumTersimpan: m.common.netNotSaved,
@@ -184,21 +193,21 @@ export type SafeSubmitNoLookup<R> = Extract<
 export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup: () => Promise<LookupResult>;
-  messages: Messages;
+  messages: HasCommon;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmit<R>>;
 export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup?: undefined;
-  messages: Messages;
+  messages: HasCommon;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmitNoLookup<R>>;
 export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup?: () => Promise<LookupResult>;
-  messages: Messages;
+  messages: HasCommon;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmit<R>> {

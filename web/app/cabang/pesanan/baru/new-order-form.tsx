@@ -28,7 +28,7 @@ import {
 } from "../actions";
 import { INVOICE_ACCEPT, unggahInvoice } from "../invoice-upload";
 import StatusBadge from "../status-badge";
-import { useMessages } from "@/lib/i18n/provider";
+import { useCabangMessages } from "@/lib/i18n/provider";
 
 type StaffOption = { id: string; fullName: string; role: string };
 export type PackageOption = { id: string; name: string };
@@ -62,7 +62,7 @@ export default function NewOrderForm({
   /** Probe server: kolom fulfillment_path (migration 0009) ada di sesi ini? (LESSONS #12) */
   fulfillmentAvailable: boolean;
 }) {
-  const m = useMessages();
+  const m = useCabangMessages();
   const { submitting, begin, release, reset } = useSubmitGuard();
   const draft = useLocalDraft("pesanan-baru", `new@${branchId}`, true);
 

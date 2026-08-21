@@ -8,11 +8,11 @@ import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { compressImage, PRESET_LOGO } from "@/lib/compress-image";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
-import { useMessages } from "@/lib/i18n/provider";
-import type { Messages } from "@/lib/i18n";
+import { useAdminMessages } from "@/lib/i18n/provider";
+import type { AdminMessages } from "@/lib/i18n";
 import { updatePartner, setPartnerStatus, deleteDraftPartner, setPartnerLogo } from "../../actions";
 
-function statusLabel(m: Messages, s: string): string {
+function statusLabel(m: AdminMessages, s: string): string {
   const map: Record<string, string> = {
     ACTIVE: m.common.statusActive,
     DRAFT: m.common.statusDraft,
@@ -39,7 +39,7 @@ export default function PartnerActions({
   canActivate: boolean;
 }) {
   const router = useRouter();
-  const m = useMessages();
+  const m = useAdminMessages();
   const [modal, setModal] = useState<null | "edit" | "deactivate" | "delete">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});

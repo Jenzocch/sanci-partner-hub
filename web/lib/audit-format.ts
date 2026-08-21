@@ -1,13 +1,15 @@
-import type { Messages } from "./i18n/messages";
+import type { AdminMessages } from "./i18n/messages";
 import { formatIDR } from "./orders-shared";
 
 /**
  * Layar Aktivitas dalam tiga bahasa.
  *
- * Semua teks hidup di lib/i18n/messages/common.ts; file ini hanya memetakan
- * KODE dari database (nama kolom, nilai enum, kode aksi) ke kunci pesan.
- * Pemanggil menyerahkan `Messages` miliknya — halaman server memakai
- * `await getMessages()`, komponen client memakai `useMessages()`.
+ * Semua teks hidup di lib/i18n/messages/common.ts (+ beberapa label khusus
+ * kartu Dokumen di admin.ts, lihat doc_type/doc_number/doc_date di bawah);
+ * file ini hanya memetakan KODE dari database (nama kolom, nilai enum, kode
+ * aksi) ke kunci pesan. HANYA dipakai dari `/admin/**` (layar Aktivitas cuma
+ * ada di admin) — pemanggil menyerahkan `AdminMessages` miliknya (server:
+ * `await getAdminMessages()`, client: `useAdminMessages()`).
  *
  * Kalau sebuah kode belum punya label, yang tampil adalah KODE MENTAH
  * (mis. "STAFF_ASSIGNMENT_CREATED") — itu bahasa Inggris bocor ke pengguna
@@ -16,7 +18,7 @@ import { formatIDR } from "./orders-shared";
  */
 
 // Nama kolom database → label yang dimengerti pengguna.
-function fieldLabel(m: Messages, key: string): string | undefined {
+function fieldLabel(m: AdminMessages, key: string): string | undefined {
   const c = m.common;
   const map: Record<string, string> = {
     name: c.name,
@@ -113,7 +115,7 @@ function discountChainLabel(v: unknown): string {
 }
 
 // Nilai enum internal → bahasa sehari-hari.
-function valueLabel(m: Messages, value: string): string | undefined {
+function valueLabel(m: AdminMessages, value: string): string | undefined {
   const c = m.common;
   const map: Record<string, string> = {
     REGISTERED: c.orderStatusRegistered,
@@ -143,7 +145,7 @@ function valueLabel(m: Messages, value: string): string | undefined {
     // dibiarkan tampil sebagai kode mentah) untuk konsistensi dengan seluruh
     // enum lain di peta ini — teksnya SAMA di ketiga bahasa (SO/DO/Invoice
     // adalah istilah dagang, GLOSSARY.md — tidak diterjemahkan), tapi tetap
-    // lewat Messages supaya satu titik perubahan kalau suatu hari perlu.
+    // lewat AdminMessages supaya satu titik perubahan kalau suatu hari perlu.
     SO: c.docTypeSO,
     DO: c.docTypeDO,
     INVOICE: c.docTypeInvoice,
@@ -151,7 +153,7 @@ function valueLabel(m: Messages, value: string): string | undefined {
   return map[value];
 }
 
-function asLabel(m: Messages, key: string, v: unknown): string {
+function asLabel(m: AdminMessages, key: string, v: unknown): string {
   // 0015 — discount_pcts adalah ARRAY jsonb (mis. [8, 10]), bukan skalar.
   // Diperiksa PALING AWAL karena `typeof [] === "object"`, bukan salah satu
   // cabang di bawah — tanpa ini array akan jatuh ke String(v) dan tampil
@@ -266,7 +268,7 @@ const SKIP = new Set([
 ]);
 
 // Kode aksi audit → KUNCI kalimat di common.ts (dipakai halaman Activity).
-const ACTION_KEYS: Record<string, keyof Messages["common"]> = {
+const ACTION_KEYS: Record<string, keyof AdminMessages["common"]> = {
   ORDER_CREATED: "auditOrderCreated",
   ORDER_UPDATED: "auditOrderUpdated",
   ORDER_STATUS_CHANGED: "auditOrderStatusChanged",
@@ -349,7 +351,7 @@ const ACTION_KEYS: Record<string, keyof Messages["common"]> = {
   PERMISSION_CHANGED: "auditPermissionChanged",
 };
 
-const ROLE_KEYS: Record<string, keyof Messages["common"]> = {
+const ROLE_KEYS: Record<string, keyof AdminMessages["common"]> = {
   PARTNER_USER: "roleBranchUser",
   SANCI_ADMIN: "roleSanciAdmin",
   // 0010:596 menulis 'SYSTEM' saat auth.uid() null (mis. proses server/trigger
@@ -357,19 +359,19 @@ const ROLE_KEYS: Record<string, keyof Messages["common"]> = {
   SYSTEM: "roleSystem",
 };
 
-export function formatAuditAction(m: Messages, action: string): string {
+export function formatAuditAction(m: AdminMessages, action: string): string {
   const key = ACTION_KEYS[action];
   return key ? m.common[key] : action;
 }
 
-export function formatActorRole(m: Messages, role: string | null): string {
+export function formatActorRole(m: AdminMessages, role: string | null): string {
   if (!role) return "";
   const key = ROLE_KEYS[role];
   return key ? m.common[key] : role;
 }
 
 export function formatAuditDiff(
-  m: Messages,
+  m: AdminMessages,
   before: Record<string, unknown> | null,
   after: Record<string, unknown> | null
 ): string[] {

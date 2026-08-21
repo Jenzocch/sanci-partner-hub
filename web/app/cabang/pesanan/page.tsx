@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
-import { getMessages } from "@/lib/i18n";
+import { getCabangMessages } from "@/lib/i18n";
 import OrderListClient, { type OrderListItem } from "./order-list-client";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ function one<T>(v: T | T[] | null): T | null {
 }
 
 export default async function PesananListPage() {
-  const m = await getMessages();
+  const m = await getCabangMessages();
   const supabase = await createClient();
   const {
     data: { user },

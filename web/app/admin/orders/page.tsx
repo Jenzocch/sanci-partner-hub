@@ -10,7 +10,7 @@ import {
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
-import { getMessages } from "@/lib/i18n";
+import { getAdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; jalur?: string }>;
 }) {
-  const m = await getMessages();
+  const m = await getAdminMessages();
   const STATUS_OPTIONS: { value: "ALL" | OrderStatus; label: string }[] = [
     { value: "ALL", label: m.admin.filterStatusAll },
     { value: "REGISTERED", label: m.common.orderStatusRegistered },
