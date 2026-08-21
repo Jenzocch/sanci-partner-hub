@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AddCustomerButton from "./add-customer-button";
 import MasterDataSection from "./master-data-section";
@@ -134,11 +135,12 @@ export default async function PelangganPage({
         )}
       </div>
 
+      {/* <Link>, bukan <a>: lihat catatan yang sama di partners/[id]/page.tsx. */}
       <div className="tabs">
         {tabs.map((t) => (
-          <a key={t.key} href={`/admin/pelanggan?tab=${t.key}`} className={`tab${tab === t.key ? " on" : ""}`}>
+          <Link key={t.key} href={`/admin/pelanggan?tab=${t.key}`} className={`tab${tab === t.key ? " on" : ""}`}>
             {t.label}
-          </a>
+          </Link>
         ))}
       </div>
 

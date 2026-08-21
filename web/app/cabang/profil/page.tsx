@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMessages } from "@/lib/i18n";
@@ -54,9 +55,9 @@ export default async function ProfilCabangPage() {
   return (
     <main className="pwrap">
       <div className="backrow">
-        <a href="/cabang" className="linkbtn">
+        <Link href="/cabang" className="linkbtn">
           {m.cabang.navBackHome}
-        </a>
+        </Link>
       </div>
       <h2 className="mtitle">{m.cabang.homeBranchProfile}</h2>
       <div className="card">

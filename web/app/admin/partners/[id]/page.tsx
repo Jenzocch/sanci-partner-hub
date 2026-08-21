@@ -530,7 +530,7 @@ export default async function PartnerDetailPage({
   return (
     <div>
       <div className="crumb">
-        <a href="/admin">{m.common.partner}</a> / {partner.name}
+        <Link href="/admin">{m.common.partner}</Link> / {partner.name}
       </div>
       <div className="pagehead">
         <h1>{partner.name}</h1>
@@ -539,15 +539,18 @@ export default async function PartnerDetailPage({
         </span>
       </div>
 
+      {/* <Link>, bukan <a>: berpindah tab dengan <a> memuat ulang seluruh
+          dokumen — termasuk menjalankan lagi pemeriksaan admin di
+          app/admin/layout.tsx — padahal yang berubah cuma satu query string. */}
       <div className="tabs">
         {tabs.map((t) => (
-          <a
+          <Link
             key={t.key}
             href={`/admin/partners/${id}?tab=${t.key}`}
             className={`tab${tab === t.key ? " on" : ""}`}
           >
             {t.label}
-          </a>
+          </Link>
         ))}
       </div>
 

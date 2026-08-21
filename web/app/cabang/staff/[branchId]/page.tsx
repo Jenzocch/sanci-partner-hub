@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMessages } from "@/lib/i18n";
@@ -104,9 +105,9 @@ export default async function CabangStaffPage({
   return (
     <main className="pwrap">
       <div className="backrow">
-        <a href="/cabang" className="linkbtn">
+        <Link href="/cabang" className="linkbtn">
           {m.cabang.navBackHome}
-        </a>
+        </Link>
       </div>
       <h2 className="mtitle">{m.cabang.staffPageTitle.replace("{name}", branch.name)}</h2>
       {!isOwnBranch && (

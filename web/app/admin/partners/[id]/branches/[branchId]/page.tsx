@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AddStaffButton from "./add-staff-button";
@@ -193,7 +194,8 @@ export default async function BranchDetailPage({
   return (
     <div>
       <div className="crumb">
-        <a href="/admin">{m.common.partner}</a> / <a href={`/admin/partners/${partnerId}`}>{partner.name}</a> /{" "}
+        <Link href="/admin">{m.common.partner}</Link> /{" "}
+        <Link href={`/admin/partners/${partnerId}`}>{partner.name}</Link> /{" "}
         {branch.name}
       </div>
       <div className="pagehead">
@@ -211,13 +213,13 @@ export default async function BranchDetailPage({
 
       <div className="tabs">
         {tabs.map((t) => (
-          <a
+          <Link
             key={t.key}
             href={`/admin/partners/${partnerId}/branches/${branchId}?tab=${t.key}`}
             className={`tab${tab === t.key ? " on" : ""}`}
           >
             {t.label}
-          </a>
+          </Link>
         ))}
       </div>
 
