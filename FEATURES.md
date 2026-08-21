@@ -595,14 +595,16 @@ Owner 需求："UI 清楚,有照片,有數量有編號跟文字，價格"——�
 | # | 功能 | 狀態 | 備註 |
 |---|---|---|---|
 | P2-62 | `/cabang/kalkulator`：產品搜尋/分類篩選 + 加入購物車 + 單價/數量編輯 + 折扣鏈（多段%連乘 + markup + 現金折讓）+ 即時 subtotal→折扣後→markup後→最終金額分解 + sticky 底部總額列 | `UNVERIFIED` | 資料源與 `/cabang/produk` **完全相同**（`sanci_products` status ACTIVE，`sanci_catalog_access` 同一套 gate，未開通katalog時同樣清楚說明而非靜默空白）。折扣鏈數學**逐字**照抄 `fn_compute_order_offer_final`（0015）與 `offer-section.tsx` 的 client math：每段 ×(1-p/100) 連乘、再 ×(1+markup/100)、再 −cash，**只在最終結果 round() 一次**——畫面上的 breakdown（Subtotal/折扣後/Markup後）另外各自 round() 純供顯示，不會回饋進最終數字的計算，避免中途取整跟單一 round 的正式公式產生分歧（`lib/calculator-shared.ts::computeChainFinal` 有詳細註解）。UI 用 `.tabs`/`.tab`（Produk / Keranjang）分開瀏覽跟結算，避免單頁過長；產品清單可獨立捲動，sticky 底部列（`position:fixed`，自建 CSS Module 遵守 STYLE CONTRACT token）在兩個分頁都常駐顯示件數+最終金額，符合 owner「好計算」要求（客戶看得到即時數字）。草稿走 localStorage 防抖自動存（800ms，`lib/calculator-shared.ts` 仿 `use-local-draft.ts` 的「絕不靜默還原，只彈 Lanjutkan/Buang」原則，但實作是獨立函式組不是同一個 hook——資料形狀是陣列不是表單欄位）。重用既有元件而非重造：`STOCK_STATUS_CHIP`/`stockStatusLabel`、`.code`/`chip qty` chip 分類、`formatIDR`/`parseIDRInput`、`DraftBanner`（`values:{}` 因為它只讀 `savedAt`，見元件內註解）。三語系（id/en/zh）全部走 `Messages`，簡體字串已跑禁用詞掃描零命中，id/en 兩區塊掃描 CJK 殘留零命中。首頁（`/cabang`）新增「Kalkulator Penawaran」入口，跟「Produk SANCI」同一個 `produkVisible` gate（katalog table 存在就顯示，enabled 與否由頁面本身說明，不影響入口可見性）。typecheck ✓ eslint ✓ build ✓（`rm -rf .next && npm run build` 全綠，`/cabang/kalkulator` 出現在路由表，`/offline` 仍 `○` 靜態預渲染）。**沒有新 migration**——完全前端功能，符合任務要求「若發現需要 migration 就停下重新考慮範圍」，本切片始終不需要 |
-| P2-63 | 「Buat Pesanan」交接到 `/cabang/pesanan/baru`：**明訂能帶過去/不能帶過去什麼** | `UNVERIFIED` | 這是委派描述裡要求仔細想清楚的部分,完整推理記在下面獨立段落，這裡只記最終決定：①**能帶過去**——小計（subtotal）與完整折扣鏈（discount_pcts/markup_pct/cash_discount），透過**一次性** localStorage handoff（`lib/calculator-shared.ts::CalcHandoff`，跟自動存檔的草稿是兩個不同 key，交接完就清除，不是持續同步）。到了新訂單頁,staf 看到摘要橫幅（`calcHandoffBanner`）,按「Gunakan angka ini」才會：(a) 把小計填進既有的「Total belanja pelanggan di toko（選填）」欄位（`partner_purchase_amount`，語意本來就是「幫 SANCI 準備報價參考」,重用而非濫用）；(b) 標記「訂單建立成功後自動套用折扣鏈」。訂單真的建立成功後（不管走一般 path 還是 confirmed-after-timeout path 都有接上）,呼叫**跟 OfferSection 同一個** `setOrderOfferBranch`,結果不管成功或失敗都會顯示明確橫幅（成功：`calcHandoffAppliedOk`；分店沒有折扣權限等原因失敗：`calcHandoffAppliedFailed`,非致命,訂單本身仍算建立成功——best-effort 模式跟 `copyPackageItemsToOrder`/invoice 上傳同一套原則,絕不因為這步失敗就假裝訂單沒建好）。**全程不繞過** can_edit_offer/can_discount——calculator 本身沒有的權限門檻,在這一步透過 RLS/trigger 原樣生效。②**刻意不帶過去**——計算器裡的**逐項產品清單與每行單價**完全不會自動變成 `order_items`。UI copy（`calcHandoffScopeHint`/`calcConvertScopeNote`）跟本表都明講這點,不是含糊帶過 |
-| P2-64 | 「Buat Pesanan」範圍決定背後的完整推理（為什麼不做逐項 order_items 自動帶入） | 已定案，非遺漏 | 查過 `web/app/cabang/pesanan/[orderId]/order-items-section.tsx`（cabang 側）：能改的欄位只有 note/color_code/custom_size/quantity，**完全沒有 unit_price/line_discount**——那兩欄的編輯 UI **純粹是 admin 端才有**（`order-items-section.tsx` 的檔頭註解自己寫「TIDAK ada kolom harga di sini sama sekali — itu murni sisi admin」），DB 層雖然 `fn_guard_order_item_price_cols`（0014）允許 can_edit_offer 的分店寫入這兩欄，但**沒有任何 cabang 端畫面呼叫這條路徑**。同時 `createCustomerAndOrder`（訂單建立本身）完全是 Package-based（0008）,品項來自 `copyPackageItemsToOrder` 複製 Package 內容,不接受呼叫端傳入任意品項清單——計算器裡憑空選的產品組合（不對應任何既有 Package）沒有寫入位置。結論：唯一誠實、不用新造 schema/UI 就能安全帶過去的東西是**數字**（小計 + 折扣鏈）,不是**品項**。這正是委派任務裡列的「若完整乾淨交接做不到,v1 用摘要橫幅讓staf手動參考」那條路的**加強版**——比純橫幅多做了折扣鏈自動套用（因為那條寫入路徑`setOrderOfferBranch`已存在且權限齊全,值得做）,但沒有勉強把品項塞進一個不支援它的建立流程 |
+| P2-63 | 「Buat Pesanan」交接到 `/cabang/pesanan/baru`：**明訂能帶過去/不能帶過去什麼**（⚠️ **已被下方「第十五切片」修正** — ②的「刻意不帶過去」結論已不成立，見該切片） | `UNVERIFIED` | 這是委派描述裡要求仔細想清楚的部分,完整推理記在下面獨立段落，這裡只記當時的最終決定：①**能帶過去**——小計（subtotal）與完整折扣鏈（discount_pcts/markup_pct/cash_discount），透過**一次性** localStorage handoff（`lib/calculator-shared.ts::CalcHandoff`，跟自動存檔的草稿是兩個不同 key，交接完就清除，不是持續同步）。到了新訂單頁,staf 看到摘要橫幅（`calcHandoffBanner`）,按「Gunakan angka ini」才會：(a) 把小計填進既有的「Total belanja pelanggan di toko（選填）」欄位（`partner_purchase_amount`，語意本來就是「幫 SANCI 準備報價參考」,重用而非濫用）；(b) 標記「訂單建立成功後自動套用折扣鏈」。訂單真的建立成功後（不管走一般 path 還是 confirmed-after-timeout path 都有接上）,呼叫**跟 OfferSection 同一個** `setOrderOfferBranch`,結果不管成功或失敗都會顯示明確橫幅（成功：`calcHandoffAppliedOk`；分店沒有折扣權限等原因失敗：`calcHandoffAppliedFailed`,非致命,訂單本身仍算建立成功——best-effort 模式跟 `copyPackageItemsToOrder`/invoice 上傳同一套原則,絕不因為這步失敗就假裝訂單沒建好）。**全程不繞過** can_edit_offer/can_discount——calculator 本身沒有的權限門檻,在這一步透過 RLS/trigger 原樣生效。②~~**刻意不帶過去**——計算器裡的**逐項產品清單與每行單價**完全不會自動變成 `order_items`~~ **這條決定已被下方第十五切片推翻**：owner 要求補上這個缺口，逐項產品清單（名稱/代碼/數量）現在會自動帶過去，單價則視 `can_edit_offer` 而定（見 P2-70）。舊的 UI copy（`calcHandoffScopeHint`/`calcConvertScopeNote`）已同步改寫，不再講「不會帶過去」 |
+| P2-64 | 「Buat Pesanan」範圍決定背後的完整推理（為什麼當時不做逐項 order_items 自動帶入） | 已被 P2-70 部分推翻，理由保留供對照 | 查過 `web/app/cabang/pesanan/[orderId]/order-items-section.tsx`（cabang 側）：能改的欄位只有 note/color_code/custom_size/quantity，**完全沒有 unit_price/line_discount**——那兩欄的編輯 UI **純粹是 admin 端才有**（`order-items-section.tsx` 的檔頭註解自己寫「TIDAK ada kolom harga di sini sama sekali — itu murni sisi admin」，這句話至今仍真——cabang 端手動編輯 order_items 依然沒有價格欄位，改變的只是「Buat Pesanan」這個自動交接的寫入路徑），DB 層雖然 `fn_guard_order_item_price_cols`（0014）允許 can_edit_offer 的分店寫入這兩欄，但**當時沒有任何 cabang 端畫面呼叫這條路徑**。同時 `createCustomerAndOrder`（訂單建立本身）完全是 Package-based（0008）,品項來自 `copyPackageItemsToOrder` 複製 Package 內容,**不接受呼叫端傳入任意品項清單——這件事本身沒有變**,計算器裡憑空選的產品組合（不對應任何既有 Package）依然沒有寫入`createCustomerAndOrder`本身的位置。**P2-70 沒有推翻這個結論**，而是繞開它：新增一條**獨立於訂單建立本身**的第二段 best-effort 寫入（`copyCalcCartItemsToOrder`，在訂單建立成功**之後**呼叫，跟 `setOrderOfferBranch` 同一個模式），不改動 `createCustomerAndOrder`/`copyPackageItemsToOrder` 一個字。當時的結論「唯一誠實、不用新造 schema/UI 就能安全帶過去的東西是數字，不是品項」，準確地說應該是「不用新造 schema/UI 就能帶過去的是數字；品項需要一條新的獨立寫入路徑，但也不需要新 schema」——當時判斷「品項做不到」是因為只考慮了`createCustomerAndOrder`內部這一條路徑，沒有考慮訂單建立**之後**再补一段獨立寫入的可能性 |
 
 **本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
-- **逐項產品/單價不會自動流入 order_items**——見 P2-64 完整推理。要做的話需要
-  在 cabang 端新增品項編輯 UI 開放 unit_price（目前只有 admin 端有）,或者訂
-  單建立本身改成接受手動品項清單（目前是 Package-based）,兩者都是新功能,超
-  出本切片範圍,委派描述也明講「若需要就停下重新考慮範圍」。
+- ~~**逐項產品/單價不會自動流入 order_items**~~ ⚠️ **已在下方第十五切片
+  （P2-70）補上**——當時的推理（見 P2-64）沒有錯,只是只考慮了「訂單建立
+  本身改成接受品項清單」這一條路徑；後來補上的做法是訂單建立**成功之後**
+  再加一段獨立的 best-effort 寫入,不動 `createCustomerAndOrder` 本身。
+  cabang 端手動編輯 order_items 依然沒有 unit_price 欄位（P2-64 那句話這部
+  分還是真的）。
 - **不驗證 katalog 之外的商品**——計算器只能加入 `sanci_products` 目錄裡的
   產品,不支援臨時手打一個目錄外的品項/價格列（例如客戶想要目錄沒有的客製
   品）。這跟 `/cabang/produk` 的資料源一致,不是刻意縮減,只是同一個既有限制
@@ -682,6 +684,46 @@ Owner 原話（跨多則訊息累積）："分行的編號呢" — 分店自己�
   `web/app/cabang/pelanggan/actions.ts` 的 `updateCustomer`（只能改既有
   客戶，不能建立）永遠不會寫到這個欄位。
 
+### Phase 2 第十五切片（Kalkulator 品項交接補完，2026-08-21，owner 定案）
+
+Owner 要求把第十二切片（P2-62/63/64）當時明講「刻意不做」的缺口補上：計算器
+購物車裡的**逐項產品清單**（不只是小計＋折扣鏈的數字）要能一起帶進「Buat
+Pesanan」建出來的訂單。完整背景見上方 P2-63/P2-64（已在原地修正，不是留著
+不管）——當時的判斷本身沒有錯，只是只評估了「訂單建立本身
+（`createCustomerAndOrder`）改成接受任意品項清單」這一條路徑；這次做法是
+**訂單建立成功之後**再補一段獨立的 best-effort 寫入，完全不動
+`createCustomerAndOrder`/`copyPackageItemsToOrder` 一個字。
+
+**驗證 0014 的分店 INSERT policy 是否真的足夠（委派任務要求先查再動手）**：
+讀了 `oi_partner_insert` 的完整定義（`0014_permissions_items_shipping.sql`
+§8）——`with check (exists (select 1 from partner_orders o where o.id =
+order_items.order_id and fn_can_edit_branch(o.branch_id) and o.status =
+'REGISTERED'))`。剛建立的訂單一定是 `REGISTERED`、一定是建立者自己分店的
+訂單（`fn_can_edit_branch` 對自己分店恆真），結論：**這條 policy 對這個用
+途完全足夠，不需要新 migration**——跟委派任務的預期一致。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-70 | Kalkulator 購物車品項（產品/名稱/代碼/數量/單價）隨「Buat Pesanan」一起交接進 `order_items` | `UNVERIFIED` | **Hand-off 擴充**（`web/lib/calculator-shared.ts`）：`CalcHandoff` 新增 `lines: CalcHandoffLine[]`（productId/name/code/unitPrice/qty），跟既有的小計/折扣鏈欄位共用同一個 key、同一套「讀一次就清除」語意——沒有新增第二個 localStorage key，也沒有改變既有的一次性/ephemeral 特性。`kalkulator-client.tsx` 的 `handleConvertToOrder` 寫入時原樣附上 `lines`（name/code 只給 banner 摘要用，實際寫入前會重新從 `sanci_products` 撈一次，見下）。**新 Server Action**（`web/app/cabang/pesanan/actions.ts::copyCalcCartItemsToOrder`，緊鄰 `setOrderOfferBranch` 之上）：逐字複刻 `copyPackageItemsToOrder` 的 idempotency/error-handling 慣例——`client_request_id` 用 `{orderClientRequestId}:calc-item:{product_id}` 確定性鍵（重試不會產生重複行）；name_snapshot/code_snapshot 一律**重新**從 `sanci_products` 撈（不信任 localStorage 快照，LESSONS #6）；unit_price/qty 則保留 client 輸入（katalog 本身沒有價格，0010，店員手填的價格沒有更權威的來源可撈）；best-effort，呼叫時機在訂單**已經**建立成功之後，失敗絕不影響已建立的訂單。**價格欄位降級**：`trg_order_item_price_guard`（0014）對 `unit_price` 的把關原樣生效——分店沒有 `can_edit_offer` 時 INSERT 帶 `unit_price` 會被 trigger 拒絕（訊息含"Kolom harga per baris"字串，程式碼比對這段文字而非倚賴 SQLSTATE，因為 `raise exception` 沒指定代碼，預設落在通用的 P0001），程式碼**捕捉這個特定拒絕**、同一行**不含 unit_price 重試一次**——商品照樣建立（name/code/qty 齊全），只是沒有價格；回傳值 `priceGuardDegraded` 讓呼叫端知道發生了這個降級,不當成錯誤處理,也不悄悄吞掉。**呼叫點**：`new-order-form.tsx` 的 `applyCalcHandoffIfNeeded`（跟 `setOrderOfferBranch` 完全同一個呼叫時機、同一個觸發條件——只有staf按過「Gunakan angka ini」的 `calcApply` 為真才會執行）,兩段寫入（折扣鏈／品項）各自獨立 best-effort、各自有自己的結果橫幅（`calcOutcomeMsg`／新增的 `calcItemsMsg`）,不會互相影響彼此的成功/失敗判定。**文案**：`calcHandoffScopeHint`（交接前橫幅）／`calcConvertScopeNote`（計算器頁面底部）兩處原本明講「產品清單不會帶過去」的舊承諾已改寫為新行為的誠實敘述；新增 `calcItemsAppliedOk`/`calcItemsAppliedPriceNote`/`calcItemsAppliedPartial`/`calcItemsAppliedFailed` 四個 key,分別對應全部成功（可能附帶價格降級提示）／部分成功／全部失敗三種結果,三語系（id/en/zh）全部走 `Messages`,`satisfies Shape` 型別檢查會抓漏翻。**沒有新 migration**——完全複用 0014 既有的 `oi_partner_insert` policy 與 `trg_order_item_price_guard`（驗證見上方獨立段落）。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、`npx eslint .` ✓、`rm -rf .next && npm run build` ✓（`/cabang/kalkulator`／`/cabang/pesanan/baru` 皆出現在路由表,`/offline` 仍 `○` 靜態預渲染）;新增簡體字串已跑禁用詞掃描零命中,id/en 區塊 CJK 殘留掃描零命中 |
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **計算器裡目錄外的商品依然不能加入購物車**——沒有改變,見 P2-62 既有限制
+  （計算器只能加入 `sanci_products` 目錄裡的產品）。
+- **cabang 端手動編輯 order_items 依然沒有 unit_price/line_discount 欄位**
+  ——`order-items-section.tsx`（cabang 側）沒有被這一刀觸碰,價格欄位的編輯
+  UI 仍然純粹是 admin 端的東西（P2-64 那句話這部分沒有變）。這一刀只是讓
+  「Buat Pesanan」這一個特定的自動交接動作,在建立當下把已經在計算器裡填好
+  的單價**一併寫入**（如果權限允許的話）,不等於分店現在有了編輯已建立
+  order_items 價格的能力。
+- **沒有批次修正/重新套用機制**——如果 staf 沒有按「Gunakan angka ini」就
+  直接建單（例如手滑跳過banner,或本來就不是從計算器過來的一般建單流程）,
+  計算器裡的品項就跟折扣鏈一樣單純被留在原地不會自動生效,hand-off 依然
+  存在直到staf下次打開計算器頁面時被判斷為已經舊掉的內容（沿用既有
+  一次性 hand-off 邏輯,見 lib/calculator-shared.ts 檔頭）。
+- **價格降級沒有補救 UI**——`priceGuardDegraded` 為真時,分店只會在橫幅看到
+  誠實的文字說明,沒有提供「事後幫我把價格補上」的按鈕（分店端本來就沒有
+  unit_price 編輯 UI,見上,所以這也不是這一刀縮減的範圍,是既有邊界的自然
+  延伸）。
 ### UI/UX 與效能 audit 補跑，2026-08-21
 
 補跑 Audit round 3（2026-08-17）四領域裡因額度中斷而沒做完的兩塊。上一輪的
@@ -691,6 +733,14 @@ Owner 原話（跨多則訊息累積）："分行的編號呢" — 分店自己�
 審計範圍是**今天的整個 app**，不是 2026-08-17 當時的樣子：8/17 之後新增的
 Apple 風設計系統 v2、三語系、chip 視覺體系、Package 產品組成、訂單折扣鏈、
 一鍵產生 SO/DO/Invoice、客戶管理頁與 Kalkulator Penawaran 全部納入。
+
+> ⚠️ **一個誠實的範圍缺口**：上面那一節「第十五切片（Kalkulator 品項交接
+> 補完）」是本輪 audit **掃完之後**才併進 main 的（兩者平行作業，基準點都是
+> `ef2c8b5`）。本輪的結論**沒有涵蓋**該切片新增/改動的程式碼——
+> `new-order-form.tsx` 的品項交接段落、`calculator-shared.ts` 的新函式、
+> `cabang.ts` 的新文案都沒有被這次的 UI/UX 與效能檢查看過。合併後兩邊的
+> `tsc`/`eslint`/`next build` 已對整棵 `web/` 一起跑過並全綠（LESSONS #31），
+> 但那是「不衝突」，不等於「已審計」。
 
 **結論：P1 = 2、P2 = 6、P3 = 3，全部已修**；另有 4 項因為需要 owner 判斷或
 會動到平行作業中的共用契約，**只回報不動手**（列在最後）。

@@ -139,6 +139,23 @@ SANCI 及各合作商名称、订单编号与各种代码。
 Line deduction / 单行扣减金额"的叫法——它是**单行**的手填扣减，与订单
 层级的折扣链（0015）是两个不同的东西，名字刻意分开以免混淆。
 
+**计算器购物车品项现在会带入 order_items（修正早前的范围决定）**：
+Phase 2 第十二切片（Kalkulator Penawaran，2026-08-20）当时明确决定"计算器
+里的逐项商品清单与每行单价完全不会自动变成 `order_items`"（见 FEATURES.md
+当时的 P2-63/P2-64）——理由是分店端建立订单完全走 Package-based（0008），
+没有任何写入路径接受 client 传入任意品项清单。这不是判断错误，是当时真实
+的系统限制；owner 后来要求补上这个缺口，所以新增了一条独立的写入
+（`copyCalcCartItemsToOrder`，`web/app/cabang/pesanan/actions.ts`），不改
+`createCustomerAndOrder`本身的 Package-based 建单方式，纯粹是订单建立成功
+之后的第二段 best-effort 写入。**没有新 migration**——完全复用 order_items
+既有的分店 INSERT policy 与 `trg_order_item_price_guard`（皆为 0014 既有）：
+`unit_price`/`line_discount` 依然只有 partner 的 `can_edit_offer` 开启才能
+写入；计算器本身不设权限门槛这件事（P2-62 的既有设计）不变，只是这个
+免权限只到"算给客户看"为止——真正落到 order_items 这一步时，价格栏位的
+权限把关跟 OfferSection/`setOrderOfferBranch` 完全一样地生效，partner 没
+有那个权限时，商品仍会建立，只是价格栏位留空（trigger 拒绝后重试一次，
+不带 unit_price）。
+
 **"Sales"这个词，0018 沿用既有决定，没有重新造词**：`sanci_sales_staff`
 （SANCI 自己内部的业务员名单，用来生成 `customer_code` 里的 SalesCode）
 跟上面"Penjual｜Sales｜销售员"这一行说的是**同一个词**，三语言维持完全

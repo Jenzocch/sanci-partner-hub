@@ -213,6 +213,16 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
       markupPct: markupTrimmed === "" ? null : parsedMarkup,
       cashDiscount: parsedCash,
       finalAmount: finalDisplay,
+      // name/code ikut untuk ringkasan banner saja — copyCalcCartItemsToOrder
+      // mengambil ulang name_snapshot/code_snapshot dari sanci_products saat
+      // benar-benar menulis (LESSONS #6), tidak mempercayai nilai ini.
+      lines: lines.map((l) => ({
+        productId: l.productId,
+        name: l.name,
+        code: l.code,
+        unitPrice: l.unitPrice,
+        qty: l.qty,
+      })),
     });
     // Kalkulator sudah selesai dipakai untuk penawaran ini — draf lokalnya
     // tidak perlu bertahan lagi (beda dari handoff, yang justru BARU ditulis

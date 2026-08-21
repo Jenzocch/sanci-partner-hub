@@ -314,8 +314,9 @@ const id = {
   calcBreakdownAfterMarkup: "Setelah Markup",
   calcConvertCta: "Buat Pesanan",
   calcConvertScopeNote:
-    "\"Buat Pesanan\" membawa subtotal & rantai diskon ke pesanan baru. Daftar produk dan harga per baris TIDAK " +
-    "otomatis masuk ke pesanan — sistem belum mendukung input item manual saat membuat pesanan.",
+    "\"Buat Pesanan\" membawa subtotal, rantai diskon, dan daftar produk (nama, kode, jumlah) ke pesanan baru. " +
+    "Harga per barang ikut kalau toko Anda punya izin \"Lihat & atur Penawaran SANCI\" — kalau belum, barangnya " +
+    "tetap dibuat tanpa harga.",
   calcClearCartCta: "Kosongkan",
   calcClearCartConfirm: "Kosongkan seluruh keranjang kalkulator?",
   calcFooterItemCount: "{n} barang",
@@ -329,11 +330,21 @@ const id = {
   calcHandoffScopeHint:
     "Ini akan mengisi \"Total belanja pelanggan\" dengan subtotal dari kalkulator. Rantai diskonnya otomatis " +
     "diterapkan ke Penawaran SANCI setelah pesanan ini berhasil dibuat (kalau toko Anda punya izin diskon). " +
-    "Daftar produk & harga per baris dari kalkulator TIDAK ikut — masukkan manual di Isi Pesanan bila perlu.",
+    "Daftar produk dari kalkulator (nama, kode, jumlah) juga ikut ditambahkan ke pesanan — harga per barang ikut " +
+    "kalau toko Anda punya izin \"Lihat & atur Penawaran SANCI\".",
   calcHandoffAppliedOk: "Rantai diskon dari Kalkulator Penawaran berhasil diterapkan ke Penawaran SANCI pesanan ini.",
   calcHandoffAppliedFailed:
     "Pesanan berhasil dibuat, tapi rantai diskon dari Kalkulator Penawaran belum bisa otomatis diterapkan — toko " +
     "Anda mungkin belum punya izin diskon. Masukkan manual di halaman pesanan ini, atau hubungi SANCI Admin.",
+  calcItemsAppliedOk: "{n} produk dari kalkulator berhasil ditambahkan ke pesanan ini.",
+  calcItemsAppliedPriceNote:
+    "Harga per barang tidak ikut karena toko Anda belum punya izin \"Lihat & atur Penawaran SANCI\".",
+  calcItemsAppliedPartial:
+    "{n} dari {total} produk dari kalkulator berhasil ditambahkan ke pesanan ini; sisanya gagal — cek dan tambahkan " +
+    "manual di Isi Pesanan bila perlu.",
+  calcItemsAppliedFailed:
+    "Pesanan berhasil dibuat, tapi produk dari kalkulator belum bisa otomatis ditambahkan — tambahkan manual di " +
+    "Isi Pesanan.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -620,8 +631,9 @@ const en = {
   calcBreakdownAfterMarkup: "After markup",
   calcConvertCta: "Create order",
   calcConvertScopeNote:
-    "\"Create order\" carries the subtotal & discount chain into a new order. The product list and per-line " +
-    "prices are NOT carried over automatically — order creation doesn't support manual item entry yet.",
+    "\"Create order\" carries the subtotal, discount chain, and product list (name, code, quantity) into a new " +
+    "order. Per-item prices come along too if your store has \"View & set SANCI Offer\" permission — if not, " +
+    "items are still created, just without a price.",
   calcClearCartCta: "Clear",
   calcClearCartConfirm: "Clear the whole calculator cart?",
   calcFooterItemCount: "{n} items",
@@ -635,11 +647,21 @@ const en = {
   calcHandoffScopeHint:
     "This fills \"Customer's total purchase\" with the calculator's subtotal. The discount chain is applied " +
     "automatically to the SANCI Offer once this order is created (if your store has discount permission). The " +
-    "calculator's product list and per-line prices are NOT carried over — enter them manually in Order Items if needed.",
+    "calculator's product list (name, code, quantity) is also added to the order — per-item prices come along " +
+    "if your store has \"View & set SANCI Offer\" permission.",
   calcHandoffAppliedOk: "The Offer Calculator's discount chain was applied to this order's SANCI Offer.",
   calcHandoffAppliedFailed:
     "The order was created, but the Offer Calculator's discount chain couldn't be applied automatically — your " +
     "store may not have discount permission yet. Enter it manually on this order's page, or contact SANCI Admin.",
+  calcItemsAppliedOk: "{n} products from the calculator were added to this order.",
+  calcItemsAppliedPriceNote:
+    "Prices weren't carried over because your store doesn't have \"View & set SANCI Offer\" permission yet.",
+  calcItemsAppliedPartial:
+    "{n} of {total} products from the calculator were added to this order; the rest failed — check and add them " +
+    "manually in Order Items if needed.",
+  calcItemsAppliedFailed:
+    "The order was created, but the calculator's products couldn't be added automatically — add them manually in " +
+    "Order Items.",
 } satisfies Shape;
 
 const zh = {
@@ -910,8 +932,8 @@ const zh = {
   calcBreakdownAfterMarkup: "加成后",
   calcConvertCta: "创建订单",
   calcConvertScopeNote:
-    "\"创建订单\"会把小计和折扣链带入新订单。计算器里的产品清单和每行单价不会自动进入订单 —— 目前系统还不支持" +
-    "在创建订单时手动输入品项。",
+    "\"创建订单\"会把小计、折扣链和产品清单(名称、代码、数量)带入新订单。如果您的门店有\"查看及设置 SANCI 方案\"" +
+    "权限,每件商品的单价也会一起带过去 —— 没有的话,商品仍会创建,只是不带价格。",
   calcClearCartCta: "清空",
   calcClearCartConfirm: "清空整个计算器购物车?",
   calcFooterItemCount: "{n}件",
@@ -924,11 +946,17 @@ const zh = {
   calcHandoffDismissCta: "忽略",
   calcHandoffScopeHint:
     "这会把计算器的小计填入\"客户在店内的消费总额\"。订单创建成功后,折扣链会自动应用到 SANCI 方案金额" +
-    "(如果您的门店有折扣权限)。计算器里的产品清单和每行单价不会带过来 —— 需要的话请到订单明细手动输入。",
+    "(如果您的门店有折扣权限)。计算器里的产品清单(名称、代码、数量)也会一起加入这笔订单 —— 每件商品的单价" +
+    "则要看您的门店是否有\"查看及设置 SANCI 方案\"权限。",
   calcHandoffAppliedOk: "方案计算器的折扣链已成功应用到这笔订单的 SANCI 方案金额。",
   calcHandoffAppliedFailed:
     "订单已经创建成功,但方案计算器的折扣链无法自动应用 —— 您的门店可能还没有折扣权限。请在这笔订单页面手动" +
     "输入,或联系 SANCI 管理员。",
+  calcItemsAppliedOk: "已成功把计算器里的 {n} 件产品加入这笔订单。",
+  calcItemsAppliedPriceNote: "价格没有一起带过来 —— 您的门店还没有\"查看及设置 SANCI 方案\"权限。",
+  calcItemsAppliedPartial:
+    "计算器里 {total} 件产品中,{n} 件已成功加入这笔订单;其余失败了 —— 请到订单明细查看,需要的话手动补上。",
+  calcItemsAppliedFailed: "订单已经创建成功,但计算器里的产品无法自动加入 —— 请到订单明细手动补上。",
 } satisfies Shape;
 
 export const cabang = { id, en, zh };

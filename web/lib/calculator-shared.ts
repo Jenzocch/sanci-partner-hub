@@ -158,15 +158,40 @@ export function clearCalcDraft(): void {
  *
  * Ini BUKAN draf: ditulis sekali saat staf menekan "Buat Pesanan", dibaca
  * lalu dihapus oleh new-order-form.tsx (langsung atau setelah staf memilih
- * "Abaikan"). Isinya cuma ANGKA (subtotal + rantai diskon) — daftar produk/
- * harga per baris SENGAJA tidak ikut, karena tidak ada tempat menuliskannya:
- * pembuatan pesanan hari ini masih berbasis Package (0008), bukan input
- * order_items manual, dan kolom harga per baris (unit_price/line_discount,
- * 0014) sama sekali tidak ada di form cabang (murni sisi admin) — lihat
- * catatan di new-order-form.tsx titik pemakaian handoff ini.
+ * "Abaikan"). Isinya ANGKA (subtotal + rantai diskon) DAN — sejak revisi
+ * penutup gap ini — daftar baris keranjang (`lines`), supaya "Buat Pesanan"
+ * benar-benar menutup gap yang tadinya sengaja ditinggalkan (lihat
+ * FEATURES.md, slice yang merevisi P2-63/P2-64): dulu daftar produk/harga
+ * per baris TIDAK ikut karena pembuatan pesanan sepenuhnya Package-based
+ * (0008) dan tidak ada jalur tulis yang menerima daftar item bebas. Jalur
+ * tulis itu SEKARANG ada (`copyCalcCartItemsToOrder`, cabang/pesanan/
+ * actions.ts) — dipanggil new-order-form.tsx SETELAH pesanan berhasil
+ * dibuat, tepat di titik yang sama dengan penerapan rantai diskon
+ * (applyCalcHandoffIfNeeded), dan tetap lewat RLS/trigger order_items 0014
+ * seperti biasa (trg_order_item_price_guard tetap mensyaratkan
+ * can_edit_offer untuk unit_price — lihat catatan di fungsi itu).
  * ------------------------------------------------------------------ */
 
 const CALC_HANDOFF_KEY = "sanci:kalkulator:handoff";
+
+/**
+ * Satu baris keranjang, versi RINGKAS untuk hand-off (bukan CalcLine penuh —
+ * photoUrl tidak relevan untuk order_items, jadi tidak ikut disimpan).
+ * name/code IKUT dikirim murni untuk ringkasan di banner sebelum dipakai;
+ * copyCalcCartItemsToOrder TETAP mengambil ulang name_snapshot/code_snapshot
+ * dari sanci_products lewat productId saat benar-benar menulis (LESSONS #6,
+ * tidak pernah mempercayai snapshot dari client/localStorage untuk isi baris
+ * riwayat) — unitPrice/qty tidak punya sumber otoritatif lain (harga diketik
+ * bebas oleh staf, katalog produk tidak punya harga, 0010) jadi keduanya
+ * TETAP dari hand-off ini.
+ */
+export type CalcHandoffLine = {
+  productId: string;
+  name: string;
+  code: string | null;
+  unitPrice: number;
+  qty: number;
+};
 
 export type CalcHandoff = {
   savedAt: number;
@@ -177,6 +202,7 @@ export type CalcHandoff = {
   markupPct: number | null;
   cashDiscount: number;
   finalAmount: number;
+  lines: CalcHandoffLine[];
 };
 
 export function writeCalcHandoff(h: Omit<CalcHandoff, "savedAt">): void {
@@ -186,6 +212,18 @@ export function writeCalcHandoff(h: Omit<CalcHandoff, "savedAt">): void {
     // Diamkan — kegagalan handoff tidak boleh menghalangi navigasi ke Pesanan Baru,
     // itu sendiri masih berfungsi penuh tanpa handoff (staf tinggal isi manual).
   }
+}
+
+function isValidHandoffLine(v: unknown): v is CalcHandoffLine {
+  if (!v || typeof v !== "object") return false;
+  const l = v as Record<string, unknown>;
+  return (
+    typeof l.productId === "string" &&
+    typeof l.name === "string" &&
+    (l.code === null || typeof l.code === "string") &&
+    typeof l.unitPrice === "number" &&
+    typeof l.qty === "number"
+  );
 }
 
 export function readCalcHandoff(): CalcHandoff | null {
@@ -210,6 +248,7 @@ export function readCalcHandoff(): CalcHandoff | null {
       markupPct: typeof parsed.markupPct === "number" ? parsed.markupPct : null,
       cashDiscount: typeof parsed.cashDiscount === "number" ? parsed.cashDiscount : 0,
       finalAmount: typeof parsed.finalAmount === "number" ? parsed.finalAmount : parsed.subtotal,
+      lines: Array.isArray(parsed.lines) ? parsed.lines.filter(isValidHandoffLine) : [],
     };
   } catch {
     return null;
