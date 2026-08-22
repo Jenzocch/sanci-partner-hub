@@ -1549,7 +1549,7 @@ export async function setOrderOfferBranch(
       return { error: { field: "discount_pcts", message: m.cabang.cabangOfferDiscountInvalid } };
     }
     if (written.detail.includes("nilai akhir negatif")) {
-      return { error: { field: "cash_discount", message: m.cabang.cabangOfferFinalNegative } };
+      return { error: { field: "cash_discount", message: m.common.offerFinalNegative } };
     }
     if (written.detail.includes("Boleh mengatur diskon")) {
       return { error: { field: "discount_pcts", message: m.cabang.cabangOfferNoPermissionDiscount } };

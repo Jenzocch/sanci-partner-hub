@@ -1,10 +1,10 @@
-/* Kalkulator Penawaran (/cabang/kalkulator). Scoped CSS Module — bukan
-   globals.css, sama alasan dengan produk.module.css: slice ini hanya
-   menyentuh web/app/cabang/**. Semua warna/radius/shadow/tap-target tetap
-   memakai token STYLE CONTRACT (var(--surface) dkk), CSS Module hanya
-   melokalkan NAMA KELAS. Grid foto & placeholder SENGAJA dicopy dari
-   produk.module.css (bukan di-share) supaya kedua halaman boleh berubah
-   independen nanti tanpa saling mematahkan. */
+/* Kalkulator Penawaran (/cabang/kalkulator DAN /admin/kalkulator — satu
+   komponen bersama, lib/kalkulator-client.tsx). Scoped CSS Module — bukan
+   globals.css, sama alasan dengan produk.module.css. Semua warna/radius/
+   shadow/tap-target tetap memakai token STYLE CONTRACT (var(--surface) dkk),
+   CSS Module hanya melokalkan NAMA KELAS. Grid foto & placeholder SENGAJA
+   dicopy dari produk.module.css (bukan di-share) supaya kedua halaman boleh
+   berubah independen nanti tanpa saling mematahkan. */
 
 /* ── Grid produk (tab "Produk") — sama pola dengan produk.module.css,
    plus overlay badge jumlah keranjang. ── */
@@ -177,6 +177,15 @@
   font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
 }
 .stickyBtn { flex: none; }
+
+/* Varian ADMIN: di desktop, shell admin punya rel navigasi selebar
+   --side-w (globals.css §7) yang bagian bawahnya berisi tombol Keluar +
+   pengalih bahasa — bar fixed selebar viewport akan menutupinya. Digeser
+   ke kanan selebar rel; di bawah 900px rel berubah jadi bar atas
+   (globals.css) sehingga offset ini tidak diperlukan. */
+@media (min-width: 900px) {
+  .stickyBarAdmin { left: var(--side-w); }
+}
 
 /* Ruang di bawah halaman supaya konten terakhir tidak ketutup stickyBar. */
 .bottomSpacer { height: 84px; }

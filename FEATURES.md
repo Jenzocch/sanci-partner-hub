@@ -1007,6 +1007,59 @@ partner），不想再維護第二套分店帳號。訂單結構不放寬：**�
 6. admin 表單上傳 invoice 成功、分店端詳情頁看得到同一張 invoice；
 7. 弱網重試不產生重複訂單/客戶（提交後斷網再重送同一表單）。
 
+### Phase 2 第十七切片（Admin 端 Kalkulator Penawaran，2026-08-22）
+
+Owner 的 admin 帳號（全部 `platform_admins`）要能直接用報價計算器，不必切到
+分店帳號。做法是**同一個元件服務兩條路由**（不是複製一份）：
+`kalkulator-client.tsx`＋`kalkulator.module.css` 從 `app/cabang/kalkulator/`
+搬到 `web/lib/`（git mv，保留歷史），新路由 `/admin/kalkulator` 與既有
+`/cabang/kalkulator` 都 import 它。折扣鏈數學、購物車、草稿機制三者零改動。
+**零 migration、零 RLS 變動**——純讀取功能。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-74 | 新頁 `/admin/kalkulator`（server page＋`loading.tsx` skeleton，照 2026-08-21 admin skeleton 慣例）＋ `admin-nav.tsx` 新導覽項（`navCalculator`，排在 Produk 之後——同樣以產品目錄為起點的日常工具） | `UNVERIFIED` | **產品來源**：不走 `sanci_catalog_access` gate（那是「目錄開給哪個 partner」的開關，admin 是目錄的主人）——直接查 `sanci_products` 走 admin RLS `sp_admin_all`（讀 0010 §5 逐字確認：`for all using fn_is_admin()`，且不回查自己那張表〔LESSONS #25 註解原文就寫在 policy 上方〕），與 `/admin/produk` 同一條查詢路徑，只多 `.eq("status","ACTIVE")`——計算器是拿「現在真的能訂的東西」報價，不是管理目錄（INACTIVE 在 /admin/produk 看得到、在這裡刻意看不到；cabang 端這層過濾本來就由 `sp_partner_read` RLS 做掉）。`order("name").limit(200)` 與 cabang 頁一致，兩邊行為同步。缺表（42P01）顯示 `catalogMigrationMsg`、其他錯誤顯示 `errorLoad`——照 /admin/produk 的錯誤處理慣例。auth 由 admin layout 統一把關（頁面本身零寫入，RLS 是真正邊界〔LESSONS #5〕） |
+| P2-75 | i18n 搬遷：計算器元件實際讀到的 33 個 key 從 `cabang` slice 搬進 `common` slice（26 個 `calc*`＋`calcPageTitle`＋5 個目錄清單 key〔`produkSearchPlaceholder`/`filterAll`/`noProductsYet`/`noProductsMatchSearch`/`noPhotoPlaceholder`〕＋1 個合併 key），元件改讀 `useCommonMessages()`（i18n 拆分時建的跨區 hook，Cabang/Admin/Common 三種 provider 下都能解析）。**逐一追蹤實際用途才搬，不按名字前綴搬**：`calcIntroNote`/`calcConvertCta`/`calcConvertScopeNote`（提到分店訂單流程）與全部 `calcHandoff*`/`calcItems*`（只被 cabang 訂單表單讀）**留在 cabang slice**。三個真理來源檔案的譯文**一字未改**（純搬遷，`satisfies Shape` 三語言互鎖）；cabang 端其他讀這些 key 的檔案（`produk-list-client.tsx`、`order-list-client.tsx`、`pesanan/actions.ts`）機械式改讀 `m.common.*` | `UNVERIFIED` | **順手消掉一組跨 slice 重複**：`cabangOfferFinalNegative`（cabang）與 `orderOfferFinalNegative`（admin）三語言逐字相同——若只把 cabang 那份搬進 common、admin 那份留著，反而**製造**「同一譯文活在兩個 slice」的違規，所以合併成 `common.offerFinalNegative` 一個 key，三個呼叫點（計算器、cabang `setOrderOfferBranch`、admin `setOrderOfferAdmin` 錯誤翻譯）全指向它。**留下的一個已知名字影子**：`produkSearchPlaceholder` 在 admin slice 還有一個**措辭不同**的同名 key（admin 產品頁搜尋不含分類）——不是譯文重複，common.ts 註解有標明。**實測 payload 數字（id 語系，`tsc` 編譯後 Node 直接量 `JSON.stringify` 位元組；en/zh 同量級）**：`common` 194→227 key，7,818→9,481 B 原始（+1,663）／gzip 2,775→3,390（+615）；`cabang` slice 256→223 key（−33）；`admin` slice 563→564（−1 合併＋2 新增）。**每個掛載點的實際變化**：cabang 頁 payload 24,229→24,223 B（−6 B，純搬遷、位置互換，符合預期）；admin 頁 45,617→47,469 B（+1,852 原始／+541 gzip——這是本功能的真實成本：admin 現在真的要用這些文案）；**登入頁（CommonI18nProvider）7,818→9,481 B（+1,663 原始／+615 gzip）——登入頁用不到計算器文案卻要背著它們**，這是「搬進 common」方案自知的代價，換來的是零譯文重複＋單一元件；若日後 common 再被這樣加大，該考慮為跨區元件開第四個 slice 而不是繼續塞 common |
+| P2-76 | 元件雙區化的兩個介面決定：①草稿 localStorage key **按區分開**（`sanci:kalkulator:cart`〔cabang，維持原值，既有草稿不失效〕vs `sanci:kalkulator:cart:admin`）——admin 與分店是不同登入，但同一台瀏覽器輪流登入是可能的（SANCI 辦公室測試機），key 相同會讓 admin 的購物車草稿在分店 session 裡冒出「有未完成的草稿」（反向亦然），理由寫在 `calculator-shared.ts` 註解；②「Buat Pesanan」CTA＋scope note 走 **prop**（`convert: { cta, scopeNote } | null`）而不是搬 key——文字屬於 cabang slice（明講分店訂單流程），cabang route 從自己的 slice 填值傳入，admin route 傳 `null` | `UNVERIFIED` | **admin v1 刻意不接「Buat Pesanan」**：hand-off（`CalcHandoff`）寫 localStorage、由 `/cabang/pesanan/baru` 讀取；admin 建單表單 `/admin/orders/baru`（第十六切片）沒有 hand-off 支援，接上它是獨立的一刀。所以 admin 路由上 CTA 與 scope note **整個不渲染**（不是 disabled），計算器就是純報價工具；`handleConvertToOrder` 另有 `!convert` 早退當保險。**cabang 行為逐字驗過**：rename-aware `git diff` 全文核對——每一處渲染字串都是「同一份譯文換了 slice 位置」或「同一份譯文改由 prop 傳入」，行為零改變。**sticky 底欄 admin 變體**：`.stickyBarAdmin` 在 ≥900px 時 `left: var(--side-w)`——admin shell 的側欄（sticky，無 z-index）底部有「Keluar」與語言切換，viewport 全寬的 fixed 底欄（z-index 25）會蓋住它們；<900px 側欄變頂欄（globals.css §7），offset 不需要 |
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **admin 端沒有「Buat Pesanan」**（見 P2-76）——v1 admin 計算器是獨立報價工
+  具；hand-off 到 admin 建單表單是可能的後續切片，接的時候只要把
+  `/admin/kalkulator/page.tsx` 的 `convert={null}` 換成 admin 自己的文案＋
+  在 `/admin/orders/baru` 補 hand-off 讀取即可，元件本身不用再動。
+- **admin 不顯示 INACTIVE 產品**——刻意（報價用），要看全目錄去 /admin/produk。
+- **GLOSSARY 零新詞**——`navCalculator` 直接用既有詞條「Kalkulator Penawaran /
+  Offer Calculator / 方案计算器」，不造縮短版新詞。
+- **`/offline` 變大是本切片的已知副作用**（見下方驗證）——不是 bug，是
+  offline-card 直接 import `common` 整個 export（LESSONS #38 的繫結規則）。
+
+**驗證**：`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、`npx eslint .` ✓、
+`rm -rf .next && npm run build` ✓（整棵樹一起跑，LESSONS #31）。路由表：
+`/admin/kalkulator` 出現（169 B／First Load 109 kB）；`/cabang/kalkulator`
+Size 4.32 kB→184 B、First Load **113 kB 不變**（元件搬進 lib 後進了兩條路由
+共享的 chunk，總量沒變，只是計帳位置變了）；**`/offline` 仍 `○` 靜態，但
+7.67→9.2 kB（First Load 110→112 kB）**——offline-card 直接
+`import { common }`，common 加的 33 key × 3 語系（約 +5 kB 原始）整包跟進
+（LESSONS #38：搖不掉物件屬性）。+1.5 kB 對離線後援頁不算致命但是真實成本，
+如果 Jenzo 覺得不值，替代方案是讓 offline-card 改 import 一個只含
+offline 三句話的微型 export——記在這裡，沒有先斬後奏。禁用詞掃描：diff 新增
+行零命中繁體禁用詞；CJK 掃描 38 行命中**全部**位於 zh 區塊（id/en 區塊零
+CJK）。草稿 key 分區與 cabang 舊 key 不變已在 `calculator-shared.ts` 常數層
+面核對。
+
+**待 Jenzo real-device 驗證（本環境連不上 supabase.co，只在代碼層讀證過）**：
+1. admin 帳號側欄看到「Kalkulator Penawaran」，開 `/admin/kalkulator`：產品
+   格帶照片、加入購物車、單價/數量/折扣鏈輸入正常；
+2. 折扣鏈數學與分店端一致（試 10.000.000 → 折扣 8 再 10 → markup 10% →
+   現金折讓 8.000 = 9.100.000）；
+3. admin 頁**沒有**「Buat Pesanan」按鈕與其說明文字；桌機下底部總額欄不會
+   蓋住側欄左下的「Keluar」；
+4. 分店端 `/cabang/kalkulator` 一切如舊：草稿橫幅、Buat Pesanan 交接到新訂
+   單頁、交接後草稿清空；
+5. 同一台瀏覽器先用 admin 堆一個購物車草稿、登出改登分店帳號——分店計算器
+   **不**出現 admin 的草稿（反向同理）；
+6. 三語言切換在兩條計算器路由都正常；`/offline` 斷網仍開得起來。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

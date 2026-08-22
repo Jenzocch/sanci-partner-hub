@@ -19,6 +19,15 @@ const id = {
   navPartners: "Partner",
   navProducts: "Produk",
   navCustomers: "Pelanggan",
+  navCalculator: "Kalkulator Penawaran",
+
+  // ---- Kalkulator Penawaran (/admin/kalkulator) ----
+  // Teks UI kalkulatornya sendiri hidup di common.ts (komponen bersama dua
+  // area, lihat lib/kalkulator-client.tsx); di sini hanya teks khusus admin.
+  calcAdminIntroNote:
+    "Alat hitung penawaran yang sama dengan sisi cabang — untuk tim SANCI tanpa berganti akun. Tidak ada yang " +
+    "tersimpan ke sistem: murni alat hitung. Membuat pesanan langsung dari sini belum tersedia — pakai " +
+    "\"+ Buat Pesanan\" di halaman Pesanan Partner.",
 
   // ---- Dipakai lintas layar admin ----
   openBtn: "Buka",
@@ -556,7 +565,8 @@ const id = {
   orderOfferDiscountInvalid: "Setiap nilai diskon harus lebih dari 0 dan kurang dari 100.",
   orderOfferMarkupInvalid: "Nilai markup harus antara 0 dan 100.",
   orderOfferCashInvalid: "Nilai potongan tunai tidak valid.",
-  orderOfferFinalNegative: "Kombinasi diskon/markup/potongan tunai menghasilkan nilai akhir negatif. Periksa kembali nilainya.",
+  // orderOfferFinalNegative digabung jadi common.offerFinalNegative
+  // (2026-08-22) — teksnya identik dengan cabangOfferFinalNegative lama.
   orderOfferNoPermissionDiscount: "Partner ini belum diizinkan mengatur diskon dari cabang — atur di tab Hak Akses.",
 
   // ---- Izin diskon (0015 — offer-permissions-form.tsx) ----
@@ -780,6 +790,12 @@ const en = {
   navPartners: "Partners",
   navProducts: "Products",
   navCustomers: "Customers",
+  navCalculator: "Offer Calculator",
+
+  calcAdminIntroNote:
+    "The same offer calculator branches have — for the SANCI team, without switching accounts. Nothing is " +
+    "saved to the system: it is purely a calculator. Creating an order straight from here isn't available " +
+    "yet — use \"+ Create order\" on the Partner orders page.",
 
   openBtn: "Open",
   filterStatusAll: "Status: all",
@@ -1278,7 +1294,6 @@ const en = {
   orderOfferDiscountInvalid: "Each discount value must be more than 0 and less than 100.",
   orderOfferMarkupInvalid: "The markup value must be between 0 and 100.",
   orderOfferCashInvalid: "That cash discount value is not valid.",
-  orderOfferFinalNegative: "This combination of discount/markup/cash discount produces a negative final price. Please check the values.",
   orderOfferNoPermissionDiscount: "This partner isn't allowed to set discounts from a branch yet — set it on the Access tab.",
 
   offerPermDiscountLabel: "May set discounts",
@@ -1496,6 +1511,11 @@ const zh = {
   navPartners: "合作商",
   navProducts: "产品",
   navCustomers: "客户",
+  navCalculator: "方案计算器",
+
+  calcAdminIntroNote:
+    "跟分店端一样的方案计算器 —— SANCI 团队不用切换账号就能用。任何内容都不会保存到系统:纯粹是计算工具。" +
+    "暂时不能直接从这里创建订单 —— 请到\"合作商订单\"页面用\"+ 创建订单\"。",
 
   openBtn: "打开",
   filterStatusAll: "状态：全部",
@@ -1949,7 +1969,6 @@ const zh = {
   orderOfferDiscountInvalid: "每笔折扣数值必须大于 0 且小于 100。",
   orderOfferMarkupInvalid: "加成数值必须在 0 到 100 之间。",
   orderOfferCashInvalid: "现金折让数值无效。",
-  orderOfferFinalNegative: "这个折扣/加成/现金折让组合会得出负数的最终金额，请检查数值。",
   orderOfferNoPermissionDiscount: "该合作商的分店还没有设置折扣的权限 —— 到「权限」分页设置。",
 
   offerPermDiscountLabel: "可以设置折扣",

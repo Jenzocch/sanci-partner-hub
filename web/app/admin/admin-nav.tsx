@@ -20,6 +20,7 @@ export default function AdminNav() {
   const isPartners = pathname === "/admin" || pathname.startsWith("/admin/partners");
   const isOrders = pathname.startsWith("/admin/orders");
   const isProducts = pathname.startsWith("/admin/produk");
+  const isCalculator = pathname.startsWith("/admin/kalkulator");
   const isCustomers = pathname.startsWith("/admin/pelanggan");
 
   return (
@@ -36,6 +37,11 @@ export default function AdminNav() {
       </Link>
       <Link href="/admin/produk" className={`navlink${isProducts ? " on" : ""}`}>
         {m.admin.navProducts}
+      </Link>
+      {/* Kalkulator langsung setelah Produk: alat harian yang sama-sama
+          berangkat dari katalog produk (2026-08-22). */}
+      <Link href="/admin/kalkulator" className={`navlink${isCalculator ? " on" : ""}`}>
+        {m.admin.navCalculator}
       </Link>
       <Link href="/admin/pelanggan" className={`navlink${isCustomers ? " on" : ""}`}>
         {m.admin.navCustomers}

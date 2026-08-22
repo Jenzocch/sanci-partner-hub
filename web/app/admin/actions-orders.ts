@@ -444,7 +444,7 @@ export async function setOrderOffer(
         return { error: { field: "discount_pcts", message: m.admin.orderOfferDiscountInvalid } };
       }
       if (written.detail.includes("nilai akhir negatif")) {
-        return { error: { field: "cash_discount", message: m.admin.orderOfferFinalNegative } };
+        return { error: { field: "cash_discount", message: m.common.offerFinalNegative } };
       }
       if (written.detail.includes("Boleh mengatur diskon")) {
         return { error: { field: "discount_pcts", message: m.admin.orderOfferNoPermissionDiscount } };

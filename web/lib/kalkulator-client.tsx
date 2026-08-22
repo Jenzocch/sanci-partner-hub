@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
-import { useCabangMessages } from "@/lib/i18n/provider";
+import { useCommonMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import DraftBanner from "@/lib/draft-banner";
 import {
@@ -17,6 +17,7 @@ import {
   writeCalcDraft,
   clearCalcDraft,
   writeCalcHandoff,
+  type CalcArea,
   type CalcLine,
   type CalcCartState,
   type CalcDraft,
@@ -33,14 +34,38 @@ export type KalkulatorProduct = {
 };
 
 /**
- * Kalkulator Penawaran — lihat catatan panjang di page.tsx untuk DUA
- * penyimpangan sengaja (tanpa gerbang izin diskon, tanpa tulis DB sampai
- * "Buat Pesanan"). Komponen ini murni state lokal + localStorage
- * (lib/calculator-shared.ts) — tidak ada Server Action di file ini sama
- * sekali, konsisten dengan prinsip "tidak ada yang tersimpan selagi dipakai".
+ * CTA "Buat Pesanan" — teksnya milik slice CABANG (menyebut alur pesanan
+ * cabang), jadi dikirim sebagai prop oleh route pemasang, bukan dibaca dari
+ * `useCommonMessages()`. HANYA route cabang yang mengisinya: hand-off-nya
+ * ditulis ke localStorage untuk dibaca /cabang/pesanan/baru. Route admin
+ * mengirim `null` (v1: kalkulator admin murni alat hitung — form pesanan
+ * admin /admin/orders/baru belum punya dukungan hand-off; menyambungkannya
+ * adalah slice terpisah, lihat FEATURES.md).
  */
-export default function KalkulatorClient({ products }: { products: KalkulatorProduct[] }) {
-  const m = useCabangMessages();
+export type KalkulatorConvert = { cta: string; scopeNote: string };
+
+/**
+ * Kalkulator Penawaran — dipasang di DUA route: /cabang/kalkulator (sejak
+ * awal) dan /admin/kalkulator (2026-08-22). SATU komponen, bukan dua salinan
+ * — lihat catatan panjang di masing-masing page.tsx untuk penyimpangan
+ * sengaja (tanpa gerbang izin diskon, tanpa tulis DB sampai "Buat Pesanan").
+ * Komponen ini murni state lokal + localStorage (lib/calculator-shared.ts) —
+ * tidak ada Server Action di file ini sama sekali, konsisten dengan prinsip
+ * "tidak ada yang tersimpan selagi dipakai". Semua teksnya dari slice
+ * `common` (dibaca lewat useCommonMessages, yang jalan di bawah provider
+ * Cabang MAUPUN Admin), kecuali CTA konversi (prop, lihat KalkulatorConvert).
+ */
+export default function KalkulatorClient({
+  products,
+  area,
+  convert,
+}: {
+  products: KalkulatorProduct[];
+  /** Menentukan key draf localStorage (terpisah per area, lihat calculator-shared.ts). */
+  area: CalcArea;
+  convert: KalkulatorConvert | null;
+}) {
+  const m = useCommonMessages();
   const router = useRouter();
 
   const [tab, setTab] = useState<"produk" | "keranjang">("produk");
@@ -60,14 +85,16 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
   // LESSONS #1) — kalau ada draf lama, tampilkan DraftBanner dan tunggu
   // pengguna memilih. Kalau tidak ada draf, langsung "ready" untuk mulai
   // auto-save state kosong saat ini (tidak ada apa pun yang bisa hilang).
+  // (`area` konstan sepanjang umur halaman — masuk deps hanya demi kejujuran
+  // exhaustive-deps, tidak pernah memicu baca ulang.)
   useEffect(() => {
-    const d = readCalcDraft();
+    const d = readCalcDraft(area);
     if (d) {
       setPendingDraft(d);
     } else {
       setReady(true);
     }
-  }, []);
+  }, [area]);
 
   function handleRestoreDraft() {
     if (pendingDraft) {
@@ -80,7 +107,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
     setReady(true);
   }
   function handleDiscardDraft() {
-    clearCalcDraft();
+    clearCalcDraft(area);
     setPendingDraft(null);
     setReady(true);
   }
@@ -96,20 +123,20 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveTimer.current = null;
-      writeCalcDraft({ lines, discountSlots, markup, cash });
+      writeCalcDraft(area, { lines, discountSlots, markup, cash });
     }, CALC_DRAFT_DEBOUNCE_MS);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [ready, lines, discountSlots, markup, cash]);
+  }, [ready, area, lines, discountSlots, markup, cash]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
     products.forEach((it) => {
       if (it.category) set.add(it.category);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, m.common.dateLocale));
-  }, [products, m.common.dateLocale]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, m.dateLocale));
+  }, [products, m.dateLocale]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -160,13 +187,13 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
   }
 
   function handleClearCart() {
-    if (!window.confirm(m.cabang.calcClearCartConfirm)) return;
+    if (!window.confirm(m.calcClearCartConfirm)) return;
     const empty: CalcCartState = emptyCartState();
     setLines(empty.lines);
     setDiscountSlots(empty.discountSlots);
     setMarkup(empty.markup);
     setCash(empty.cash);
-    clearCalcDraft();
+    clearCalcDraft(area);
   }
 
   // ── Matematika: rantai diskon → markup → potongan tunai, SATU kali round
@@ -204,7 +231,9 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
   const totalDiscountAmount = subtotal - afterDiscountDisplay;
 
   function handleConvertToOrder() {
-    if (lines.length === 0) return;
+    // Hanya route cabang yang mengisi `convert` — di admin (v1) tombolnya
+    // tidak dirender sama sekali, guard ini cuma jaring pengaman ekstra.
+    if (!convert || lines.length === 0) return;
     writeCalcHandoff({
       lineCount: lines.length,
       itemQty,
@@ -227,7 +256,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
     // Kalkulator sudah selesai dipakai untuk penawaran ini — draf lokalnya
     // tidak perlu bertahan lagi (beda dari handoff, yang justru BARU ditulis
     // di atas untuk dibaca new-order-form.tsx).
-    clearCalcDraft();
+    clearCalcDraft(area);
     router.push("/cabang/pesanan/baru");
   }
 
@@ -245,14 +274,14 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
 
       <div className="tabs">
         <button type="button" className={`tab${tab === "produk" ? " on" : ""}`} onClick={() => setTab("produk")}>
-          {m.cabang.calcTabProducts}
+          {m.calcTabProducts}
         </button>
         <button
           type="button"
           className={`tab${tab === "keranjang" ? " on" : ""}`}
           onClick={() => setTab("keranjang")}
         >
-          {m.cabang.calcTabCart.replace("{n}", String(lines.length))}
+          {m.calcTabCart.replace("{n}", String(lines.length))}
         </button>
       </div>
 
@@ -262,7 +291,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
             <input
               className="search-input"
               type="search"
-              placeholder={m.cabang.produkSearchPlaceholder}
+              placeholder={m.produkSearchPlaceholder}
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -275,7 +304,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                 className={`${styles.filterchip}${kategori === null ? ` ${styles.filterOn}` : ""}`}
                 onClick={() => setKategori(null)}
               >
-                {m.cabang.filterAll}
+                {m.filterAll}
               </button>
               {categories.map((c) => (
                 <button
@@ -291,9 +320,9 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
           )}
 
           {products.length === 0 ? (
-            <div className="card emptybox">{m.cabang.noProductsYet}</div>
+            <div className="card emptybox">{m.noProductsYet}</div>
           ) : filtered.length === 0 ? (
-            <div className="card emptybox">{m.cabang.noProductsMatchSearch}</div>
+            <div className="card emptybox">{m.noProductsMatchSearch}</div>
           ) : (
             <div className={styles.grid}>
               {filtered.map((p) => {
@@ -305,7 +334,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                     type="button"
                     className={`${styles.card}${inCartQty > 0 ? ` ${styles.inCart}` : ""}`}
                     onClick={() => addToCart(p)}
-                    aria-label={m.cabang.calcAddToCartAria.replace("{name}", p.name)}
+                    aria-label={m.calcAddToCartAria.replace("{name}", p.name)}
                   >
                     <div className={styles.photo}>
                       {inCartQty > 0 && <span className={`chip qty ${styles.cartBadge}`}>×{inCartQty}</span>}
@@ -318,14 +347,16 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                           style={isOut ? { filter: "grayscale(70%)", opacity: 0.6 } : undefined}
                         />
                       ) : (
-                        <div className={styles.placeholder}>{m.cabang.noPhotoPlaceholder}</div>
+                        <div className={styles.placeholder}>{m.noPhotoPlaceholder}</div>
                       )}
                     </div>
                     <div className={styles.body}>
                       <div className={styles.name}>{p.name}</div>
                       <div className={styles.metaRow}>
                         {p.code && <span className="code">{p.code}</span>}
-                        <span className={STOCK_STATUS_CHIP[p.stockStatus]}>{stockStatusLabel(m, p.stockStatus)}</span>
+                        {/* stockStatusLabel menerima `{ common }` (dipakai juga oleh
+                            halaman ber-slice penuh); di sini m SUDAH CommonMessages. */}
+                        <span className={STOCK_STATUS_CHIP[p.stockStatus]}>{stockStatusLabel({ common: m }, p.stockStatus)}</span>
                       </div>
                     </div>
                   </button>
@@ -336,18 +367,18 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
         </>
       ) : lines.length === 0 ? (
         <div className="card emptybox">
-          <p style={{ marginBottom: 14 }}>{m.cabang.calcCartEmpty}</p>
+          <p style={{ marginBottom: 14 }}>{m.calcCartEmpty}</p>
           <button type="button" className="btn primary" onClick={() => setTab("produk")}>
-            {m.cabang.calcGoToProductsCta}
+            {m.calcGoToProductsCta}
           </button>
         </div>
       ) : (
         <>
           <div className="card">
             <div className="spread" style={{ marginBottom: 4 }}>
-              <h3 style={{ fontSize: 17 }}>{m.cabang.calcCartCardTitle}</h3>
+              <h3 style={{ fontSize: 17 }}>{m.calcCartCardTitle}</h3>
               <button type="button" className="btn sm ghost" onClick={handleClearCart}>
-                {m.cabang.calcClearCartCta}
+                {m.calcClearCartCta}
               </button>
             </div>
             {lines.map((line) => (
@@ -357,7 +388,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                     // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal)
                     <img src={line.photoUrl} alt={line.name} loading="lazy" />
                   ) : (
-                    m.cabang.noPhotoPlaceholder
+                    m.noPhotoPlaceholder
                   )}
                 </div>
                 <div className={styles.lineBody}>
@@ -366,7 +397,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                   </div>
                   <div className={styles.lineControls}>
                     <div className={styles.priceField}>
-                      <label htmlFor={`price_${line.productId}`}>{m.cabang.calcUnitPriceLabel}</label>
+                      <label htmlFor={`price_${line.productId}`}>{m.calcUnitPriceLabel}</label>
                       <input
                         id={`price_${line.productId}`}
                         type="text"
@@ -377,7 +408,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                       />
                     </div>
                     <div className={styles.qtyField}>
-                      <label htmlFor={`qty_${line.productId}`}>{m.cabang.calcQtyLabel}</label>
+                      <label htmlFor={`qty_${line.productId}`}>{m.calcQtyLabel}</label>
                       <div className={styles.stepper}>
                         <button
                           type="button"
@@ -413,9 +444,9 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                       type="button"
                       className="btn sm"
                       onClick={() => removeLine(line.productId)}
-                      aria-label={m.cabang.calcRemoveLineAria.replace("{name}", line.name)}
+                      aria-label={m.calcRemoveLineAria.replace("{name}", line.name)}
                     >
-                      {m.cabang.calcRemoveLineCta}
+                      {m.calcRemoveLineCta}
                     </button>
                   </div>
                 </div>
@@ -424,15 +455,15 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
           </div>
 
           <div className="card">
-            <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.cabang.calcDiscountSectionTitle}</h3>
+            <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.calcDiscountSectionTitle}</h3>
             <p className="small muted" style={{ marginBottom: 10 }}>
-              {m.cabang.calcDiscountHint}
+              {m.calcDiscountHint}
             </p>
             {discountSlots.map((slot, idx) => (
               <div key={idx} className="field" style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "flex-end" }}>
                 <div style={{ flex: 1 }}>
                   <label htmlFor={`calc_discount_${idx}`}>
-                    {m.cabang.calcDiscountFieldLabel.replace("{n}", String(idx + 1))}
+                    {m.calcDiscountFieldLabel.replace("{n}", String(idx + 1))}
                   </label>
                   <input
                     id={`calc_discount_${idx}`}
@@ -445,18 +476,18 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
                 </div>
                 {discountSlots.length > 1 && (
                   <button type="button" className="btn sm" onClick={() => removeDiscountSlot(idx)}>
-                    {m.cabang.calcDiscountRemoveBtn}
+                    {m.calcDiscountRemoveBtn}
                   </button>
                 )}
               </div>
             ))}
             {discountSlots.length < CALC_MAX_DISCOUNT_SLOTS && (
               <button type="button" className="btn sm" onClick={addDiscountSlot} style={{ marginBottom: 10 }}>
-                {m.cabang.calcDiscountAddBtn}
+                {m.calcDiscountAddBtn}
               </button>
             )}
             <div className="field" style={{ marginBottom: 10 }}>
-              <label htmlFor="calc_markup">{m.cabang.calcMarkupFieldLabel}</label>
+              <label htmlFor="calc_markup">{m.calcMarkupFieldLabel}</label>
               <input
                 id="calc_markup"
                 type="text"
@@ -467,7 +498,7 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
               />
             </div>
             <div className="field">
-              <label htmlFor="calc_cash">{m.cabang.calcCashFieldLabel}</label>
+              <label htmlFor="calc_cash">{m.calcCashFieldLabel}</label>
               <input
                 id="calc_cash"
                 type="text"
@@ -480,62 +511,67 @@ export default function KalkulatorClient({ products }: { products: KalkulatorPro
           </div>
 
           <div className="card">
-            {finalTotal < 0 && <div className="banner bad">{m.cabang.cabangOfferFinalNegative}</div>}
+            {finalTotal < 0 && <div className="banner bad">{m.offerFinalNegative}</div>}
             <div className={styles.breakdown}>
               <div className={styles.breakdownRow}>
-                <span>{m.cabang.calcBreakdownSubtotal}</span>
+                <span>{m.calcBreakdownSubtotal}</span>
                 <span>{formatIDR(subtotal)}</span>
               </div>
               {discountSteps.map((step) => (
                 <div className={styles.breakdownRow} key={step.n}>
-                  <span>{m.cabang.calcDiscountStepAmount.replace("{n}", String(step.n)).replace("{pct}", String(step.pct))}</span>
+                  <span>{m.calcDiscountStepAmount.replace("{n}", String(step.n)).replace("{pct}", String(step.pct))}</span>
                   <span>−{formatIDR(step.amount)}</span>
                 </div>
               ))}
               {discountSteps.length > 0 && (
                 <div className={styles.breakdownRow}>
-                  <span>{m.cabang.calcBreakdownTotalDiscount}</span>
+                  <span>{m.calcBreakdownTotalDiscount}</span>
                   <span>−{formatIDR(totalDiscountAmount)}</span>
                 </div>
               )}
               <div className={styles.breakdownRow}>
-                <span>{m.cabang.calcBreakdownAfterDiscount}</span>
+                <span>{m.calcBreakdownAfterDiscount}</span>
                 <span>{formatIDR(afterDiscountDisplay)}</span>
               </div>
               <div className={styles.breakdownRow}>
-                <span>{m.cabang.calcBreakdownAfterMarkup}</span>
+                <span>{m.calcBreakdownAfterMarkup}</span>
                 <span>{formatIDR(afterMarkupDisplay)}</span>
               </div>
               <div className={`${styles.breakdownRow} ${styles.final}`}>
-                <span>{m.common.finalAmount}</span>
+                <span>{m.finalAmount}</span>
                 <span>{formatIDR(finalDisplay)}</span>
               </div>
             </div>
-            <p className="footnote" style={{ marginTop: 0 }}>{m.cabang.calcConvertScopeNote}</p>
+            {convert && <p className="footnote" style={{ marginTop: 0 }}>{convert.scopeNote}</p>}
           </div>
         </>
       )}
 
       <div className={styles.bottomSpacer} />
-      <div className={styles.stickyBar}>
+      {/* Di admin, bar ini digeser ke kanan selebar rel navigasi (desktop) dan
+          TIDAK punya CTA konversi — murni tampilan total (v1, lihat
+          KalkulatorConvert di atas). */}
+      <div className={`${styles.stickyBar}${area === "admin" ? ` ${styles.stickyBarAdmin}` : ""}`}>
         <button
           type="button"
           className={styles.stickyLeft}
           style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
           onClick={() => setTab("keranjang")}
-          aria-label={m.cabang.calcFooterAria.replace("{n}", String(itemQty)).replace("{amount}", formatIDR(finalDisplay))}
+          aria-label={m.calcFooterAria.replace("{n}", String(itemQty)).replace("{amount}", formatIDR(finalDisplay))}
         >
-          <span className={styles.stickyCount}>{m.cabang.calcFooterItemCount.replace("{n}", String(itemQty))}</span>
+          <span className={styles.stickyCount}>{m.calcFooterItemCount.replace("{n}", String(itemQty))}</span>
           <span className={styles.stickyTotal}>{formatIDR(finalDisplay)}</span>
         </button>
-        <button
-          type="button"
-          className={`btn primary lg ${styles.stickyBtn}`}
-          disabled={lines.length === 0}
-          onClick={handleConvertToOrder}
-        >
-          {m.cabang.calcConvertCta}
-        </button>
+        {convert && (
+          <button
+            type="button"
+            className={`btn primary lg ${styles.stickyBtn}`}
+            disabled={lines.length === 0}
+            onClick={handleConvertToOrder}
+          >
+            {convert.cta}
+          </button>
+        )}
       </div>
     </>
   );

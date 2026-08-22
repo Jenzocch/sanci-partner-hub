@@ -268,6 +268,61 @@ const id = {
   offlineTitle: "Tidak ada koneksi",
   offlineBody:
     "Halaman ini belum pernah dibuka sebelumnya, jadi tidak tersedia secara offline. Sambungkan kembali ke internet lalu coba lagi.",
+
+  // ── Kalkulator Penawaran (lib/kalkulator-client.tsx) ──────────────────
+  // Dipindah UTUH dari cabang.ts (2026-08-22) saat komponen kalkulator mulai
+  // dipakai DUA area (/cabang/kalkulator DAN /admin/kalkulator) — teksnya
+  // tidak diubah satu huruf pun, cuma pindah slice. Konsekuensi yang disadari:
+  // slice `common` terkirim di SEMUA provider (termasuk halaman masuk dan
+  // /offline), jadi jangan menambah teks satu-layar lain ke sini tanpa alasan
+  // sekuat "komponen ini benar-benar dipasang di dua area".
+  // Kunci yang TETAP di cabang.ts: calcIntroNote / calcConvertCta /
+  // calcConvertScopeNote (menyebut alur pesanan cabang) + seluruh calcHandoff*/
+  // calcItems* (dibaca form pesanan baru cabang, bukan kalkulatornya).
+  //
+  // `produkSearchPlaceholder` di admin.ts adalah kunci BERBEDA dengan teks
+  // lebih sempit (pencarian /admin/produk tidak mencakup kategori) — bukan
+  // duplikat terjemahan dari kunci di bawah ini.
+  filterAll: "Semua",
+  produkSearchPlaceholder: "Cari nama, kode, atau kategori produk...",
+  noProductsYet: "Belum ada produk di katalog.",
+  noProductsMatchSearch: "Tidak ada produk yang cocok dengan pencarian.",
+  noPhotoPlaceholder: "Tidak ada foto",
+  // Dulu ada DUA kunci dengan teks identik kata per kata di ketiga bahasa:
+  // cabangOfferFinalNegative (cabang.ts) dan orderOfferFinalNegative
+  // (admin.ts). Sekarang SATU kunci untuk kalkulator + form penawaran cabang
+  // + form penawaran admin — terjemahan tidak boleh terduplikasi antar slice.
+  offerFinalNegative:
+    "Kombinasi diskon/markup/potongan tunai menghasilkan nilai akhir negatif. Periksa kembali nilainya.",
+  calcPageTitle: "Kalkulator Penawaran",
+  calcTabProducts: "Produk",
+  calcTabCart: "Keranjang ({n})",
+  calcCartCardTitle: "Keranjang",
+  calcAddToCartAria: "Tambah {name} ke keranjang",
+  calcCartEmpty: "Keranjang masih kosong — pilih produk untuk mulai menghitung penawaran.",
+  calcGoToProductsCta: "Pilih Produk",
+  calcUnitPriceLabel: "Harga satuan (Rp)",
+  calcQtyLabel: "Jumlah",
+  calcRemoveLineCta: "Hapus",
+  calcRemoveLineAria: "Hapus {name} dari keranjang",
+  calcDiscountSectionTitle: "Diskon, Markup & Potongan Tunai",
+  calcDiscountHint:
+    "Setiap diskon dihitung berurutan dari subtotal (bukan dijumlahkan). Markup dihitung setelah semua diskon. " +
+    "Potongan tunai dikurangi paling akhir.",
+  calcDiscountFieldLabel: "Diskon {n} (%)",
+  calcDiscountStepAmount: "Diskon {n} ({pct}%)",
+  calcDiscountAddBtn: "+ Tambah Diskon",
+  calcDiscountRemoveBtn: "Hapus",
+  calcMarkupFieldLabel: "Markup (%)",
+  calcCashFieldLabel: "Potongan Tunai (Rp)",
+  calcBreakdownSubtotal: "Subtotal",
+  calcBreakdownAfterDiscount: "Setelah Diskon",
+  calcBreakdownTotalDiscount: "Total Diskon",
+  calcBreakdownAfterMarkup: "Setelah Markup",
+  calcClearCartCta: "Kosongkan",
+  calcClearCartConfirm: "Kosongkan seluruh keranjang kalkulator?",
+  calcFooterItemCount: "{n} barang",
+  calcFooterAria: "{n} barang, total {amount} — ketuk untuk buka keranjang",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -486,6 +541,45 @@ const en = {
   offlineTitle: "No connection",
   offlineBody:
     "This page has never been opened before, so it is not available offline. Get back online and try again.",
+
+  // Offer Calculator (lib/kalkulator-client.tsx) — moved verbatim from
+  // cabang.ts, see the note on the `id` block.
+  filterAll: "All",
+  produkSearchPlaceholder: "Search by product name, code, or category...",
+  noProductsYet: "No products in the catalog yet.",
+  noProductsMatchSearch: "No products match your search.",
+  noPhotoPlaceholder: "No photo",
+  offerFinalNegative:
+    "This combination of discount/markup/cash discount produces a negative final price. Please check the values.",
+  calcPageTitle: "Offer Calculator",
+  calcTabProducts: "Products",
+  calcTabCart: "Cart ({n})",
+  calcCartCardTitle: "Cart",
+  calcAddToCartAria: "Add {name} to cart",
+  calcCartEmpty: "Cart is empty — pick products to start pricing an offer.",
+  calcGoToProductsCta: "Pick products",
+  calcUnitPriceLabel: "Unit price (Rp)",
+  calcQtyLabel: "Quantity",
+  calcRemoveLineCta: "Remove",
+  calcRemoveLineAria: "Remove {name} from cart",
+  calcDiscountSectionTitle: "Discount, Markup & Cash Discount",
+  calcDiscountHint:
+    "Each discount is applied in order from the subtotal (not added together). Markup is applied after all " +
+    "discounts. Cash discount is subtracted last.",
+  calcDiscountFieldLabel: "Discount {n} (%)",
+  calcDiscountStepAmount: "Discount {n} ({pct}%)",
+  calcDiscountAddBtn: "+ Add discount",
+  calcDiscountRemoveBtn: "Remove",
+  calcMarkupFieldLabel: "Markup (%)",
+  calcCashFieldLabel: "Cash discount (Rp)",
+  calcBreakdownSubtotal: "Subtotal",
+  calcBreakdownAfterDiscount: "After discount",
+  calcBreakdownTotalDiscount: "Total discount",
+  calcBreakdownAfterMarkup: "After markup",
+  calcClearCartCta: "Clear",
+  calcClearCartConfirm: "Clear the whole calculator cart?",
+  calcFooterItemCount: "{n} items",
+  calcFooterAria: "{n} items, total {amount} — tap to open the cart",
 } satisfies Shape;
 
 const zh = {
@@ -700,6 +794,42 @@ const zh = {
   offlineTitle: "没有网络",
   offlineBody:
     "这个页面之前没有打开过，所以离线时看不到内容。请连上网络后再试。",
+
+  // 方案计算器(lib/kalkulator-client.tsx)—— 原样从 cabang.ts 搬过来,
+  // 说明见 `id` 区块的注释。
+  filterAll: "全部",
+  produkSearchPlaceholder: "搜索产品名称、编号或分类…",
+  noProductsYet: "产品目录里还没有产品。",
+  noProductsMatchSearch: "没有符合搜索条件的产品。",
+  noPhotoPlaceholder: "没有照片",
+  offerFinalNegative: "这个折扣/加成/现金折让组合会得出负数的最终金额，请检查数值。",
+  calcPageTitle: "方案计算器",
+  calcTabProducts: "产品",
+  calcTabCart: "购物车({n})",
+  calcCartCardTitle: "购物车",
+  calcAddToCartAria: "把{name}加入购物车",
+  calcCartEmpty: "购物车还是空的 —— 选择产品开始计算方案。",
+  calcGoToProductsCta: "选择产品",
+  calcUnitPriceLabel: "单价(Rp)",
+  calcQtyLabel: "数量",
+  calcRemoveLineCta: "删除",
+  calcRemoveLineAria: "从购物车删除{name}",
+  calcDiscountSectionTitle: "折扣、加成与现金折让",
+  calcDiscountHint: "每笔折扣按顺序从小计开始计算(不是直接相加)。加成在所有折扣之后计算。现金折让最后扣除。",
+  calcDiscountFieldLabel: "折扣 {n}(%)",
+  calcDiscountStepAmount: "折扣 {n}（{pct}%）",
+  calcDiscountAddBtn: "+ 添加折扣",
+  calcDiscountRemoveBtn: "删除",
+  calcMarkupFieldLabel: "加成(%)",
+  calcCashFieldLabel: "现金折让(Rp)",
+  calcBreakdownSubtotal: "小计",
+  calcBreakdownAfterDiscount: "折扣后",
+  calcBreakdownTotalDiscount: "折扣总额",
+  calcBreakdownAfterMarkup: "加成后",
+  calcClearCartCta: "清空",
+  calcClearCartConfirm: "清空整个计算器购物车?",
+  calcFooterItemCount: "{n}件",
+  calcFooterAria: "{n}件,总计{amount} —— 点击打开购物车",
 } satisfies Shape;
 
 export const common = { id, en, zh };

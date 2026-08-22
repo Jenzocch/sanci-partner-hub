@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
 import type { StockStatus } from "@/lib/catalog-shared";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
-import KalkulatorClient, { type KalkulatorProduct } from "./kalkulator-client";
+import KalkulatorClient, { type KalkulatorProduct } from "@/lib/kalkulator-client";
 
 export const dynamic = "force-dynamic";
 
@@ -113,7 +113,7 @@ export default async function KalkulatorPage() {
     return (
       <main className="pwrap">
         <BackRow m={m} />
-        <h2 className="mtitle">{m.cabang.calcPageTitle}</h2>
+        <h2 className="mtitle">{m.common.calcPageTitle}</h2>
         <div className="card">
           <div className="banner info">{m.cabang.catalogNotOpenedMsg}</div>
         </div>
@@ -165,9 +165,16 @@ export default async function KalkulatorPage() {
   return (
     <main className="pwrap">
       <BackRow m={m} />
-      <h2 className="mtitle">{m.cabang.calcPageTitle}</h2>
+      <h2 className="mtitle">{m.common.calcPageTitle}</h2>
       <div className="banner info">{m.cabang.calcIntroNote}</div>
-      <KalkulatorClient products={items} />
+      {/* `convert` diisi HANYA di route cabang — teks CTA/scope note milik
+          slice cabang (menyebut alur pesanan cabang), dan hand-off-nya memang
+          dibaca /cabang/pesanan/baru. Route admin mengirim null (v1). */}
+      <KalkulatorClient
+        products={items}
+        area="cabang"
+        convert={{ cta: m.cabang.calcConvertCta, scopeNote: m.cabang.calcConvertScopeNote }}
+      />
     </main>
   );
 }

@@ -49,7 +49,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
         <input
           className="search-input"
           type="search"
-          placeholder={m.cabang.produkSearchPlaceholder}
+          placeholder={m.common.produkSearchPlaceholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -62,7 +62,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
             className={`${styles.filterchip}${kategori === null ? ` ${styles.filterOn}` : ""}`}
             onClick={() => setKategori(null)}
           >
-            {m.cabang.filterAll}
+            {m.common.filterAll}
           </button>
           {categories.map((c) => (
             <button
@@ -78,9 +78,9 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
       )}
 
       {items.length === 0 ? (
-        <div className="card emptybox">{m.cabang.noProductsYet}</div>
+        <div className="card emptybox">{m.common.noProductsYet}</div>
       ) : filtered.length === 0 ? (
-        <div className="card emptybox">{m.cabang.noProductsMatchSearch}</div>
+        <div className="card emptybox">{m.common.noProductsMatchSearch}</div>
       ) : (
         <div className={styles.grid}>
           {filtered.map((it) => {
@@ -98,7 +98,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
                     // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal), lihat catatan di lib/catalog-shared.ts
                     <img src={it.photoUrl} alt={it.name} loading="lazy" />
                   ) : (
-                    <div className={styles.placeholder}>{m.cabang.noPhotoPlaceholder}</div>
+                    <div className={styles.placeholder}>{m.common.noPhotoPlaceholder}</div>
                   )}
                 </div>
                 <div className={styles.body}>
@@ -120,7 +120,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
                 // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal), lihat catatan di lib/catalog-shared.ts
                 <img src={selected.photoUrl} alt={selected.name} />
               ) : (
-                <div className={styles.placeholder}>{m.cabang.noPhotoPlaceholder}</div>
+                <div className={styles.placeholder}>{m.common.noPhotoPlaceholder}</div>
               )}
             </div>
             <h2>{selected.name}</h2>

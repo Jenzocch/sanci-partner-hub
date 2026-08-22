@@ -92,7 +92,28 @@ function cartStateIsEmpty(v: CalcCartState): boolean {
  * bentuk data array, bukan elemen form).
  * ------------------------------------------------------------------ */
 
-const CALC_DRAFT_KEY = "sanci:kalkulator:cart";
+/**
+ * Area pemasang kalkulator. Sejak 2026-08-22 komponen yang sama dipasang di
+ * /cabang/kalkulator DAN /admin/kalkulator (lib/kalkulator-client.tsx).
+ */
+export type CalcArea = "cabang" | "admin";
+
+/**
+ * Key draf TERPISAH per area — keputusan sadar, bukan kebetulan:
+ *  - Akun cabang dan akun admin adalah login yang berbeda, biasanya di
+ *    perangkat berbeda — tapi SATU browser yang dipakai bergantian itu
+ *    mungkin (mis. laptop kantor SANCI yang juga dipakai menguji akun toko).
+ *    localStorage tidak ikut terhapus saat ganti login, jadi kalau key-nya
+ *    sama, draf keranjang admin akan menyembul sebagai "draf tersimpan" di
+ *    sesi cabang (dan sebaliknya) — kebocoran kecil tapi membingungkan, dan
+ *    persis jenis kejutan yang dilarang prinsip jangan-menyulap-state.
+ *  - Key cabang TIDAK berubah dari nilai lamanya, supaya draf staf toko yang
+ *    sudah ada tetap terbaca setelah rilis ini (bukan hilang diam-diam).
+ */
+const CALC_DRAFT_KEYS: Record<CalcArea, string> = {
+  cabang: "sanci:kalkulator:cart",
+  admin: "sanci:kalkulator:cart:admin",
+};
 export const CALC_DRAFT_DEBOUNCE_MS = 800;
 
 export type CalcDraft = { savedAt: number; state: CalcCartState };
@@ -110,9 +131,9 @@ function isValidLine(v: unknown): v is CalcLine {
   );
 }
 
-export function readCalcDraft(): CalcDraft | null {
+export function readCalcDraft(area: CalcArea): CalcDraft | null {
   try {
-    const raw = window.localStorage.getItem(CALC_DRAFT_KEY);
+    const raw = window.localStorage.getItem(CALC_DRAFT_KEYS[area]);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CalcDraft>;
     if (!parsed || typeof parsed.savedAt !== "number" || !parsed.state) return null;
@@ -133,21 +154,21 @@ export function readCalcDraft(): CalcDraft | null {
   }
 }
 
-export function writeCalcDraft(state: CalcCartState): void {
+export function writeCalcDraft(area: CalcArea, state: CalcCartState): void {
   try {
     if (cartStateIsEmpty(state)) {
-      window.localStorage.removeItem(CALC_DRAFT_KEY);
+      window.localStorage.removeItem(CALC_DRAFT_KEYS[area]);
       return;
     }
-    window.localStorage.setItem(CALC_DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), state }));
+    window.localStorage.setItem(CALC_DRAFT_KEYS[area], JSON.stringify({ savedAt: Date.now(), state }));
   } catch {
     // Penyimpanan penuh atau ditolak — diamkan, kalkulator tetap harus bisa dipakai.
   }
 }
 
-export function clearCalcDraft(): void {
+export function clearCalcDraft(area: CalcArea): void {
   try {
-    window.localStorage.removeItem(CALC_DRAFT_KEY);
+    window.localStorage.removeItem(CALC_DRAFT_KEYS[area]);
   } catch {
     // sama seperti di atas
   }

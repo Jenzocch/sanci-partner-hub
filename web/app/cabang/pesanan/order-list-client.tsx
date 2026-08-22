@@ -11,7 +11,7 @@ import StatusBadge from "./status-badge";
 type StatusFilter = "ALL" | OrderStatus;
 function statusFilters(m: CabangMessages): { value: StatusFilter; label: string }[] {
   return [
-    { value: "ALL", label: m.cabang.filterAll },
+    { value: "ALL", label: m.common.filterAll },
     { value: "REGISTERED", label: orderStatusLabel(m, "REGISTERED") },
     { value: "CANCELLED", label: orderStatusLabel(m, "CANCELLED") },
   ];
