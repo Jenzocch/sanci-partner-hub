@@ -961,6 +961,52 @@ client 重送」的情境（例如提交後立刻切斷網路,或用既有的 de
 SELECT 存在性檢查＋INSERT,外加自己的 price-guard 降級重試邏輯）——**刻意
 沒有動它**,照委派範圍留給另一次排程判斷,這裡只記錄下來避免下一輪漏看。
 
+### Phase 2 第十六切片（Admin 代任意 partner/分店建立訂單，2026-08-22）
+
+Owner 有多個 admin 帳號，全部要能直接下單（包含即將建立的「SANCI 自營」
+partner），不想再維護第二套分店帳號。訂單結構不放寬：**每筆訂單仍然必須
+屬於一個 partner+分店**（訂單編號格式、RLS、attribution 都建立在這之上），
+所以 admin 流程是「選 partner → 選分店 → 之後跟分店端建單語意完全相同」。
+所有 `platform_admins` 一律平權，沒有 admin 分級。**零 migration、零 RLS
+變動**——admin 寫入本來就被 `c_admin_all`/`o_admin_all`/`oi_admin_all`
+（全部 `for all ... fn_is_admin()`，讀 0004/0014 逐條確認）涵蓋。
+
+| # | 功能 | 狀態 | 備註 |
+|---|---|---|---|
+| P2-71 | 新頁 `/admin/orders/baru`（server page + client form，仿 cabang 拆分）＋ `/admin/orders` worktop 的「+ Buat Pesanan」按鈕（v1 唯一入口；導頁不用 modal——表單太大；**沒碰 `admin-nav.tsx`**，該檔由平行 agent 施工中）。表單：Partner（ACTIVE）→ Cabang（ACTIVE；換 partner 連鎖清空 cabang/package/staf，換 cabang 清空 staf；下游資料用 Server Action 動態載入，失敗顯示明確錯誤＋重試鈕，不偽裝成「沒有資料」〔LESSONS #10〕）→ 之後鏡射分店表單：電話優先查重（debounce 600ms，查詢失敗**不**顯示「查無此人」〔SPEC §84〕）、Package 下拉＋手動輸入 fallback、Sales/PIC、Jalur Pesanan 必選、Total Belanja 選填、收貨地址（既有客戶地址 prefill、僅在欄位空白時〔LESSONS #1〕）、備註、invoice 上傳（P2-73）。成功畫面：訂單編號＋摘要（獨立 SELECT 證實才顯示〔SPEC §68〕）＋「Buka Pesanan」連到 `/admin/orders/[orderId]` | `UNVERIFIED` | 三語系新增 63 個 `orderCreate*` key（id/en/zh，文字逐字沿用 cabang 對應 key——GLOSSARY「一個概念一個詞」；簡體禁用詞掃描零命中、id/en 字串值零 CJK）。**GLOSSARY 無新詞**——全部復用既有詞條。**v1 刻意沒有 localStorage 草稿**（分店表單有）：這張表單的關鍵值是連鎖下拉（partner→cabang→staf/package），選項每次動態載入，「文字回來了、選擇回不來」的半還原草稿比沒有草稿更誤導——記錄為已知邊界，不是遺漏 |
+| P2-72 | 新 Server Actions `web/app/admin/actions-create-order.ts`：`createOrderForBranch`（主寫入）＋讀取用 `getPartnerOrderOptions`/`getBranchStaffOptions`/`searchCustomerByPhoneAdmin`/`getOrderSummaryAdmin`。**每個 action 先驗 admin**（idiom 逐字沿用 `actions-users.ts`：先 `auth.getUser` 再查 `platform_admins`，DB 錯誤≠「不是 admin」〔LESSONS #10〕）；RLS `admin_all` 仍是真正的邊界。partnerId/branchId server 端驗互相隸屬＋雙 ACTIVE（DB 端 `trg_check_order_refs`〔0004〕是最後一道）；staf 驗證**在建客戶之前**（0019 既定順序）；冪等完全沿用分店：`client_request_id` 基底＋`:customer`/`:order`/`:item:{product_id}` 後綴、`safeWrite`/`confirmByRequestId`/`isRequestIdConflict`、response 遺失時 partial 誠實回報（SPEC §70）。`actions-lookup.ts` 白名單新增 `order`。**刻意沒有** cabang 端的「欄位還沒 migration」fallback 階梯：此頁誕生時 0001–0019 已全部 production VERIFIED，缺欄位是配置錯誤不是過渡態——回明確「模組未啟用」訊息（檔頭有完整理由） | `UNVERIFIED` | **共用抽取**：`verifyActiveStaffInBranch`＋`copyPackageItemsToOrder` 從 `cabang/pesanan/actions.ts` 搬到新檔 `web/lib/order-create-shared.ts`（兩者不含 Messages、簽名乾淨——「抽取乾淨就選共用 helper」成立；設計註解整段跟著搬，cabang 檔留 cross-reference，行為零改動）。**新客戶 attribution**：`created_via_partner_id`/`created_via_branch_id`=所選分店、`attributed_staff_id`=所選 sales——讀 0018/0019 確認 branch 格式 customer_code trigger 條件是「created_via 兩欄＋attributed_staff_id 皆非空」，與行為者無關，所以 admin 代建的客戶編碼與分店自建完全一致，分店 RLS（`fn_can_view_branch(created_via_branch_id)`）也看得到這個客戶。訂單編號/created_by/audit trigger 均不看行為者（讀 0004 確認）；audit actor 會是 `SANCI_ADMIN`（`fn_audit_row` 的 `fn_is_admin()` 分支），`audit-format.ts` 的 `ORDER_CREATED`/`CUSTOMER_CREATED`/`roleSanciAdmin` 都已存在且本切片**零新欄位**——LESSONS #28 巡檢無新增項 |
+| P2-73 | Invoice 上傳**納入** v1：先讀 0009 §6 storage policy 確認 `order_invoices_insert`/`update` 都含 `public.fn_is_admin()`——admin 瀏覽器 session 本來就允許上傳任何訂單路徑，**不需要任何 migration**。新檔 `orders/baru/invoice-upload-admin.ts` 鏡射 cabang 的 `invoice-upload.ts`（壓縮→直傳 bucket→Server Action 記 path；上傳失敗＝警告、永不取消已建立的訂單），另建 `setOrderInvoicePathAdmin`（cabang 版 `setOrderInvoicePath` 走 `partner_users` 身份，admin 帳號過不了）——path 前綴驗證＋非 REGISTERED 拒絕＋rowcount 檢查照抄 | `UNVERIFIED` | `compressImage` 收 `HasCommon` 結構型別，AdminMessages 直接可用，錯誤訊息走 `m.common.compress*` 既有 key |
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **建單表單沒有 offer/折扣欄位**——與分店端相同：offer 是建單後在
+  `/admin/orders/[orderId]` 詳情頁（既有 `order-offer-form.tsx`）設定。
+- **入口只有 `/admin/orders` 列表頁一顆按鈕**——不動 `admin-nav.tsx`
+  （平行 agent 施工中，避免 merge 衝突）。
+- **沒有「Simpan Pelanggan Saja」按鈕**（分店表單有）——admin 已有
+  `/admin/pelanggan` 的「+ Tambah Pelanggan」入口；注意那條路徑建的是
+  SANCI-direct 客戶（created_via 全 NULL），跟本表單「代分店建客戶」
+  （created_via=所選分店）是兩種不同 attribution，不要混用。
+- **沒有 Kalkulator 交接**——那是分店端 localStorage 流程。
+- **沒有 localStorage 草稿**（理由見 P2-71）。
+
+**驗證**：`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、`npx eslint .`
+✓、`rm -rf .next && npm run build` ✓（`/admin/orders/baru` 出現在路由表
+5.06 kB／First Load 180 kB，與 `/cabang/pesanan/baru` 的 182 kB 同級；
+`/offline` 仍 `○` 靜態 7.67 kB）——整棵樹一起跑（LESSONS #31）。
+
+**待 Jenzo real-world 驗證（本環境連不上 supabase.co，以下只在代碼/SQL 層
+讀證過，未實測）**：
+1. admin 帳號在 `/admin/orders/baru` 為真實分店建一筆單（新客戶）；
+2. 訂單編號格式正確（`{PARTNER}-{BRANCH}-{YYMMDD}-{####}`，計數器與分店
+   自建共用同一序列）；
+3. 該分店帳號登入後看得到這筆訂單**和**這個新客戶，客戶代碼是 0019 branch
+   格式（`GH-BSD-AS/26/001` 樣式；沿用該切片「格式未逐字拍板」的既有警示）；
+4. 訂單詳情頁 Isi Pesanan 有 package 品項（選了真 Package 的情況）；
+5. Activity 分頁 `ORDER_CREATED`/`CUSTOMER_CREATED` audit 列 actor 顯示
+   SANCI Admin；
+6. admin 表單上傳 invoice 成功、分店端詳情頁看得到同一張 invoice；
+7. 弱網重試不產生重複訂單/客戶（提交後斷網再重送同一表單）。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

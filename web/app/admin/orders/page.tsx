@@ -225,6 +225,12 @@ export default async function AdminOrdersPage({
     <div>
       <div className="worktop">
         <h1>{m.admin.navOrders}</h1>
+        {/* Satu-satunya pintu masuk v1 fitur "admin membuat pesanan atas nama
+            cabang" — navigasi ke halaman sendiri (bukan modal seperti
+            AddPartnerButton): formulirnya terlalu besar untuk modal. */}
+        <Link href="/admin/orders/baru" className="btn primary">
+          {m.admin.orderCreateBtn}
+        </Link>
       </div>
 
       <form className="searchrow wide" action="/admin/orders" method="GET">

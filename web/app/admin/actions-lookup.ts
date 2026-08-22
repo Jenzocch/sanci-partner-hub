@@ -14,6 +14,10 @@ const TABLES = {
   packageItem: "partner_package_items",
   product: "sanci_products",
   internalNote: "order_internal_notes",
+  // Dipakai form "Buat Pesanan" admin: pemanggil mengirim nomor permintaan
+  // TURUNAN `${rid}:order` / `${rid}:customer` (sufiks yang sama dengan jalur
+  // cabang di cabang/pesanan/actions.ts) — bukan rid mentah.
+  order: "partner_orders",
   customer: "customers",
   customerSource: "customer_sources",
   salesStaff: "sanci_sales_staff",

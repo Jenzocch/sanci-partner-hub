@@ -36,6 +36,10 @@ import {
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
+// Dipakai BERSAMA jalur admin (web/app/admin/actions-create-order.ts) — logika
+// pindah ke lib/order-create-shared.ts saat fitur "admin membuat pesanan atas
+// nama cabang" dibuat, TANPA perubahan perilaku (lihat kepala berkas itu).
+import { copyPackageItemsToOrder, verifyActiveStaffInBranch } from "@/lib/order-create-shared";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
@@ -666,140 +670,12 @@ export async function getOrderSummary(
   return order ? { status: "found", order } : { status: "unknown" };
 }
 
-/**
- * "invalid" = baris memang tidak ada / staf tidak aktif / beda partner —
- * pesan validasi pengguna wajar. "error" = query itu sendiri GAGAL (jaringan/
- * DB) — TIDAK boleh disamarkan jadi "invalid" (LESSONS #10): dulu fungsi ini
- * membuang field `error` sepenuhnya, jadi hiccup jaringan sesaat membuat
- * pengguna melihat "Sales harus dipilih dari daftar staf aktif" walau
- * pilihannya benar — pesan yang menyuruh mengganti pilihan padahal
- * masalahnya di server, bukan di pilihan.
- */
-async function verifyActiveStaffInBranch(
-  supabase: SupabaseServerClient,
-  staffId: string,
-  branchId: string,
-  partnerId: string
-): Promise<"ok" | "invalid" | "error"> {
-  const { data, error } = await supabase
-    .from("partner_staff_assignments")
-    .select("staff_id, partner_staff:staff_id(id, status, partner_id)")
-    .eq("staff_id", staffId)
-    .eq("branch_id", branchId)
-    .is("end_at", null)
-    .maybeSingle();
-  if (error) return "error";
-  if (!data) return "invalid";
-  const staff = data.partner_staff as unknown as { id: string; status: string; partner_id: string } | null;
-  return !!staff && staff.status === "ACTIVE" && staff.partner_id === partnerId ? "ok" : "invalid";
-}
-
-/**
- * Menyalin isi Package (partner_package_items) ke order_items SAAT pesanan
- * dibuat — inti permintaan owner "每個訂單下的產品或是paket都要可以備註":
- * tanpa baris order_items, tidak ada apa pun untuk diberi catatan per
- * produk. Snapshot nama/kode diambil ULANG dari sanci_products saat itu
- * (bukan dipercaya dari client — LESSONS #6), lalu DIBEKUKAN di baris ini
- * (trg_order_item_immutable_cols, migrasi 0014, mengunci name_snapshot/
- * code_snapshot dari cabang selanjutnya).
- *
- * client_request_id per baris DETERMINISTIK (`{orderClientRequestId}:item:
- * {product_id}`) — retry (respons hilang, submitSafely mengulang) tidak
- * pernah menggandakan baris (LESSONS #3/#21).
- *
- * SATU round trip, bukan N×(SELECT+INSERT) berurutan (audit 2026-08-21,
- * item #1 "只回報、沒有動手" di FEATURES.md): seluruh baris dibangun dulu,
- * lalu ditulis lewat SATU `.upsert(..., { onConflict: "client_request_id",
- * ignoreDuplicates: true })`. Ini mengompilasi ke Postgres
- * `INSERT ... ON CONFLICT (client_request_id) DO NOTHING` — DO NOTHING
- * dievaluasi PER BARIS di dalam satu statement, bukan all-or-nothing untuk
- * seluruh batch, jadi baris yang sudah mendarat dari percobaan sebelumnya
- * (retry setelah respons hilang) diam-diam dilewati sementara baris baru
- * tetap tertulis — jaminan idempotency yang SAMA dengan pola
- * SELECT-lalu-INSERT per baris yang lama, hanya lebih sedikit round trip.
- * Ini BUKAN pelanggaran LESSONS #3 (yang melarang SELECT→tidak ada→INSERT
- * sebagai satu-satunya pertahanan): pertahanan sesungguhnya di sini tetap
- * `client_request_id text unique` (migrasi 0014) yang membuat ON CONFLICT
- * punya target — `ignoreDuplicates` hanya memilih perilaku DO NOTHING di
- * atas constraint itu, bukan menggantikannya.
- *
- * `ignoreDuplicates: true` → header `Prefer: resolution=ignore-duplicates`
- * (bukan `merge-duplicates`) → PostgREST TIDAK menghasilkan klausa
- * `DO UPDATE`, jadi hanya kebijakan RLS INSERT (oi_partner_insert) yang
- * diperiksa, bukan kebijakan UPDATE — baris yang sudah ada tidak pernah
- * disentuh sama sekali oleh percobaan retry.
- *
- * RETURNING (lewat `.select("id")`) TIDAK menyertakan baris yang kena
- * ON CONFLICT DO NOTHING — jadi `data.length` boleh lebih kecil dari jumlah
- * baris yang dikirim (retry sebagian sudah mendarat) TANPA berarti gagal;
- * `safeWrite` sendiri hanya menandai gagal kalau ada error atau
- * data null/undefined (array kosong `[]` tetap `ok: true`), jadi perilaku
- * "boleh return lebih sedikit baris" ini sudah otomatis benar tanpa
- * pemeriksaan tambahan di sini.
- *
- * Trigger di order_items (trg_audit/trg_set_created_by/
- * trg_order_item_price_guard) semuanya FOR EACH ROW, bukan FOR EACH
- * STATEMENT dan tidak ada logika lintas-baris (migrasi 0014 §6–7) — batch
- * insert menjalankannya persis sama seperti N insert satu-satu.
- * trg_order_item_price_guard khususnya TIDAK pernah menyala di sini: baris
- * Package tidak pernah mengisi unit_price/line_discount, dan guard-nya
- * sendiri hanya query kalau salah satu kolom itu diisi.
- * oi_partner_insert (WITH CHECK) membaca partner_orders.id = order_items.
- * order_id — setiap baris di batch ini berbagi order_id yang SAMA (order
- * yang baru dibuat), jadi hasilnya identik dengan diperiksa satu-satu.
- *
- * BEST-EFFORT MURNI: kegagalan di sini TIDAK PERNAH melempar/membatalkan
- * pesanan yang sudah tersimpan (pola sama dengan lampiran invoice) — hanya
- * dilaporkan lewat return value, dan pemanggil WAJIB meneruskannya sebagai
- * peringatan (LESSONS #10: jangan diam-diam menelan kegagalan sebagian).
- */
-async function copyPackageItemsToOrder(
-  supabase: SupabaseServerClient,
-  orderId: string,
-  packageId: string,
-  orderClientRequestId: string
-): Promise<{ ok: true } | { ok: false }> {
-  const { data: items, error } = await supabase
-    .from("partner_package_items")
-    .select("product_id, quantity, sanci_products:product_id(name, code)")
-    .eq("package_id", packageId);
-  if (error || !items) return { ok: false };
-  if (items.length === 0) return { ok: true };
-
-  type Item = { product_id: string; quantity: number; sanci_products: { name: string; code: string | null } | { name: string; code: string | null }[] | null };
-
-  // Produk yang join-nya gagal (product null) TETAP menandai anyFailed —
-  // sama seperti sebelumnya — tapi TIDAK masuk batch (tidak ada nama untuk
-  // disimpan, name_snapshot NOT NULL).
-  let anyFailed = false;
-  const rows: Record<string, unknown>[] = [];
-  for (const raw of items) {
-    const it = raw as unknown as Item;
-    const product = Array.isArray(it.sanci_products) ? it.sanci_products[0] : it.sanci_products;
-    if (!product) {
-      anyFailed = true;
-      continue;
-    }
-    rows.push({
-      order_id: orderId,
-      product_id: it.product_id,
-      name_snapshot: product.name,
-      code_snapshot: product.code,
-      quantity: it.quantity,
-      client_request_id: `${orderClientRequestId}:item:${it.product_id}`,
-    });
-  }
-  if (rows.length === 0) return anyFailed ? { ok: false } : { ok: true };
-
-  const written = await safeWrite(
-    supabase
-      .from("order_items")
-      .upsert(rows, { onConflict: "client_request_id", ignoreDuplicates: true })
-      .select("id")
-  );
-  if (!written.ok) anyFailed = true;
-  return anyFailed ? { ok: false } : { ok: true };
-}
+// verifyActiveStaffInBranch + copyPackageItemsToOrder dulu didefinisikan DI
+// SINI — sekarang hidup di lib/order-create-shared.ts (diimpor di atas) karena
+// jalur admin (web/app/admin/actions-create-order.ts) memakai logika yang sama
+// persis. Seluruh komentar desainnya (idempotency batch upsert, LESSONS #3/
+// #10/#21, perilaku trigger 0014) ikut pindah ke sana — baca di sana sebelum
+// mengubah perilaku salah satu jalur.
 
 export async function createCustomerAndOrder(input: {
   customerId?: string;
