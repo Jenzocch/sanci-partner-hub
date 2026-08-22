@@ -170,6 +170,27 @@ export default function KalkulatorClient({
   function removeLine(productId: string) {
     setLines((prev) => prev.filter((l) => l.productId !== productId));
   }
+  /**
+   * Stepper "−" di KARTU produk: qty 1 → baris DIHAPUS (kembali ke keadaan
+   * belum dipilih), bukan macet di 1 seperti setLineQty (yang melayani input
+   * angka di keranjang, di mana "hapus" punya tombolnya sendiri).
+   */
+  function decLineOnCard(productId: string) {
+    setLines((prev) =>
+      prev
+        .map((l) => (l.productId === productId ? { ...l, qty: l.qty - 1 } : l))
+        .filter((l) => l.qty > 0)
+    );
+  }
+  /**
+   * Pindah ke tab keranjang DARI BAWAH halaman (tombol di bar total): tanpa
+   * scroll ke atas, isi keranjang yang lebih pendek membuat pengguna mendarat
+   * di area kosong dan mengira keranjangnya hilang.
+   */
+  function goToCart() {
+    setTab("keranjang");
+    window.scrollTo({ top: 0 });
+  }
   function setLineUnitPrice(productId: string, raw: string) {
     const n = parseIDRInput(raw);
     setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, unitPrice: n ?? 0 } : l)));
@@ -328,16 +349,53 @@ export default function KalkulatorClient({
               {filtered.map((p) => {
                 const inCartQty = cartQtyByProduct.get(p.id) ?? 0;
                 const isOut = p.stockStatus === "OUT_OF_STOCK";
+                // Kartu = <div>, bukan <button>: begitu produk masuk keranjang,
+                // pengendali jumlahnya adalah stepper −/+ di atas foto — tombol
+                // sungguhan tidak boleh bersarang di dalam tombol (HTML invalid),
+                // dan ketukan pada BADAN kartu berhenti menambah diam-diam
+                // (keluhan owner 2026-08-22: "點一下會+1 沒辦法編輯").
+                const clickable = inCartQty === 0;
                 return (
-                  <button
+                  <div
                     key={p.id}
-                    type="button"
+                    role={clickable ? "button" : undefined}
+                    tabIndex={clickable ? 0 : undefined}
                     className={`${styles.card}${inCartQty > 0 ? ` ${styles.inCart}` : ""}`}
-                    onClick={() => addToCart(p)}
-                    aria-label={m.calcAddToCartAria.replace("{name}", p.name)}
+                    onClick={clickable ? () => addToCart(p) : undefined}
+                    onKeyDown={
+                      clickable
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              addToCart(p);
+                            }
+                          }
+                        : undefined
+                    }
+                    aria-label={clickable ? m.calcAddToCartAria.replace("{name}", p.name) : undefined}
                   >
                     <div className={styles.photo}>
-                      {inCartQty > 0 && <span className={`chip qty ${styles.cartBadge}`}>×{inCartQty}</span>}
+                      {inCartQty > 0 && (
+                        <span className={styles.cardStepper}>
+                          <button
+                            type="button"
+                            className={styles.stepBtn}
+                            onClick={() => decLineOnCard(p.id)}
+                            aria-label="−"
+                          >
+                            −
+                          </button>
+                          <span className={styles.cardStepperQty}>×{inCartQty}</span>
+                          <button
+                            type="button"
+                            className={styles.stepBtn}
+                            onClick={() => addToCart(p)}
+                            aria-label="+"
+                          >
+                            +
+                          </button>
+                        </span>
+                      )}
                       {p.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal), lihat catatan di lib/catalog-shared.ts
                         <img
@@ -359,7 +417,7 @@ export default function KalkulatorClient({
                         <span className={STOCK_STATUS_CHIP[p.stockStatus]}>{stockStatusLabel({ common: m }, p.stockStatus)}</span>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -556,21 +614,38 @@ export default function KalkulatorClient({
           type="button"
           className={styles.stickyLeft}
           style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
-          onClick={() => setTab("keranjang")}
+          onClick={goToCart}
           aria-label={m.calcFooterAria.replace("{n}", String(itemQty)).replace("{amount}", formatIDR(finalDisplay))}
         >
           <span className={styles.stickyCount}>{m.calcFooterItemCount.replace("{n}", String(itemQty))}</span>
           <span className={styles.stickyTotal}>{formatIDR(finalDisplay)}</span>
         </button>
-        {convert && (
+        {/* Kanan bar mengikuti tab (keluhan owner 2026-08-22 — teks total di
+            kiri tidak tampak bisa diketuk, jadi butuh TOMBOL sungguhan):
+            - tab produk    → "Keranjang (n)" pindah ke keranjang (kedua area);
+            - tab keranjang → CTA konversi (hanya cabang; admin v1 tanpa CTA).
+            CTA konversi dulu tampil di kedua tab; sekarang alurnya pilih →
+            keranjang → buat pesanan, pola belanja yang diminta owner. */}
+        {tab === "produk" ? (
           <button
             type="button"
             className={`btn primary lg ${styles.stickyBtn}`}
             disabled={lines.length === 0}
-            onClick={handleConvertToOrder}
+            onClick={goToCart}
           >
-            {convert.cta}
+            {m.calcTabCart.replace("{n}", String(lines.length))}
           </button>
+        ) : (
+          convert && (
+            <button
+              type="button"
+              className={`btn primary lg ${styles.stickyBtn}`}
+              disabled={lines.length === 0}
+              onClick={handleConvertToOrder}
+            >
+              {convert.cta}
+            </button>
+          )
         )}
       </div>
     </>

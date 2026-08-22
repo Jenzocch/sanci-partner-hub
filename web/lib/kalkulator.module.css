@@ -39,8 +39,12 @@
 .card:hover { background: var(--surface2); box-shadow: var(--shadow); }
 .card:active { transform: scale(.99); }
 /* Produk yang sudah di keranjang — pinggiran navy supaya kelihatan sekilas
-   tanpa harus baca badge angkanya (dua penanda, bukan cuma warna). */
-.card.inCart { border-color: var(--accent); }
+   tanpa harus baca badge angkanya (dua penanda, bukan cuma warna). Kartunya
+   sendiri berhenti jadi target ketuk (jumlah dikendalikan stepper −/+ di atas
+   foto, keluhan owner 2026-08-22), jadi kursor & efek tekan ikut netral. */
+.card.inCart { border-color: var(--accent); cursor: default; }
+.card.inCart:hover { background: var(--surface); box-shadow: var(--shadow-xs); }
+.card.inCart:active { transform: none; }
 
 .photo {
   position: relative;
@@ -58,9 +62,22 @@
   text-align: center; line-height: var(--lh-tight); padding: 8px;
 }
 
-/* Badge "×N di keranjang" — pojok kanan atas foto, di atas gambar. */
-.cartBadge {
-  position: absolute; top: 8px; right: 8px; z-index: 1;
+/* Stepper −/+ ×N di kartu produk (menggantikan badge ×N pasif — keluhan owner
+   2026-08-22: ketukan kartu menambah diam-diam tanpa cara mengurangi).
+   Latar pekat supaya terbaca di atas foto apa pun. */
+.cardStepper {
+  position: absolute; top: 6px; right: 6px; z-index: 1;
+  display: flex; align-items: center; gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px;
+  box-shadow: var(--shadow-xs);
+}
+.cardStepperQty {
+  min-width: 28px; text-align: center;
+  font-size: var(--fs-caption); font-weight: 650; color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
