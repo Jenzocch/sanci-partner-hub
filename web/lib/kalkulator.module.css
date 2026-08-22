@@ -155,6 +155,29 @@
 }
 .lineSubtotal { font-size: var(--fs-sec); font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
 
+/* ── Warna per slot diskon (permintaan owner 2026-08-22: tiap diskon harus
+   bisa dibedakan sekilas). Satu hue per indeks slot, dipakai KONSISTEN di dua
+   tempat: baris input (garis kiri + titik pada label) dan baris breakdown
+   yang sama indeksnya — mata langsung menghubungkan "input ini = potongan
+   itu". Hue nada-tengah yang terbaca di tema terang MAUPUN gelap; hanya
+   dipakai untuk aksen (garis/titik/label), latarnya tetap token tema. ── */
+.disc0 { --disc-c: #2563eb; } /* biru   */
+.disc1 { --disc-c: #059669; } /* hijau  */
+.disc2 { --disc-c: #d97706; } /* oranye */
+.disc3 { --disc-c: #9333ea; } /* ungu   */
+.disc4 { --disc-c: #0d9488; } /* teal   */
+.disc5 { --disc-c: #db2777; } /* merah muda */
+.discSlotRow {
+  border-left: 3px solid var(--disc-c);
+  padding-left: 10px;
+}
+.discSlotRow label { color: var(--disc-c); font-weight: 650; }
+.discDot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--disc-c); margin-right: 7px; flex: none;
+}
+.discStepLabel { display: inline-flex; align-items: center; color: var(--disc-c); }
+
 /* ── Breakdown "好計算" — subtotal → diskon → markup → akhir, satu blok
    yang bisa dijelaskan ke pelanggan sambil membangun angkanya. ── */
 .breakdown {

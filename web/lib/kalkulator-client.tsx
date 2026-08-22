@@ -517,8 +517,16 @@ export default function KalkulatorClient({
             <p className="small muted" style={{ marginBottom: 10 }}>
               {m.calcDiscountHint}
             </p>
+            {/* styles.disc{idx}: satu warna per slot, dipakai lagi di baris
+                breakdown yang sama indeksnya — permintaan owner 2026-08-22
+                (tiap diskon harus bisa dibedakan sekilas). Modulo jaga-jaga;
+                CALC_MAX_DISCOUNT_SLOTS = 6 = jumlah warna yang tersedia. */}
             {discountSlots.map((slot, idx) => (
-              <div key={idx} className="field" style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "flex-end" }}>
+              <div
+                key={idx}
+                className={`field ${styles.discSlotRow} ${styles[`disc${idx % 6}`]}`}
+                style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "flex-end" }}
+              >
                 <div style={{ flex: 1 }}>
                   <label htmlFor={`calc_discount_${idx}`}>
                     {m.calcDiscountFieldLabel.replace("{n}", String(idx + 1))}
@@ -576,8 +584,14 @@ export default function KalkulatorClient({
                 <span>{formatIDR(subtotal)}</span>
               </div>
               {discountSteps.map((step) => (
-                <div className={styles.breakdownRow} key={step.n}>
-                  <span>{m.calcDiscountStepAmount.replace("{n}", String(step.n)).replace("{pct}", String(step.pct))}</span>
+                <div className={`${styles.breakdownRow} ${styles[`disc${(step.n - 1) % 6}`]}`} key={step.n}>
+                  {/* Titik + label sewarna dengan baris INPUT diskon yang sama
+                      indeksnya (lihat discSlotRow di atas) — mata langsung tahu
+                      potongan ini datang dari kolom yang mana. */}
+                  <span className={styles.discStepLabel}>
+                    <span className={styles.discDot} aria-hidden="true" />
+                    {m.calcDiscountStepAmount.replace("{n}", String(step.n)).replace("{pct}", String(step.pct))}
+                  </span>
                   <span>−{formatIDR(step.amount)}</span>
                 </div>
               ))}
