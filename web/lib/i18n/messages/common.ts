@@ -321,6 +321,10 @@ const id = {
   calcBreakdownAfterMarkup: "Setelah Markup",
   calcClearCartCta: "Kosongkan",
   calcClearCartConfirm: "Kosongkan seluruh keranjang kalkulator?",
+  calcClearConfirmYes: "Ya, kosongkan",
+  calcClearedUndoMsg: "Keranjang sudah dikosongkan.",
+  calcClearedUndoCta: "Kembalikan",
+  calcPhotoViewAria: "Perbesar foto {name}",
   calcFooterItemCount: "{n} barang",
   calcFooterAria: "{n} barang, total {amount} — ketuk untuk buka keranjang",
 } as const;
@@ -578,6 +582,10 @@ const en = {
   calcBreakdownAfterMarkup: "After markup",
   calcClearCartCta: "Clear",
   calcClearCartConfirm: "Clear the whole calculator cart?",
+  calcClearConfirmYes: "Yes, clear it",
+  calcClearedUndoMsg: "The cart has been cleared.",
+  calcClearedUndoCta: "Restore",
+  calcPhotoViewAria: "Enlarge photo of {name}",
   calcFooterItemCount: "{n} items",
   calcFooterAria: "{n} items, total {amount} — tap to open the cart",
 } satisfies Shape;
@@ -828,6 +836,10 @@ const zh = {
   calcBreakdownAfterMarkup: "加成后",
   calcClearCartCta: "清空",
   calcClearCartConfirm: "清空整个计算器购物车?",
+  calcClearConfirmYes: "是,清空",
+  calcClearedUndoMsg: "购物车已清空。",
+  calcClearedUndoCta: "恢复",
+  calcPhotoViewAria: "放大{name}的照片",
   calcFooterItemCount: "{n}件",
   calcFooterAria: "{n}件,总计{amount} —— 点击打开购物车",
 } satisfies Shape;

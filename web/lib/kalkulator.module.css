@@ -54,7 +54,8 @@
   overflow: hidden;
   flex: none;
 }
-.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo img { width: 100%; height: 100%; object-fit: contain; display: block;
+  /* contain, bukan cover: owner 2026-08-22 — barang harus tampil UTUH; kotak tetap seragam, latarnya --surface2 */ }
 .placeholder {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
@@ -108,7 +109,7 @@
 }
 .cartLine:last-child { border-bottom: none; }
 .lineThumb {
-  width: 56px; height: 56px; flex: none; border-radius: var(--r-md);
+  width: 48px; height: 48px; flex: none; border-radius: var(--r-md);
   overflow: hidden; background: var(--surface2);
   display: flex; align-items: center; justify-content: center;
   /* STYLE CONTRACT: tidak ada teks di bawah 13px di seluruh aplikasi.
@@ -119,7 +120,12 @@
      lebih besar. */
   font-size: 0; overflow: hidden; padding: 2px;
 }
-.lineThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lineThumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Thumbnail keranjang sebagai TOMBOL (ketuk = lihat foto besar, 2026-08-22).
+   48px sengaja di bawah --tap: ini aksi sekunder opsional dengan aksi utama
+   (harga/jumlah) yang tetap besar; foto tanpa aksi tidak menjadi target. */
+.lineThumbBtn { border: 1px solid var(--line); cursor: zoom-in; }
+.lineThumbBtn:active { transform: scale(.97); }
 .lineBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .lineName { font-size: var(--fs-sec); font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
 .lineControls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }

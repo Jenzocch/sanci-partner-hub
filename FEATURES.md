@@ -1089,6 +1089,23 @@ key、零 DB 變動。待 Jenzo 實機補驗：卡片 stepper 增減、−到 0 
 底色仍走主題 token，深淺色模式皆可讀；並非只靠顏色區分（編號 Diskon 1/2/…
 仍在，色弱者不受影響）。`kalkulator.module.css` `.disc0–.disc5`。
 
+**再追加（同日，owner 連續實機回饋四則）**：
+1. **「Kosongkan」不再依賴 window.confirm**——手機 PWA 環境下瀏覽器原生確認框
+   可能完全不出現（直接視同按下確定），owner 實測一按全清。改為 UI 內兩段式
+   確認（按鈕變成問句＋「Ya, kosongkan」/「Batal」），且清空後出現「Kembalikan」
+   橫幅可整車復原（品項＋折扣＋markup＋現金一併回復）；橫幅存續到復原或開始
+   重新加入商品為止，不用計時器。新 key `calcClearConfirmYes`/
+   `calcClearedUndoMsg`/`calcClearedUndoCta`（common，三語）。
+2. **購物車縮圖 56→48px、可點放大**——點縮圖開 overlay/modal 看大圖（含品名＋
+   Tutup），沿用全站 `.overlay`/`.modal`。新 key `calcPhotoViewAria`。
+3. **折扣欄拿掉預寫的 placeholder「8」**——看起來像已填好的數字，誤導。
+4. **產品照片一律 `object-fit: contain`（原 cover）**——owner：「每個 product
+   照片要調整成相同大小，東西要完整」。格子尺寸不變（同大小），改成完整顯示
+   不裁切，留白底色 `--surface2`。同步套用六處：kalkulator 卡片/縮圖、
+   cabang produk 格子/詳情、admin produk 格子、Package 內容縮圖。
+
+驗證同上（tsc/eslint/build 全綠，`/offline` 9.35 kB `○`）。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

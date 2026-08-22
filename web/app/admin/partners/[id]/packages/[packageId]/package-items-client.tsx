@@ -61,7 +61,7 @@ function Thumb({ url, name }: { url: string | null; name: string }) {
           loading="lazy"
           decoding="async"
           onError={() => setGagal(true)}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
         />
       )}
     </div>

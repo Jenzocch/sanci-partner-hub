@@ -157,6 +157,9 @@ export default function KalkulatorClient({
   }, [lines]);
 
   function addToCart(p: KalkulatorProduct) {
+    // Mulai mengisi keranjang baru = tawaran "Kembalikan" hasil pengosongan
+    // sebelumnya tidak relevan lagi (memulihkannya justru MENIMPA isian baru).
+    setClearedSnapshot(null);
     setLines((prev) => {
       const idx = prev.findIndex((l) => l.productId === p.id);
       if (idx >= 0) {
@@ -207,14 +210,40 @@ export default function KalkulatorClient({
     setDiscountSlots((slots) => slots.filter((_, i) => i !== idx));
   }
 
-  function handleClearCart() {
-    if (!window.confirm(m.calcClearCartConfirm)) return;
+  /**
+   * "Kosongkan" TIDAK memakai window.confirm: di PWA/standalone Android
+   * dialog bawaan browser bisa tidak muncul sama sekali (langsung dianggap
+   * OK) — persis kejadian owner 2026-08-22: sekali ketuk, seisi keranjang
+   * lenyap tanpa pertanyaan. Gantinya dua lapis di dalam UI sendiri:
+   *   1. konfirmasi inline (tombol berubah jadi pertanyaan + Ya/Batal), dan
+   *   2. setelah dikosongkan, banner "Kembalikan" memulihkan seisi keranjang
+   *      (baris + diskon + markup + tunai) — jaring pengaman kalau "Ya" pun
+   *      ternyata salah ketuk. Banner bertahan sampai dipulihkan atau
+   *      keranjang mulai diisi lagi (bukan timer — pilihan yang menghilang
+   *      sendiri adalah kejutan).
+   */
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearedSnapshot, setClearedSnapshot] = useState<CalcCartState | null>(null);
+  /** Foto yang sedang dibesarkan dari thumbnail keranjang (null = tertutup). */
+  const [photoView, setPhotoView] = useState<{ name: string; url: string } | null>(null);
+
+  function handleClearCartConfirmed() {
+    setClearedSnapshot({ lines, discountSlots, markup, cash });
     const empty: CalcCartState = emptyCartState();
     setLines(empty.lines);
     setDiscountSlots(empty.discountSlots);
     setMarkup(empty.markup);
     setCash(empty.cash);
     clearCalcDraft(area);
+    setConfirmClear(false);
+  }
+  function handleUndoClear() {
+    if (!clearedSnapshot) return;
+    setLines(clearedSnapshot.lines);
+    setDiscountSlots(clearedSnapshot.discountSlots.length ? clearedSnapshot.discountSlots : [""]);
+    setMarkup(clearedSnapshot.markup);
+    setCash(clearedSnapshot.cash);
+    setClearedSnapshot(null);
   }
 
   // ── Matematika: rantai diskon → markup → potongan tunai, SATU kali round
@@ -424,31 +453,66 @@ export default function KalkulatorClient({
           )}
         </>
       ) : lines.length === 0 ? (
-        <div className="card emptybox">
-          <p style={{ marginBottom: 14 }}>{m.calcCartEmpty}</p>
-          <button type="button" className="btn primary" onClick={() => setTab("produk")}>
-            {m.calcGoToProductsCta}
-          </button>
-        </div>
+        <>
+          {clearedSnapshot && (
+            <div className="banner warn">
+              {m.calcClearedUndoMsg}
+              <div className="btnrow-inline" style={{ marginTop: 9 }}>
+                <button type="button" className="btn sm" onClick={handleUndoClear}>
+                  {m.calcClearedUndoCta}
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="card emptybox">
+            <p style={{ marginBottom: 14 }}>{m.calcCartEmpty}</p>
+            <button type="button" className="btn primary" onClick={() => setTab("produk")}>
+              {m.calcGoToProductsCta}
+            </button>
+          </div>
+        </>
       ) : (
         <>
           <div className="card">
             <div className="spread" style={{ marginBottom: 4 }}>
               <h3 style={{ fontSize: 17 }}>{m.calcCartCardTitle}</h3>
-              <button type="button" className="btn sm ghost" onClick={handleClearCart}>
-                {m.calcClearCartCta}
-              </button>
+              {!confirmClear && (
+                <button type="button" className="btn sm ghost" onClick={() => setConfirmClear(true)}>
+                  {m.calcClearCartCta}
+                </button>
+              )}
             </div>
+            {confirmClear && (
+              <div className="banner warn" style={{ marginBottom: 10 }}>
+                {m.calcClearCartConfirm}
+                <div className="btnrow-inline" style={{ marginTop: 9 }}>
+                  <button type="button" className="btn sm" onClick={handleClearCartConfirmed}>
+                    {m.calcClearConfirmYes}
+                  </button>
+                  <button type="button" className="btn sm ghost" onClick={() => setConfirmClear(false)}>
+                    {m.cancel}
+                  </button>
+                </div>
+              </div>
+            )}
             {lines.map((line) => (
               <div key={line.productId} className={styles.cartLine}>
-                <div className={styles.lineThumb}>
-                  {line.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal)
+                {line.photoUrl ? (
+                  // Thumbnail kecil yang BISA diketuk untuk melihat foto besar
+                  // (permintaan owner 2026-08-22: keranjang cukup thumbnail
+                  // kecil, ketuk baru membesar).
+                  <button
+                    type="button"
+                    className={`${styles.lineThumb} ${styles.lineThumbBtn}`}
+                    onClick={() => setPhotoView({ name: line.name, url: line.photoUrl as string })}
+                    aria-label={m.calcPhotoViewAria.replace("{name}", line.name)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal) */}
                     <img src={line.photoUrl} alt={line.name} loading="lazy" />
-                  ) : (
-                    m.noPhotoPlaceholder
-                  )}
-                </div>
+                  </button>
+                ) : (
+                  <div className={styles.lineThumb}>{m.noPhotoPlaceholder}</div>
+                )}
                 <div className={styles.lineBody}>
                   <div className={styles.lineName}>
                     {line.name} {line.code && <span className="code">{line.code}</span>}
@@ -537,7 +601,6 @@ export default function KalkulatorClient({
                     inputMode="decimal"
                     value={slot}
                     onChange={(e) => setDiscountSlots((slots) => slots.map((s, i) => (i === idx ? e.target.value : s)))}
-                    placeholder="8"
                   />
                 </div>
                 {discountSlots.length > 1 && (
@@ -617,6 +680,23 @@ export default function KalkulatorClient({
             {convert && <p className="footnote" style={{ marginTop: 0 }}>{convert.scopeNote}</p>}
           </div>
         </>
+      )}
+
+      {photoView && (
+        <div className="overlay" onClick={(e) => e.target === e.currentTarget && setPhotoView(null)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label={photoView.name}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal) */}
+            <img
+              src={photoView.url}
+              alt={photoView.name}
+              style={{ width: "100%", height: "auto", borderRadius: "var(--r-md)", marginBottom: 12, display: "block" }}
+            />
+            <div className={styles.lineName} style={{ marginBottom: 12 }}>{photoView.name}</div>
+            <button type="button" className="btn" onClick={() => setPhotoView(null)}>
+              {m.close}
+            </button>
+          </div>
+        </div>
       )}
 
       <div className={styles.bottomSpacer} />

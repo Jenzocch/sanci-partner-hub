@@ -45,7 +45,8 @@
   overflow: hidden;
   flex: none;
 }
-.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo img { width: 100%; height: 100%; object-fit: contain; display: block;
+  /* contain, bukan cover: owner 2026-08-22 — barang harus tampil UTUH; kotak tetap seragam, latarnya --surface2 */ }
 
 .placeholder {
   width: 100%;
@@ -118,4 +119,4 @@
   background: var(--surface2);
   margin-bottom: 16px;
 }
-.detailphoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detailphoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
