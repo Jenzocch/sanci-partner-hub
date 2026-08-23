@@ -1,6 +1,10 @@
 // App-shell cache only (SPEC §85). No master-data offline CRUD, no caching of
 // Supabase responses, no caching of anything that isn't a GET to our own origin.
-const SHELL_CACHE = "sanci-shell-v1";
+// NAIKKAN angka versi ini SETIAP kali sw.js atau isi shell berubah — nama
+// cache yang tidak pernah berubah berarti logika pembersihan di "activate"
+// tidak pernah menyala dan HTML /offline hasil install lama dipakai selamanya
+// (audit kecepatan muat 2026-08-22 #14).
+const SHELL_CACHE = "sanci-shell-v2";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {

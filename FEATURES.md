@@ -1119,7 +1119,11 @@ key、零 DB 變動。待 Jenzo 實機補驗：卡片 stepper 增減、−到 0 
 | #9 列表預抓 | 訂單/客戶列表列連結＋admin 訂單表兩處 `prefetch={false}`；主導航維持預設 | 滑列表不再每列發請求 |
 | #17/#18 | cabang 型錄 `<img>` 補 `decoding="async"`；partner logo 補 `loading="lazy"` | 微小 |
 
-尚未做（照審計排序）：#6/#7 查詢併波（派工中）、#1 region 待 Jenzo 查 Supabase 後台回報、#8 計算機批次寫入（單獨排程）、#10 縮圖變體（等 #4 上線後評估）、#11 分頁警語（待 owner 決定）、#2b middleware 瘦身（高風險最後）、#12/#14/#16（隨時可做）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
+**同日追加 #12/#14**：`/offline` 改 import 微型字典 `messages/offline.ts`（3 鍵×3 語，
+common 用 spread 收編同一來源、零譯文重複）——**9.35→1.01 kB**、仍 `○` 靜態；
+`sw.js` 快取名 v1→v2 並附「改 shell 必升版」註解（activate 的清理邏輯從此真的會觸發）。
+
+尚未做（照審計排序）：#6/#7 查詢併波（派工中）、#1 region 待 Jenzo 查 Supabase 後台回報、#8 計算機批次寫入（單獨排程）、#10 縮圖變體（等 #4 上線後評估）、#11 分頁警語（待 owner 決定）、#2b middleware 瘦身（高風險最後）、#16（隨時可做）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
 
 ## 已知刻意保留的「怪東西」
 

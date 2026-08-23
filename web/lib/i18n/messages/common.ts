@@ -21,7 +21,13 @@
  *      jangan pernah menulis ulang teksnya di file lain.
  */
 
+import { offline } from "./offline";
+
 const id = {
+  // Tiga kunci offline (retry/offlineTitle/offlineBody) hidup di offline.ts
+  // (sumber tunggal — lihat komentar di sana; audit 2026-08-22 #12) dan
+  // disebar masuk ke sini supaya pemakai lain tetap membaca m.common.*.
+  ...offline.id,
   appName: "SANCI Partner Hub",
   // Tombol & aksi
   save: "Simpan",
@@ -31,7 +37,6 @@ const id = {
   search: "Cari",
   back: "Kembali",
   close: "Tutup",
-  retry: "Coba Lagi",
   activate: "Aktifkan",
   deactivate: "Nonaktifkan",
   saving: "Menyimpan…",
@@ -264,11 +269,6 @@ const id = {
   accountNotLinkedBody:
     "Akun Anda berhasil masuk tetapi belum dihubungkan ke partner mana pun. Hubungi SANCI Admin.",
 
-  // Halaman offline (app/offline/page.tsx)
-  offlineTitle: "Tidak ada koneksi",
-  offlineBody:
-    "Halaman ini belum pernah dibuka sebelumnya, jadi tidak tersedia secara offline. Sambungkan kembali ke internet lalu coba lagi.",
-
   // ── Kalkulator Penawaran (lib/kalkulator-client.tsx) ──────────────────
   // Dipindah UTUH dari cabang.ts (2026-08-22) saat komponen kalkulator mulai
   // dipakai DUA area (/cabang/kalkulator DAN /admin/kalkulator) — teksnya
@@ -332,6 +332,7 @@ const id = {
 type Shape = Record<keyof typeof id, string>;
 
 const en = {
+  ...offline.en,
   appName: "SANCI Partner Hub",
   save: "Save",
   cancel: "Cancel",
@@ -340,7 +341,6 @@ const en = {
   search: "Search",
   back: "Back",
   close: "Close",
-  retry: "Try again",
   activate: "Activate",
   deactivate: "Deactivate",
   saving: "Saving…",
@@ -542,9 +542,6 @@ const en = {
   accountNotLinkedBody:
     "You are signed in, but your account is not linked to any partner yet. Please contact SANCI Admin.",
 
-  offlineTitle: "No connection",
-  offlineBody:
-    "This page has never been opened before, so it is not available offline. Get back online and try again.",
 
   // Offer Calculator (lib/kalkulator-client.tsx) — moved verbatim from
   // cabang.ts, see the note on the `id` block.
@@ -591,6 +588,7 @@ const en = {
 } satisfies Shape;
 
 const zh = {
+  ...offline.zh,
   appName: "SANCI 合作商平台",
   save: "保存",
   cancel: "取消",
@@ -599,7 +597,6 @@ const zh = {
   search: "搜索",
   back: "返回",
   close: "关闭",
-  retry: "重试",
   activate: "启用",
   deactivate: "停用",
   saving: "保存中…",
@@ -799,9 +796,6 @@ const zh = {
   accountNotLinkedBody:
     "你已经登录成功，但账号还没有关联到任何合作商。请联系 SANCI 管理员。",
 
-  offlineTitle: "没有网络",
-  offlineBody:
-    "这个页面之前没有打开过，所以离线时看不到内容。请连上网络后再试。",
 
   // 方案计算器(lib/kalkulator-client.tsx)—— 原样从 cabang.ts 搬过来,
   // 说明见 `id` 区块的注释。
