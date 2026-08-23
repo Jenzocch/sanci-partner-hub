@@ -28,15 +28,21 @@ async function fetchFulfillmentAvailable(
 export default async function PesananBaruPage() {
   const m = await getCabangMessages();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getUser hanya menggerbangkan redirect — dijalankan berbarengan dengan
+  // pembacaan partner_users (audit kecepatan 2026-08-22, temuan #6).
+  const [
+    {
+      data: { user },
+    },
+    { data: pu, error },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("partner_users")
+      .select("partner_id, branch_id, partners:partner_id(name), partner_branches:branch_id(name)")
+      .maybeSingle(),
+  ]);
   if (!user) redirect("/");
-
-  const { data: pu, error } = await supabase
-    .from("partner_users")
-    .select("partner_id, branch_id, partners:partner_id(name), partner_branches:branch_id(name)")
-    .maybeSingle();
 
   if (error) {
     return (
@@ -63,15 +69,35 @@ export default async function PesananBaruPage() {
     );
   }
 
-  // Staf aktif cabang ini — pola sama seperti /cabang/staff/[branchId].
-  const [{ data: staffList }, { data: assignments }] = await Promise.all([
-    supabase.from("partner_staff").select("id, full_name, status").eq("partner_id", pu.partner_id),
-    supabase
-      .from("partner_staff_assignments")
-      .select("staff_id, role")
-      .eq("branch_id", pu.branch_id)
-      .is("end_at", null),
-  ]);
+  // Empat pembacaan di bawah hanya butuh pu.partner_id / pu.branch_id yang
+  // sudah di tangan — tidak ada yang bergantung hasil satu sama lain, jadi
+  // dijalankan dalam SATU gelombang, bukan berurutan (audit kecepatan
+  // 2026-08-22, temuan #6):
+  //   - staf aktif cabang ini + penugasannya — pola sama seperti
+  //     /cabang/staff/[branchId];
+  //   - Package (migration 0008) — kalau tabelnya belum ada (42P01), form
+  //     turun ke input teks bebas diam-diam; ini keadaan transisi yang wajar
+  //     (LESSONS #12). Error LAIN (RLS berubah, timeout) TIDAK boleh
+  //     disamarkan jadi "partner ini memang belum punya package" — form tetap
+  //     turun ke manual (tidak boleh macet), tapi pengguna diberi tahu supaya
+  //     tidak salah paham kenapa dropdown-nya kosong (P3, sepupu LESSONS #10);
+  //   - probe fulfillment_path (lihat fetchFulfillmentAvailable di atas).
+  const [{ data: staffList }, { data: assignments }, { data: packageRows, error: packagesError }, fulfillmentAvailable] =
+    await Promise.all([
+      supabase.from("partner_staff").select("id, full_name, status").eq("partner_id", pu.partner_id),
+      supabase
+        .from("partner_staff_assignments")
+        .select("staff_id, role")
+        .eq("branch_id", pu.branch_id)
+        .is("end_at", null),
+      supabase
+        .from("partner_packages")
+        .select("id, name")
+        .eq("partner_id", pu.partner_id)
+        .eq("status", "ACTIVE")
+        .order("name"),
+      fetchFulfillmentAvailable(supabase),
+    ]);
 
   const roleByStaff = new Map<string, string>();
   (assignments ?? []).forEach((a: Assignment) => roleByStaff.set(a.staff_id, a.role));
@@ -79,22 +105,8 @@ export default async function PesananBaruPage() {
     .filter((s) => s.status === "ACTIVE" && roleByStaff.has(s.id))
     .map((s) => ({ id: s.id, fullName: s.full_name, role: roleByStaff.get(s.id)! }));
 
-  // Package (migration 0008) — kalau tabelnya belum ada (42P01), form turun
-  // ke input teks bebas diam-diam; ini keadaan transisi yang wajar (LESSONS
-  // #12). Error LAIN (RLS berubah, timeout) TIDAK boleh disamarkan jadi
-  // "partner ini memang belum punya package" — form tetap turun ke manual
-  // (tidak boleh macet), tapi pengguna diberi tahu supaya tidak salah paham
-  // kenapa dropdown-nya kosong (P3, sepupu LESSONS #10).
-  const { data: packageRows, error: packagesError } = await supabase
-    .from("partner_packages")
-    .select("id, name")
-    .eq("partner_id", pu.partner_id)
-    .eq("status", "ACTIVE")
-    .order("name");
   const packages = (packageRows ?? []).map((p) => ({ id: p.id, name: p.name }));
   const packagesLoadError = !!packagesError && packagesError.code !== "42P01";
-
-  const fulfillmentAvailable = await fetchFulfillmentAvailable(supabase);
 
   return (
     <main className="pwrap">

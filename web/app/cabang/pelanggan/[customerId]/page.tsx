@@ -55,18 +55,25 @@ export default async function PelangganDetailPage({
   const m = await getCabangMessages();
   const { customerId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-
+  // getUser hanya menggerbangkan redirect — dijalankan berbarengan dengan
+  // pembacaan partner_users (audit kecepatan 2026-08-22, temuan #6).
+  //
   // edit_scope diambil terpisah — tidak ada FK partner_users →
   // partner_access_policies, embed langsung ditolak PostgREST saat runtime
   // (LESSONS #24).
-  const { data: pu, error: puError } = await supabase
-    .from("partner_users")
-    .select("branch_id, partner_id")
-    .maybeSingle();
+  const [
+    {
+      data: { user },
+    },
+    { data: pu, error: puError },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("partner_users")
+      .select("branch_id, partner_id")
+      .maybeSingle(),
+  ]);
+  if (!user) redirect("/");
   if (puError) {
     return (
       <main className="pwrap">
@@ -78,20 +85,12 @@ export default async function PelangganDetailPage({
   }
   if (!pu) redirect("/");
 
-  const { data: puPolicy } = await supabase
-    .from("partner_access_policies")
-    .select("edit_scope")
-    .eq("partner_id", pu.partner_id)
-    .maybeSingle();
-
   // RLS (fn_can_view_customer) membatasi baris — pelanggan yang tidak boleh
   // dilihat cabang ini tidak akan pernah muncul di sini. customer_code
   // (migrasi 0017/0018/0019) BISA belum ada sebagai kolom kalau kodenya
   // sudah naik lebih dulu (LESSONS #12) — coba SELECT lebar dulu, turun ke
   // SELECT sempit kalau 42703, supaya halaman detail tetap tampil.
-  let data: CustomerDetailRow | null = null;
-  let error: { code?: string } | null = null;
-  {
+  async function fetchCustomer(): Promise<{ data: CustomerDetailRow | null; error: { code?: string } | null }> {
     const wide = await supabase
       .from("customers")
       .select(
@@ -109,15 +108,36 @@ export default async function PelangganDetailPage({
         )
         .eq("id", customerId)
         .maybeSingle();
-      error = narrow.error;
-      data = narrow.data
-        ? ({ ...(narrow.data as unknown as Record<string, unknown>), customer_code: null } as unknown as CustomerDetailRow)
-        : null;
-    } else {
-      error = wide.error;
-      data = wide.data as CustomerDetailRow | null;
+      return {
+        error: narrow.error,
+        data: narrow.data
+          ? ({ ...(narrow.data as unknown as Record<string, unknown>), customer_code: null } as unknown as CustomerDetailRow)
+          : null,
+      };
     }
+    return { error: wide.error, data: wide.data as CustomerDetailRow | null };
   }
+
+  // Tiga pembacaan di bawah tidak saling bergantung — kebijakan hanya butuh
+  // pu.partner_id, detail pelanggan dan riwayat order hanya butuh customerId
+  // (param rute; RLS pada partner_orders sudah membatasi baris yang kembali,
+  // SPEC §52–53: riwayat lintas cabang & lintas waktu, bukan cuma order
+  // terbaru). Dijalankan dalam SATU gelombang, bukan berurutan (audit
+  // kecepatan 2026-08-22, temuan #6).
+  const [{ data: puPolicy }, { data, error }, { data: orderRows }] = await Promise.all([
+    supabase
+      .from("partner_access_policies")
+      .select("edit_scope")
+      .eq("partner_id", pu.partner_id)
+      .maybeSingle(),
+    fetchCustomer(),
+    supabase
+      .from("partner_orders")
+      .select("id, order_number, package_name, status, created_at, branch_id, partner_branches:branch_id(name)")
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
 
   if (error) {
     if (isMissingTableError(error)) {
@@ -151,15 +171,8 @@ export default async function PelangganDetailPage({
     customer.created_via_branch_id === pu.branch_id ||
     (puPolicy?.edit_scope === "PARTNER_ALL_BRANCHES" && customer.created_via_partner_id === pu.partner_id);
 
-  // Customer History (SPEC §52–53): semua Order yang boleh dilihat cabang ini
-  // untuk pelanggan ini, lintas cabang & lintas waktu — bukan cuma order
-  // terbaru. RLS pada partner_orders sudah membatasi baris yang kembali.
-  const { data: orderRows } = await supabase
-    .from("partner_orders")
-    .select("id, order_number, package_name, status, created_at, branch_id, partner_branches:branch_id(name)")
-    .eq("customer_id", customerId)
-    .order("created_at", { ascending: false })
-    .limit(50);
+  // Customer History (SPEC §52–53) — barisnya sudah diambil di gelombang
+  // paralel di atas.
   const orders = (orderRows as OrderHistoryRow[] | null) ?? [];
 
   return (

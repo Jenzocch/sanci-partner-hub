@@ -28,17 +28,24 @@ function one<T>(v: T | T[] | null): T | null {
 export default async function PesananListPage() {
   const m = await getCabangMessages();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-
+  // getUser hanya menggerbangkan redirect — dijalankan berbarengan dengan
+  // pembacaan partner_users (audit kecepatan 2026-08-22, temuan #6).
+  //
   // Kebijakan akses diambil terpisah — tidak ada FK partner_users →
   // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
-  const { data: pu, error: puError } = await supabase
-    .from("partner_users")
-    .select("branch_id, partner_id")
-    .maybeSingle();
+  const [
+    {
+      data: { user },
+    },
+    { data: pu, error: puError },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("partner_users")
+      .select("branch_id, partner_id")
+      .maybeSingle(),
+  ]);
+  if (!user) redirect("/");
   if (puError) {
     return (
       <main className="page">
@@ -50,22 +57,26 @@ export default async function PesananListPage() {
   }
   if (!pu) redirect("/");
 
-  const { data: pol } = await supabase
-    .from("partner_access_policies")
-    .select("visibility_scope")
-    .eq("partner_id", pu.partner_id)
-    .maybeSingle();
+  // Kebijakan (hanya flag tampilan crossBranchVisible) dan daftar order
+  // tidak saling bergantung — RLS pada partner_orders sudah membatasi baris
+  // sesuai kebijakan visibilitas; query di sini hanya membaca hasil yang
+  // sudah difilter, bukan filter tambahan. Dijalankan berbarengan, bukan
+  // berurutan (audit kecepatan 2026-08-22, temuan #6).
+  const [{ data: pol }, { data: orders, error }] = await Promise.all([
+    supabase
+      .from("partner_access_policies")
+      .select("visibility_scope")
+      .eq("partner_id", pu.partner_id)
+      .maybeSingle(),
+    supabase
+      .from("partner_orders")
+      .select(
+        "id, order_number, package_name, status, created_at, branch_id, customers:customer_id(full_name, phone_normalized), partner_branches:branch_id(name), sales:partner_sales_staff_id(full_name)"
+      )
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
   const crossBranchVisible = pol?.visibility_scope === "PARTNER_ALL_BRANCHES";
-
-  // RLS pada partner_orders sudah membatasi baris sesuai kebijakan visibilitas —
-  // query di sini hanya membaca hasil yang sudah difilter, bukan filter tambahan.
-  const { data: orders, error } = await supabase
-    .from("partner_orders")
-    .select(
-      "id, order_number, package_name, status, created_at, branch_id, customers:customer_id(full_name, phone_normalized), partner_branches:branch_id(name), sales:partner_sales_staff_id(full_name)"
-    )
-    .order("created_at", { ascending: false })
-    .limit(100);
 
   let errorKind: "missing_table" | "other" | null = null;
   if (error) {

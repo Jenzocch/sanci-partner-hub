@@ -13,18 +13,27 @@ type Branch = { id: string; name: string; address: string; city: string | null }
 export default async function CabangHome() {
   const m = await getCabangMessages();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-
+  // getUser hanya menggerbangkan redirect (tidak ada query lain yang memakai
+  // hasilnya), jadi dijalankan BERBARENGAN dengan pembacaan partner_users —
+  // pengunjung yang sudah logout paling banter memicu satu query yang pulang
+  // kosong sebelum di-redirect (audit kecepatan 2026-08-22, temuan #6).
+  //
   // partner_access_policies TIDAK bisa di-embed langsung dari partner_users —
   // keduanya tidak punya FK satu sama lain (sama-sama menunjuk partners), jadi
   // PostgREST menolak querynya saat runtime. Ambil lewat query terpisah.
-  const { data: pu, error } = await supabase
-    .from("partner_users")
-    .select("id, name, branch_id, partner_id, partners:partner_id(id, name, code)")
-    .maybeSingle();
+  const [
+    {
+      data: { user },
+    },
+    { data: pu, error },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("partner_users")
+      .select("id, name, branch_id, partner_id, partners:partner_id(id, name, code)")
+      .maybeSingle(),
+  ]);
+  if (!user) redirect("/");
 
   if (error) {
     return (
@@ -50,30 +59,35 @@ export default async function CabangHome() {
     );
   }
 
-  const { data: pol } = await supabase
-    .from("partner_access_policies")
-    .select("visibility_scope, edit_scope")
-    .eq("partner_id", pu.partner_id)
-    .maybeSingle();
-
-  // RLS pada partner_branches sudah otomatis membatasi baris yang kembali —
-  // tidak perlu logika tambahan untuk boundary partner/branch di sini.
-  const { data: visibleBranches } = await supabase
-    .from("partner_branches")
-    .select("id, name, address, city")
-    .order("name");
+  // Tiga pembacaan di bawah tidak saling bergantung (masing-masing hanya
+  // butuh pu.partner_id yang sudah ada / difilter RLS), jadi dijalankan
+  // dalam SATU gelombang, bukan berurutan:
+  //   - kebijakan akses partner ini;
+  //   - RLS pada partner_branches sudah otomatis membatasi baris yang
+  //     kembali — tidak perlu logika tambahan untuk boundary partner/branch;
+  //   - probe sanci_catalog_access: entri "Produk SANCI" tetap tampil walau
+  //     katalog belum dibuka SANCI untuk toko ini (baru begitu staf tahu
+  //     fiturnya ada dan bisa minta dibuka) — hanya disembunyikan kalau
+  //     migrasi tabelnya sendiri belum jalan (42P01).
+  const [{ data: pol }, { data: visibleBranches }, { error: catalogTableError }] = await Promise.all([
+    supabase
+      .from("partner_access_policies")
+      .select("visibility_scope, edit_scope")
+      .eq("partner_id", pu.partner_id)
+      .maybeSingle(),
+    supabase
+      .from("partner_branches")
+      .select("id, name, address, city")
+      .order("name"),
+    supabase
+      .from("sanci_catalog_access")
+      .select("partner_id")
+      .limit(1),
+  ]);
 
   const myBranch = (visibleBranches ?? []).find((b: Branch) => b.id === pu.branch_id);
   const otherBranches = (visibleBranches ?? []).filter((b: Branch) => b.id !== pu.branch_id);
   const editAll = pol?.edit_scope === "PARTNER_ALL_BRANCHES";
-
-  // Entri "Produk SANCI" tetap tampil walau katalog belum dibuka SANCI untuk
-  // toko ini (baru begitu staf tahu fiturnya ada dan bisa minta dibuka) —
-  // hanya disembunyikan kalau migrasi tabelnya sendiri belum jalan (42P01).
-  const { error: catalogTableError } = await supabase
-    .from("sanci_catalog_access")
-    .select("partner_id")
-    .limit(1);
   const produkVisible = !(catalogTableError && isMissingTableError(catalogTableError));
 
   return (

@@ -78,24 +78,41 @@ export default async function DocumentPrintPage({
   const { orderId, documentId } = await params;
   const supabase = await createClient();
 
-  const { data: doc, error: docErr } = await supabase
-    .from("order_documents")
-    .select("id, doc_type, doc_number, doc_date, notes")
-    .eq("id", documentId)
-    .eq("order_id", orderId)
-    .maybeSingle();
+  // Ketiga pembacaan di bawah hanya butuh orderId/documentId dari param rute
+  // — tidak ada yang bergantung hasil satu sama lain, jadi diambil dalam SATU
+  // gelombang (audit kecepatan 2026-08-22, temuan #7). Pembacaan yang memang
+  // butuh hasilnya (nama sales, penawaran) menyusul di gelombang kedua di
+  // bawah.
+  const [
+    { data: doc, error: docErr },
+    { data: orderData, error: orderErr },
+    { data: linesData },
+  ] = await Promise.all([
+    supabase
+      .from("order_documents")
+      .select("id, doc_type, doc_number, doc_date, notes")
+      .eq("id", documentId)
+      .eq("order_id", orderId)
+      .maybeSingle(),
+    supabase
+      .from("partner_orders")
+      .select(
+        "order_number, notes, shipping_address, created_at, partner_sales_staff_id, " +
+          "customers:customer_id(full_name, phone_normalized, whatsapp, address, city, province)"
+      )
+      .eq("id", orderId)
+      .maybeSingle(),
+    supabase
+      .from("order_document_items")
+      .select(
+        "quantity, order_items:order_item_id(name_snapshot, code_snapshot, custom_size, note, color_code, unit_price, line_discount)"
+      )
+      .eq("document_id", documentId),
+  ]);
   if (docErr || !doc) notFound();
 
   const docType = doc.doc_type as DocType;
 
-  const { data: orderData, error: orderErr } = await supabase
-    .from("partner_orders")
-    .select(
-      "order_number, notes, shipping_address, created_at, partner_sales_staff_id, " +
-        "customers:customer_id(full_name, phone_normalized, whatsapp, address, city, province)"
-    )
-    .eq("id", orderId)
-    .maybeSingle();
   if (orderErr || !orderData) notFound();
 
   const order = orderData as unknown as {
@@ -114,48 +131,48 @@ export default async function DocumentPrintPage({
     }>;
   };
   const customer = one(order.customers);
-
-  let salesName: string | null = null;
-  if (order.partner_sales_staff_id) {
-    const { data: sales } = await supabase
-      .from("partner_staff")
-      .select("full_name")
-      .eq("id", order.partner_sales_staff_id)
-      .maybeSingle();
-    salesName = sales?.full_name ?? null;
-  }
-
-  const { data: linesData } = await supabase
-    .from("order_document_items")
-    .select(
-      "quantity, order_items:order_item_id(name_snapshot, code_snapshot, custom_size, note, color_code, unit_price, line_discount)"
-    )
-    .eq("document_id", documentId);
   const lines = (linesData ?? []) as unknown as DocLine[];
 
-  // Penawaran SANCI (0013/0015) — dipakai SO (subtotal/diskon/DP) dan
-  // INVOICE (harga/DP/sisa), TIDAK dipakai DO (surat jalan tidak membawa
-  // nominal uang). Query TERPISAH, bukan embed (LESSONS #12): tabelnya bisa
-  // saja belum ada / kosong, dan itu tidak boleh menggagalkan halaman cetak
-  // (mis. DO tetap harus tercetak walau tidak pernah butuh angka ini).
+  // Gelombang kedua — dua pembacaan yang bergantung hasil gelombang pertama
+  // (id sales dari order, jenis dokumen dari doc), tapi tidak saling
+  // bergantung, jadi dijalankan berbarengan:
+  //   - nama sales, hanya kalau order memang menunjuk sales;
+  //   - Penawaran SANCI (0013/0015) — dipakai SO (subtotal/diskon/DP) dan
+  //     INVOICE (harga/DP/sisa), TIDAK dipakai DO (surat jalan tidak membawa
+  //     nominal uang). Query TERPISAH, bukan embed (LESSONS #12): tabelnya
+  //     bisa saja belum ada / kosong, dan itu tidak boleh menggagalkan
+  //     halaman cetak (mis. DO tetap harus tercetak walau tidak pernah butuh
+  //     angka ini).
+  const [salesRes, offerRes] = await Promise.all([
+    order.partner_sales_staff_id
+      ? supabase
+          .from("partner_staff")
+          .select("full_name")
+          .eq("id", order.partner_sales_staff_id)
+          .maybeSingle()
+      : Promise.resolve(null),
+    docType !== "DO"
+      ? supabase
+          .from("order_sanci_offers")
+          .select("amount, dp_amount, payment_condition, discount_pcts, markup_pct, cash_discount, final_amount")
+          .eq("order_id", orderId)
+          .maybeSingle()
+      : Promise.resolve(null),
+  ]);
+  const salesName: string | null = salesRes ? salesRes.data?.full_name ?? null : null;
+
   let offer: OfferInfo = null;
-  if (docType !== "DO") {
-    const { data: offerData } = await supabase
-      .from("order_sanci_offers")
-      .select("amount, dp_amount, payment_condition, discount_pcts, markup_pct, cash_discount, final_amount")
-      .eq("order_id", orderId)
-      .maybeSingle();
-    if (offerData) {
-      offer = {
-        amount: Number(offerData.amount),
-        dpAmount: Number(offerData.dp_amount),
-        paymentCondition: offerData.payment_condition,
-        discountPcts: ((offerData.discount_pcts as number[] | null) ?? []).map(Number),
-        markupPct: offerData.markup_pct == null ? null : Number(offerData.markup_pct),
-        cashDiscount: Number(offerData.cash_discount ?? 0),
-        finalAmount: Number(offerData.final_amount ?? offerData.amount),
-      };
-    }
+  const offerData = offerRes ? offerRes.data : null;
+  if (offerData) {
+    offer = {
+      amount: Number(offerData.amount),
+      dpAmount: Number(offerData.dp_amount),
+      paymentCondition: offerData.payment_condition,
+      discountPcts: ((offerData.discount_pcts as number[] | null) ?? []).map(Number),
+      markupPct: offerData.markup_pct == null ? null : Number(offerData.markup_pct),
+      cashDiscount: Number(offerData.cash_discount ?? 0),
+      finalAmount: Number(offerData.final_amount ?? offerData.amount),
+    };
   }
 
   const totalQty = lines.reduce((sum, l) => sum + l.quantity, 0);

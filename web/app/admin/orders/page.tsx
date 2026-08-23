@@ -177,25 +177,27 @@ export default async function AdminOrdersPage({
   //      jalur tertentu tapi berada di luar 50 baris terbaru tidak akan
   //      muncul. Kalau kolom belum ada, filter dan kolom Jalur di tabel
   //      SAMA SEKALI tidak ditampilkan (bukan ditampilkan kosong).
+  // Query ini SEKALIGUS menjadi probe keberadaan kolomnya sendiri (migrasi
+  // 0009 sudah production-VERIFIED — probe .limit(1) terpisah yang dulu
+  // mendahuluinya hanya menambah satu perjalanan bolak-balik, audit kecepatan
+  // 2026-08-22 temuan #7): 42703 dari sini berarti kolom belum ada, dan
+  // dijalankan juga saat daftar kosong supaya keputusan tampil/tidaknya
+  // filter Jalur tetap sama seperti sebelumnya.
   let jalurAvailable = false;
-  if (!queryErr) {
-    const { error: jalurProbeErr } = await supabase.from("partner_orders").select("fulfillment_path").limit(1);
-    jalurAvailable = !jalurProbeErr;
-  }
-
   let jalurMap = new Map<string, FulfillmentPath | null>();
-  if (jalurAvailable && orderRows.length > 0) {
+  if (!queryErr) {
     const { data: jalurData, error: jalurErr } = await supabase
       .from("partner_orders")
       .select("id, fulfillment_path")
       .in("id", orderRows.map((r) => r.id));
     if (jalurErr) {
-      // Query kedua gagal walau probe di atas lolos — jangan biarkan jalurMap
+      // Kolom belum ada (42703) ATAU query gagal — jangan biarkan jalurMap
       // kosong lalu diam-diam menyaring semua baris kalau ada filter Jalur
-      // aktif (LESSONS #10). Turunkan ke jalur degradasi yang sudah ada:
+      // aktif (LESSONS #10). Jalur degradasinya satu dan sama:
       // kolom + filter Jalur disembunyikan semua, bukan ditampilkan kosong.
       jalurAvailable = false;
     } else {
+      jalurAvailable = true;
       jalurMap = new Map(
         (jalurData ?? []).map((r: { id: string; fulfillment_path: FulfillmentPath | null }) => [
           r.id,

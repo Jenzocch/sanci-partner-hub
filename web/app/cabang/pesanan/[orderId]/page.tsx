@@ -328,25 +328,29 @@ export default async function PesananDetailPage({
     const row = narrow.data as { can_view_offer: boolean; can_edit_offer: boolean } | null;
     return { canViewOffer: row?.can_view_offer ?? false, canEditOffer: row?.can_edit_offer ?? false, canDiscount: false };
   }
-  // Kedua pembacaan di atas menyentuh TABEL dan BARIS yang sama
+  // Kedua pembacaan kebijakan di atas menyentuh TABEL dan BARIS yang sama
   // (partner_access_policies untuk partner ini) dan tidak saling bergantung —
   // dipisah hanya supaya 42703 dari can_discount tidak ikut menjatuhkan
-  // edit_scope. Dijalankan berbarengan, bukan berurutan.
-  const [{ data: puPolicy }, offerFlags] = await Promise.all([puPolicyPromise, fetchOfferFlags()]);
-
-  // RLS pada partner_orders membatasi baris: order di cabang yang tidak boleh
-  // dilihat pengguna ini tidak akan pernah muncul di sini.
-  const { data, error } = await supabase
-    .from("partner_orders")
-    .select(
-      "id, order_number, package_name, status, notes, created_at, branch_id, partner_id, " +
-        "partner_sales_staff_id, partner_pic_staff_id, " +
-        "customers:customer_id(full_name, phone_normalized, whatsapp), " +
-        "partner_branches:branch_id(name), partners:partner_id(name, code), " +
-        "sales:partner_sales_staff_id(full_name, status), pic:partner_pic_staff_id(full_name, status)"
-    )
-    .eq("id", orderId)
-    .maybeSingle();
+  // edit_scope. Query utama order hanya butuh orderId (param rute), jadi ikut
+  // gelombang yang sama — RLS pada partner_orders membatasi baris: order di
+  // cabang yang tidak boleh dilihat pengguna ini tidak akan pernah muncul di
+  // sini. Ketiganya dijalankan berbarengan, bukan berurutan (audit kecepatan
+  // 2026-08-22, temuan #6).
+  const [{ data: puPolicy }, offerFlags, { data, error }] = await Promise.all([
+    puPolicyPromise,
+    fetchOfferFlags(),
+    supabase
+      .from("partner_orders")
+      .select(
+        "id, order_number, package_name, status, notes, created_at, branch_id, partner_id, " +
+          "partner_sales_staff_id, partner_pic_staff_id, " +
+          "customers:customer_id(full_name, phone_normalized, whatsapp), " +
+          "partner_branches:branch_id(name), partners:partner_id(name, code), " +
+          "sales:partner_sales_staff_id(full_name, status), pic:partner_pic_staff_id(full_name, status)"
+      )
+      .eq("id", orderId)
+      .maybeSingle(),
+  ]);
 
   if (error) {
     if (isMissingTableError(error)) {
