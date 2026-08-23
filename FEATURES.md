@@ -1159,7 +1159,25 @@ admin kalkulator）觸頂時顯示警語（新 key `common.catalogListCappedMsg`
 分頁/伺服器搜尋仍是待 owner 決定的產品題目。`/cabang/pelanggan` 的訂單計數
 查詢補上 5000 筆安全上限（非真實會碰到的門檻，純防護）。
 
-尚未做（照審計排序）：#8 計算機批次寫入（單獨排程）、#10 縮圖變體（等 #4 上線後評估）、#2b middleware 瘦身（高風險最後）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
+**同日 #8 完成（計算機轉單批次寫入，最後一項高優先項）**：
+`copyCalcCartItemsToOrder` 從 N×(SELECT+INSERT) 序列迴圈改成最多三批
+`upsert(..., {onConflict:"client_request_id", ignoreDuplicates:true})`——
+不含價格的品項先寫一批（不會觸發 price guard）、含價格的品項一批、若整批被
+`trg_order_item_price_guard` 擋下（分店沒有 can_edit_offer）才降級重送第三批
+（去掉 unit_price）。重讀 0014 確認 `fn_guard_order_item_price_cols` 是
+`BEFORE INSERT ... FOR EACH ROW` 且 `RAISE EXCEPTION`——單一 INSERT 語句沒有
+逐列 savepoint，一列被擋會整批失敗，這正是「不含價格」跟「含價格」必須分開
+兩個請求送出的原因（否則一個被擋的計價品項會連累不該被擋的無價品項）。
+10 項購物車：最多 21 趟序列來回 → 最多 3 趟（無折扣限制情境下 1～2 趟）。
+與 `copyPackageItemsToOrder` 同一套已驗證的 idempotency 論證（RETURNING 排除
+被跳過的重複列、`created` 以實際回傳列數計算、目前唯一呼叫點不會重試同一個
+`orderClientRequestId` 所以計數低估的理論邊界案例不會發生）。
+
+**待 Jenzo 實機驗證**：用計算機建一張混合購物車（部分有填單價、部分沒填）
+分兩種分店權限各試一次——①有 can_edit_offer：全部品項連價格都正確落地；
+②沒有：品項仍全部落地但價格欄位空白、畫面顯示降級提示。
+
+尚未做（照審計排序）：#10 縮圖變體（等 #4 上線後評估）、#2b middleware 瘦身（高風險最後）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
 
 ## 已知刻意保留的「怪東西」
 
