@@ -1137,6 +1137,13 @@ pesanan 4→2、staff 6→2~3、pelanggan 詳情 5→2~3、produk/kalkulator 各
 最優選址，但搬 Supabase region 是大工程且伺服器↔DB 的多趟往返才是大頭——
 伺服器貼著 DB 即可，此決策記錄於此。
 
+**同日「不必要的來回」第一刀（owner 指示「有些不需要來回跑」）**：
+`next.config.ts` 啟用 `experimental.staleTimes.dynamic: 30` —— 30 秒內回到
+看過的頁面直接用手機記憶體渲染，零伺服器請求（Next 14 預設值，15 改成 0，
+此處有意恢復）。安全前提已核實：全部 Server Action 寫入都呼叫
+`revalidatePath()`，該革新同時清掉 client router cache——自己剛存的改動
+永遠立即可見；可能最多舊 30 秒的只有「別人在這 30 秒內改的東西」。
+
 尚未做（照審計排序）：#8 計算機批次寫入（單獨排程）、#10 縮圖變體（等 #4 上線後評估）、#11 分頁警語（待 owner 決定）、#2b middleware 瘦身（高風險最後）、#16（隨時可做）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
 
 ## 已知刻意保留的「怪東西」
