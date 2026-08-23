@@ -1144,6 +1144,15 @@ pesanan 4→2、staff 6→2~3、pelanggan 詳情 5→2~3、produk/kalkulator 各
 `revalidatePath()`，該革新同時清掉 client router cache——自己剛存的改動
 永遠立即可見；可能最多舊 30 秒的只有「別人在這 30 秒內改的東西」。
 
+**同日「不必要的來回」第二刀**：12 個頁面（cabang 全部 11 頁＋admin layout）
+移除頁面層 `auth.getUser()` 那趟 `/auth/v1/user` 網路驗證——RLS 身分查詢
+（partner_users 自己那列／platform_admins `pa_read`）查無即未登入，把關的
+本來就是資料庫（LESSONS #5）；middleware 每次真導航仍照常刷新 session。
+每頁再省一趟來回。error≠空結果的三態全數保留（DB 打嗝→錯誤卡，不會誤踢去
+登入頁，LESSONS #10）；admin layout 改 `.limit(1).maybeSingle()`（3+ 位 admin
+下 fn_is_admin 會看到多列，無 limit 會炸）。登入頁 `/`、middleware、全部
+Server Action 的 getUser 原樣未動。
+
 尚未做（照審計排序）：#8 計算機批次寫入（單獨排程）、#10 縮圖變體（等 #4 上線後評估）、#11 分頁警語（待 owner 決定）、#2b middleware 瘦身（高風險最後）、#16（隨時可做）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
 
 ## 已知刻意保留的「怪東西」
