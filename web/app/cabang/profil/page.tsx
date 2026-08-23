@@ -8,11 +8,11 @@ export const dynamic = "force-dynamic";
 export default async function ProfilCabangPage() {
   const m = await getCabangMessages();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-
+  // Tanpa auth.getUser(): batas keamanannya RLS, bukan cek halaman (LESSONS
+  // #5) — untuk pengunjung yang belum login, pembacaan partner_users ini
+  // pulang kosong, jadi `!pu` → redirect sama persis; middleware sudah
+  // menyegarkan sesi tiap navigasi. Beda error vs kosong TETAP dijaga
+  // (LESSONS #10): error DB → kartu error, hanya hasil kosong di-redirect.
   const { data: pu, error: puError } = await supabase
     .from("partner_users")
     .select("partners:partner_id(name), partner_branches:branch_id(name, code, address, city, province, contact_phone)")

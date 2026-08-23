@@ -17,24 +17,18 @@ export default async function CabangStaffPage({
   const m = await getCabangMessages();
   const { branchId } = await params;
   const supabase = await createClient();
-  // getUser hanya menggerbangkan redirect — dijalankan berbarengan dengan
-  // pembacaan partner_users (audit kecepatan 2026-08-22, temuan #6).
+  // Tanpa auth.getUser(): batas keamanannya RLS, bukan cek halaman (LESSONS
+  // #5) — untuk pengunjung yang belum login, pembacaan partner_users ini
+  // pulang kosong, jadi `!pu` → redirect sama persis; middleware sudah
+  // menyegarkan sesi tiap navigasi. Beda error vs kosong TETAP dijaga
+  // (LESSONS #10): error DB → kartu error, hanya hasil kosong di-redirect.
   //
   // edit_scope diambil terpisah — tidak ada FK partner_users →
   // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
-  const [
-    {
-      data: { user },
-    },
-    { data: pu, error: puError },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase
-      .from("partner_users")
-      .select("branch_id, partner_id, partners:partner_id(name)")
-      .maybeSingle(),
-  ]);
-  if (!user) redirect("/");
+  const { data: pu, error: puError } = await supabase
+    .from("partner_users")
+    .select("branch_id, partner_id, partners:partner_id(name)")
+    .maybeSingle();
   // maybeSingle() error di sini biasanya berarti lebih dari satu baris cocok —
   // terjadi kalau akun SANCI Admin (RLS-nya melihat SEMUA partner_users) membuka
   // URL /cabang/* langsung tanpa lewat halaman login (LESSONS #24 sepupu).

@@ -263,11 +263,12 @@ export default async function PesananDetailPage({
   const m = await getCabangMessages();
   const { orderId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-
+  // Tanpa auth.getUser(): batas keamanannya RLS, bukan cek halaman (LESSONS
+  // #5) — untuk pengunjung yang belum login, pembacaan partner_users ini
+  // pulang kosong, jadi `!pu` → redirect sama persis; middleware sudah
+  // menyegarkan sesi tiap navigasi. Beda error vs kosong TETAP dijaga
+  // (LESSONS #10): error DB → kartu error, hanya hasil kosong di-redirect.
+  //
   // edit_scope diambil terpisah — tidak ada FK partner_users →
   // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
   const { data: pu, error: puError } = await supabase

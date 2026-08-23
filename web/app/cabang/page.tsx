@@ -13,27 +13,20 @@ type Branch = { id: string; name: string; address: string; city: string | null }
 export default async function CabangHome() {
   const m = await getCabangMessages();
   const supabase = await createClient();
-  // getUser hanya menggerbangkan redirect (tidak ada query lain yang memakai
-  // hasilnya), jadi dijalankan BERBARENGAN dengan pembacaan partner_users —
-  // pengunjung yang sudah logout paling banter memicu satu query yang pulang
-  // kosong sebelum di-redirect (audit kecepatan 2026-08-22, temuan #6).
+  // Tanpa auth.getUser(): batas keamanannya RLS, bukan cek halaman (LESSONS
+  // #5) — untuk pengunjung yang belum login, pembacaan partner_users ini
+  // pulang kosong, jadi `!pu` → redirect sama persis; middleware sudah
+  // menyegarkan sesi tiap navigasi. Satu perjalanan bolak-balik ke Supabase
+  // Auth hilang dari setiap render. Beda error vs kosong TETAP dijaga
+  // (LESSONS #10): error DB → kartu error, hanya hasil kosong di-redirect.
   //
   // partner_access_policies TIDAK bisa di-embed langsung dari partner_users —
   // keduanya tidak punya FK satu sama lain (sama-sama menunjuk partners), jadi
   // PostgREST menolak querynya saat runtime. Ambil lewat query terpisah.
-  const [
-    {
-      data: { user },
-    },
-    { data: pu, error },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase
-      .from("partner_users")
-      .select("id, name, branch_id, partner_id, partners:partner_id(id, name, code)")
-      .maybeSingle(),
-  ]);
-  if (!user) redirect("/");
+  const { data: pu, error } = await supabase
+    .from("partner_users")
+    .select("id, name, branch_id, partner_id, partners:partner_id(id, name, code)")
+    .maybeSingle();
 
   if (error) {
     return (

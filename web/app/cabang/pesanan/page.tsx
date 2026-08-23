@@ -28,24 +28,18 @@ function one<T>(v: T | T[] | null): T | null {
 export default async function PesananListPage() {
   const m = await getCabangMessages();
   const supabase = await createClient();
-  // getUser hanya menggerbangkan redirect — dijalankan berbarengan dengan
-  // pembacaan partner_users (audit kecepatan 2026-08-22, temuan #6).
+  // Tanpa auth.getUser(): batas keamanannya RLS, bukan cek halaman (LESSONS
+  // #5) — untuk pengunjung yang belum login, pembacaan partner_users ini
+  // pulang kosong, jadi `!pu` → redirect sama persis; middleware sudah
+  // menyegarkan sesi tiap navigasi. Beda error vs kosong TETAP dijaga
+  // (LESSONS #10): error DB → kartu error, hanya hasil kosong di-redirect.
   //
   // Kebijakan akses diambil terpisah — tidak ada FK partner_users →
   // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
-  const [
-    {
-      data: { user },
-    },
-    { data: pu, error: puError },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase
-      .from("partner_users")
-      .select("branch_id, partner_id")
-      .maybeSingle(),
-  ]);
-  if (!user) redirect("/");
+  const { data: pu, error: puError } = await supabase
+    .from("partner_users")
+    .select("branch_id, partner_id")
+    .maybeSingle();
   if (puError) {
     return (
       <main className="page">
