@@ -1153,7 +1153,13 @@ pesanan 4→2、staff 6→2~3、pelanggan 詳情 5→2~3、produk/kalkulator 各
 下 fn_is_admin 會看到多列，無 limit 會炸）。登入頁 `/`、middleware、全部
 Server Action 的 getUser 原樣未動。
 
-尚未做（照審計排序）：#8 計算機批次寫入（單獨排程）、#10 縮圖變體（等 #4 上線後評估）、#11 分頁警語（待 owner 決定）、#2b middleware 瘦身（高風險最後）、#16（隨時可做）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
+**同日 #11/#16 完成**：三個 `.limit(200)` 目錄畫面（cabang produk/kalkulator、
+admin kalkulator）觸頂時顯示警語（新 key `common.catalogListCappedMsg`）——
+169/200 已用掉八成，第 201 個產品原本會無聲消失，現在至少誠實告知；真正的
+分頁/伺服器搜尋仍是待 owner 決定的產品題目。`/cabang/pelanggan` 的訂單計數
+查詢補上 5000 筆安全上限（非真實會碰到的門檻，純防護）。
+
+尚未做（照審計排序）：#8 計算機批次寫入（單獨排程）、#10 縮圖變體（等 #4 上線後評估）、#2b middleware 瘦身（高風險最後）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
 
 ## 已知刻意保留的「怪東西」
 
