@@ -82,7 +82,9 @@ export default function PartnerActions({
         const { error } = await supabase.storage.from("partner-logos").upload(path, kecil.blob, {
           upsert: true,
           contentType: kecil.blob.type || "image/webp",
-          cacheControl: "3600",
+          // Setahun: URL logo membawa ?v=<timestamp>, konten per-URL abadi
+          // (audit kecepatan muat 2026-08-22 #4).
+          cacheControl: "31536000",
         });
         if (error) return false;
 

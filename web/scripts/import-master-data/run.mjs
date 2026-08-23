@@ -175,7 +175,10 @@ async function main() {
     const { error: upErr } = await supabase.storage.from("product-photos").upload(storagePath, imgBytes, {
       upsert: true,
       contentType: "image/webp",
-      cacheControl: "3600",
+      // Setahun: URL foto membawa ?v=<timestamp>, konten per-URL abadi
+      // (audit kecepatan muat 2026-08-22 #4). Jalankan ulang skrip ini untuk
+      // menimpa 169 objek lama yang masih tersimpan dengan max-age=3600.
+      cacheControl: "31536000",
     });
     if (upErr) {
       console.error(`${label}: gagal unggah foto —`, upErr.message);

@@ -49,7 +49,11 @@ export async function unggahFotoProduk(productId: string, file: File, messages: 
       const { error } = await supabase.storage.from("product-photos").upload(path, kecil.blob, {
         upsert: true,
         contentType: tipe,
-        cacheControl: "3600",
+        // Setahun penuh: URL foto selalu membawa ?v=<timestamp> (LESSONS #22),
+        // ganti foto = ganti URL, jadi konten di URL yang sama TIDAK PERNAH
+        // berubah — cache 1 jam berarti browser/CDN memvalidasi ulang 169
+        // foto setiap jam tanpa alasan (audit kecepatan muat 2026-08-22 #4).
+        cacheControl: "31536000",
       });
       if (error) return false;
 

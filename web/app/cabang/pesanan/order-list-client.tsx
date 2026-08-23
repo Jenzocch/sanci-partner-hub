@@ -119,8 +119,10 @@ export default function OrderListClient({
         <div className="card emptybox">{m.cabang.noOrdersWithStatus}</div>
       ) : (
         <div className="cardlist">
+          {/* prefetch=false pada baris: daftar bisa 100 tautan, tujuannya
+              force-dynamic — prefetch hanya membuang request (audit 2026-08-22 #9) */}
           {filtered.map((it) => (
-            <Link key={it.id} href={`/cabang/pesanan/${it.id}`} className="reccard">
+            <Link key={it.id} href={`/cabang/pesanan/${it.id}`} className="reccard" prefetch={false}>
               <div className="rc-top">
                 <span className="code">{it.orderNumber}</span>
                 <StatusBadge status={it.status} messages={m} />

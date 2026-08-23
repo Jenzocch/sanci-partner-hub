@@ -29,6 +29,8 @@ export default function PartnerLogo({
       alt={`Logo ${name}`}
       width={size}
       height={size}
+      loading="lazy"
+      decoding="async"
       onError={() => setGagal(true)}
       style={{
         width: size,

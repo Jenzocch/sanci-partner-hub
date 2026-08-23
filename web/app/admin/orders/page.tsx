@@ -295,7 +295,7 @@ export default async function AdminOrdersPage({
                   return (
                     <tr key={r.id}>
                       <td>
-                        <Link href={`/admin/orders/${r.id}`} className="rowname">
+                        <Link href={`/admin/orders/${r.id}`} className="rowname" prefetch={false}>
                           <span className="code">{r.order_number}</span>
                         </Link>
                       </td>
@@ -331,7 +331,7 @@ export default async function AdminOrdersPage({
                         {new Date(r.created_at).toLocaleString("id-ID")}
                       </td>
                       <td className="ta-right">
-                        <Link href={`/admin/orders/${r.id}`} className="linkbtn">
+                        <Link href={`/admin/orders/${r.id}`} className="linkbtn" prefetch={false}>
                           {m.admin.openBtn}
                         </Link>
                       </td>

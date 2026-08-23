@@ -1106,6 +1106,21 @@ key、零 DB 變動。待 Jenzo 實機補驗：卡片 stepper 增減、−到 0 
 
 驗證同上（tsc/eslint/build 全綠，`/offline` 9.35 kB `○`）。
 
+### 載入速度審計＋修復第一批（2026-08-22，Jenzo 指示「全面audit 載入速度」後說「開始」）
+
+審計報告（P0×4/P1×7/P2×5/P3×3，report-only）已交付對話中；本批落地低風險高回報項：
+
+| 項 | 修法 | 效果（build 實測） |
+|---|---|---|
+| #4 照片快取 1 小時 | 三處 `cacheControl` 3600→31536000（URL 帶 `?v=` 版本號，內容永不變，安全）。**注意：既有 169 張為舊標頭，需重跑 `import-master-data/run.mjs` 覆寫**（run.mjs 已附註） | 型錄重複瀏覽從 4.3 MB/169 次往返 → 0 |
+| #2a 預抓過 middleware | middleware 對 `next-router-prefetch`/`purpose: prefetch` 早退，不再每個預抓打一次 `auth.getUser()` | 100 筆列表 = 省最多 100 次 Supabase auth 呼叫 |
+| #3 登出鈕背整包 SDK | `admin-nav.tsx`＋`sign-out-button.tsx` 改 handler 內動態 import（載入失敗＝解鎖按鈕，不炸畫面） | `/cabang` 首頁 174→**108 kB**；admin layout 不再夾帶 supabase chunks（manifest 驗證）→ 全部 `/admin/**` −65 kB |
+| #5a cabang 缺骨架 | 新增 `app/cabang/loading.tsx`（零文案），覆蓋 `/cabang`、akun、profil、staff 四路由 | 按「回首頁」不再定格像當機 |
+| #9 列表預抓 | 訂單/客戶列表列連結＋admin 訂單表兩處 `prefetch={false}`；主導航維持預設 | 滑列表不再每列發請求 |
+| #17/#18 | cabang 型錄 `<img>` 補 `decoding="async"`；partner logo 補 `loading="lazy"` | 微小 |
+
+尚未做（照審計排序）：#6/#7 查詢併波（派工中）、#1 region 待 Jenzo 查 Supabase 後台回報、#8 計算機批次寫入（單獨排程）、#10 縮圖變體（等 #4 上線後評估）、#11 分頁警語（待 owner 決定）、#2b middleware 瘦身（高風險最後）、#12/#14/#16（隨時可做）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

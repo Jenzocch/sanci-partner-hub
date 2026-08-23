@@ -96,7 +96,7 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
                 <div className={styles.photo}>
                   {it.photoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal), lihat catatan di lib/catalog-shared.ts
-                    <img src={it.photoUrl} alt={it.name} loading="lazy" />
+                    <img src={it.photoUrl} alt={it.name} loading="lazy" decoding="async" />
                   ) : (
                     <div className={styles.placeholder}>{m.common.noPhotoPlaceholder}</div>
                   )}

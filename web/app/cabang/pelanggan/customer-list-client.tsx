@@ -74,8 +74,9 @@ export default function CustomerListClient({
         <div className="card emptybox">{m.cabang.noCustomersMatchSearch.replace("{q}", q)}</div>
       ) : (
         <div className="cardlist">
+          {/* prefetch=false — alasan sama dengan order-list-client.tsx (audit 2026-08-22 #9) */}
           {filtered.map((it) => (
-            <Link key={it.id} href={`/cabang/pelanggan/${it.id}`} className="reccard">
+            <Link key={it.id} href={`/cabang/pelanggan/${it.id}`} className="reccard" prefetch={false}>
               <div className="rc-top">
                 <div className="rc-title">{it.fullName}</div>
                 {it.customerCode && <span className="code">{it.customerCode}</span>}

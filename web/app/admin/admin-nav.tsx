@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import LocaleSwitcher from "@/lib/i18n/locale-switcher";
 
@@ -11,8 +10,16 @@ export default function AdminNav() {
   const router = useRouter();
   const m = useAdminMessages();
 
+  // Impor dinamis, alasan sama dengan sign-out-button.tsx cabang: komponen
+  // ini ada di layout, jadi impor statis membebani SETIAP halaman /admin/**
+  // dengan ~65 kB gzip SDK hanya untuk tombol Keluar (audit 2026-08-22 #3).
   async function signOut() {
-    await createClient().auth.signOut();
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      await createClient().auth.signOut();
+    } catch {
+      return;
+    }
     router.push("/");
     router.refresh();
   }
