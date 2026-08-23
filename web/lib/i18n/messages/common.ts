@@ -28,6 +28,15 @@ const id = {
   // (sumber tunggal — lihat komentar di sana; audit 2026-08-22 #12) dan
   // disebar masuk ke sini supaya pemakai lain tetap membaca m.common.*.
   ...offline.id,
+  // Peringatan "mungkin ada yang tidak tampil" dipakai TIGA layar (produk
+  // cabang, kalkulator cabang, kalkulator admin) yang semuanya membaca
+  // sanci_products dengan .limit(200) — audit kecepatan muat 2026-08-22 #11:
+  // produk ke-201 akan hilang TANPA PERINGATAN kalau tidak diberi tahu di
+  // sini (169/200 terpakai saat ditulis, LESSONS #10 keluarga "hilang diam-
+  // diam"). Bukan solusi (perlu pagination/pencarian server sungguhan),
+  // hanya kejujuran minimum sampai itu diputuskan.
+  catalogListCappedMsg:
+    "Daftar dibatasi 200 produk pertama — kalau produk yang dicari tidak ada di sini, mungkin ada di luar batas ini. Hubungi SANCI Admin.",
   appName: "SANCI Partner Hub",
   // Tombol & aksi
   save: "Simpan",
@@ -333,6 +342,8 @@ type Shape = Record<keyof typeof id, string>;
 
 const en = {
   ...offline.en,
+  catalogListCappedMsg:
+    "This list is capped at the first 200 products — if the one you're looking for isn't here, it may be beyond that limit. Contact SANCI Admin.",
   appName: "SANCI Partner Hub",
   save: "Save",
   cancel: "Cancel",
@@ -589,6 +600,7 @@ const en = {
 
 const zh = {
   ...offline.zh,
+  catalogListCappedMsg: "本清单只显示前 200 项产品 —— 如果找不到您要的产品,可能超出这个上限了。请联系 SANCI 管理员。",
   appName: "SANCI 合作商平台",
   save: "保存",
   cancel: "取消",

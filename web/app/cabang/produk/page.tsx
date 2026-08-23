@@ -152,6 +152,9 @@ export default async function ProdukPage() {
     <main className="pwrap">
       <BackRow m={m} />
       <h2 className="mtitle">{m.cabang.homeProducts}</h2>
+      {/* .limit(200) di atas bisa memotong diam-diam — beri tahu, jangan
+          biarkan produk ke-201 hilang tanpa jejak (audit 2026-08-22 #11). */}
+      {items.length === 200 && <div className="banner warn">{m.common.catalogListCappedMsg}</div>}
       <ProdukListClient items={items} />
     </main>
   );

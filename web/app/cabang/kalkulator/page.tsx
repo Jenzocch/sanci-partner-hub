@@ -168,6 +168,8 @@ export default async function KalkulatorPage() {
     <main className="pwrap">
       <BackRow m={m} />
       <h2 className="mtitle">{m.common.calcPageTitle}</h2>
+      {/* .limit(200) di atas bisa memotong diam-diam (audit 2026-08-22 #11). */}
+      {items.length === 200 && <div className="banner warn">{m.common.catalogListCappedMsg}</div>}
       <div className="banner info">{m.cabang.calcIntroNote}</div>
       {/* `convert` diisi HANYA di route cabang — teks CTA/scope note milik
           slice cabang (menyebut alur pesanan cabang), dan hand-off-nya memang

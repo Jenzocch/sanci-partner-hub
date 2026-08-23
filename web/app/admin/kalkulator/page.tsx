@@ -99,6 +99,8 @@ export default async function AdminKalkulatorPage() {
       <div className="worktop">
         <h1>{m.common.calcPageTitle}</h1>
       </div>
+      {/* .limit(200) di atas bisa memotong diam-diam (audit 2026-08-22 #11). */}
+      {items.length === 200 && <div className="banner warn">{m.common.catalogListCappedMsg}</div>}
       <div className="banner info">{m.admin.calcAdminIntroNote}</div>
       <KalkulatorClient products={items} area="admin" convert={null} />
     </div>

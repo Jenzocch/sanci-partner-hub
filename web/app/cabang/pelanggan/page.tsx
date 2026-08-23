@@ -65,7 +65,17 @@ export default async function PelangganListPage() {
     // Hitung jumlah pesanan per pelanggan lewat query terpisah — RLS pada
     // partner_orders otomatis membatasi ke order yang boleh dilihat cabang
     // ini juga, jadi angkanya konsisten dengan yang muncul di detail (§77).
-    const { data: orderRows } = await supabase.from("partner_orders").select("customer_id").in("customer_id", ids);
+    // `.limit()` jaring pengaman (bukan batas yang pernah tercapai wajar):
+    // ids sudah dibatasi 100 pelanggan, tapi baris ORDER-nya sendiri tidak
+    // — cabang dengan riwayat sangat panjang tetap terlindung dari respons
+    // tak terbatas (audit kecepatan muat 2026-08-22 #16). Angka yang tampil
+    // bisa jadi kurang dari sebenarnya HANYA di atas 5000 order gabungan
+    // 100 pelanggan itu — batas yang realistis tidak akan tersentuh.
+    const { data: orderRows } = await supabase
+      .from("partner_orders")
+      .select("customer_id")
+      .in("customer_id", ids)
+      .limit(5000);
     (orderRows ?? []).forEach((o: { customer_id: string }) => {
       orderCounts.set(o.customer_id, (orderCounts.get(o.customer_id) ?? 0) + 1);
     });
