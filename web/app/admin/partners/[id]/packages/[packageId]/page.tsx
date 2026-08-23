@@ -24,16 +24,52 @@ export default async function PackageItemsPage({
   const m = await getAdminMessages();
   const supabase = await createClient();
 
+  // Keempat pembacaan halaman ini hanya butuh id/packageId dari param rute —
+  // tidak ada yang bergantung hasil satu sama lain, jadi diambil dalam SATU
+  // gelombang, bukan berurutan (audit kecepatan 2026-08-22, temuan #7).
+  //
   // Paket DIAMBIL dengan dua syarat sekaligus: id-nya benar DAN ia milik
   // partner di alamat ini. Mencari hanya lewat id lalu membandingkan
   // partner_id di JavaScript akan membocorkan keberadaan paket partner lain
   // lewat beda pesan/waktu — notFound() untuk keduanya, tanpa membedakan.
-  const { data: pkg, error: pkgErr } = await supabase
-    .from("partner_packages")
-    .select("id, name, code, description, status, partner_id")
-    .eq("id", packageId)
-    .eq("partner_id", id)
-    .maybeSingle();
+  //
+  // partner_package_items.product_id → sanci_products.id adalah foreign key
+  // SUNGGUHAN, jadi embed PostgREST di sini sah. (Bandingkan LESSONS #24:
+  // partner_users → partner_access_policies TIDAK punya FK antar keduanya
+  // sehingga embed-nya gagal saat dijalankan — kasus ini berbeda, jangan
+  // menerapkan pelajaran itu di tempat yang tidak berlaku.)
+  //
+  // Katalog untuk pemilih "tambah produk". 169 baris hari ini — cukup kecil
+  // untuk dimuat utuh lalu disaring di sisi client, sama seperti pola di
+  // app/cabang/produk/produk-list-client.tsx.
+  const [
+    { data: pkg, error: pkgErr },
+    { data: partner },
+    { data: itemRows, error: itemsErr },
+    { data: catalogRows },
+  ] = await Promise.all([
+    supabase
+      .from("partner_packages")
+      .select("id, name, code, description, status, partner_id")
+      .eq("id", packageId)
+      .eq("partner_id", id)
+      .maybeSingle(),
+    supabase
+      .from("partners")
+      .select("name")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("partner_package_items")
+      .select("id, quantity, product_id, sanci_products:product_id(name, code, photo_url, status)")
+      .eq("package_id", packageId)
+      .order("created_at"),
+    supabase
+      .from("sanci_products")
+      .select("id, name, code, photo_url, stock_status")
+      .eq("status", "ACTIVE")
+      .order("name"),
+  ]);
 
   if (isMissingTableErr(pkgErr)) {
     return (
@@ -58,23 +94,6 @@ export default async function PackageItemsPage({
     );
   }
   if (!pkg) notFound();
-
-  const { data: partner } = await supabase
-    .from("partners")
-    .select("name")
-    .eq("id", id)
-    .maybeSingle();
-
-  // partner_package_items.product_id → sanci_products.id adalah foreign key
-  // SUNGGUHAN, jadi embed PostgREST di sini sah. (Bandingkan LESSONS #24:
-  // partner_users → partner_access_policies TIDAK punya FK antar keduanya
-  // sehingga embed-nya gagal saat dijalankan — kasus ini berbeda, jangan
-  // menerapkan pelajaran itu di tempat yang tidak berlaku.)
-  const { data: itemRows, error: itemsErr } = await supabase
-    .from("partner_package_items")
-    .select("id, quantity, product_id, sanci_products:product_id(name, code, photo_url, status)")
-    .eq("package_id", packageId)
-    .order("created_at");
 
   // Halaman ini bisa saja sudah tayang sebelum 0012 dijalankan di produksi
   // (LESSONS #12). Yang hilang hanya bagian isinya — identitas paketnya tetap
@@ -104,15 +123,6 @@ export default async function PackageItemsPage({
       productStatus: p?.status ?? "ACTIVE",
     };
   });
-
-  // Katalog untuk pemilih "tambah produk". 169 baris hari ini — cukup kecil
-  // untuk dimuat utuh lalu disaring di sisi client, sama seperti pola di
-  // app/cabang/produk/produk-list-client.tsx.
-  const { data: catalogRows } = await supabase
-    .from("sanci_products")
-    .select("id, name, code, photo_url, stock_status")
-    .eq("status", "ACTIVE")
-    .order("name");
 
   const catalog: CatalogProduct[] = (
     (catalogRows ?? []) as {

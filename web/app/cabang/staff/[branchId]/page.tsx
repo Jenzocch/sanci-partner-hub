@@ -17,17 +17,24 @@ export default async function CabangStaffPage({
   const m = await getCabangMessages();
   const { branchId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-
+  // getUser hanya menggerbangkan redirect — dijalankan berbarengan dengan
+  // pembacaan partner_users (audit kecepatan 2026-08-22, temuan #6).
+  //
   // edit_scope diambil terpisah — tidak ada FK partner_users →
   // partner_access_policies, embed langsung ditolak PostgREST saat runtime.
-  const { data: pu, error: puError } = await supabase
-    .from("partner_users")
-    .select("branch_id, partner_id, partners:partner_id(name)")
-    .maybeSingle();
+  const [
+    {
+      data: { user },
+    },
+    { data: pu, error: puError },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("partner_users")
+      .select("branch_id, partner_id, partners:partner_id(name)")
+      .maybeSingle(),
+  ]);
+  if (!user) redirect("/");
   // maybeSingle() error di sini biasanya berarti lebih dari satu baris cocok —
   // terjadi kalau akun SANCI Admin (RLS-nya melihat SEMUA partner_users) membuka
   // URL /cabang/* langsung tanpa lewat halaman login (LESSONS #24 sepupu).
@@ -42,12 +49,53 @@ export default async function CabangStaffPage({
   }
   if (!pu) redirect("/");
 
-  // RLS pada partner_branches membatasi baris: kalau branch ini tidak boleh dilihat, hasilnya kosong.
-  const { data: branch } = await supabase
-    .from("partner_branches")
-    .select("id, name, partner_id")
-    .eq("id", branchId)
-    .maybeSingle();
+  // code (migrasi 0019) BISA belum ada sebagai kolom kalau kodenya sudah naik
+  // lebih dulu (LESSONS #12) — coba SELECT lebar dulu, turun ke SELECT sempit
+  // kalau 42703, supaya daftar staf dasar tetap tampil walau fitur baru ini
+  // belum aktif.
+  // `pu` sudah dipastikan non-null di atas, tapi TypeScript tidak membawa
+  // penyempitan itu ke dalam function declaration — nilainya ditangkap ke
+  // const terpisah (pola sama dengan /cabang/pesanan/[orderId]).
+  type StaffRow = { id: string; full_name: string; phone: string | null; status: string; code?: string | null };
+  const partnerIdForStaff = pu.partner_id;
+  async function fetchStaffList(): Promise<StaffRow[]> {
+    const wide = await supabase
+      .from("partner_staff")
+      .select("id, full_name, phone, status, code")
+      .eq("partner_id", partnerIdForStaff);
+    if (wide.error && wide.error.code === "42703") {
+      const narrow = await supabase
+        .from("partner_staff")
+        .select("id, full_name, phone, status")
+        .eq("partner_id", partnerIdForStaff);
+      return ((narrow.data ?? []) as Omit<StaffRow, "code">[]).map((s) => ({ ...s, code: null }));
+    }
+    return (wide.data ?? []) as StaffRow[];
+  }
+
+  // Empat pembacaan di bawah hanya butuh branchId (param rute) + pu.partner_id
+  // yang sudah di tangan — tidak ada yang bergantung hasil satu sama lain,
+  // jadi dijalankan dalam SATU gelombang, bukan berurutan (audit kecepatan
+  // 2026-08-22, temuan #6). RLS pada partner_branches membatasi baris: kalau
+  // branch ini tidak boleh dilihat, hasilnya kosong.
+  const [{ data: branch }, { data: pol }, staffList, { data: assignments }] = await Promise.all([
+    supabase
+      .from("partner_branches")
+      .select("id, name, partner_id")
+      .eq("id", branchId)
+      .maybeSingle(),
+    supabase
+      .from("partner_access_policies")
+      .select("edit_scope")
+      .eq("partner_id", pu.partner_id)
+      .maybeSingle(),
+    fetchStaffList(),
+    supabase
+      .from("partner_staff_assignments")
+      .select("staff_id, branch_id, role, end_at")
+      .eq("branch_id", branchId)
+      .is("end_at", null),
+  ]);
   if (!branch) notFound();
 
   // Embed bisa null bila RLS menyembunyikan baris partner (mis. partner_user
@@ -63,40 +111,8 @@ export default async function CabangStaffPage({
     );
   }
 
-  const { data: pol } = await supabase
-    .from("partner_access_policies")
-    .select("edit_scope")
-    .eq("partner_id", pu.partner_id)
-    .maybeSingle();
   const isOwnBranch = branchId === pu.branch_id;
   const canEdit = isOwnBranch || pol?.edit_scope === "PARTNER_ALL_BRANCHES";
-
-  // code (migrasi 0019) BISA belum ada sebagai kolom kalau kodenya sudah naik
-  // lebih dulu (LESSONS #12) — coba SELECT lebar dulu, turun ke SELECT sempit
-  // kalau 42703, supaya daftar staf dasar tetap tampil walau fitur baru ini
-  // belum aktif.
-  type StaffRow = { id: string; full_name: string; phone: string | null; status: string; code?: string | null };
-  let staffList: StaffRow[] = [];
-  {
-    const wide = await supabase
-      .from("partner_staff")
-      .select("id, full_name, phone, status, code")
-      .eq("partner_id", pu.partner_id);
-    if (wide.error && wide.error.code === "42703") {
-      const narrow = await supabase
-        .from("partner_staff")
-        .select("id, full_name, phone, status")
-        .eq("partner_id", pu.partner_id);
-      staffList = ((narrow.data ?? []) as Omit<StaffRow, "code">[]).map((s) => ({ ...s, code: null }));
-    } else {
-      staffList = (wide.data ?? []) as StaffRow[];
-    }
-  }
-  const { data: assignments } = await supabase
-    .from("partner_staff_assignments")
-    .select("staff_id, branch_id, role, end_at")
-    .eq("branch_id", branchId)
-    .is("end_at", null);
 
   const assignByStaff = new Map<string, Assignment>();
   (assignments ?? []).forEach((a: Assignment) => assignByStaff.set(a.staff_id, a));

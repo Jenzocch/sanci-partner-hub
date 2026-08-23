@@ -34,18 +34,56 @@ export default async function BranchDetailPage({
   const m = await getAdminMessages();
   const supabase = await createClient();
 
-  const { data: branch } = await supabase
-    .from("partner_branches")
-    .select("id, partner_id, name, code, address, city, province, contact_name, contact_phone, status")
-    .eq("id", branchId)
-    .maybeSingle();
-  if (!branch || branch.partner_id !== partnerId) notFound();
+  // code (migrasi 0019) BISA belum ada sebagai kolom kalau kodenya sudah
+  // naik lebih dulu (LESSONS #12) — coba SELECT lebar dulu, turun ke SELECT
+  // sempit kalau 42703, supaya tab Staf tetap tampil walau fitur ini belum aktif.
+  type StaffRow = { id: string; full_name: string; phone: string | null; status: string; code?: string | null };
+  async function fetchStaffList(): Promise<StaffRow[]> {
+    const wide = await supabase.from("partner_staff").select("id, full_name, phone, status, code").eq("partner_id", partnerId);
+    if (wide.error && wide.error.code === "42703") {
+      const narrow = await supabase.from("partner_staff").select("id, full_name, phone, status").eq("partner_id", partnerId);
+      return ((narrow.data ?? []) as Omit<StaffRow, "code">[]).map((s) => ({ ...s, code: null }));
+    }
+    return (wide.data ?? []) as StaffRow[];
+  }
 
-  const { data: partner } = await supabase
-    .from("partners")
-    .select("id, name, code")
-    .eq("id", partnerId)
-    .maybeSingle();
+  // Semua pembacaan halaman ini hanya butuh partnerId/branchId dari param
+  // rute — cabang, partner, dan data tab aktif tidak saling bergantung, jadi
+  // diambil dalam SATU gelombang, bukan berurutan (audit kecepatan
+  // 2026-08-22, temuan #7). Data tab hanya diambil untuk tab yang sedang
+  // dibuka, sama seperti sebelumnya.
+  const [{ data: branch }, { data: partner }, staffTabData, auditRes] = await Promise.all([
+    supabase
+      .from("partner_branches")
+      .select("id, partner_id, name, code, address, city, province, contact_name, contact_phone, status")
+      .eq("id", branchId)
+      .maybeSingle(),
+    supabase
+      .from("partners")
+      .select("id, name, code")
+      .eq("id", partnerId)
+      .maybeSingle(),
+    tab === "staff"
+      ? Promise.all([
+          fetchStaffList(),
+          supabase
+            .from("partner_staff_assignments")
+            .select("staff_id, branch_id, role, end_at")
+            .eq("branch_id", branchId)
+            .is("end_at", null),
+          supabase.from("partner_branches").select("id, name").eq("partner_id", partnerId).eq("status", "ACTIVE"),
+        ])
+      : Promise.resolve(null),
+    tab === "activity"
+      ? supabase
+          .from("audit_logs")
+          .select("id, action, actor_role, created_at, before, after")
+          .eq("branch_id", branchId)
+          .order("created_at", { ascending: false })
+          .limit(50)
+      : Promise.resolve(null),
+  ]);
+  if (!branch || branch.partner_id !== partnerId) notFound();
   if (!partner) notFound();
 
   const tabs = [
@@ -88,29 +126,9 @@ export default async function BranchDetailPage({
     );
   }
 
-  if (tab === "staff") {
-    // code (migrasi 0019) BISA belum ada sebagai kolom kalau kodenya sudah
-    // naik lebih dulu (LESSONS #12) — coba SELECT lebar dulu, turun ke SELECT
-    // sempit kalau 42703, supaya tab Staf tetap tampil walau fitur ini belum aktif.
-    type StaffRow = { id: string; full_name: string; phone: string | null; status: string; code?: string | null };
-    let staffList: StaffRow[] = [];
-    {
-      const wide = await supabase.from("partner_staff").select("id, full_name, phone, status, code").eq("partner_id", partnerId);
-      if (wide.error && wide.error.code === "42703") {
-        const narrow = await supabase.from("partner_staff").select("id, full_name, phone, status").eq("partner_id", partnerId);
-        staffList = ((narrow.data ?? []) as Omit<StaffRow, "code">[]).map((s) => ({ ...s, code: null }));
-      } else {
-        staffList = (wide.data ?? []) as StaffRow[];
-      }
-    }
-    const [{ data: assignments }, { data: allBranches }] = await Promise.all([
-      supabase
-        .from("partner_staff_assignments")
-        .select("staff_id, branch_id, role, end_at")
-        .eq("branch_id", branchId)
-        .is("end_at", null),
-      supabase.from("partner_branches").select("id, name").eq("partner_id", partnerId).eq("status", "ACTIVE"),
-    ]);
+  if (tab === "staff" && staffTabData) {
+    // Ketiga pembacaan tab ini sudah diambil di gelombang paralel di atas.
+    const [staffList, { data: assignments }, { data: allBranches }] = staffTabData;
 
     const assignByStaff = new Map<string, Assignment>();
     (assignments ?? []).forEach((a: Assignment) => assignByStaff.set(a.staff_id, a));
@@ -152,12 +170,8 @@ export default async function BranchDetailPage({
   }
 
   if (tab === "activity") {
-    const { data: audit } = await supabase
-      .from("audit_logs")
-      .select("id, action, actor_role, created_at, before, after")
-      .eq("branch_id", branchId)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    // Barisnya sudah diambil di gelombang paralel di atas.
+    const audit = auditRes ? auditRes.data : null;
 
     body = (
       <div className="card">

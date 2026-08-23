@@ -32,15 +32,23 @@ function BackRow({ m }: { m: CabangMessages }) {
 export default async function ProdukPage() {
   const m = await getCabangMessages();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getUser hanya menggerbangkan redirect — dijalankan berbarengan dengan
+  // pembacaan partner_users (audit kecepatan 2026-08-22, temuan #6). Gerbang
+  // sanci_catalog_access di bawah TETAP berurutan: itu gerbang sungguhan,
+  // daftar produk baru boleh diambil setelah lolos.
+  const [
+    {
+      data: { user },
+    },
+    { data: pu, error: puError },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("partner_users")
+      .select("partner_id")
+      .maybeSingle(),
+  ]);
   if (!user) redirect("/");
-
-  const { data: pu, error: puError } = await supabase
-    .from("partner_users")
-    .select("partner_id")
-    .maybeSingle();
   if (puError) {
     return (
       <main className="pwrap">
