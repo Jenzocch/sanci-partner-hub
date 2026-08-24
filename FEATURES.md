@@ -1292,6 +1292,31 @@ INACTIVE 後「Aktifkan lagi」可自助復原。
 unconfirmed 文案的加了一行 pass-through）。**待 Jenzo 驗證**：下次部署後拿
 舊分頁按存檔，應看到「請重新整理」而非「請再按一次」。
 
+### 客戶 PO 編號（migration 0020，2026-08-24，owner「do it」）
+
+`partner_orders.customer_po`（nullable text，自由格式——格式屬於客戶的行政系
+統，我們只記錄）。**0019 之後第一個 migration，走完整紀律**：零函式重定義
+（fn_audit_row 不動——欄位經 to_jsonb 自動入 audit，AUDIT_STILL_0018_* 斷言
+釘住；0005 凍結守衛採「點名凍結」制，不點名即可編輯，ORDER_CUSTOMER_PO_NOT_
+FROZEN 斷言證明）；RLS 零變動（ORDER_POLICIES 仍 4）；刻意不加 CHECK/unique
+（與 shipping_address/notes 同類同規，理由記檔內）。本地驗證：全鏈 0001→0020
+重放、冪等 ×3 零 schema 漂移、既有行為測試 92+18 全過零回歸、新套件
+80_behavior_0020 11/11（含取消後凍結、跨 partner 阻擋、audit diff 現值）。
+
+App 層：兩邊建單表單選填「Nomor PO Pelanggan」、分店 Ubah Pesanan 可改、兩邊
+詳情頁顯示、**Invoice 列印的 Purchase Order 欄印客戶 PO**（未填回退印系統訂
+單編號，永不空行）；所有讀寫對「0020 未跑」42703 誠實降級，先部署後跑 SQL
+安全。audit-format 標籤、三語 i18n、GLOSSARY 加詞（PO 列入不翻譯清單）。
+
+**⚠️ 待 Jenzo 執行**：`supabase/migrations/0020_order_customer_po.sql` 貼進
+Supabase SQL Editor 執行，回貼 14 列結果核對（期望值見對話/檔內註解）。
+已知後續：sheets-orders 匯出尚無 PO 欄（記錄未做）。
+
+### 型錄伺服器搜尋＋分批載入（已建議待 owner 確認）
+
+169/200 將必然超限（owner 確認「一定會超過」）。建議方案：搜尋/分類過濾改
+資料庫端執行＋「載入更多」分批（每批 60），覆蓋六個型錄畫面。等 owner 說做。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
