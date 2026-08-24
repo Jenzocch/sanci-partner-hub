@@ -812,6 +812,12 @@ const id = {
   orderCreateShippingLabel: "Alamat Pengiriman",
   orderCreateShippingHint:
     "Boleh beda dari alamat pelanggan — misalnya kirim ke kantor atau alamat lain. Selalu bisa diubah nanti.",
+  // 0020 — nomor PO milik pelanggan/toko; tercetak di baris "Purchase
+  // Order" pada Invoice kalau diisi (kosong = Invoice memakai nomor
+  // pesanan sistem, perilaku lama).
+  orderCreateCustomerPoLabel: "Nomor PO Pelanggan",
+  orderCreateCustomerPoHint:
+    "Nomor Purchase Order dari pelanggan atau toko sendiri (kalau ada). Tercetak di Invoice pada baris Purchase Order.",
   orderCreateOptionalPlaceholder: "Opsional...",
   orderCreateInvoiceFieldLabel: "Foto/PDF Invoice (opsional)",
   orderCreateInvoiceFieldHint:
@@ -1592,6 +1598,9 @@ const en = {
   orderCreateShippingLabel: "Shipping address",
   orderCreateShippingHint:
     "Can differ from the customer's address — e.g. ship to an office or another address. Always editable later.",
+  orderCreateCustomerPoLabel: "Customer PO No.",
+  orderCreateCustomerPoHint:
+    "The customer's or store's own Purchase Order number (if any). Printed on the Invoice in the Purchase Order row.",
   orderCreateOptionalPlaceholder: "Optional...",
   orderCreateInvoiceFieldLabel: "Invoice photo/PDF (optional)",
   orderCreateInvoiceFieldHint:
@@ -2302,6 +2311,8 @@ const zh = {
   orderCreateNotSelectedOption: "—— 未选择 ——",
   orderCreateShippingLabel: "收货地址",
   orderCreateShippingHint: "可以跟客户地址不一样 —— 比如送到公司或其他地址。之后随时可以修改。",
+  orderCreateCustomerPoLabel: "客户 PO 号",
+  orderCreateCustomerPoHint: "客户或门店自己开出的采购单(PO)编号(如有)。会打印在 Invoice 的 Purchase Order 一行。",
   orderCreateOptionalPlaceholder: "选填…",
   orderCreateInvoiceFieldLabel: "Invoice 照片/PDF(选填)",
   orderCreateInvoiceFieldHint:

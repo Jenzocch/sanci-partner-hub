@@ -45,6 +45,7 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Uang muka pesanan | Uang Muka (DP) | 订金 | Down payment (DP) |
 | Syarat pembayaran (teks bebas) | Kondisi Pembayaran | 付款条件 | Payment condition |
 | Alamat tujuan kirim satu pesanan | Alamat Pengiriman | 收货地址 | Shipping address |
+| Nomor Purchase Order yang diterbitkan pelanggan/toko sendiri (0020) — bukan Nomor Pesanan sistem; "PO" tidak diterjemahkan, prinsip Invoice/SO/DO | Nomor PO Pelanggan | 客户 PO 号 | Customer PO No. |
 | Daftar produk/baris di dalam satu pesanan | Isi Pesanan | 订单明细 | Order items |
 | Alat hitung penawaran cepat, ephemeral, tanpa gerbang izin (2026-08-20) | Kalkulator Penawaran | 方案计算器 | Offer Calculator |
 | Rantai diskon % tingkat pesanan (0015) | Diskon | 折扣 | Discount |
@@ -204,6 +205,10 @@ Sales/PIC 员工加一个可选的短代码**：`partner_staff` 从 0004 起就�
 - Nomor pesanan (`GH-BSD-260817-0001`) dan kode partner/cabang/produk
 - **Invoice** — di KETIGA bahasa, alasannya di atas
 - **SO / DO** — di KETIGA bahasa (dokumen pesanan, 0016), alasan sama dengan Invoice
+- **PO** — di KETIGA bahasa (nomor PO pelanggan, 0020), alasan sama dengan
+  SO/DO: "PO" adalah singkatan dagang yang dipakai semua pihak sehari-hari;
+  menerjemahkannya (mis. "采购订单号") justru menciptakan istilah yang tidak
+  cocok dengan kertas Invoice yang memang mencetak "Purchase Order"
 - **WhatsApp** — di ketiga bahasa
 - **PIC** — tetap "PIC" di Bahasa Indonesia dan Inggris (sudah jadi kata
   sehari-hari), tapi di 中文 diterjemahkan jadi **负责人**: singkatan Inggris

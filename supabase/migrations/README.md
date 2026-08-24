@@ -25,13 +25,14 @@ tanpa perlu membaca SQL-nya.
 | 0016 | `0016_order_documents.sql` | Irisan kesepuluh: dokumen penjualan per-pesanan — Sales Order (SO)/Surat Jalan (DO)/Invoice dibangkitkan di dalam sistem. Owner menolak desain naif "tiga tampilan dari satu order" (原話: "每個的日期不同, 內容跟件數在so,do 不同,invoice 也不同") — dokumen adalah ENTITAS sendiri. 2 tabel BARU: `order_documents` (satu baris = satu dokumen, `doc_number` unik dihitung SERVER ACTION bukan trigger, `doc_date`/`notes` sendiri-sendiri) dan `order_document_items` (baris isi, menunjuk `order_items` + kuantitas KHUSUS dokumen ini, `unique(document_id,order_item_id)`). Guard over-shipment (`fn_guard_document_item_overship`, BEFORE INSERT/UPDATE): DO dan INVOICE masing-masing punya kuota TERPISAH terhadap `order_items.quantity`; SO dilewati (snapshot penuh). RLS admin-only PENUH (`for all`), nol policy cabang di kedua tabel. Dua RPC SECURITY DEFINER (`fn_create_order_document`, `fn_replace_order_document_items`) membungkus insert/replace header+baris dalam SATU transaksi supaya guard over-shipment dan "dokumen tanpa isi karena separuh gagal" tidak pernah terjadi bersamaan. Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `ORDER_DOCUMENT` (satu-hop lewat `order_id`) dan `ORDER_DOCUMENT_ITEM` (DUA-hop lewat `document_id→order_documents.order_id`). |
 | 0017 | `0017_customer_code_email.sql` | Irisan kesebelas: impor 36 pelanggan lama ("客戶資料也進去", owner 2026-08-20) — 2 kolom BARU pada `customers` yang SUDAH ADA: `customer_code` (text, partial UNIQUE `where customer_code is not null` — DITAMBAHKAN, bukan dilewati, karena 36 baris data nyata diperiksa dan nol duplikat) dan `email` (text, TANPA unique). Kedua kolom dapat blank-guard CHECK (pola `sanci_products_code_not_blank`). **TIDAK ADA tabel baru** — `customers` sudah dipetakan ke awalan `CUSTOMER` sejak 0004, jadi `fn_audit_row` **TIDAK didefinisikan ulang** (migrasi KEDUA sejak 0009 yang begitu, setelah 0015) dan **RLS `customers` TIDAK disentuh sama sekali** (nol `create policy`/`drop policy`) — syarat keras owner "pelanggan impor tidak boleh terlihat cabang" dipenuhi murni oleh skrip impor (`created_via_partner_id`/`created_via_branch_id` = NULL) memakai mekanisme RLS yang SUDAH ADA sejak 0004/0007, dibuktikan lewat `supabase/test-harness/50_behavior_0017.sql`. |
 | 0018 | `0018_customer_code_generation.sql` | Irisan kedua belas: penomoran otomatis `customer_code` SANCI-direct — format owner `{SourceCode}/{YY}-{SalesCode}/{SeqNo}` (要靈活編輯, owner 2026-08-20/21). 2 tabel master BARU admin-only: `customer_sources` (5 baris seed) dan `sanci_sales_staff` (7 baris seed), keduanya ACTIVE/INACTIVE (LESSONS #4), unique **hanya di antara baris ACTIVE** (pola 0010). `customers.source_id`/`customers.sales_staff_id` — kolom BARU, nullable, FK `ON DELETE RESTRICT`. `customer_code_seq` — SEQUENCE Postgres polos GLOBAL (bukan counter-table — tidak ada kolom partisi), nilai awal dihitung DINAMIS dari `customer_code` yang sudah ada. Trigger BARU `fn_set_customer_code` (BEFORE INSERT `customers`): generate HANYA kalau `customer_code` kosong DAN kedua kolom FK terisi — ADDITIF, bukan wajib (jalur skrip impor 0017 dan override manual tetap dihormati). RLS `customers` **TIDAK disentuh** (streak sejak 0017 berlanjut). Mendefinisikan ULANG `fn_audit_row` untuk menambah awalan `CUSTOMER_SOURCE` dan `SALES_STAFF`. |
+| 0020 | `0020_order_customer_po.sql` | Irisan kelima belas: `partner_orders.customer_po` — nomor Purchase Order yang diterbitkan PELANGGAN sendiri ("訂單加客戶 PO 編號欄位", owner 2026-08-24), tercetak di baris "Purchase Order" pada Invoice menggantikan nomor pesanan sistem KALAU terisi (kosong = perilaku lama). SATU kolom BARU nullable text, TANPA CHECK (sengaja — kelas yang sama dengan `shipping_address` 0014 dan `notes` 0004 yang sama-sama text polos; lihat kepala berkas), TANPA unique (satu PO pelanggan boleh melahirkan beberapa pesanan sistem). Kolom EDITABLE oleh cabang (TIDAK masuk daftar beku `fn_guard_order_immutable_cols` 0005 — dibuktikan `ORDER_CUSTOMER_PO_NOT_FROZEN`, pola `ORDER_SHIPPING_NOT_FROZEN` 0014), membeku otomatis setelah pembatalan lewat `fn_guard_order_status_flow` (0005) yang membekukan SELURUH baris CANCELLED. **RLS `partner_orders` TIDAK disentuh** (nol create/drop policy — `ORDER_POLICIES` tetap 4), **`fn_audit_row` TIDAK didefinisikan ulang** (kolom baru otomatis ikut lewat `to_jsonb` — preseden 0015/0017/0019; dibuktikan `AUDIT_STILL_0018_*`), **nol trigger/constraint baru** (pola bahaya LESSONS #35/#37 tidak mungkin terjadi). |
 | 0019 | `0019_branch_customer_code.sql` | Irisan keempat belas: penomoran otomatis `customer_code` BRANCH-created — format DIUSULKAN, belum dikonfirmasi ulang owner setelah penambahan kode staf, `{PartnerCode}-{BranchCode}-{StaffCode}/{YY}/{SeqNo}`, contoh `GH-BSD-AS/26/001` (lihat kepala berkas untuk latar belakang lengkap). `partner_staff.code` — kolom BARU, nullable, unique **per (partner_id, code)** (bukan per branch — `partner_staff` tidak punya kolom branch_id langsung, lihat 0001). `customers.attributed_staff_id` — kolom BARU, nullable, FK → `partner_staff` `ON DELETE RESTRICT`, diisi hasil reuse `sales_staff_id` yang SUDAH divalidasi `verifyActiveStaffInBranch` di pembuatan order (lihat § "KEPUTUSAN DESAIN ATRIBUSI STAF" di kepala berkas). Tabel BARU `partner_customer_counters` — mirror `partner_order_counters` (0004) persis tapi partisi PER TAHUN (bukan per tanggal), reset ke 1 tiap tahun baru per cabang. Fungsi BARU `fn_next_customer_seq` (security definer, EXECUTE publik dicabut dari lahir — LESSONS #26) dan `fn_check_customer_staff_ref` (trigger validasi kepemilikan staf, mirror `fn_check_order_refs`). `fn_set_customer_code` **DIDEFINISIKAN ULANG** (bukan trigger kedua — satu fungsi menangani KEDUA jalur SANCI-direct/branch-created lewat if/elsif, lihat justifikasi di kepala berkas) — jalur 0018 disalin BYTE-DEMI-BYTE tanpa perubahan, jalur baru ditambah sebagai elsif. RLS `customers`/`partner_staff` **TIDAK disentuh** (dibuktikan CUSTOMER_POLICIES/STAFF_POLICIES tetap 4). `fn_audit_row` **TIDAK didefinisikan ulang** — kedua kolom baru otomatis ikut lewat `to_jsonb`, tidak ada tabel baru yang butuh awalan aksi baru. Bukti simbolik tidak-ada-tabrakan-format 0018/0019 (0 vs >=2 tanda `-` sebelum `/` pertama) dijalankan di blok verifikasi migrasi itu sendiri, bukan CHECK constraint pada data produksi. |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -58,7 +59,8 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 | 0016 | tidak ada untuk struktur/RLS/policy 0017/0018 (0016 tidak menyentuh keduanya) — tapi karena 0016 SENDIRI mendefinisikan ulang `fn_audit_row`, menjalankan ulang 0016 di atas rantai penuh (termasuk 0017/0018) **kehilangan awalan `CUSTOMER_SOURCE`/`SALES_STAFF` milik 0018** (0016 sama sekali tidak tahu kedua tabel itu ada — beda dari dulu, waktu 0016 masih jadi definer terakhir dan menjalankan ulangnya tidak menghilangkan apa pun). Pemulihan: jalankan ulang **0018** sekali lagi. |
 | 0017 | tidak ada untuk struktur/RLS/policy tabel mana pun (0017 tidak membuat tabel, tidak mendefinisikan ulang policy, dan tidak mendefinisikan ulang `fn_audit_row`) — 0017 tetap no-op untuk tabel ini walau bukan lagi berkas terakhir dalam rantai (0018 kini menyusul). Menjalankan ulang 0017 SENDIRIAN tidak mengubah pemetaan aksi apa pun (baik untung maupun rugi); pemulih TERAKHIR untuk `fn_audit_row` sekarang **0018** (bukan lagi 0016). |
 | 0018 | Seed `customer_sources`/`sanci_sales_staff` idempoten lewat **check-then-insert** (`where not exists (select 1 from ... where code = v.code)`), BUKAN `ON CONFLICT ... WHERE status='ACTIVE'` — versi `ON CONFLICT` DICOBA lebih dulu dan TERBUKTI di Postgres 16 lokal punya lubang nyata: begitu admin men-INACTIVE-kan satu kode seed, predikat parsial itu berhenti "melihat" baris itu sebagai konflik, dan re-run migrasi diam-diam menyisipkan baris ACTIVE BARU dengan kode yang SAMA (dua baris untuk satu huruf, diukur eksplisit sebelum diperbaiki). `where not exists` memeriksa keberadaan kode TANPA MEMANDANG STATUS, jadi menjalankan ulang TIDAK menduplikasi ketujuh/kelima baris seed dan TIDAK mengembalikan baris yang sudah di-INACTIVE-kan admin kembali ke ACTIVE, di kedua kasus (kode masih ACTIVE, atau sudah di-INACTIVE-kan). `customer_code_seq` **tidak pernah diset ulang** oleh re-run (blok `to_regclass(...) is null` di §4 hanya jalan SEKALI, saat sequence belum ada) — nomor yang sudah dipakai tidak akan pernah diulang oleh migrasi ini sendiri. **BARU sejak 0019 (diukur langsung, bukan diperkirakan)**: menjalankan ulang 0018 di atas rantai penuh (termasuk 0019) mengembalikan `fn_set_customer_code` ke versi 0018 — jalur branch-created (0019, if/elsif kedua) HILANG, hanya jalur SANCI-direct yang tersisa. Struktur/RLS/trigger objek 0019 lainnya (kolom `partner_staff.code`, `customers.attributed_staff_id`, tabel `partner_customer_counters`, trigger `trg_check_customer_staff_ref`) **selamat** — 0018 sama sekali tidak menyentuhnya, hanya isi fungsi `fn_set_customer_code` yang tertimpa. Pemulihan: jalankan ulang **0019** sekali lagi (satu-satunya berkas yang memuat jalur branch-created). |
-| 0019 | tidak ada — 0019 adalah berkas terakhir dalam rantai saat ini, jadi menjalankan ulangnya sendirian di atas rantai penuh tidak kehilangan apa pun (tidak ada berkas sesudahnya yang bisa "ketinggalan"). Diukur langsung: menjalankan ulang 0019 di atas keadaan yang sudah dirusak 0018 (baris di atas) memulihkan jalur branch-created sepenuhnya (21/21 angka verifikasi §11 kembali cocok), dan trigger objeknya sendiri (`trg_set_customer_code`) TIDAK pernah perlu dibuat ulang — `CREATE OR REPLACE FUNCTION` cukup. |
+| 0019 | tidak ada — **DIUKUR ULANG setelah 0020 lahir** (2026-08-24, Postgres 16 lokal): menjalankan ulang 0019 sendirian di atas rantai penuh `0001→…→0020` menghasilkan **nol diff** pada `pg_dump -s` (disaring noise `\restrict`, LESSONS #33) — kolom `customer_po` (0020) selamat (0019 tidak menyentuh `partner_orders` sama sekali), dan `fn_audit_row` tetap versi 0018. Catatan lama saat 0019 masih berkas terakhir tetap berlaku: menjalankan ulang 0019 di atas keadaan yang sudah dirusak 0018 memulihkan jalur branch-created sepenuhnya (21/21 angka verifikasi §11 kembali cocok), dan trigger objeknya sendiri (`trg_set_customer_code`) TIDAK pernah perlu dibuat ulang — `CREATE OR REPLACE FUNCTION` cukup. |
+| 0020 | tidak ada — 0020 adalah berkas terakhir dalam rantai saat ini, jadi menjalankan ulangnya sendirian tidak kehilangan apa pun. Lebih dari itu: 0020 TIDAK mendefinisikan ulang fungsi/policy/constraint milik berkas mana pun (hanya `ALTER TABLE … ADD COLUMN IF NOT EXISTS`), jadi ia juga TIDAK PERNAH menjadi korban pola "berkas lama menimpa berkas baru" — kolom yang sudah ada tidak bisa ditimpa oleh re-run berkas lama mana pun (`create table if not exists` 0004 tidak dijalankan lagi pada tabel yang sudah ada). Satu-satunya interaksi: menjalankan ulang berkas LAMA tetap merusak hal-hal LAMA seperti dijelaskan baris-baris di atas (pemulih `fn_audit_row` tetap **0018**, pemulih jalur branch-created tetap **0019**) — 0020 tidak menambah maupun mengurangi langkah pemulihan apa pun. Idempotensi diukur: dijalankan ulang 3× di atas rantai penuh, nol diff `pg_dump -s` tersaring, dan ke-14 angka verifikasinya identik di setiap run. |
 
 Khusus lubang P2 (`fn_check_order_refs` tanpa pemeriksaan pelanggan): ia TIDAK
 menghasilkan satu pun pesan error atau gejala di layar. Yang terjadi hanyalah
@@ -774,6 +776,71 @@ jalur branch-created (diukur langsung — `prosrc like
 '%created_via_partner_id is not null and new.created_via_branch_id is not
 null%'` berubah dari `true` ke `false`); menjalankan ulang **0019 sekali
 lagi** memulihkannya sepenuhnya.
+
+### 0020
+
+| Cek | nilai |
+|---|---|
+| ORDER_CUSTOMER_PO_COLUMN | 1 |
+| ORDER_CUSTOMER_PO_TYPE | `text` |
+| ORDER_CUSTOMER_PO_NULLABLE | 1 |
+| ORDER_CUSTOMER_PO_NO_CHECK | **0** ← WAJIB 0: SENGAJA tanpa CHECK (kelas `shipping_address`/`notes`) |
+| ORDER_CUSTOMER_PO_NOT_FROZEN | **1** ← WAJIB 1: TIDAK masuk daftar beku 0005 (pola `ORDER_SHIPPING_NOT_FROZEN`) |
+| ORDER_CUSTOMER_PO_NOT_IN_CANCEL_GUARD | **1** ← pembekuan pasca-batal berlaku seluruh baris, bukan per kolom |
+| CANCEL_FREEZE_TRIGGER | 1 ← `trg_order_status_flow` (0005) masih terpasang |
+| ORDER_POLICIES | **4** ← WAJIB TETAP 4 sejak 0005: bukti RLS `partner_orders` tidak berubah |
+| ORDER_UPDATE_POLICY | 1 |
+| ORDER_DELETE_POLICY | **0** ← WAJIB TETAP 0 (SPEC §43) |
+| ORDER_TRIGGERS | **9** ← WAJIB TETAP 9 (terakhir berubah 0011) |
+| AUDIT_STILL_0018_SOURCE / AUDIT_STILL_0018_SALES | 1 / 1 ← prosrc `fn_audit_row` masih PERSIS versi 0018 |
+| REFS_CHECK_CUSTOMER | 1 |
+
+14 baris total, semua sudah diukur di Postgres 16 lokal (bukan diperkirakan;
+replay penuh `0001→…→0019→0020`) — lihat blok verifikasi di kepala berkas
+`0020_order_customer_po.sql` untuk penjelasan tiap angka.
+
+Angka blok verifikasi berkas LAMA setelah 0020 — SUDAH DIUKUR di Postgres 16
+lokal, dengan bukti yang lebih kuat dari mencocokkan blok satu per satu:
+`pg_dump -s` SEBELUM vs SESUDAH 0020 (disaring noise `\restrict`, LESSONS
+#33) berbeda **tepat SATU baris** — `customer_po text,` di definisi
+`partner_orders`. Tidak ada policy, trigger, constraint, fungsi, index,
+atau tabel lain yang berubah satu byte pun, jadi **tidak ada satu angka pun
+di blok verifikasi 0001–0019 yang berubah** (semua angka itu turunan dari
+objek-objek skema tersebut; 0009 `ORDER_NEW_COLUMNS` menghitung LIMA kolom
+yang DISEBUT NAMANYA, bukan jumlah kolom total, jadi kolom baru tidak
+mengubahnya).
+
+Perilaku (bukan cuma struktur) dibuktikan lewat
+`supabase/test-harness/80_behavior_0020.sql`, 11/11 PASS: cabang mengisi
+lalu mengubah `customer_po` pada pesanannya sendiri yang masih aktif; cabang
+partner LAIN ditolak diam-diam (0 baris, RLS) dan nilainya terbukti tidak
+berubah; setelah pesanan DIBATALKAN, edit dari cabang DITOLAK dengan
+exception `trg_order_status_flow` ("sudah dibatalkan" — beku seluruh baris,
+persis perilaku `shipping_address`), sementara admin TETAP bisa mengubahnya;
+nilai lama+baru terbukti masuk `audit_logs` (`before`/`after` jsonb) sebagai
+`ORDER_UPDATED` ber-`actor_role` `PARTNER_USER` — TANPA `fn_audit_row`
+didefinisikan ulang; anon nol baris. Regresi NOL: seluruh suite lama
+`20/30/40/50/60/70_behavior_*.sql` dijalankan ulang di atas rantai penuh
+`0001→…→0020` — 92 + 18 PASS, 0 FAIL, tidak ada satu assertion pun yang
+perlu diubah (tidak ada trigger/CHECK baru yang bisa mengubah perilaku lama
+— LESSONS #37 diperiksa dan tidak berlaku di sini).
+
+Tiga batas milik 0020, ketiganya keputusan sadar:
+
+1. **Nomor PO TIDAK divalidasi dan TIDAK unique.** Teks bebas yang diketik
+   manusia; formatnya milik administrasi PELANGGAN, bukan sistem ini. Dua
+   pesanan boleh membawa nomor PO yang sama (satu PO pelanggan boleh dipecah
+   jadi beberapa pesanan sistem).
+2. **Tidak ada permukaan edit khusus admin di UI.** Sama persis dengan
+   `shipping_address`: satu-satunya permukaan edit pasca-pembuatan adalah
+   modal Ubah Pesanan cabang. Admin BISA mengubahnya lewat database
+   (`o_admin_all` — diuji T4 di test-harness, termasuk pada pesanan
+   CANCELLED), tapi layar admin hanya MENAMPILKAN nilainya. Kalau suatu hari
+   admin butuh mengubahnya dari layar, itu permukaan baru untuk SEMUA kolom
+   kelas ini (shipping_address ikut), bukan tambalan khusus customer_po.
+3. **Integrasi Google Sheets (`integrations/sheets-orders/Code.gs`) TIDAK
+   disentuh** — lembar Sheets belum punya kolom Nomor PO Pelanggan. Tindak
+   lanjut terpisah, dicatat di laporan penyerahan irisan ini.
 
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 

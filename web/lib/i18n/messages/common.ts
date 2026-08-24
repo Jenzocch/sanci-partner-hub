@@ -153,6 +153,10 @@ const id = {
   dpAmount: "Uang Muka (DP)",
   paymentCondition: "Kondisi Pembayaran",
   shippingAddress: "Alamat Pengiriman",
+  // 0020 — nomor Purchase Order yang diterbitkan PELANGGAN sendiri (bukan
+  // nomor pesanan sistem). "PO" tidak diterjemahkan di ketiga bahasa —
+  // istilah dagang, prinsip yang sama dengan Invoice/SO/DO (GLOSSARY.md).
+  customerPo: "Nomor PO Pelanggan",
   orderItems: "Isi Pesanan",
   colorCode: "Kode Warna",
   customSize: "Ukuran Custom",
@@ -462,6 +466,7 @@ const en = {
   dpAmount: "Down payment (DP)",
   paymentCondition: "Payment condition",
   shippingAddress: "Shipping address",
+  customerPo: "Customer PO No.",
   orderItems: "Order items",
   colorCode: "Color code",
   customSize: "Custom size",
@@ -725,6 +730,7 @@ const zh = {
   dpAmount: "订金",
   paymentCondition: "付款条件",
   shippingAddress: "收货地址",
+  customerPo: "客户 PO 号",
   orderItems: "订单明细",
   colorCode: "颜色代码",
   customSize: "定制尺寸",

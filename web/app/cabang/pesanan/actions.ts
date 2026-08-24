@@ -297,7 +297,10 @@ async function insertOrderWithFallbacks(
     // sejak shipping_address (0014) ikut dilebur ke grup yang sama (lihat
     // komentar di titik panggil createCustomerAndOrder).
     droppedFulfillment =
-      res.ok && (fulfillmentCols.fulfillment_path != null || fulfillmentCols.shipping_address != null);
+      res.ok &&
+      (fulfillmentCols.fulfillment_path != null ||
+        fulfillmentCols.shipping_address != null ||
+        fulfillmentCols.customer_po != null);
   }
   return { res, droppedFulfillment };
 }
@@ -327,6 +330,18 @@ async function updateOrderWithFallbacks(
  * kedua yang perlu ditulis ulang.
  */
 function normalizeShippingAddress(raw: string | undefined): string | null {
+  const trimmed = (raw ?? "").trim();
+  return trimmed || null;
+}
+
+/**
+ * customer_po (migration 0020) — nomor PO yang diterbitkan pelanggan/toko
+ * sendiri. Teks bebas nullable, tidak wajib, SENGAJA tanpa validasi format
+ * (nomor itu milik administrasi pelanggan — lihat kepala berkas 0020).
+ * Normalisasi PERSIS shipping_address: trim, string kosong → null. Naik
+ * lewat grup fallback yang SAMA dengan fulfillmentCols (LESSONS #12).
+ */
+function normalizeCustomerPo(raw: string | undefined): string | null {
   const trimmed = (raw ?? "").trim();
   return trimmed || null;
 }
@@ -699,6 +714,7 @@ export async function createCustomerAndOrder(input: {
   fulfillmentAvailable?: boolean;
   purchaseAmountRaw?: string;
   shippingAddress?: string;
+  customerPo?: string;
   clientRequestId: string;
 }): Promise<CreateOrderResult> {
   const m = await getCabangMessages();
@@ -806,6 +822,9 @@ export async function createCustomerAndOrder(input: {
   const fulfillmentCols: Record<string, unknown> = {
     ...(fulfillmentRendered ? { fulfillment_path: path.value, partner_purchase_amount: amount.value } : {}),
     shipping_address: normalizeShippingAddress(input.shippingAddress),
+    // customer_po (0020) ikut grup fallback yang sama — alasan identik dengan
+    // shipping_address di atas (penyederhanaan sadar, lihat komentar grup).
+    customer_po: normalizeCustomerPo(input.customerPo),
   };
 
   let orderId: string;
@@ -971,6 +990,7 @@ export async function updateOrder(input: {
   fulfillmentPath?: string;
   purchaseAmountRaw?: string;
   shippingAddress?: string;
+  customerPo?: string;
 }): Promise<UpdateOrderResult> {
   const m = await getCabangMessages();
   const PESAN = pesan(m);
@@ -1016,6 +1036,11 @@ export async function updateOrder(input: {
   // terkirim — sentinel `undefined` tetap diperiksa untuk konsistensi pola.
   if (input.shippingAddress !== undefined) {
     fulfillmentCols.shipping_address = normalizeShippingAddress(input.shippingAddress);
+  }
+  // customer_po (0020) — perlakuan sentinel `undefined` sama persis dengan
+  // shipping_address di atas.
+  if (input.customerPo !== undefined) {
+    fulfillmentCols.customer_po = normalizeCustomerPo(input.customerPo);
   }
 
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: m.cabang.errSalesRequired } };

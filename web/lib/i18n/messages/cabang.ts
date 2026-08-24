@@ -114,6 +114,11 @@ const id = {
   shippingAddressFieldLabel: "Alamat Pengiriman",
   shippingAddressHint: "Boleh beda dari alamat pelanggan — misalnya kirim ke kantor atau alamat lain. Selalu bisa diubah nanti.",
   shippingAddressPrefilledNote: "Diisi otomatis dari alamat pelanggan — masih bisa diubah.",
+  // 0020 — nomor PO milik pelanggan/toko sendiri; tercetak di baris
+  // "Purchase Order" pada Invoice kalau diisi (kalau kosong, Invoice tetap
+  // memakai nomor pesanan sistem seperti sebelumnya).
+  customerPoFieldLabel: "Nomor PO Pelanggan",
+  customerPoHint: "Nomor Purchase Order dari pelanggan atau toko sendiri (kalau ada). Tercetak di Invoice pada baris Purchase Order.",
 
   // ---- Isi Pesanan (order-items-section.tsx, migrasi 0014) ----
   orderItemsCardTitle: "Isi Pesanan",
@@ -426,6 +431,8 @@ const en = {
   shippingAddressFieldLabel: "Shipping address",
   shippingAddressHint: "Can differ from the customer's address — e.g. ship to an office or another address. Always editable later.",
   shippingAddressPrefilledNote: "Pre-filled from the customer's address — still editable.",
+  customerPoFieldLabel: "Customer PO No.",
+  customerPoHint: "The customer's or store's own Purchase Order number (if any). Printed on the Invoice in the Purchase Order row.",
 
   orderItemsCardTitle: "Order items",
   orderItemsEmpty: "No order items yet.",
@@ -709,6 +716,8 @@ const zh = {
   shippingAddressFieldLabel: "收货地址",
   shippingAddressHint: "可以跟客户地址不一样 —— 比如送到公司或其他地址。之后随时可以修改。",
   shippingAddressPrefilledNote: "已自动带入客户的地址 —— 仍然可以修改。",
+  customerPoFieldLabel: "客户 PO 号",
+  customerPoHint: "客户或门店自己开出的采购单（PO）编号（如有）。会打印在 Invoice 的 Purchase Order 一行。",
 
   orderItemsCardTitle: "订单明细",
   orderItemsEmpty: "该订单暂无明细。",
