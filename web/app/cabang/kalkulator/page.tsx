@@ -171,13 +171,17 @@ export default async function KalkulatorPage() {
       {/* .limit(200) di atas bisa memotong diam-diam (audit 2026-08-22 #11). */}
       {items.length === 200 && <div className="banner warn">{m.common.catalogListCappedMsg}</div>}
       <div className="banner info">{m.cabang.calcIntroNote}</div>
-      {/* `convert` diisi HANYA di route cabang — teks CTA/scope note milik
-          slice cabang (menyebut alur pesanan cabang), dan hand-off-nya memang
-          dibaca /cabang/pesanan/baru. Route admin mengirim null (v1). */}
+      {/* Teks CTA/scope note milik slice cabang (menyebut alur pesanan
+          cabang); href menunjuk form yang membaca hand-off area "cabang"
+          (lihat KalkulatorConvert di lib/kalkulator-client.tsx). */}
       <KalkulatorClient
         products={items}
         area="cabang"
-        convert={{ cta: m.cabang.calcConvertCta, scopeNote: m.cabang.calcConvertScopeNote }}
+        convert={{
+          cta: m.cabang.calcConvertCta,
+          scopeNote: m.cabang.calcConvertScopeNote,
+          href: "/cabang/pesanan/baru",
+        }}
       />
     </main>
   );

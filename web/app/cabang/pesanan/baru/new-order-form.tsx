@@ -98,7 +98,7 @@ export default function NewOrderForm({
   const [calcItemsMsg, setCalcItemsMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
-    setCalcHandoff(readCalcHandoff());
+    setCalcHandoff(readCalcHandoff("cabang"));
   }, []);
 
   const hasPackages = packages.length > 0;
@@ -182,7 +182,7 @@ export default function NewOrderForm({
   }
   /** Staf menekan "Abaikan" — buang hand-off sepenuhnya, tidak ada yang dipakai. */
   function handleDismissCalcHandoff() {
-    clearCalcHandoff();
+    clearCalcHandoff("cabang");
     setCalcHandoff(null);
     setCalcApply(false);
   }
@@ -260,7 +260,7 @@ export default function NewOrderForm({
       }
     }
 
-    clearCalcHandoff();
+    clearCalcHandoff("cabang");
     setCalcHandoff(null);
     setCalcApply(false);
   }
@@ -313,7 +313,7 @@ export default function NewOrderForm({
     // Hand-off (kalau ada) sudah dikonsumsi (dipakai atau diabaikan) sebelum
     // sampai di sini — pesanan berikutnya di sesi form yang sama TIDAK boleh
     // diam-diam memakai angka kalkulator yang sudah dipakai untuk pesanan lain.
-    setCalcHandoff(readCalcHandoff());
+    setCalcHandoff(readCalcHandoff("cabang"));
     setCalcApply(false);
     requestIdRef.current = crypto.randomUUID();
     const form = draft.formRef.current;

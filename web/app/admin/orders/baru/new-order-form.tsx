@@ -35,6 +35,14 @@ import {
   type FulfillmentPath,
 } from "@/lib/orders-shared";
 import { useAdminMessages } from "@/lib/i18n/provider";
+import { readCalcHandoff, clearCalcHandoff, type CalcHandoff } from "@/lib/calculator-shared";
+// Sengaja import lintas area: copyCalcCartItemsToOrder TIDAK bergantung
+// identitas cabang (tanpa getIdentity — menulis dengan client sesi pemanggil;
+// RLS oi_admin_all + short-circuit admin di trg_order_item_price_guard, 0014,
+// membuatnya bekerja penuh untuk sesi admin, termasuk kolom harga). Lihat
+// catatan panjang di fungsinya sendiri.
+import { copyCalcCartItemsToOrder } from "@/app/cabang/pesanan/actions";
+import { setOrderOffer } from "../../actions-orders";
 import { lookupByRequestId } from "../../actions-lookup";
 import {
   createOrderForBranch,
@@ -100,6 +108,28 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
   const [invoiceMsg, setInvoiceMsg] = useState<string | null>(null);
   const [phase, setPhase] = useState<"form" | "order_success">("form");
   const [orderResult, setOrderResult] = useState<AdminOrderCreated | null>(null);
+
+  // Hand-off dari Kalkulator Penawaran admin (/admin/kalkulator, sekali pakai
+  // lewat localStorage key area "admin" — lihat lib/calculator-shared.ts).
+  // Cermin persis mekanisme cabang (cabang/pesanan/baru/new-order-form.tsx::
+  // applyCalcHandoffIfNeeded): TIDAK PERNAH diterapkan diam-diam — admin harus
+  // menekan "Gunakan angka ini" dulu; `calcApply` hanya menandai NIAT, dua
+  // tulisan sungguhannya (rantai diskon lewat setOrderOffer, baris keranjang
+  // lewat copyCalcCartItemsToOrder) baru terjadi SETELAH pesanan berhasil
+  // dibuat. Bedanya dari cabang: aksi penawarannya setOrderOffer (admin,
+  // actions-orders.ts) — admin tidak pernah digerbang izin penawaran (0014/
+  // 0015 melepas lewat fn_is_admin), jadi tidak ada degradasi izin di sini.
+  const [calcHandoff, setCalcHandoff] = useState<CalcHandoff | null>(null);
+  const [calcApply, setCalcApply] = useState(false);
+  const [calcOutcomeMsg, setCalcOutcomeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  /** Hasil copyCalcCartItemsToOrder — TERPISAH dari calcOutcomeMsg (rantai
+   * diskon): dua tulisan best-effort independen, satu bisa berhasil sementara
+   * yang lain gagal, dan admin perlu tahu keduanya (LESSONS #10). */
+  const [calcItemsMsg, setCalcItemsMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    setCalcHandoff(readCalcHandoff("admin"));
+  }, []);
 
   const requestIdRef = useRef<string | null>(null);
   if (!requestIdRef.current) requestIdRef.current = crypto.randomUUID();
@@ -234,6 +264,101 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     if (el) el.value = value;
   }
 
+  /** Admin menekan "Gunakan angka ini" pada banner hand-off Kalkulator. */
+  function handleUseCalcHandoff() {
+    if (!calcHandoff) return;
+    setFieldValue("partner_purchase_amount", formatIDR(calcHandoff.subtotal));
+    setCalcApply(true);
+  }
+  /** Admin menekan "Abaikan" — buang hand-off sepenuhnya, tidak ada yang dipakai. */
+  function handleDismissCalcHandoff() {
+    clearCalcHandoff("admin");
+    setCalcHandoff(null);
+    setCalcApply(false);
+  }
+
+  /**
+   * Dipanggil SETELAH pesanan berhasil dibuat (kedua jalur sukses di
+   * onSubmitOrder) — cermin applyCalcHandoffIfNeeded milik form cabang. DUA
+   * tulisan best-effort independen: kegagalan di sini TIDAK PERNAH
+   * membatalkan pesanan yang sudah tersimpan, masing-masing dilaporkan lewat
+   * banner-nya sendiri (LESSONS #10 — jangan mencampur dua hasil independen
+   * jadi satu pesan kabur). Hand-off selalu dihapus sesudahnya (sekali pakai)
+   * terlepas dari hasil keduanya.
+   *
+   * `orderClientRequestId` = rid dasar form (SEBELUM requestIdRef di-null-kan)
+   * — kunci idempotency deterministik per baris di copyCalcCartItemsToOrder
+   * (`{rid}:calc-item:{product_id}`, tidak bentrok dengan `:item:{product_id}`
+   * milik salinan Package dari createOrderForBranch).
+   */
+  async function applyCalcHandoffIfNeeded(orderId: string, orderClientRequestId: string) {
+    if (!calcApply || !calcHandoff) return;
+    const offerOut = await submitSafely({
+      kind: "update",
+      messages: m,
+      run: () =>
+        setOrderOffer(
+          orderId,
+          String(calcHandoff.subtotal),
+          "",
+          "",
+          calcHandoff.discountPcts.map(String),
+          calcHandoff.markupPct == null ? "" : String(calcHandoff.markupPct),
+          String(calcHandoff.cashDiscount)
+        ),
+    });
+    const offerApplied = offerOut.status === "ok" && !("error" in offerOut.result);
+    setCalcOutcomeMsg({
+      ok: offerApplied,
+      text: offerApplied ? m.admin.calcAdminHandoffAppliedOk : m.admin.calcAdminHandoffAppliedFailed,
+    });
+
+    if (calcHandoff.lines.length > 0) {
+      const itemsOut = await submitSafely({
+        kind: "update",
+        messages: m,
+        run: () =>
+          copyCalcCartItemsToOrder(
+            orderId,
+            orderClientRequestId,
+            calcHandoff.lines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty }))
+          ),
+      });
+      if (itemsOut.status === "ok") {
+        const r = itemsOut.result;
+        if (r.created === 0) {
+          setCalcItemsMsg({ ok: false, text: m.admin.calcAdminItemsAppliedFailed });
+        } else if (r.created < r.total) {
+          setCalcItemsMsg({
+            ok: false,
+            text: m.admin.calcAdminItemsAppliedPartial
+              .replace("{n}", String(r.created))
+              .replace("{total}", String(r.total)),
+          });
+        } else {
+          const base = m.admin.calcAdminItemsAppliedOk.replace("{n}", String(r.created));
+          // priceGuardDegraded seharusnya mustahil untuk sesi admin
+          // (fn_guard_order_item_price_cols return new lewat fn_is_admin, 0014)
+          // — tetap ditangani jujur kalau entah bagaimana terjadi, jangan
+          // mengklaim harga tersimpan tanpa bukti (LESSONS #7).
+          setCalcItemsMsg({
+            ok: true,
+            text: r.priceGuardDegraded ? `${base} ${m.admin.calcAdminItemsAppliedPriceNote}` : base,
+          });
+        }
+      } else {
+        // Respons hilang / offline — bukan bukti gagal, tapi tidak boleh
+        // diklaim sukses tanpa konfirmasi server (LESSONS #2). Pesan jujur,
+        // admin diarahkan mengecek Isi Pesanan sendiri.
+        setCalcItemsMsg({ ok: false, text: m.admin.calcAdminItemsAppliedFailed });
+      }
+    }
+
+    clearCalcHandoff("admin");
+    setCalcHandoff(null);
+    setCalcApply(false);
+  }
+
   /** Prefill alamat kirim dari alamat pelanggan — hanya kalau masih kosong (LESSONS #1). */
   function prefillShippingAddress(c: FoundCustomer) {
     const el = formRef.current?.elements.namedItem("shipping_address") as HTMLTextAreaElement | null;
@@ -273,6 +398,13 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     setNetMsg(null);
     setPartialMsg(null);
     setInvoiceMsg(null);
+    setCalcOutcomeMsg(null);
+    setCalcItemsMsg(null);
+    // Hand-off (kalau ada) sudah dikonsumsi (dipakai atau diabaikan) sebelum
+    // sampai di sini — pesanan berikutnya di sesi form yang sama TIDAK boleh
+    // diam-diam memakai angka kalkulator yang sudah dipakai untuk pesanan lain.
+    setCalcHandoff(readCalcHandoff("admin"));
+    setCalcApply(false);
     requestIdRef.current = crypto.randomUUID();
     // Partner/cabang SENGAJA dipertahankan — admin yang membuat beberapa
     // pesanan untuk cabang yang sama tidak perlu memilih ulang dari nol.
@@ -341,6 +473,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
       requestIdRef.current = null;
       if (summary.status === "found") {
         await withInvoice(out.id);
+        await applyCalcHandoffIfNeeded(out.id, rid);
         setOrderResult({ ...summary.order, customerId: foundCustomer?.id ?? "" });
         setPhase("order_success");
       } else {
@@ -375,6 +508,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     }
     requestIdRef.current = null;
     await withInvoice(res.data.id);
+    await applyCalcHandoffIfNeeded(res.data.id, rid);
     setOrderResult(res.data);
     setPhase("order_success");
   }
@@ -385,6 +519,12 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
         <div className="banner ok">{m.admin.orderCreateSuccessBanner}</div>
         {invoiceMsg && <div className="banner warn">{invoiceMsg}</div>}
         {orderResult.itemsCopyWarning && <div className="banner warn">{orderResult.itemsCopyWarning}</div>}
+        {calcOutcomeMsg && (
+          <div className={`banner ${calcOutcomeMsg.ok ? "ok" : "warn"}`}>{calcOutcomeMsg.text}</div>
+        )}
+        {calcItemsMsg && (
+          <div className={`banner ${calcItemsMsg.ok ? "ok" : "warn"}`}>{calcItemsMsg.text}</div>
+        )}
         <dl className="kv">
           <dt>{m.common.orderNumber}</dt>
           <dd className="code">{orderResult.orderNumber}</dd>
@@ -419,6 +559,26 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
       {netMsg && <div className="banner warn">{netMsg}</div>}
       {partialMsg && <div className="banner bad">{partialMsg}</div>}
       {errs._form && <div className="banner bad">{errs._form}</div>}
+
+      {calcHandoff && !calcApply && (
+        <div className="banner info">
+          {m.admin.calcAdminHandoffBanner
+            .replace("{n}", String(calcHandoff.itemQty))
+            .replace("{subtotal}", formatIDR(calcHandoff.subtotal))
+            .replace("{final}", formatIDR(calcHandoff.finalAmount))}
+          <p className="small muted" style={{ marginTop: 6, marginBottom: 0 }}>
+            {m.admin.calcAdminHandoffScopeHint}
+          </p>
+          <div className="btnrow-inline">
+            <button type="button" className="btn sm primary" onClick={handleUseCalcHandoff}>
+              {m.admin.calcAdminHandoffApplyCta}
+            </button>
+            <button type="button" className="btn sm" onClick={handleDismissCalcHandoff}>
+              {m.admin.calcAdminHandoffDismissCta}
+            </button>
+          </div>
+        </div>
+      )}
 
       <form ref={formRef}>
         {/* ── Partner → Cabang ── */}

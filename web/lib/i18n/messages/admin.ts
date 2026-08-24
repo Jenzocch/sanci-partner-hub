@@ -24,10 +24,40 @@ const id = {
   // ---- Kalkulator Penawaran (/admin/kalkulator) ----
   // Teks UI kalkulatornya sendiri hidup di common.ts (komponen bersama dua
   // area, lihat lib/kalkulator-client.tsx); di sini hanya teks khusus admin.
+  // CTA konversi + hand-off SENGAJA punya key admin sendiri (bukan pinjam
+  // slice cabang): teks cabang menyebut izin/alur khas cabang yang tidak
+  // berlaku untuk admin (admin tidak pernah digerbang izin penawaran — 0014/
+  // 0015 melepas lewat fn_is_admin).
   calcAdminIntroNote:
     "Alat hitung penawaran yang sama dengan sisi cabang — untuk tim SANCI tanpa berganti akun. Tidak ada yang " +
-    "tersimpan ke sistem: murni alat hitung. Membuat pesanan langsung dari sini belum tersedia — pakai " +
-    "\"+ Buat Pesanan\" di halaman Pesanan Partner.",
+    "tersimpan ke sistem selagi dipakai; tekan \"Buat Pesanan\" di tab keranjang untuk membawa angka dan daftar " +
+    "produknya ke form pesanan admin.",
+  calcAdminConvertCta: "Buat Pesanan",
+  calcAdminConvertScopeNote:
+    "\"Buat Pesanan\" membawa subtotal, rantai diskon, dan daftar produk (nama, kode, jumlah, harga) ke form " +
+    "pesanan admin — pilih partner dan cabang di sana seperti biasa.",
+
+  // Hand-off Kalkulator → /admin/orders/baru (lihat lib/calculator-shared.ts:
+  // CalcHandoff, sekali pakai lewat localStorage, key area admin).
+  calcAdminHandoffBanner: "Dari Kalkulator Penawaran: {n} barang · Subtotal {subtotal} · Total Akhir {final}.",
+  calcAdminHandoffApplyCta: "Gunakan angka ini",
+  calcAdminHandoffDismissCta: "Abaikan",
+  calcAdminHandoffScopeHint:
+    "Ini akan mengisi \"Total belanja pelanggan\" dengan subtotal dari kalkulator. Setelah pesanan berhasil " +
+    "dibuat, rantai diskonnya otomatis diterapkan ke Penawaran SANCI pesanan itu, dan daftar produk dari " +
+    "kalkulator (nama, kode, jumlah, harga) otomatis ditambahkan ke Isi Pesanan.",
+  calcAdminHandoffAppliedOk: "Rantai diskon dari Kalkulator Penawaran berhasil diterapkan ke Penawaran SANCI pesanan ini.",
+  calcAdminHandoffAppliedFailed:
+    "Pesanan berhasil dibuat, tapi rantai diskon dari Kalkulator Penawaran belum bisa otomatis diterapkan — atur " +
+    "manual di bagian Penawaran SANCI halaman pesanan.",
+  calcAdminItemsAppliedOk: "{n} produk dari kalkulator berhasil ditambahkan ke pesanan ini.",
+  calcAdminItemsAppliedPriceNote: "Harga per barang tidak ikut tersimpan — cek dan lengkapi di Isi Pesanan.",
+  calcAdminItemsAppliedPartial:
+    "{n} dari {total} produk dari kalkulator berhasil ditambahkan ke pesanan ini; sisanya gagal — cek dan " +
+    "tambahkan manual di Isi Pesanan.",
+  calcAdminItemsAppliedFailed:
+    "Pesanan berhasil dibuat, tapi produk dari kalkulator belum bisa otomatis ditambahkan — tambahkan manual di " +
+    "Isi Pesanan.",
 
   // ---- Dipakai lintas layar admin ----
   openBtn: "Buka",
@@ -794,8 +824,32 @@ const en = {
 
   calcAdminIntroNote:
     "The same offer calculator branches have — for the SANCI team, without switching accounts. Nothing is " +
-    "saved to the system: it is purely a calculator. Creating an order straight from here isn't available " +
-    "yet — use \"+ Create order\" on the Partner orders page.",
+    "saved to the system while you work; press \"Create order\" on the cart tab to carry the numbers and " +
+    "product list into the admin order form.",
+  calcAdminConvertCta: "Create order",
+  calcAdminConvertScopeNote:
+    "\"Create order\" carries the subtotal, discount chain, and product list (name, code, quantity, price) " +
+    "into the admin order form — pick the partner and branch there as usual.",
+
+  calcAdminHandoffBanner: "From the Offer Calculator: {n} items · Subtotal {subtotal} · Final total {final}.",
+  calcAdminHandoffApplyCta: "Use these numbers",
+  calcAdminHandoffDismissCta: "Dismiss",
+  calcAdminHandoffScopeHint:
+    "This fills \"Customer's total purchase\" with the calculator's subtotal. After the order is created, the " +
+    "discount chain is applied to that order's SANCI Offer automatically, and the calculator's product list " +
+    "(name, code, quantity, price) is added to its Order items.",
+  calcAdminHandoffAppliedOk: "The Offer Calculator's discount chain was applied to this order's SANCI Offer.",
+  calcAdminHandoffAppliedFailed:
+    "The order was created, but the calculator's discount chain could not be applied automatically — set it " +
+    "manually in the SANCI Offer section of the order page.",
+  calcAdminItemsAppliedOk: "{n} products from the calculator were added to this order.",
+  calcAdminItemsAppliedPriceNote: "Per-item prices were not saved — review and complete them under Order items.",
+  calcAdminItemsAppliedPartial:
+    "{n} of {total} products from the calculator were added to this order; the rest failed — review and add " +
+    "them manually under Order items.",
+  calcAdminItemsAppliedFailed:
+    "The order was created, but the calculator's products could not be added automatically — add them manually " +
+    "under Order items.",
 
   openBtn: "Open",
   filterStatusAll: "Status: all",
@@ -1514,8 +1568,28 @@ const zh = {
   navCalculator: "方案计算器",
 
   calcAdminIntroNote:
-    "跟分店端一样的方案计算器 —— SANCI 团队不用切换账号就能用。任何内容都不会保存到系统:纯粹是计算工具。" +
-    "暂时不能直接从这里创建订单 —— 请到\"合作商订单\"页面用\"+ 创建订单\"。",
+    "跟分店端一样的方案计算器 —— SANCI 团队不用切换账号就能用。使用过程中任何内容都不会保存到系统;" +
+    "在购物车分页点\"创建订单\",就能把数字和产品清单带到管理端的创建订单页面。",
+  calcAdminConvertCta: "创建订单",
+  calcAdminConvertScopeNote:
+    "\"创建订单\"会把小计、折扣链和产品清单(名称、代码、数量、价格)带到管理端的创建订单页面 —— " +
+    "在那里照常选择合作商和分店。",
+
+  calcAdminHandoffBanner: "来自方案计算器:{n}件 · 小计{subtotal} · 最终金额{final}。",
+  calcAdminHandoffApplyCta: "使用这些数字",
+  calcAdminHandoffDismissCta: "忽略",
+  calcAdminHandoffScopeHint:
+    "这会把计算器的小计填入\"客户在店内的消费总额\"。订单创建成功后,折扣链会自动应用到这笔订单的 " +
+    "SANCI 方案金额,计算器里的产品清单(名称、代码、数量、价格)也会自动加入订单明细。",
+  calcAdminHandoffAppliedOk: "方案计算器的折扣链已成功应用到这笔订单的 SANCI 方案金额。",
+  calcAdminHandoffAppliedFailed:
+    "订单已经创建成功,但计算器的折扣链无法自动应用 —— 请到订单页面的 SANCI 方案金额部分手动设置。",
+  calcAdminItemsAppliedOk: "已成功把计算器里的 {n} 件产品加入这笔订单。",
+  calcAdminItemsAppliedPriceNote: "单价没有一起保存 —— 请到订单明细检查并补上。",
+  calcAdminItemsAppliedPartial:
+    "计算器里的 {total} 件产品成功加入了 {n} 件;其余失败 —— 请到订单明细检查并手动补上。",
+  calcAdminItemsAppliedFailed:
+    "订单已经创建成功,但计算器里的产品无法自动加入 —— 请到订单明细手动补上。",
 
   openBtn: "打开",
   filterStatusAll: "状态：全部",

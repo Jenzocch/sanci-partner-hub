@@ -175,25 +175,37 @@ export function clearCalcDraft(area: CalcArea): void {
 }
 
 /* ------------------------------------------------------------------ *
- * Hand-off ke /cabang/pesanan/baru ("Buat Pesanan") — SEKALI PAKAI.
+ * Hand-off ke form pesanan baru ("Buat Pesanan") — SEKALI PAKAI, PER AREA.
  *
  * Ini BUKAN draf: ditulis sekali saat staf menekan "Buat Pesanan", dibaca
- * lalu dihapus oleh new-order-form.tsx (langsung atau setelah staf memilih
- * "Abaikan"). Isinya ANGKA (subtotal + rantai diskon) DAN — sejak revisi
- * penutup gap ini — daftar baris keranjang (`lines`), supaya "Buat Pesanan"
- * benar-benar menutup gap yang tadinya sengaja ditinggalkan (lihat
- * FEATURES.md, slice yang merevisi P2-63/P2-64): dulu daftar produk/harga
- * per baris TIDAK ikut karena pembuatan pesanan sepenuhnya Package-based
- * (0008) dan tidak ada jalur tulis yang menerima daftar item bebas. Jalur
- * tulis itu SEKARANG ada (`copyCalcCartItemsToOrder`, cabang/pesanan/
- * actions.ts) — dipanggil new-order-form.tsx SETELAH pesanan berhasil
- * dibuat, tepat di titik yang sama dengan penerapan rantai diskon
+ * lalu dihapus oleh form pesanan baru area yang sama (langsung atau setelah
+ * staf memilih "Abaikan"). Isinya ANGKA (subtotal + rantai diskon) DAN —
+ * sejak revisi penutup gap ini — daftar baris keranjang (`lines`), supaya
+ * "Buat Pesanan" benar-benar menutup gap yang tadinya sengaja ditinggalkan
+ * (lihat FEATURES.md, slice yang merevisi P2-63/P2-64): dulu daftar produk/
+ * harga per baris TIDAK ikut karena pembuatan pesanan sepenuhnya
+ * Package-based (0008) dan tidak ada jalur tulis yang menerima daftar item
+ * bebas. Jalur tulis itu SEKARANG ada (`copyCalcCartItemsToOrder`,
+ * cabang/pesanan/actions.ts) — dipanggil form pesanan baru SETELAH pesanan
+ * berhasil dibuat, tepat di titik yang sama dengan penerapan rantai diskon
  * (applyCalcHandoffIfNeeded), dan tetap lewat RLS/trigger order_items 0014
  * seperti biasa (trg_order_item_price_guard tetap mensyaratkan
- * can_edit_offer untuk unit_price — lihat catatan di fungsi itu).
+ * can_edit_offer untuk unit_price di sisi cabang; untuk admin, guard dan
+ * RLS-nya sama-sama melepas lewat fn_is_admin — 0014).
+ *
+ * Key TERPISAH per area, alasan yang SAMA dengan CALC_DRAFT_KEYS di atas:
+ * sejak /admin/kalkulator ikut punya "Buat Pesanan" (2026-08-24), hand-off
+ * admin dibaca /admin/orders/baru dan hand-off cabang dibaca
+ * /cabang/pesanan/baru — satu browser yang dipakai bergantian tidak boleh
+ * membuat hand-off admin menyembul di form cabang (atau sebaliknya). Key
+ * cabang TIDAK berubah dari nilai lamanya supaya hand-off staf toko yang
+ * sedang berjalan saat rilis ini tetap terbaca (bukan hilang diam-diam).
  * ------------------------------------------------------------------ */
 
-const CALC_HANDOFF_KEY = "sanci:kalkulator:handoff";
+const CALC_HANDOFF_KEYS: Record<CalcArea, string> = {
+  cabang: "sanci:kalkulator:handoff",
+  admin: "sanci:kalkulator:handoff:admin",
+};
 
 /**
  * Satu baris keranjang, versi RINGKAS untuk hand-off (bukan CalcLine penuh —
@@ -226,9 +238,9 @@ export type CalcHandoff = {
   lines: CalcHandoffLine[];
 };
 
-export function writeCalcHandoff(h: Omit<CalcHandoff, "savedAt">): void {
+export function writeCalcHandoff(area: CalcArea, h: Omit<CalcHandoff, "savedAt">): void {
   try {
-    window.localStorage.setItem(CALC_HANDOFF_KEY, JSON.stringify({ ...h, savedAt: Date.now() }));
+    window.localStorage.setItem(CALC_HANDOFF_KEYS[area], JSON.stringify({ ...h, savedAt: Date.now() }));
   } catch {
     // Diamkan — kegagalan handoff tidak boleh menghalangi navigasi ke Pesanan Baru,
     // itu sendiri masih berfungsi penuh tanpa handoff (staf tinggal isi manual).
@@ -247,9 +259,9 @@ function isValidHandoffLine(v: unknown): v is CalcHandoffLine {
   );
 }
 
-export function readCalcHandoff(): CalcHandoff | null {
+export function readCalcHandoff(area: CalcArea): CalcHandoff | null {
   try {
-    const raw = window.localStorage.getItem(CALC_HANDOFF_KEY);
+    const raw = window.localStorage.getItem(CALC_HANDOFF_KEYS[area]);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CalcHandoff>;
     if (
@@ -276,9 +288,9 @@ export function readCalcHandoff(): CalcHandoff | null {
   }
 }
 
-export function clearCalcHandoff(): void {
+export function clearCalcHandoff(area: CalcArea): void {
   try {
-    window.localStorage.removeItem(CALC_HANDOFF_KEY);
+    window.localStorage.removeItem(CALC_HANDOFF_KEYS[area]);
   } catch {
     // sama seperti di atas
   }

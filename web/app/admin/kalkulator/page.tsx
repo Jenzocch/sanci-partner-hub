@@ -23,12 +23,12 @@ export const dynamic = "force-dynamic";
  *     menawar barang yang benar-benar bisa dipesan, bukan mengelola katalog
  *     (produk INACTIVE tampil di /admin/produk tapi TIDAK di sini; di sisi
  *     cabang penyaringan ACTIVE dilakukan RLS `sp_partner_read`).
- *  2. TANPA "Buat Pesanan" (v1): hand-off kalkulator ditulis ke localStorage
- *     dan HANYA dibaca form pesanan baru cabang (/cabang/pesanan/baru).
- *     Form admin /admin/orders/baru belum punya dukungan hand-off —
- *     menyambungkannya adalah slice terpisah. Jadi di sini kalkulator murni
- *     alat hitung penawaran; `convert={null}` menyembunyikan CTA berikut
- *     catatan cakupannya (lihat KalkulatorConvert di komponen).
+ *  2. "Buat Pesanan" menuju FORM ADMIN (/admin/orders/baru, sejak
+ *     2026-08-24 — v1 sengaja tanpa CTA, sekarang gap-nya ditutup):
+ *     hand-off ditulis ke key localStorage area "admin" (terpisah dari key
+ *     cabang, lib/calculator-shared.ts) dan dibaca form pesanan admin.
+ *     Teks CTA/scope note pakai key slice admin sendiri — teks cabang
+ *     menyebut izin/alur khas cabang yang tidak berlaku untuk admin.
  *
  * Auth: layout /admin sudah menggerbang platform_admins (redirect kalau
  * bukan); RLS tetap batas sesungguhnya (LESSONS #5) — halaman ini tidak
@@ -102,7 +102,15 @@ export default async function AdminKalkulatorPage() {
       {/* .limit(200) di atas bisa memotong diam-diam (audit 2026-08-22 #11). */}
       {items.length === 200 && <div className="banner warn">{m.common.catalogListCappedMsg}</div>}
       <div className="banner info">{m.admin.calcAdminIntroNote}</div>
-      <KalkulatorClient products={items} area="admin" convert={null} />
+      <KalkulatorClient
+        products={items}
+        area="admin"
+        convert={{
+          cta: m.admin.calcAdminConvertCta,
+          scopeNote: m.admin.calcAdminConvertScopeNote,
+          href: "/admin/orders/baru",
+        }}
+      />
     </div>
   );
 }

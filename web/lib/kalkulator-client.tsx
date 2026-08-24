@@ -34,15 +34,19 @@ export type KalkulatorProduct = {
 };
 
 /**
- * CTA "Buat Pesanan" — teksnya milik slice CABANG (menyebut alur pesanan
- * cabang), jadi dikirim sebagai prop oleh route pemasang, bukan dibaca dari
- * `useCommonMessages()`. HANYA route cabang yang mengisinya: hand-off-nya
- * ditulis ke localStorage untuk dibaca /cabang/pesanan/baru. Route admin
- * mengirim `null` (v1: kalkulator admin murni alat hitung — form pesanan
- * admin /admin/orders/baru belum punya dukungan hand-off; menyambungkannya
- * adalah slice terpisah, lihat FEATURES.md).
+ * CTA "Buat Pesanan" — teks DAN tujuannya milik route pemasang (masing-
+ * masing area menyebut alur pesanannya sendiri), jadi dikirim sebagai prop,
+ * bukan dibaca dari `useCommonMessages()` atau di-hardcode di sini:
+ *   - route cabang: teks slice cabang + `href` /cabang/pesanan/baru
+ *     (hand-off area "cabang" dibaca form pesanan baru cabang);
+ *   - route admin (sejak 2026-08-24): teks slice admin + `href`
+ *     /admin/orders/baru (hand-off area "admin" dibaca form pesanan admin).
+ * `href` WAJIB sepasang dengan `area`: hand-off ditulis ke key localStorage
+ * milik `area`, dan hanya form di `href` area itu yang membacanya
+ * (lib/calculator-shared.ts). Route yang tidak mau CTA mengirim `null` —
+ * tombol + scope note tidak dirender sama sekali.
  */
-export type KalkulatorConvert = { cta: string; scopeNote: string };
+export type KalkulatorConvert = { cta: string; scopeNote: string; href: string };
 
 /**
  * Kalkulator Penawaran — dipasang di DUA route: /cabang/kalkulator (sejak
@@ -281,10 +285,10 @@ export default function KalkulatorClient({
   const totalDiscountAmount = subtotal - afterDiscountDisplay;
 
   function handleConvertToOrder() {
-    // Hanya route cabang yang mengisi `convert` — di admin (v1) tombolnya
-    // tidak dirender sama sekali, guard ini cuma jaring pengaman ekstra.
+    // Route tanpa `convert` tidak merender tombolnya sama sekali — guard ini
+    // cuma jaring pengaman ekstra.
     if (!convert || lines.length === 0) return;
-    writeCalcHandoff({
+    writeCalcHandoff(area, {
       lineCount: lines.length,
       itemQty,
       subtotal,
@@ -307,7 +311,7 @@ export default function KalkulatorClient({
     // tidak perlu bertahan lagi (beda dari handoff, yang justru BARU ditulis
     // di atas untuk dibaca new-order-form.tsx).
     clearCalcDraft(area);
-    router.push("/cabang/pesanan/baru");
+    router.push(convert.href);
   }
 
   return (
@@ -700,9 +704,7 @@ export default function KalkulatorClient({
       )}
 
       <div className={styles.bottomSpacer} />
-      {/* Di admin, bar ini digeser ke kanan selebar rel navigasi (desktop) dan
-          TIDAK punya CTA konversi — murni tampilan total (v1, lihat
-          KalkulatorConvert di atas). */}
+      {/* Di admin, bar ini digeser ke kanan selebar rel navigasi (desktop). */}
       <div className={`${styles.stickyBar}${area === "admin" ? ` ${styles.stickyBarAdmin}` : ""}`}>
         <button
           type="button"
@@ -717,7 +719,7 @@ export default function KalkulatorClient({
         {/* Kanan bar mengikuti tab (keluhan owner 2026-08-22 — teks total di
             kiri tidak tampak bisa diketuk, jadi butuh TOMBOL sungguhan):
             - tab produk    → "Keranjang (n)" pindah ke keranjang (kedua area);
-            - tab keranjang → CTA konversi (hanya cabang; admin v1 tanpa CTA).
+            - tab keranjang → CTA konversi (kalau route mengisi `convert`).
             CTA konversi dulu tampil di kedua tab; sekarang alurnya pilih →
             keranjang → buat pesanan, pola belanja yang diminta owner. */}
         {tab === "produk" ? (
