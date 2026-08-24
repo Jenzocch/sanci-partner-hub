@@ -1271,6 +1271,27 @@ INACTIVE 後「Aktifkan lagi」可自助復原。
 併入既有自動建議提示）、Package 名稱（分店建單下拉所見）。每句聲明均先對照
 程式碼/migration 驗證才寫。零邏輯變動。
 
+### 版本過期偵測（2026-08-24，owner 兩度中招後指示「do it」）
+
+部署後舊分頁 submit 會收到 Next 的 404「Failed to find Server Action」，過去
+落入通用弱網訊息「請再按一次儲存」——在此情境是**錯誤建議**（重按永遠不會
+成功）。新機制（`safe-write.ts` submitSafely 內，雙層偵測）：
+
+- **A 層（錯誤特徵）**：讀 next@15.5.23 原始碼證實 server 在解碼/執行前就以
+  404+專屬 header 拒絕未知 action → client 擲 `UnrecognizedActionError`。
+  命中＝**證明**該次提交完全沒被執行（LESSONS #7：這是證據），訊息直說
+  「資料尚未儲存，請重新整理後再填」；lookup 反查跳過（同 bundle 的 action
+  一樣會 404）。
+- **B 層（版本探測）**：`next.config.ts` 把 `VERCEL_GIT_COMMIT_SHA` 烘進雙端
+  （本地 fallback "dev"→永不誤報），新 `/version` route（no-store、middleware
+  matcher 排除）。任何「不確定」失敗時 2 秒 best-effort 比對——證明 server 已
+  是新版才切換成「請重新整理後檢查資料是否已存」的誠實變體；探測失敗/相同
+  ＝維持原本弱網訊息，零誤報。
+
+`SafeSubmit` 型別僅加選用 `stale?: true`，45+ 呼叫點零改動（僅兩處自訂
+unconfirmed 文案的加了一行 pass-through）。**待 Jenzo 驗證**：下次部署後拿
+舊分頁按存檔，應看到「請重新整理」而非「請再按一次」。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
