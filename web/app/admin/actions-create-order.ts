@@ -557,6 +557,7 @@ export async function createOrderForBranch(input: {
   fulfillmentPath: string;
   purchaseAmountRaw?: string;
   shippingAddress?: string;
+  customerPo?: string;
   clientRequestId: string;
 }): Promise<AdminCreateOrderResult> {
   const m = await getAdminMessages();
@@ -622,6 +623,10 @@ export async function createOrderForBranch(input: {
   const amount = validatePurchaseAmountAdmin(m, input.purchaseAmountRaw);
   if (!amount.ok) return { error: amount.error };
   const shippingAddress = (input.shippingAddress ?? "").trim() || null;
+  // customer_po (0020) — normalisasi sama persis dengan shippingAddress di
+  // atas (trim, kosong → null); tanpa validasi format, nomor itu milik
+  // administrasi pelanggan (lihat kepala berkas migration 0020).
+  const customerPo = (input.customerPo ?? "").trim() || null;
 
   // ── 6. Pesanan (idempotent, pola cabang) ──
   const orderReqId = `${input.clientRequestId}:order`;
@@ -661,6 +666,7 @@ export async function createOrderForBranch(input: {
           fulfillment_path: path.value,
           partner_purchase_amount: amount.value,
           shipping_address: shippingAddress,
+          customer_po: customerPo,
           client_request_id: orderReqId,
         })
         .select("id")

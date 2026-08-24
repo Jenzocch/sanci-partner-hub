@@ -497,6 +497,7 @@ export default function NewOrderForm({
           fulfillmentAvailable,
           purchaseAmountRaw: String(fd.get("partner_purchase_amount") || ""),
           shippingAddress: String(fd.get("shipping_address") || ""),
+          customerPo: String(fd.get("customer_po") || ""),
           clientRequestId: rid,
         }),
       lookup: () => lookupOrderRequestId(rid),
@@ -828,6 +829,17 @@ export default function NewOrderForm({
               placeholder={m.cabang.optionalPlaceholder}
             />
             <div className="hint">{m.cabang.shippingAddressHint}</div>
+          </div>
+          <div className="field">
+            <label htmlFor="po_customer_po">{m.cabang.customerPoFieldLabel}</label>
+            <input
+              id="po_customer_po"
+              name="customer_po"
+              type="text"
+              defaultValue=""
+              placeholder={m.cabang.optionalPlaceholder}
+            />
+            <div className="hint">{m.cabang.customerPoHint}</div>
           </div>
 
           <div className="field">

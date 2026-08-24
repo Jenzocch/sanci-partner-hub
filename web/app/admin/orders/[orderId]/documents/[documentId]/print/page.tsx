@@ -143,7 +143,15 @@ export default async function DocumentPrintPage({
   //     bisa saja belum ada / kosong, dan itu tidak boleh menggagalkan
   //     halaman cetak (mis. DO tetap harus tercetak walau tidak pernah butuh
   //     angka ini).
-  const [salesRes, offerRes] = await Promise.all([
+  //   - customer_po (0020) — HANYA Invoice yang memakainya (baris "Purchase
+  //     Order"). Dibaca TERPISAH dari SELECT lebar gelombang pertama dengan
+  //     SENGAJA (LESSONS #12): kolomnya lahir di migrasi 0020 — kalau kode
+  //     ini naik sebelum migrasi dijalankan, 42703 pada SELECT lebar akan
+  //     membuat SELURUH halaman cetak jatuh ke notFound(); dengan pembacaan
+  //     terpisah yang toleran, dokumen tetap tercetak dan baris Purchase
+  //     Order jatuh kembali ke nomor pesanan sistem (perilaku lama, fallback
+  //     jujur — tidak pernah baris kosong).
+  const [salesRes, offerRes, customerPoRes] = await Promise.all([
     order.partner_sales_staff_id
       ? supabase
           .from("partner_staff")
@@ -158,8 +166,16 @@ export default async function DocumentPrintPage({
           .eq("order_id", orderId)
           .maybeSingle()
       : Promise.resolve(null),
+    docType === "INVOICE"
+      ? supabase.from("partner_orders").select("customer_po").eq("id", orderId).maybeSingle()
+      : Promise.resolve(null),
   ]);
   const salesName: string | null = salesRes ? salesRes.data?.full_name ?? null : null;
+  // error (termasuk 42703 saat 0020 belum jalan) => null => fallback nomor
+  // pesanan sistem di InvoiceSheet — tidak pernah menggagalkan cetak.
+  const customerPo: string | null = customerPoRes && !customerPoRes.error
+    ? ((customerPoRes.data as { customer_po: string | null } | null)?.customer_po ?? null)
+    : null;
 
   let offer: OfferInfo = null;
   const offerData = offerRes ? offerRes.data : null;
@@ -187,7 +203,7 @@ export default async function DocumentPrintPage({
         )}
         {docType === "DO" && <DOSheet doc={doc} order={order} customer={customer} lines={lines} totalQty={totalQty} />}
         {docType === "INVOICE" && (
-          <InvoiceSheet doc={doc} order={order} customer={customer} lines={lines} offer={offer} />
+          <InvoiceSheet doc={doc} order={order} customer={customer} lines={lines} offer={offer} customerPo={customerPo} />
         )}
       </div>
     </div>
@@ -437,12 +453,14 @@ function InvoiceSheet({
   customer,
   lines,
   offer,
+  customerPo,
 }: {
   doc: { doc_number: string; doc_date: string; notes: string | null };
   order: { order_number: string };
   customer: { full_name: string } | null;
   lines: DocLine[];
   offer: OfferInfo;
+  customerPo: string | null;
 }) {
   const subtotal = lines.reduce((sum, l) => {
     const it = one(l.order_items);
@@ -471,8 +489,11 @@ function InvoiceSheet({
           </tr>
           <tr>
             <td className="hlabel">Purchase Order</td>
+            {/* Nomor PO milik PELANGGAN (0020) kalau ada; kalau tidak, tetap
+                nomor pesanan sistem seperti sebelumnya — fallback jujur,
+                barisnya tidak pernah kosong. */}
             <td className="hval" colSpan={3}>
-              {order.order_number}
+              {customerPo || order.order_number}
             </td>
           </tr>
         </tbody>

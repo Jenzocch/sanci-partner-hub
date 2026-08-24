@@ -63,6 +63,12 @@ function fieldLabel(m: AdminMessages, key: string): string | undefined {
     dp_amount: c.dpAmount,
     payment_condition: c.paymentCondition,
     shipping_address: c.shippingAddress,
+    // 0020 — partner_orders.customer_po: nomor PO yang diterbitkan pelanggan
+    // sendiri. Teks bebas yang diketik manusia — nilai bisnis yang harus
+    // TAMPIL apa adanya (bukan UUID/kolom internal, jadi TIDAK masuk SKIP;
+    // bukan enum, jadi tidak butuh valueLabel) — pemeriksaan LESSONS #28
+    // untuk kolom baru migrasi 0020.
+    customer_po: c.customerPo,
     // 0014 — order_items. name_snapshot/code_snapshot SENGAJA diberi label
     // (bukan masuk SKIP di bawah): keduanya salinan beku nama/kode produk,
     // bermakna langsung bagi pembaca non-teknis (beda dari UUID relasi).

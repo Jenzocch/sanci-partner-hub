@@ -332,6 +332,24 @@ async function fetchShippingAddress(
   return { status: "ok", data: (data as { shipping_address: string | null } | null)?.shipping_address ?? null };
 }
 
+/**
+ * customer_po (migrasi 0020) dibaca TERPISAH — pola persis fetchShippingAddress
+ * di atas: kolomnya lahir di migrasi yang berbeda, jadi 42703 pada kolom ini
+ * tidak boleh ikut menyembunyikan alamat kirim (LESSONS #12).
+ */
+async function fetchCustomerPo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<ColumnFetch<string | null>> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("customer_po")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  return { status: "ok", data: (data as { customer_po: string | null } | null)?.customer_po ?? null };
+}
+
 type AuditRow = {
   id: number;
   action: string;
@@ -405,6 +423,7 @@ export default async function AdminOrderDetailPage({
     offerResult,
     itemsResult,
     shippingResult,
+    customerPoResult,
     documentsResult,
     partnerBranchesResult,
     auditResult,
@@ -418,6 +437,7 @@ export default async function AdminOrderDetailPage({
     fetchOrderOffer(supabase, order.id),
     fetchOrderItems(supabase, order.id),
     fetchShippingAddress(supabase, order.id),
+    fetchCustomerPo(supabase, order.id),
     fetchOrderDocuments(supabase, order.id),
     // Semua cabang milik partner yang SAMA (semua status) — dipakai dua hal:
     // dropdown Koreksi Atribusi (hanya yang AKTIF, bukan cabang saat ini) dan
@@ -581,6 +601,12 @@ export default async function AdminOrderDetailPage({
               <>
                 <dt>{m.common.shippingAddress}</dt>
                 <dd style={{ whiteSpace: "pre-wrap" }}>{shippingResult.data || "—"}</dd>
+              </>
+            )}
+            {customerPoResult.status === "ok" && (
+              <>
+                <dt>{m.common.customerPo}</dt>
+                <dd>{customerPoResult.data || "—"}</dd>
               </>
             )}
             <dt>{m.common.createdAt}</dt>

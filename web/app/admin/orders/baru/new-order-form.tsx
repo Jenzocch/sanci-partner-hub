@@ -521,6 +521,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
           fulfillmentPath: String(fd.get("fulfillment_path") || ""),
           purchaseAmountRaw: String(fd.get("partner_purchase_amount") || ""),
           shippingAddress: String(fd.get("shipping_address") || ""),
+          customerPo: String(fd.get("customer_po") || ""),
           clientRequestId: rid,
         }),
       // Sufiks `:order` SAMA dengan yang ditulis createOrderForBranch.
@@ -887,6 +888,18 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
               placeholder={m.admin.orderCreateOptionalPlaceholder}
             />
             <div className="hint">{m.admin.orderCreateShippingHint}</div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="ao_customer_po">{m.admin.orderCreateCustomerPoLabel}</label>
+            <input
+              id="ao_customer_po"
+              name="customer_po"
+              type="text"
+              defaultValue=""
+              placeholder={m.admin.orderCreateOptionalPlaceholder}
+            />
+            <div className="hint">{m.admin.orderCreateCustomerPoHint}</div>
           </div>
 
           <div className="field">

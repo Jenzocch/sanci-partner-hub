@@ -159,6 +159,24 @@ async function fetchShippingAddress(
 }
 
 /**
+ * customer_po (migrasi 0020) dibaca TERPISAH — pola persis fetchShippingAddress
+ * di atas: kolomnya lahir di migrasi yang berbeda, jadi 42703 pada kolom ini
+ * tidak boleh ikut menyembunyikan alamat kirim (LESSONS #12).
+ */
+async function fetchCustomerPo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<{ status: "ok"; data: string | null } | { status: "missing-column" } | { status: "error" }> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("customer_po")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  return { status: "ok", data: (data as { customer_po: string | null } | null)?.customer_po ?? null };
+}
+
+/**
  * order_items (migrasi 0014) — tabel BARU, degradasi lewat 42P01 (LESSONS
  * #12), sama pola dengan InvoiceSection/OrderDetailActions extras.
  */
@@ -404,6 +422,7 @@ export default async function PesananDetailPage({
     manageData,
     cancelResult,
     shippingResult,
+    customerPoResult,
     itemsResult,
     offerData,
   ] = await Promise.all([
@@ -429,6 +448,7 @@ export default async function PesananDetailPage({
       ? fetchCancelInfo(supabase, order.id)
       : Promise.resolve<{ info: CancelInfo | null; unavailable: boolean }>({ info: null, unavailable: false }),
     fetchShippingAddress(supabase, order.id),
+    fetchCustomerPo(supabase, order.id),
     fetchOrderItems(supabase, order.id),
     offerFlags.canViewOffer ? fetchOrderOfferCabang(supabase, order.id) : Promise.resolve(null),
   ]);
@@ -546,6 +566,12 @@ export default async function PesananDetailPage({
                 <dd style={{ whiteSpace: "pre-wrap" }}>{shippingResult.data || "—"}</dd>
               </>
             )}
+            {customerPoResult.status === "ok" && (
+              <>
+                <dt>{m.common.customerPo}</dt>
+                <dd>{customerPoResult.data || "—"}</dd>
+              </>
+            )}
             <dt>{m.common.createdAt}</dt>
             <dd>
               {new Date(order.created_at).toLocaleString(m.common.dateLocale, {
@@ -622,6 +648,7 @@ export default async function PesananDetailPage({
             purchaseAmount={extras.purchaseAmount}
             extrasAvailable={extrasAvailable}
             shippingAddress={shippingResult.status === "ok" ? shippingResult.data : null}
+            customerPo={customerPoResult.status === "ok" ? customerPoResult.data : null}
           />
         ) : (
           <p className="footnote">

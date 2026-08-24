@@ -69,6 +69,7 @@ export default function OrderDetailActions({
   purchaseAmount,
   extrasAvailable,
   shippingAddress,
+  customerPo,
 }: {
   orderId: string;
   orderNumber: string;
@@ -84,6 +85,7 @@ export default function OrderDetailActions({
   purchaseAmount: number | null;
   extrasAvailable: boolean;
   shippingAddress: string | null;
+  customerPo: string | null;
 }) {
   const router = useRouter();
   const m = useCabangMessages();
@@ -114,6 +116,7 @@ export default function OrderDetailActions({
           purchaseAmount={purchaseAmount}
           extrasAvailable={extrasAvailable}
           shippingAddress={shippingAddress}
+          customerPo={customerPo}
           onClose={() => setModal(null)}
           onSaved={() => {
             setModal(null);
@@ -155,6 +158,7 @@ function EditOrderModal({
   purchaseAmount,
   extrasAvailable,
   shippingAddress,
+  customerPo,
   onClose,
   onSaved,
 }: {
@@ -170,6 +174,7 @@ function EditOrderModal({
   purchaseAmount: number | null;
   extrasAvailable: boolean;
   shippingAddress: string | null;
+  customerPo: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -235,6 +240,7 @@ function EditOrderModal({
           fulfillmentPath: extrasAvailable ? String(fd.get("fulfillment_path") || "") : undefined,
           purchaseAmountRaw: extrasAvailable ? String(fd.get("partner_purchase_amount") || "") : undefined,
           shippingAddress: String(fd.get("shipping_address") || ""),
+          customerPo: String(fd.get("customer_po") || ""),
         }),
     });
 
@@ -360,6 +366,17 @@ function EditOrderModal({
               placeholder={m.cabang.optionalPlaceholder}
             />
             <div className="hint">{m.cabang.shippingAddressHint}</div>
+          </div>
+          <div className="field">
+            <label htmlFor="eo_customer_po">{m.cabang.customerPoFieldLabel}</label>
+            <input
+              id="eo_customer_po"
+              name="customer_po"
+              type="text"
+              defaultValue={customerPo || ""}
+              placeholder={m.cabang.optionalPlaceholder}
+            />
+            <div className="hint">{m.cabang.customerPoHint}</div>
           </div>
           <div className="field">
             <label htmlFor="eo_notes">{m.common.notes}</label>
