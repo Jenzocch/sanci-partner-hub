@@ -18,6 +18,7 @@
 
 import type { PostgrestSingleResponse } from "@supabase/supabase-js";
 import type { CommonMessages } from "./i18n/messages";
+import { BUILD_ID } from "./build-id";
 
 /**
  * Dipakai dari `/cabang/**` DAN `/admin/**` sekaligus, dan cuma pernah
@@ -57,6 +58,8 @@ export function pesan(m: HasCommon) {
     belumPastiBaru: m.common.netUnsureCreate,
     belumPastiUbah: m.common.netUnsureUpdate,
     serverSibuk: m.common.netServerBusy,
+    staleBelumTersimpan: m.common.netStaleNotSaved,
+    staleBelumPasti: m.common.netStaleUnsure,
   } as const;
 }
 
@@ -170,12 +173,84 @@ export type SafeSubmit<R> =
   | { status: "ok"; result: R }
   /** Respons hilang, TAPI pengecekan ulang membuktikan data sudah masuk — ini benar-benar berhasil. */
   | { status: "confirmed"; id: string }
-  /** Respons hilang dan pengecekan membuktikan TIDAK ada data yang masuk. */
-  | { status: "not-saved"; message: string }
-  /** Respons hilang dan statusnya tidak bisa dipastikan. Jangan pernah disebut berhasil. */
-  | { status: "unconfirmed"; message: string }
+  /**
+   * Terbukti TIDAK ada data yang masuk: pengecekan `lookup` bilang absent,
+   * ATAU (`stale: true`) server menolak action-nya sebagai 404 "tidak
+   * dikenal" — permintaan seperti itu tidak pernah dijalankan sama sekali.
+   */
+  | { status: "not-saved"; message: string; stale?: true }
+  /**
+   * Statusnya tidak bisa dipastikan. Jangan pernah disebut berhasil.
+   * `stale: true` = halaman ini terdeteksi berasal dari deployment lama —
+   * `message` sudah berisi teks "muat ulang halaman", BUKAN saran "tekan
+   * Simpan lagi"; pemanggil yang biasa mengganti `message` dengan teks
+   * layar sendiri harus membiarkan pesan stale ini tampil apa adanya.
+   */
+  | { status: "unconfirmed"; message: string; stale?: true }
   /** Perangkat sedang tanpa internet — belum dicoba kirim sama sekali. */
   | { status: "offline"; message: string };
+
+/* ------------------------------------------------------------------ *
+ * Deteksi "halaman dari deployment lama" (skew antar deployment).
+ *
+ * Kejadian nyata (2×, log server: 10× HTTP 404 "Failed to find Server
+ * Action"): tab yang dibuka sebelum deploy men-submit setelah deploy —
+ * server baru tidak mengenal id action lama, menjawab 404 TANPA menjalankan
+ * apa pun, dan client melempar error. Dulu error itu jatuh ke pesan
+ * "koneksi terputus… tekan Simpan lagi" — nasihat yang justru salah:
+ * menekan Simpan lagi TIDAK PERNAH bisa berhasil sebelum halaman dimuat
+ * ulang. Dua lapis deteksi:
+ *   A. Bentuk error yang dilempar client Next saat action 404
+ *      (`UnrecognizedActionError` sejak 15.5; versi lebih lama melempar
+ *      Error biasa berisi teks 404 text/plain dari server).
+ *   B. Kalau A tidak cocok: tanya GET /version (id build server sekarang)
+ *      dan bandingkan dengan BUILD_ID yang dibakar di bundle ini. Probe
+ *      gagal / sama = bukan bukti — pesan jaringan lama tetap dipakai.
+ * ------------------------------------------------------------------ */
+
+const STALE_PROBE_TIMEOUT_MS = 2_000;
+
+/**
+ * Lapisan A. Server 15.5 menjawab 404 + header `x-nextjs-action-not-found`
+ * tanpa menyentuh action-nya (next/dist/server/app-render/action-handler.js,
+ * `handleUnrecognizedFetchAction` — return sebelum decode/eksekusi), lalu
+ * client melempar `UnrecognizedActionError` ("Server Action … was not found
+ * on the server"). Server yang lebih lama memakai teks "Failed to find
+ * Server Action". Cocok salah satunya = action TERBUKTI tidak dijalankan.
+ */
+function isStaleActionError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === "UnrecognizedActionError") return true;
+  const msg = err.message || "";
+  return (
+    msg.includes("Failed to find Server Action") ||
+    msg.includes("was not found on the server") ||
+    msg.includes("failed-to-find-server-action")
+  );
+}
+
+/**
+ * Lapisan B. `true` HANYA bila server menjawab dan id-nya beda dari punya
+ * bundle ini. Timeout / gagal / kosong / sama semuanya `false`: tanpa bukti,
+ * jangan menuduh "versi lama" — biarkan pesan jaringan yang jujur tampil.
+ */
+async function serverIsNewerDeployment(): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), STALE_PROBE_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch("/version", { cache: "no-store", signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) return false;
+    const serverId = (await res.text()).trim();
+    return serverId !== "" && serverId !== BUILD_ID;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Membungkus satu panggilan Server Action dari browser.
@@ -224,23 +299,53 @@ export async function submitSafely<R>(opts: {
   }
 
   let res: R | typeof TIMED_OUT;
+  let thrown: unknown = undefined;
   try {
     res = await raceTimeout(opts.run(), opts.timeoutMs ?? WRITE_TIMEOUT_MS);
-  } catch {
-    res = TIMED_OUT; // koneksi putus di tengah jalan
+  } catch (err) {
+    thrown = err; // koneksi putus di tengah jalan — atau action ditolak 404
+    res = TIMED_OUT;
   }
   if (res !== TIMED_OUT) return { status: "ok", result: res };
 
+  // Lapisan A: action ditolak 404 "tidak dikenal" = TERBUKTI tidak pernah
+  // dijalankan (server menolak sebelum menyentuh kodenya) — boleh bilang
+  // "belum tersimpan" (LESSONS #7: itu bukti, bukan tebakan). `lookup` pun
+  // TIDAK dipanggil: lookup juga Server Action dari bundle lama yang sama,
+  // hasilnya pasti 404 juga. Pada jalur tanpa-lookup status "unconfirmed"
+  // dipertahankan demi kompatibilitas tipe pemanggil (SafeSubmitNoLookup);
+  // kebenaran untuk pengguna ada di `message` + penanda `stale`.
+  if (isStaleActionError(thrown)) {
+    return opts.lookup
+      ? { status: "not-saved", message: PESAN.staleBelumTersimpan, stale: true }
+      : { status: "unconfirmed", message: PESAN.staleBelumTersimpan, stale: true };
+  }
+
+  // Lapisan B untuk semua jalur "belum pasti": kalau server TERBUKTI sudah
+  // deployment lain, saran "tekan Simpan lagi" salah — submit berikutnya
+  // akan 404. Probe gagal/sama = tetap pesan jaringan lama yang jujur.
+  const unconfirmed = async (): Promise<SafeSubmit<R>> =>
+    (await serverIsNewerDeployment())
+      ? { status: "unconfirmed", message: PESAN.staleBelumPasti, stale: true }
+      : { status: "unconfirmed", message: belumPasti };
+
   // Respons tidak sampai. Tanyakan ke server, jangan kirim ulang buta-buta.
-  if (!opts.lookup) return { status: "unconfirmed", message: belumPasti };
+  if (!opts.lookup) return unconfirmed();
 
   let check: LookupResult;
   try {
     check = await opts.lookup();
-  } catch {
-    return { status: "unconfirmed", message: belumPasti };
+  } catch (err) {
+    // Lookup-nya sendiri yang ditolak 404 → deployment PASTI sudah baru,
+    // tapi nasib tulisan yang tadi timeout tetap tidak terbukti (bisa saja
+    // sempat mendarat di server lama sebelum pergantian) → varian "belum
+    // pasti", bukan "belum tersimpan".
+    if (isStaleActionError(err)) {
+      return { status: "unconfirmed", message: PESAN.staleBelumPasti, stale: true };
+    }
+    return unconfirmed();
   }
-  if ("unknown" in check) return { status: "unconfirmed", message: belumPasti };
+  if ("unknown" in check) return unconfirmed();
   if (check.found) return { status: "confirmed", id: check.id };
   return { status: "not-saved", message: PESAN.belumTersimpan };
 }

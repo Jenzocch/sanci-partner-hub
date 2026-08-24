@@ -113,9 +113,10 @@ export default function AddUserButton({
     }
     if (out.status === "unconfirmed") {
       // Jangan tawarkan "tekan Simpan lagi": tanpa nomor permintaan, menekan
-      // ulang bukan tindakan yang aman di sini.
+      // ulang bukan tindakan yang aman di sini. `stale`: halaman ini dari
+      // deployment lama — pesan "muat ulang" dari submitSafely yang tampil.
       release();
-      setNetMsg(messages.admin.userCreateUnconfirmedMsg);
+      setNetMsg(out.stale ? out.message : messages.admin.userCreateUnconfirmedMsg);
       return;
     }
 

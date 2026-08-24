@@ -238,6 +238,20 @@ const id = {
   netUnsureUpdate:
     "Koneksi terputus sebelum server sempat menjawab, jadi perubahan belum bisa dipastikan tersimpan. Tekan Simpan lagi — menyimpan perubahan yang sama dua kali tidak membuat data ganda.",
   netServerBusy: "Tidak bisa menyimpan sekarang. Coba lagi sebentar lagi.",
+  // Dua kunci "versi lama" (deteksi di submitSafely, lib/safe-write.ts):
+  // halaman dari deployment lama men-submit ke server yang sudah deployment
+  // baru → Server Action-nya 404 dan TIDAK PERNAH dijalankan. "Tekan Simpan
+  // lagi" di sini nasihat yang salah — yang benar hanya muat ulang halaman.
+  //   - netStaleNotSaved: action-nya sendiri yang ditolak 404 → server
+  //     terbukti tidak menjalankan apa pun, jadi BOLEH bilang "belum
+  //     tersimpan" (bukti, bukan tebakan — LESSONS #7).
+  //   - netStaleUnsure: versi server terbukti beda tapi nasib tulisannya
+  //     sendiri tidak terbukti (misal timeout biasa yang kebetulan bertepatan
+  //     dengan deploy) → tetap jujur "belum bisa dipastikan".
+  netStaleNotSaved:
+    "Aplikasi baru saja diperbarui, sedangkan halaman ini masih versi lama — data BELUM tersimpan, dan menekan Simpan lagi tidak akan berhasil. Muat ulang halaman ini dulu (tarik layar ke bawah atau tekan tombol reload), lalu isi dan simpan lagi.",
+  netStaleUnsure:
+    "Aplikasi baru saja diperbarui, sedangkan halaman ini masih versi lama — belum bisa dipastikan datanya tersimpan atau belum, dan menekan Simpan lagi tidak akan berhasil. Muat ulang halaman ini dulu (tarik layar ke bawah atau tekan tombol reload), lalu periksa apakah datanya sudah masuk sebelum mengisi ulang.",
 
   // Pengecilan gambar sebelum unggah (lib/compress-image.ts). {label} diganti
   // salah satu compressLabel* di bawah, {maxMB}/{limitMB} diganti angka MB.
@@ -527,6 +541,10 @@ const en = {
   netUnsureUpdate:
     "The connection dropped before the server could answer, so we cannot tell yet whether the change was saved. Press Save again — saving the same change twice does not create a second copy.",
   netServerBusy: "Cannot save right now. Please try again in a moment.",
+  netStaleNotSaved:
+    "The app was just updated, but this page is still the old version — the data was NOT saved, and pressing Save again will not work. Reload this page first (pull the screen down or press the reload button), then fill it in and save again.",
+  netStaleUnsure:
+    "The app was just updated, but this page is still the old version — we cannot tell whether the data was saved, and pressing Save again will not work. Reload this page first (pull the screen down or press the reload button), then check whether the data is already there before typing it again.",
 
   compressLabelLogo: "Logo",
   compressLabelInvoice: "Invoice photo",
@@ -786,6 +804,10 @@ const zh = {
   netUnsureUpdate:
     "网络在服务器回应之前就中断了，暂时无法确认修改有没有保存成功。请再按一次“保存”—— 同样的修改保存两次不会产生重复数据。",
   netServerBusy: "现在无法保存，请稍后再试。",
+  netStaleNotSaved:
+    "应用刚刚更新了，这个页面还是旧版本 —— 数据没有保存，再按“保存”也不会成功。请先刷新页面（下拉屏幕或点刷新按钮），然后重新填写并保存。",
+  netStaleUnsure:
+    "应用刚刚更新了，这个页面还是旧版本 —— 暂时无法确认数据有没有保存成功，再按“保存”也不会成功。请先刷新页面（下拉屏幕或点刷新按钮），先检查数据有没有进来，再决定要不要重新填写。",
 
   compressLabelLogo: "Logo",
   compressLabelInvoice: "Invoice 照片",

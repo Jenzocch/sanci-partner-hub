@@ -48,7 +48,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // `version` dikecualikan seperti `offline`: GET /version hanya menjawab id
+  // build (lihat app/version/route.ts) dan dipanggil justru saat submit
+  // gagal — tidak boleh ikut membayar auth.getUser() per panggilan.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|offline|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|offline|version|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$).*)",
   ],
 };

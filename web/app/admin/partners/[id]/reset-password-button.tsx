@@ -96,7 +96,9 @@ export default function ResetPasswordButton({
     }
     if (out.status === "unconfirmed") {
       release();
-      setNetMsg(messages.admin.resetPasswordUnconfirmedMsg);
+      // `stale`: halaman ini dari deployment lama — pesannya sudah menyuruh
+      // muat ulang; jangan ditimpa teks "belum pasti" khusus layar ini.
+      setNetMsg(out.stale ? out.message : messages.admin.resetPasswordUnconfirmedMsg);
       return;
     }
 

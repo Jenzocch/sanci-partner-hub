@@ -1,6 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * Identitas deployment, dibakar SAAT BUILD ke bundle server DAN client
+   * (`env` di sini memakai DefinePlugin untuk kedua sisi). Dibaca lewat
+   * lib/build-id.ts; dipakai deteksi "halaman versi lama" di lib/safe-write.ts
+   * + app/version/route.ts. VERCEL_GIT_COMMIT_SHA berbeda antar deployment
+   * dan identik untuk server & client dari build yang sama; tanpa itu
+   * (dev lokal) dua sisi sama-sama "dev" sehingga deteksi diam.
+   */
+  env: {
+    NEXT_PUBLIC_BUILD_ID:
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.VERCEL_DEPLOYMENT_ID ||
+      "dev",
+  },
   experimental: {
     /**
      * Cache router sisi CLIENT untuk halaman dinamis: kembali ke halaman
