@@ -36,19 +36,20 @@ export default function AdminNav() {
         <span className="serif word">SANCI</span>
         <span className="sub">Partner Hub</span>
       </div>
-      {/* Urutan mengikuti logika pemakaian harian: pemantauan pesanan dulu,
-          katalog produk, pelanggan (input harian tim sales SANCI-direct),
-          pengaturan partner setelahnya. */}
+      {/* Urutan mengikuti ALUR KERJA HARIAN (arahan owner 2026-08-24 —
+          "pakai logika pengguna"): ① pantau/buat pesanan; ② Kalkulator —
+          menghitung penawaran untuk pelanggan adalah langkah SEBELUM pesanan
+          jadi, jadi bersebelahan dengan Pesanan, bukan terselip di belakang;
+          ③ katalog produk (rujukan); ④ pelanggan; ⑤ pengaturan partner
+          paling belakang (jarang disentuh setelah toko berjalan). */}
       <Link href="/admin/orders" className={`navlink${isOrders ? " on" : ""}`}>
         {m.admin.navOrders}
       </Link>
-      <Link href="/admin/produk" className={`navlink${isProducts ? " on" : ""}`}>
-        {m.admin.navProducts}
-      </Link>
-      {/* Kalkulator langsung setelah Produk: alat harian yang sama-sama
-          berangkat dari katalog produk (2026-08-22). */}
       <Link href="/admin/kalkulator" className={`navlink${isCalculator ? " on" : ""}`}>
         {m.admin.navCalculator}
+      </Link>
+      <Link href="/admin/produk" className={`navlink${isProducts ? " on" : ""}`}>
+        {m.admin.navProducts}
       </Link>
       <Link href="/admin/pelanggan" className={`navlink${isCustomers ? " on" : ""}`}>
         {m.admin.navCustomers}

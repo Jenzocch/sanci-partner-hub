@@ -119,18 +119,21 @@ export default async function CabangHome() {
           <span className="lbl">{m.cabang.homeCustomers}</span>
           <span className="arrow" aria-hidden="true">&rsaquo;</span>
         </Link>
-        {produkVisible && (
-          <Link href="/cabang/produk" className="biglink">
-            <span className="lbl">{m.cabang.homeProducts}</span>
-            <span className="arrow" aria-hidden="true">&rsaquo;</span>
-          </Link>
-        )}
-        {/* Sama gerbang dengan Produk SANCI (baris tabel sanci_catalog_access
-            ada, terlepas dari enabled) — kalkulator ini pakai katalog yang
-            sama, halaman itu sendiri yang menjelaskan kalau belum dibuka. */}
+        {/* Kalkulator DI ATAS Produk (arahan owner 2026-08-24, logika
+            pengguna): staf membuka kalkulator SAAT pelanggan di depannya —
+            langkah menuju pesanan; katalog produk lebih ke rujukan santai.
+            Sama gerbang dengan Produk SANCI (baris sanci_catalog_access ada,
+            terlepas dari enabled) — kalkulator pakai katalog yang sama,
+            halamannya sendiri yang menjelaskan kalau belum dibuka. */}
         {produkVisible && (
           <Link href="/cabang/kalkulator" className="biglink">
             <span className="lbl">{m.cabang.homeCalculator}</span>
+            <span className="arrow" aria-hidden="true">&rsaquo;</span>
+          </Link>
+        )}
+        {produkVisible && (
+          <Link href="/cabang/produk" className="biglink">
+            <span className="lbl">{m.cabang.homeProducts}</span>
             <span className="arrow" aria-hidden="true">&rsaquo;</span>
           </Link>
         )}
