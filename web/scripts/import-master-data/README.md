@@ -72,12 +72,26 @@ pernah dipakai untuk `npm run dev`.
 **JANGAN** tempel kredensial di chat atau commit ke git — hapus/unset variabel
 env setelah selesai (`unset SUPABASE_SERVICE_ROLE_KEY`).
 
-## Aman dijalankan ulang
+## Menjalankan ulang — BACA INI DULU (aturan berubah 2026-08-24)
 
-Skrip upsert berdasarkan `code` (unik di database). Menjalankan ulang hanya
-memperbarui baris yang sudah ada — tidak akan pernah membuat produk duplikat,
-juga tidak menumpuk berkas foto yatim di storage (path foto tetap
-`<id>/foto`, ditimpa setiap kali).
+**Mode bawaan sekarang hanya MENAMBAH produk yang belum ada.** Baris yang
+sudah ada dilewati sepenuhnya — data maupun fotonya TIDAK disentuh.
+
+Kenapa: 2026-08-22 owner mengganti foto 15 produk lewat Admin → Produk;
+2026-08-24 skrip ini dijalankan ulang (untuk memperbarui header cache) dan
+MENIMPA semua foto itu dengan gambar Excel asli — hilang permanen, harus
+diunggah ulang manual. "Idempotent" hanya berarti "tidak membuat duplikat",
+BUKAN "tidak merusak suntingan manual".
+
+Untuk sengaja menimpa semuanya (perilaku lama): `node run.mjs --timpa` —
+skrip menunggu 8 detik dengan peringatan sebelum mulai. Sebelum memakainya,
+periksa dulu suntingan manual sejak impor:
+
+```sql
+select distinct after->>'name', after->>'code' from audit_logs
+where entity_type='sanci_products' and action='PRODUCT_UPDATED'
+order by 1;
+```
 
 ## Verifikasi setelah selesai
 

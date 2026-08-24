@@ -94,7 +94,27 @@ const products = JSON.parse(readFileSync(path.join(__dirname, "products.json"), 
 async function main() {
   const supabase = await buildClient();
 
+  // ── PELINDUNG SUNTINGAN MANUAL (2026-08-24) ──────────────────────────
+  // Kejadian nyata: owner mengganti foto 15 produk lewat Admin → Produk pada
+  // 2026-08-22, lalu skrip ini dijalankan ulang 2026-08-24 untuk keperluan
+  // lain (memperbarui header cache) — dan menimpa SEMUA suntingan itu dengan
+  // data Excel asli. "Idempotent/aman dijalankan ulang" ternyata dibaca
+  // sebagai "tidak merusak apa pun", padahal artinya hanya "tidak membuat
+  // duplikat". Sejak itu: MODE BAWAAN = hanya MENAMBAH produk yang belum ada
+  // (baris yang sudah ada dilewati SEPENUHNYA — data maupun fotonya).
+  // Jalankan dengan --timpa untuk perilaku lama (menimpa semuanya), dan
+  // hanya kalau benar-benar yakin tidak ada suntingan manual yang akan
+  // hilang (cek audit_logs: entity_type='sanci_products' sejak impor awal).
+  const OVERWRITE = process.argv.includes("--timpa");
+  if (OVERWRITE) {
+    console.log("⚠️  MODE --timpa: produk yang sudah ada akan DITIMPA dengan data");
+    console.log("    Excel asli, TERMASUK FOTO — suntingan manual sesudah impor akan");
+    console.log("    HILANG dan tidak bisa dikembalikan. Ctrl+C dalam 8 detik untuk batal.");
+    await new Promise((r) => setTimeout(r, 8000));
+  }
+
   let created = 0;
+  let skipped = 0;
   let updated = 0;
   let photoOk = 0;
   let photoFail = 0;
@@ -118,6 +138,12 @@ async function main() {
     }
 
     let productId = existing?.id ?? null;
+    if (productId && !OVERWRITE) {
+      // Produk sudah ada → JANGAN sentuh (lihat pelindung di atas).
+      skipped++;
+      console.log(`${label}: sudah ada, dilewati (pakai --timpa untuk menimpa)`);
+      continue;
+    }
     if (productId) {
       const { error: updErr } = await supabase
         .from("sanci_products")
@@ -207,6 +233,7 @@ async function main() {
   console.log("\n=== Selesai ===");
   console.log(`Produk baru dibuat : ${created}`);
   console.log(`Produk diperbarui  : ${updated}`);
+  console.log(`Dilewati (sudah ada, tanpa --timpa) : ${skipped}`);
   console.log(`Foto berhasil      : ${photoOk}`);
   console.log(`Foto gagal         : ${photoFail}`);
   if (failures.length) {
