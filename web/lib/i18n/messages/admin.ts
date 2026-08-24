@@ -97,8 +97,13 @@ const id = {
   partnerDupWarning:
     'Kemungkinan duplikat: {name}. Klik "Buat Partner" lagi untuk tetap melanjutkan, atau batal.',
   partnerNameFieldLabel: "Nama partner *",
+  partnerNameHint:
+    "Nama tampilan toko/perusahaan — muncul di semua layar admin dan jadi identitas toko yang " +
+    "dilihat akun cabang di beranda aplikasinya.",
   partnerCodeFieldLabel: "Kode partner *",
-  partnerCodeHint: "2–8 karakter, A–Z 0–9 dan tanda hubung. Contoh: GH, GOLDEN, GH-ID.",
+  partnerCodeHint:
+    "2–8 karakter, A–Z 0–9 dan tanda hubung — contoh: GH. Menjadi awalan setiap nomor pesanan " +
+    "(mis. GH-BSD-260817-0001) dan usulan ID login; setelah partner diaktifkan, kode tidak bisa diubah lagi.",
   partnerCreateBtn: "Buat Partner",
   partnerCreateBtnDup: "Tetap Buat Partner",
   partnerCreatingBtn: "Menyimpan…",
@@ -168,6 +173,7 @@ const id = {
   packageAddBtn: "+ Tambah Package",
   packageAddModalTitle: "Tambah Package",
   packageNameFieldLabel: "Nama package *",
+  packageNameHint: "Nama inilah yang dilihat staf cabang saat memilih package di form pesanan baru.",
   packageCodeFieldLabel: "Kode package *",
   packageCodeHint: "Unik di dalam partner ini. Partner lain boleh pakai kode yang sama.",
   packageDescFieldLabel: "Deskripsi",
@@ -197,8 +203,13 @@ const id = {
   branchAddBtn: "+ Tambah Cabang",
   branchAddModalTitle: "Tambah Cabang",
   branchNameFieldLabel: "Nama cabang *",
+  branchNameHint:
+    "Muncul di pilihan cabang dan daftar pesanan di layar admin, dan dilihat staf cabang itu " +
+    "sendiri di aplikasinya.",
   branchCodeFieldLabel: "Kode cabang *",
-  branchCodeHint: "Unik di dalam partner ini. Partner lain boleh pakai kode yang sama.",
+  branchCodeHint:
+    "Kode singkat cabang — menjadi bagian setiap nomor pesanan dan kode pelanggan cabang ini " +
+    "(mis. BSD pada GH-BSD-260817-0001). Unik di dalam partner ini; partner lain boleh pakai kode yang sama.",
   branchAddressFieldLabel: "Alamat lengkap *",
   branchCreateBtn: "Buat Cabang",
   branchEditModalTitle: "Ubah Cabang",
@@ -241,7 +252,8 @@ const id = {
     "siapa pun. Kalau nanti tokonya lupa, pakai tombol Atur Ulang Kata Sandi di daftar Akun untuk " +
     "menetapkan kata sandi baru.",
   userNameFieldLabel: "Nama *",
-  userNameHint: "Nama yang tampil di daftar akun, mis. nama toko atau cabangnya.",
+  userNameHint:
+    "Hanya label yang tampil di daftar akun, mis. nama toko atau cabangnya — bukan dipakai untuk masuk.",
   userBranchFieldLabel: "Cabang *",
   userEmailFieldLabel: "ID login *",
   userEmailHint:
@@ -413,10 +425,15 @@ const id = {
   staffAddBtn: "+ Tambah Staf",
   staffAddModalTitle: "Tambah Staf",
   staffNameFieldLabel: "Nama lengkap *",
+  staffNameHint:
+    "Nama ini yang muncul di pilihan Sales/PIC saat membuat pesanan, dan tercetak sebagai " +
+    "Nama Sales di dokumen SO.",
   staffRoleFieldLabel: "Peran *",
   staffRoleHint: "Peran bisnis di toko — terpisah dari hak akses login sistem.",
   staffCodeFieldLabel: "Kode Staf",
-  staffCodeHint: "Opsional — dipakai untuk nomor otomatis pelanggan cabang ini (mis. AS). Kosongkan kalau belum perlu.",
+  staffCodeHint:
+    "Opsional — diusulkan otomatis dari inisial nama, bebas diubah. Menjadi bagian kode pelanggan " +
+    "otomatis untuk pelanggan yang dilayani staf ini (mis. AS pada GH-BSD-AS/26/001); kosongkan kalau belum perlu.",
   staffCodeInvalidFormat: "Kode staf hanya boleh huruf besar/angka, maksimal 10 karakter.",
   staffCodeTaken: "Kode staf ini sudah dipakai staf lain di partner yang sama.",
   staffCreateBtn: "Tambah Staf",
@@ -901,8 +918,13 @@ const en = {
   partnerDupWarning:
     'Possible duplicate: {name}. Click "Create Partner" again to continue anyway, or cancel.',
   partnerNameFieldLabel: "Partner name *",
+  partnerNameHint:
+    "The store/company's display name — appears across the admin screens and is the store " +
+    "identity branch accounts see on their app's home screen.",
   partnerCodeFieldLabel: "Partner code *",
-  partnerCodeHint: "2–8 characters, A–Z, 0–9, and hyphens. Example: GH, GOLDEN, GH-ID.",
+  partnerCodeHint:
+    "2–8 characters, A–Z, 0–9, and hyphens — e.g. GH. Becomes the start of every order number " +
+    "(e.g. GH-BSD-260817-0001) and the suggested login ID; once the partner is activated the code can no longer be changed.",
   partnerCreateBtn: "Create Partner",
   partnerCreateBtnDup: "Create Partner Anyway",
   partnerCreatingBtn: "Saving…",
@@ -968,6 +990,7 @@ const en = {
   packageAddBtn: "+ Add Package",
   packageAddModalTitle: "Add Package",
   packageNameFieldLabel: "Package name *",
+  packageNameHint: "This is the name branch staff see when choosing a package on the new-order form.",
   packageCodeFieldLabel: "Package code *",
   packageCodeHint: "Unique within this partner. Other partners may reuse the same code.",
   packageDescFieldLabel: "Description",
@@ -994,8 +1017,13 @@ const en = {
   branchAddBtn: "+ Add Branch",
   branchAddModalTitle: "Add Branch",
   branchNameFieldLabel: "Branch name *",
+  branchNameHint:
+    "Shown in branch dropdowns and the order list on the admin screens, and seen by the " +
+    "branch's own staff in their app.",
   branchCodeFieldLabel: "Branch code *",
-  branchCodeHint: "Unique within this partner. Other partners may reuse the same code.",
+  branchCodeHint:
+    "The branch's short code — part of every order number and customer code for this branch " +
+    "(e.g. the BSD in GH-BSD-260817-0001). Unique within this partner; other partners may reuse the same code.",
   branchAddressFieldLabel: "Full address *",
   branchCreateBtn: "Create Branch",
   branchEditModalTitle: "Edit Branch",
@@ -1035,7 +1063,8 @@ const en = {
     "you type it in here; once saved, the system can never show it again to anyone. If the store " +
     "forgets it later, use the Reset Password button in the Accounts list to set a new one.",
   userNameFieldLabel: "Name *",
-  userNameHint: "The name shown in the accounts list, e.g. the store or branch name.",
+  userNameHint:
+    "Just a label shown in the accounts list, e.g. the store or branch name — not used for signing in.",
   userBranchFieldLabel: "Branch *",
   userEmailFieldLabel: "Login ID *",
   userEmailHint:
@@ -1196,10 +1225,16 @@ const en = {
   staffAddBtn: "+ Add Staff",
   staffAddModalTitle: "Add Staff",
   staffNameFieldLabel: "Full name *",
+  staffNameHint:
+    "This name appears in the Sales/PIC choices when creating an order, and is printed as the " +
+    "sales name on the SO document.",
   staffRoleFieldLabel: "Role *",
   staffRoleHint: "The store job role — separate from the login access role.",
   staffCodeFieldLabel: "Staff Code",
-  staffCodeHint: "Optional — used for this branch's automatic customer numbers (e.g. AS). Leave blank if not needed yet.",
+  staffCodeHint:
+    "Optional — suggested automatically from the name's initials, free to change. Becomes part of " +
+    "the automatic customer code for customers this staff member serves (e.g. the AS in GH-BSD-AS/26/001); " +
+    "leave blank if not needed yet.",
   staffCodeInvalidFormat: "Staff code may only contain uppercase letters/digits, up to 10 characters.",
   staffCodeTaken: "This staff code is already used by another staff member at the same partner.",
   staffCreateBtn: "Add Staff",
@@ -1655,8 +1690,11 @@ const zh = {
   partnerAddModalTitle: "新增合作商",
   partnerDupWarning: "可能是重复：{name}。再次点击“新建合作商”可继续新建，或取消。",
   partnerNameFieldLabel: "合作商名称 *",
+  partnerNameHint: "门店/公司的显示名称 —— 在所有管理界面中显示，也是分店账号在应用首页看到的门店标识。",
   partnerCodeFieldLabel: "合作商编号 *",
-  partnerCodeHint: "2–8 位字符，A–Z、0–9 及连字符。示例：GH、GOLDEN、GH-ID。",
+  partnerCodeHint:
+    "2–8 位字符，A–Z、0–9 及连字符 —— 例如 GH。它会成为每个订单编号的开头（如 GH-BSD-260817-0001）" +
+    "和建议的登录 ID；合作商启用后编号无法再修改。",
   partnerCreateBtn: "新建合作商",
   partnerCreateBtnDup: "仍要新建合作商",
   partnerCreatingBtn: "保存中…",
@@ -1715,6 +1753,7 @@ const zh = {
   packageAddBtn: "+ 新增套装",
   packageAddModalTitle: "新增套装",
   packageNameFieldLabel: "套装名称 *",
+  packageNameHint: "分店员工在新建订单时选择套装，看到的就是这个名称。",
   packageCodeFieldLabel: "套装编号 *",
   packageCodeHint: "在该合作商内需唯一。其他合作商可以使用相同编号。",
   packageDescFieldLabel: "说明",
@@ -1741,8 +1780,11 @@ const zh = {
   branchAddBtn: "+ 新增分店",
   branchAddModalTitle: "新增分店",
   branchNameFieldLabel: "分店名称 *",
+  branchNameHint: "显示在管理界面的分店下拉选项和订单列表中，分店自己的员工在应用里也会看到。",
   branchCodeFieldLabel: "分店编号 *",
-  branchCodeHint: "在该合作商内需唯一。其他合作商可以使用相同编号。",
+  branchCodeHint:
+    "分店的简短编号 —— 会成为该分店每个订单编号和客户代码的一部分（如 GH-BSD-260817-0001 中的 BSD）。" +
+    "在该合作商内需唯一，其他合作商可以使用相同编号。",
   branchAddressFieldLabel: "详细地址 *",
   branchCreateBtn: "新建分店",
   branchEditModalTitle: "修改分店",
@@ -1776,7 +1818,7 @@ const zh = {
     "选择。密码由门店自行决定，由你在此输入；保存后系统无法再次显示给任何人。如果门店以后忘记密码，" +
     "请在账号列表中使用“重设密码”按钮设置新密码。",
   userNameFieldLabel: "名称 *",
-  userNameHint: "显示在账号列表中的名称，例如门店或分店名称。",
+  userNameHint: "仅是显示在账号列表中的名称，例如门店或分店名称 —— 不用于登录。",
   userBranchFieldLabel: "分店 *",
   userEmailFieldLabel: "登录 ID *",
   userEmailHint:
@@ -1909,10 +1951,13 @@ const zh = {
   staffAddBtn: "+ 新增员工",
   staffAddModalTitle: "新增员工",
   staffNameFieldLabel: "姓名 *",
+  staffNameHint: "创建订单时，销售员/负责人的选项里显示的就是这个姓名；它也会作为销售员姓名打印在 SO 单据上。",
   staffRoleFieldLabel: "角色 *",
   staffRoleHint: "门店内的业务角色 —— 与系统登录权限无关。",
   staffCodeFieldLabel: "员工代码",
-  staffCodeHint: "选填 —— 用于本店客户的自动编号(例如 AS)。暂时不需要可以留空。",
+  staffCodeHint:
+    "选填 —— 系统会按姓名首字母自动给出建议，可随意修改。它会成为该员工所服务客户的自动客户代码的" +
+    "一部分（如 GH-BSD-AS/26/001 中的 AS）；暂时不需要可以留空。",
   staffCodeInvalidFormat: "员工代码只能是大写字母/数字,最多10个字符。",
   staffCodeTaken: "这个员工代码已经被同一个合作商的其他员工使用。",
   staffCreateBtn: "新增员工",

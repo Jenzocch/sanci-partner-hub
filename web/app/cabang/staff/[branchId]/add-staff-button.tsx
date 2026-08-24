@@ -121,6 +121,7 @@ export default function AddStaffButton({
           <div className={`field${errs.full_name ? " invalid" : ""}`}>
             <label htmlFor="cas_name">{m.common.fullName} *</label>
             <input id="cas_name" name="full_name" type="text" onBlur={handleFullNameBlur} />
+            <div className="hint">{m.cabang.staffNameHint}</div>
             {errs.full_name && <div className="err-text">{errs.full_name}</div>}
           </div>
           <div className="field">

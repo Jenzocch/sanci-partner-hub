@@ -277,6 +277,7 @@ export default function PartnerActions({
               <div className={`field${errs.name ? " invalid" : ""}`}>
                 <label htmlFor="ep_name">{m.admin.partnerNameFieldLabel}</label>
                 <input id="ep_name" name="name" type="text" defaultValue={partner.name} />
+                <div className="hint">{m.admin.partnerNameHint}</div>
                 {errs.name && <div className="err-text">{errs.name}</div>}
               </div>
               <div className={`field${errs.code ? " invalid" : ""}`}>

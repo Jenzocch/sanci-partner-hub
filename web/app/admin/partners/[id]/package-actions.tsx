@@ -97,6 +97,7 @@ export default function PackageActions({ pkg }: { pkg: Pkg }) {
               <div className={`field${errs.name ? " invalid" : ""}`}>
                 <label htmlFor="ep_name">{m.admin.packageNameFieldLabel}</label>
                 <input id="ep_name" name="name" type="text" defaultValue={pkg.name} />
+                <div className="hint">{m.admin.packageNameHint}</div>
                 {errs.name && <div className="err-text">{errs.name}</div>}
               </div>
               <div className={`field${errs.code ? " invalid" : ""}`}>

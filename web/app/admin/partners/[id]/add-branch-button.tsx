@@ -97,6 +97,7 @@ export default function AddBranchButton({ partnerId }: { partnerId: string }) {
           <div className={`field${errs.name ? " invalid" : ""}`}>
             <label htmlFor="ab_name">{m.admin.branchNameFieldLabel}</label>
             <input id="ab_name" name="name" type="text" />
+            <div className="hint">{m.admin.branchNameHint}</div>
             {errs.name && <div className="err-text">{errs.name}</div>}
           </div>
           <div className={`field${errs.code ? " invalid" : ""}`}>

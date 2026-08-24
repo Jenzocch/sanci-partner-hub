@@ -145,6 +145,7 @@ export default function StaffActions({
               <div className={`field${errs.full_name ? " invalid" : ""}`}>
                 <label htmlFor="es_name">{m.admin.staffNameFieldLabel}</label>
                 <input id="es_name" name="full_name" type="text" defaultValue={staff.full_name} />
+                <div className="hint">{m.admin.staffNameHint}</div>
                 {errs.full_name && <div className="err-text">{errs.full_name}</div>}
               </div>
               <div className="field">

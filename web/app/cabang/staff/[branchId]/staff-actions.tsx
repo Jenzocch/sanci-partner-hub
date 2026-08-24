@@ -103,6 +103,7 @@ export default function StaffActions({ staff }: { staff: Staff }) {
               <div className={`field${errs.full_name ? " invalid" : ""}`}>
                 <label htmlFor="ces_name">{m.common.fullName} *</label>
                 <input id="ces_name" name="full_name" type="text" defaultValue={staff.full_name} />
+                <div className="hint">{m.cabang.staffNameHint}</div>
                 {errs.full_name && <div className="err-text">{errs.full_name}</div>}
               </div>
               <div className="field">

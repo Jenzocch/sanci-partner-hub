@@ -114,6 +114,7 @@ export default function BranchActions({ branch }: { branch: Branch }) {
               <div className={`field${errs.name ? " invalid" : ""}`}>
                 <label htmlFor="eb_name">{m.admin.branchNameFieldLabel}</label>
                 <input id="eb_name" name="name" type="text" defaultValue={branch.name} />
+                <div className="hint">{m.admin.branchNameHint}</div>
                 {errs.name && <div className="err-text">{errs.name}</div>}
               </div>
               <div className={`field${errs.address ? " invalid" : ""}`}>

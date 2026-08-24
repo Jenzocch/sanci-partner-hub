@@ -96,6 +96,7 @@ export default function AddPackageButton({ partnerId }: { partnerId: string }) {
           <div className={`field${errs.name ? " invalid" : ""}`}>
             <label htmlFor="ap_name">{m.admin.packageNameFieldLabel}</label>
             <input id="ap_name" name="name" type="text" />
+            <div className="hint">{m.admin.packageNameHint}</div>
             {errs.name && <div className="err-text">{errs.name}</div>}
           </div>
           <div className={`field${errs.code ? " invalid" : ""}`}>

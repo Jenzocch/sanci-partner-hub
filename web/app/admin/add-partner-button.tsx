@@ -112,6 +112,7 @@ export default function AddPartnerButton() {
           <div className={`field${errs.name ? " invalid" : ""}`}>
             <label htmlFor="ap_name">{m.admin.partnerNameFieldLabel}</label>
             <input id="ap_name" name="name" type="text" autoComplete="off" />
+            <div className="hint">{m.admin.partnerNameHint}</div>
             {errs.name && <div className="err-text">{errs.name}</div>}
           </div>
           <div className={`field${errs.code ? " invalid" : ""}`}>

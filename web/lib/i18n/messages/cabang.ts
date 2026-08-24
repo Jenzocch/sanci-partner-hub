@@ -229,9 +229,14 @@ const id = {
   addStaffCta: "+ Tambah Staf",
   addStaffModalTitle: "Tambah Staf",
   staffBranchAutoNote: "Cabang: {branch} — otomatis dari halaman ini, tidak bisa dipilih.",
+  staffNameHint:
+    "Nama ini yang muncul di pilihan Sales/PIC saat membuat pesanan, dan tercetak sebagai " +
+    "Nama Sales di dokumen SO.",
   roleFieldHint: "Peran bisnis di toko — terpisah dari hak akses login sistem.",
   staffCodeFieldLabel: "Kode Staf",
-  staffCodeHint: "Opsional — dipakai untuk nomor otomatis pelanggan cabang ini (mis. AS). Kosongkan kalau belum perlu.",
+  staffCodeHint:
+    "Opsional — diusulkan otomatis dari inisial nama, bebas diubah. Menjadi bagian kode pelanggan " +
+    "otomatis untuk pelanggan yang dilayani staf ini (mis. AS pada GH-BSD-AS/26/001); kosongkan kalau belum perlu.",
   editStaffModalTitle: "Ubah Staf",
   confirmDeactivateStaff: "Nonaktifkan {name}? Riwayat tetap tersimpan.",
 
@@ -531,9 +536,15 @@ const en = {
   addStaffCta: "+ Add staff",
   addStaffModalTitle: "Add staff",
   staffBranchAutoNote: "Branch: {branch} — automatic from this page, can't be changed.",
+  staffNameHint:
+    "This name appears in the Sales/PIC choices when creating an order, and is printed as the " +
+    "sales name on the SO document.",
   roleFieldHint: "Their role at the store — separate from system login access.",
   staffCodeFieldLabel: "Staff Code",
-  staffCodeHint: "Optional — used for this branch's automatic customer numbers (e.g. AS). Leave blank if not needed yet.",
+  staffCodeHint:
+    "Optional — suggested automatically from the name's initials, free to change. Becomes part of " +
+    "the automatic customer code for customers this staff member serves (e.g. the AS in GH-BSD-AS/26/001); " +
+    "leave blank if not needed yet.",
   editStaffModalTitle: "Edit staff",
   confirmDeactivateStaff: "Deactivate {name}? Their history stays saved.",
 
@@ -802,9 +813,12 @@ const zh = {
   addStaffCta: "+ 新增员工",
   addStaffModalTitle: "新增员工",
   staffBranchAutoNote: "分店:{branch} —— 由本页面自动带入,不能选择。",
+  staffNameHint: "创建订单时，销售员/负责人的选项里显示的就是这个姓名；它也会作为销售员姓名打印在 SO 单据上。",
   roleFieldHint: "这是员工在店里的职务,和系统登录权限是两回事。",
   staffCodeFieldLabel: "员工代码",
-  staffCodeHint: "选填 —— 用于本店客户的自动编号(例如 AS)。暂时不需要可以留空。",
+  staffCodeHint:
+    "选填 —— 系统会按姓名首字母自动给出建议，可随意修改。它会成为该员工所服务客户的自动客户代码的" +
+    "一部分（如 GH-BSD-AS/26/001 中的 AS）；暂时不需要可以留空。",
   editStaffModalTitle: "修改员工",
   confirmDeactivateStaff: "停用 {name}?历史记录会保留。",
 
