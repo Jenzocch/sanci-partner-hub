@@ -14,6 +14,7 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Cabang | Cabang | 分店 | Branch |
 | Pegawai | Staf | 员工 | Staff |
 | Akun login | Akun | 账号 | Account |
+| Nama untuk masuk (bentuk email, BUKAN email sungguhan — kotak "Email" di halaman login tetap bernama Email, jadi teksnya selalu menjelaskan hubungan itu) | ID login | 登录 ID | Login ID |
 | Pelanggan | Pelanggan | 客户 | Customer |
 | Pesanan | Pesanan | 订单 | Order |
 | Nomor pesanan | Nomor Pesanan | 订单编号 | Order No. |

@@ -43,7 +43,9 @@ export default function PartnerActions({
   const [modal, setModal] = useState<null | "edit" | "deactivate" | "delete">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
-  const [deleteInput, setDeleteInput] = useState("");
+  // Satu state untuk kedua modal ketik-untuk-konfirmasi (hapus draf DAN akhiri
+  // kerja sama) — selalu dikosongkan lewat openModal, tidak pernah terbawa.
+  const [confirmInput, setConfirmInput] = useState("");
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const [logoMsg, setLogoMsg] = useState<string | null>(null);
   const draft = useLocalDraft("partner", partner.id, modal === "edit");
@@ -54,6 +56,7 @@ export default function PartnerActions({
     setErrs({});
     setNetMsg(null);
     setLogoMsg(null);
+    setConfirmInput("");
     setModal(which);
   }
 
@@ -172,8 +175,14 @@ export default function PartnerActions({
 
   async function onReactivate() {
     if (!begin()) return;
-    await setPartnerStatus(partner.id, "ACTIVE");
+    // Server memverifikasi ulang syarat aktivasi — penolakan (mis. semua
+    // cabangnya sudah dinonaktifkan) harus terlihat, bukan gagal diam-diam.
+    const res = await setPartnerStatus(partner.id, "ACTIVE");
     release();
+    if ("error" in res) {
+      alert(res.error.message);
+      return;
+    }
     router.refresh();
   }
 
@@ -191,7 +200,7 @@ export default function PartnerActions({
 
   async function onDeleteConfirm() {
     if (!begin()) return;
-    const res = await deleteDraftPartner(partner.id, deleteInput);
+    const res = await deleteDraftPartner(partner.id, confirmInput);
     if (res && "error" in res) {
       release();
       setErrs({ _form: res.error.message });
@@ -220,7 +229,11 @@ export default function PartnerActions({
             {m.admin.partnerSuspendBtn}
           </button>
         )}
-        {partner.status === "SUSPENDED" && (
+        {/* INACTIVE juga bisa diaktifkan lagi: "Akhiri kerja sama" harus tetap
+            bisa dipulihkan admin sendiri, tanpa penyelamatan SQL manual.
+            setPartnerStatus memverifikasi ulang tiga syarat aktivasi di server
+            — untuk partner yang pernah aktif, semuanya masih terpenuhi. */}
+        {(partner.status === "SUSPENDED" || partner.status === "INACTIVE") && (
           <button className="btn sm" onClick={onReactivate} disabled={submitting}>
             {m.admin.partnerReactivateBtn}
           </button>
@@ -231,13 +244,7 @@ export default function PartnerActions({
           </button>
         )}
         {partner.status === "DRAFT" && (
-          <button
-            className="btn sm danger"
-            onClick={() => {
-              setDeleteInput("");
-              openModal("delete");
-            }}
-          >
+          <button className="btn sm danger" onClick={() => openModal("delete")}>
             {m.admin.partnerDeleteDraftBtn}
           </button>
         )}
@@ -332,11 +339,32 @@ export default function PartnerActions({
           <div className="modal" role="dialog" aria-modal="true">
             <h2>{m.admin.partnerDeactivateModalTitle.replace("{name}", partner.name)}</h2>
             <p style={{ marginBottom: 6 }}>{m.admin.partnerDeactivateBody}</p>
+            {/* Ketik-untuk-konfirmasi — idiom yang sama dengan modal hapus draf.
+                Pengaman salah pencet saja (pemulihan tetap ada lewat Aktifkan
+                lagi), jadi cukup mengunci tombol di sisi client. */}
+            <div className="field">
+              <label htmlFor="deact_code">
+                {m.admin.partnerDeactivateFieldLabel.replace("{code}", partner.code)}
+              </label>
+              <input
+                id="deact_code"
+                type="text"
+                autoComplete="off"
+                style={{ textTransform: "uppercase" }}
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+              />
+            </div>
             <div className="btnrow">
               <button type="button" className="btn" onClick={closeModal}>
                 {m.common.cancel}
               </button>
-              <button type="button" className="btn danger" onClick={onDeactivateConfirm} disabled={submitting}>
+              <button
+                type="button"
+                className="btn danger"
+                onClick={onDeactivateConfirm}
+                disabled={submitting || confirmInput.trim().toUpperCase() !== partner.code}
+              >
                 {submitting ? m.common.saving : m.admin.partnerDeactivateConfirmBtn}
               </button>
             </div>
@@ -357,8 +385,8 @@ export default function PartnerActions({
                 id="del_code"
                 type="text"
                 style={{ textTransform: "uppercase" }}
-                value={deleteInput}
-                onChange={(e) => setDeleteInput(e.target.value)}
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
               />
             </div>
             <div className="btnrow">

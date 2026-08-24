@@ -110,15 +110,16 @@ export default async function PartnerDetailPage({
   if (!partner) notFound();
 
   const [
-    { data: branches },
-    { data: users },
-    { data: policy },
+    { data: branches, error: branchesErr },
+    { data: users, error: usersErr },
+    { data: policy, error: policyErr },
     { data: packages, error: packagesErr },
     { data: catalogAccess, error: catalogErr },
+    { count: staffCount, error: staffErr },
   ] = await Promise.all([
     supabase
       .from("partner_branches")
-      // `code` dipakai untuk mengusulkan alamat email akun login (<partner>-<cabang>@sanci.com).
+      // `code` dipakai untuk mengusulkan ID login akun (<partner>-<cabang>@sanci.com).
       .select("id, name, code, address, city, status")
       .eq("partner_id", id)
       .order("name"),
@@ -134,6 +135,16 @@ export default async function PartnerDetailPage({
       .eq("partner_id", id)
       .order("name"),
     supabase.from("sanci_catalog_access").select("enabled").eq("partner_id", id).maybeSingle(),
+    // Baris "staf" pada checklist persiapan hanya tampil selama DRAF — partner
+    // yang sudah aktif tidak perlu membayar query ini. head:true = hitung saja,
+    // tanpa mengambil baris.
+    partner.status === "DRAFT"
+      ? supabase
+          .from("partner_staff")
+          .select("id", { count: "exact", head: true })
+          .eq("partner_id", id)
+          .eq("status", "ACTIVE")
+      : Promise.resolve({ count: null as number | null, error: null as QueryErr }),
   ]);
 
   // Tabel partner_packages bisa saja belum ada (migrasi 0008 dijalankan
@@ -150,14 +161,43 @@ export default async function PartnerDetailPage({
 
   const activeBranches = ((branches ?? []) as Branch[]).filter((b) => b.status === "ACTIVE");
   const activeUsers = (users ?? []).filter((u) => u.status === "ACTIVE");
-  const gate = [
-    { ok: !!partner.name, label: m.admin.gateReqName },
-    { ok: !!partner.code, label: m.admin.gateReqCode },
-    { ok: activeBranches.length > 0, label: m.admin.gateReqBranch },
-    { ok: activeUsers.length > 0, label: m.admin.gateReqUser },
-    { ok: !!policy?.configured, label: m.admin.gateReqAccess },
+
+  // Checklist persiapan (kartu Ringkasan selama DRAF). Barisnya mencerminkan
+  // PERSIS tiga gerbang yang diperiksa ulang setPartnerStatus di server
+  // (actions.ts): ≥1 cabang AKTIF, ≥1 akun login AKTIF, hak akses sudah
+  // diatur. Query yang gagal TIDAK boleh tampil sebagai "syarat belum
+  // terpenuhi" (LESSONS #10) — bedakan "unknown" (tanda strip, tautan tab
+  // tetap bisa dipakai) dari "missing" (benar-benar belum ada).
+  type GateState = "ok" | "missing" | "unknown";
+  const gateState = (err: QueryErr, ok: boolean): GateState =>
+    err ? "unknown" : ok ? "ok" : "missing";
+  const setupSteps: { state: GateState; label: string; tab: string; linkLabel: string }[] = [
+    {
+      state: gateState(branchesErr, activeBranches.length > 0),
+      label: m.admin.gateReqBranch,
+      tab: "branches",
+      linkLabel: m.admin.gateGoBranches,
+    },
+    {
+      state: gateState(usersErr, activeUsers.length > 0),
+      label: m.admin.gateReqUser,
+      tab: "users",
+      linkLabel: m.admin.gateGoUsers,
+    },
+    {
+      state: gateState(policyErr, !!policy?.configured),
+      label: m.admin.gateReqAccess,
+      tab: "permissions",
+      linkLabel: m.admin.gateGoAccess,
+    },
   ];
-  const canActivate = gate.every((g) => g.ok);
+  // Tombol Aktifkan hanya terkunci oleh syarat yang PASTI belum terpenuhi.
+  // "unknown" tidak mengunci: error pengambilan data bukan kesimpulan bisnis
+  // (LESSONS #10), dan server tetap memverifikasi ulang ketiga gerbang saat
+  // tombol ditekan (SPEC §12) — batas sesungguhnya ada di sana.
+  const canActivate = setupSteps.every((s) => s.state !== "missing");
+  // Baris keempat (staf) hanya ANJURAN — tidak pernah ikut mengunci tombol.
+  const staffState: GateState = gateState(staffErr, (staffCount ?? 0) > 0);
 
   const tabs = [
     { key: "overview", label: m.admin.tabOverview },
@@ -198,14 +238,48 @@ export default async function PartnerDetailPage({
         <div className="card">
           {partner.status === "DRAFT" ? (
             <>
-              <h3 style={{ fontSize: 17, marginBottom: 12 }}>{m.admin.activationRequirementsTitle}</h3>
+              <h3 style={{ fontSize: 17, marginBottom: 6 }}>{m.admin.activationRequirementsTitle}</h3>
+              <p className="small muted" style={{ marginBottom: 12 }}>
+                {m.admin.gateIntro}
+              </p>
               <ul className="gate">
-                {gate.map((g) => (
-                  <li key={g.label} className={g.ok ? "yes" : "no"}>
-                    {g.ok ? "✓ " : "○ "}
-                    {g.label}
+                {setupSteps.map((s) => (
+                  <li key={s.tab} className={s.state === "ok" ? "yes" : "no"}>
+                    {s.state === "ok" ? "✓ " : s.state === "unknown" ? "— " : "○ "}
+                    {s.label}
+                    {s.state === "unknown" && (
+                      <div className="small muted">{m.admin.gateUnknownNote}</div>
+                    )}
+                    {s.state !== "ok" && (
+                      <div style={{ marginTop: 2 }}>
+                        <Link href={`/admin/partners/${id}?tab=${s.tab}`} className="linkbtn">
+                          {s.linkLabel} →
+                        </Link>
+                      </div>
+                    )}
                   </li>
                 ))}
+                {/* Baris anjuran (staf): TIDAK menahan aktivasi — sengaja
+                    dipisah garis + teks kecil supaya beda kelas dari tiga
+                    syarat wajib di atas. */}
+                <li
+                  className="small muted"
+                  style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}
+                >
+                  {staffState === "ok" ? "✓ " : staffState === "unknown" ? "— " : "○ "}
+                  {m.admin.gateStaffRecommended}
+                  <div className="small muted">{m.admin.gateStaffWhy}</div>
+                  {staffState === "unknown" && (
+                    <div className="small muted">{m.admin.gateUnknownNote}</div>
+                  )}
+                  {staffState !== "ok" && (
+                    <div style={{ marginTop: 2 }}>
+                      <Link href={`/admin/partners/${id}?tab=branches`} className="linkbtn">
+                        {m.admin.gateGoBranches} →
+                      </Link>
+                    </div>
+                  )}
+                </li>
               </ul>
             </>
           ) : (
