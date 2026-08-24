@@ -116,9 +116,13 @@ const id = {
   partnerEndPartnershipBtn: "Akhiri kerja sama",
   partnerDeleteDraftBtn: "Hapus draf",
   partnerActivateBtn: "Aktifkan partner",
-  partnerActivateHint: "Lengkapi semua syarat aktivasi untuk mengaktifkan.",
+  partnerActivateHint: "Tombol menyala setelah semua Syarat aktivasi di kartu sebelah tercentang.",
   partnerDeactivateModalTitle: "Akhiri kerja sama dengan {name}?",
-  partnerDeactivateBody: "Status menjadi NONAKTIF. Semua cabang, staf, dan riwayat tetap tersimpan.",
+  partnerDeactivateBody:
+    "Status menjadi NONAKTIF dan partner ini keluar dari alur kerja harian. Semua cabang, staf, " +
+    "dan riwayat tetap tersimpan, dan admin masih bisa memulihkannya nanti lewat tombol Aktifkan " +
+    "lagi. Kalau hanya ingin jeda sementara, pakai Tangguhkan — bukan tombol ini.",
+  partnerDeactivateFieldLabel: "Ketik {code} untuk konfirmasi",
   partnerDeactivateConfirmBtn: "Akhiri kerja sama",
   partnerDeleteModalTitle: "Hapus {name}?",
   partnerDeleteFieldLabel: "Ketik {code} untuk menghapus permanen",
@@ -142,11 +146,20 @@ const id = {
   // ---- Detail Partner — kartu Ringkasan (partners/[id]/page.tsx) ----
   partnerInfoTitle: "Informasi Partner",
   activationRequirementsTitle: "Syarat aktivasi",
-  gateReqName: "Nama partner",
-  gateReqCode: "Kode partner",
+  gateIntro:
+    "Selesaikan tiga langkah ini dulu; sesudah semuanya tercentang, tombol Aktifkan partner bisa " +
+    "ditekan.",
   gateReqBranch: "Minimal 1 cabang aktif",
   gateReqUser: "Minimal 1 akun login aktif",
   gateReqAccess: "Hak akses sudah diatur",
+  gateGoBranches: "Buka tab Cabang",
+  gateGoUsers: "Buka tab Akun",
+  gateGoAccess: "Buka tab Hak Akses",
+  gateUnknownNote: "Belum bisa diperiksa sekarang — muat ulang halaman untuk memeriksa lagi.",
+  gateStaffRecommended: "Minimal 1 staf — disarankan",
+  gateStaffWhy:
+    "Tidak menahan aktivasi, tapi dibutuhkan nanti saat cabang membuat pesanan (pilihan " +
+    "Sales/PIC). Staf ditambahkan di halaman detail cabang.",
   branchesEmpty: "Belum ada cabang.",
 
   // ---- Tab Package (partners/[id]/page.tsx, add-package-button.tsx, package-actions.tsx) ----
@@ -208,7 +221,7 @@ const id = {
   usersEmpty: "Belum ada akun login.",
   usersFootnote:
     "Satu cabang memakai satu akun bersama; nama penjual dan PIC tetap dipilih dari daftar staf " +
-    "saat membuat pesanan. Email untuk masuk tidak ditampilkan di daftar ini — catat saat akun " +
+    "saat membuat pesanan. ID login tidak ditampilkan di daftar ini — catat saat akun " +
     "dibuat. Kata sandinya ditentukan tokonya sendiri dan diketikkan admin saat akun dibuat; " +
     "sesudah tersimpan, sistem tidak bisa menampilkannya lagi kepada siapa pun. Kalau tokonya lupa, " +
     "tekan Atur Ulang Kata Sandi pada barisnya untuk menetapkan kata sandi baru — jangan membuat " +
@@ -230,10 +243,11 @@ const id = {
   userNameFieldLabel: "Nama *",
   userNameHint: "Nama yang tampil di daftar akun, mis. nama toko atau cabangnya.",
   userBranchFieldLabel: "Cabang *",
-  userEmailFieldLabel: "Email untuk masuk *",
+  userEmailFieldLabel: "ID login *",
   userEmailHint:
-    "Tidak perlu email asli — alamat ini hanya dipakai untuk masuk, tidak menerima surat. Usulan " +
-    "otomatis mengikuti kode partner dan kode cabang.",
+    "Sudah diusulkan otomatis dari kode partner dan kode cabang — biarkan saja, boleh juga " +
+    "diubah. Bentuknya seperti email, tapi ini bukan email sungguhan dan tidak menerima surat; " +
+    "toko mengetik ID ini di kotak Email saat masuk.",
   userPasswordFieldLabel: "Kata sandi pilihan toko *",
   userPasswordHint:
     "Ketik kata sandi yang diminta tokonya sendiri (biasanya dikabari lewat WhatsApp) — bukan kata " +
@@ -247,10 +261,11 @@ const id = {
     "Sistem tidak menyimpan salinan yang bisa dibaca ulang, jadi setelah kotak ini ditutup tidak " +
     "ada seorang pun — termasuk SANCI — yang bisa melihatnya lagi. Pastikan tokonya sudah pegang " +
     "kata sandi ini sebelum menutup kotak ini.",
-  userCredentialEmailLabel: "Email untuk masuk",
+  userCredentialEmailLabel: "ID login",
   userCredentialPasswordLabel: "Kata sandi",
   userCredentialFootnote:
-    "Email ini tidak menerima surat — fungsinya hanya sebagai nama untuk masuk. Kalau tokonya lupa " +
+    "ID login ini bentuknya seperti email tapi tidak menerima surat — saat masuk, toko " +
+    "mengetiknya di kotak Email. Kalau tokonya lupa " +
     "kata sandi, jangan membuat akun baru: buka tab Akun, lalu tekan Atur Ulang Kata Sandi pada " +
     "barisnya untuk menetapkan kata sandi baru.",
   copyCredentialsBtn: "Salin email & kata sandi",
@@ -309,12 +324,12 @@ const id = {
     "petugas teknis mengisi variabel lingkungan SUPABASE_SERVICE_ROLE_KEY di Vercel, lalu buka " +
     "halaman ini lagi. Isian Anda tidak ada yang tersimpan.",
   userEmailTaken:
-    "Email ini sudah dipakai. Gunakan email lain. Kalau menurut Anda email ini seharusnya belum " +
+    "ID login ini sudah dipakai. Gunakan yang lain. Kalau menurut Anda ID ini seharusnya belum " +
     "terpakai, hubungi petugas teknis — jangan dipaksa dibuat ulang.",
   userWeakPassword:
     "Kata sandi itu ditolak sistem login karena belum memenuhi syarat keamanan. Minta tokonya " +
     "memilih kata sandi yang lebih panjang dan mencampur huruf besar, huruf kecil, serta angka.",
-  userEmailRejected: "Email ini ditolak sistem login. Periksa penulisannya, lalu coba lagi.",
+  userEmailRejected: "Sistem login menolak ID login ini. Periksa penulisannya, lalu coba lagi.",
   userCreateFailedGeneric: "Tidak bisa membuat akun login sekarang. Coba lagi sebentar lagi.",
   userCreateCleanRollback:
     "Akun login GAGAL dibuat dan tidak ada yang tertinggal di sistem. Silakan coba lagi dengan " +
@@ -325,8 +340,8 @@ const id = {
     "jadi belum bisa dipakai untuk masuk. Jangan membuat ulang dengan email yang sama. Catat email " +
     "ini dan hubungi petugas teknis.",
   userNameRequiredField: "Nama wajib diisi.",
-  userEmailRequiredField: "Email wajib diisi.",
-  userEmailFormatInvalid: "Format email belum benar. Contoh: gh-bsd@sanci.com",
+  userEmailRequiredField: "ID login wajib diisi.",
+  userEmailFormatInvalid: "Bentuk ID login harus seperti alamat email. Contoh: gh-bsd@sanci.com",
   userPasswordRequiredField: "Kata sandi dari toko wajib diisi.",
   userPasswordTooShort: "Kata sandi minimal {min} karakter. Minta tokonya memilih kata sandi yang lebih panjang.",
   userBranchRequiredField: "Cabang wajib dipilih.",
@@ -904,9 +919,13 @@ const en = {
   partnerEndPartnershipBtn: "End partnership",
   partnerDeleteDraftBtn: "Delete draft",
   partnerActivateBtn: "Activate partner",
-  partnerActivateHint: "Complete every activation requirement to activate.",
+  partnerActivateHint: "The button lights up once every activation requirement in the next card is checked.",
   partnerDeactivateModalTitle: "End the partnership with {name}?",
-  partnerDeactivateBody: "The status becomes INACTIVE. All branches, staff, and history stay saved.",
+  partnerDeactivateBody:
+    "The status becomes INACTIVE and this partner drops out of day-to-day work. All branches, " +
+    "staff, and history stay saved, and an admin can still restore it later with the Reactivate " +
+    "button. If you only want a temporary pause, use Suspend — not this button.",
+  partnerDeactivateFieldLabel: "Type {code} to confirm",
   partnerDeactivateConfirmBtn: "End partnership",
   partnerDeleteModalTitle: "Delete {name}?",
   partnerDeleteFieldLabel: "Type {code} to permanently delete",
@@ -928,11 +947,20 @@ const en = {
 
   partnerInfoTitle: "Partner Information",
   activationRequirementsTitle: "Activation requirements",
-  gateReqName: "Partner name",
-  gateReqCode: "Partner code",
+  gateIntro:
+    "Finish these three steps first; once all are checked, the Activate partner button can be " +
+    "pressed.",
   gateReqBranch: "At least 1 active branch",
   gateReqUser: "At least 1 active login account",
   gateReqAccess: "Access has been configured",
+  gateGoBranches: "Open the Branch tab",
+  gateGoUsers: "Open the Account tab",
+  gateGoAccess: "Open the Access tab",
+  gateUnknownNote: "Could not be checked right now — reload the page to check again.",
+  gateStaffRecommended: "At least 1 staff member — recommended",
+  gateStaffWhy:
+    "Does not hold up activation, but it is needed later when a branch creates an order (the " +
+    "Sales/PIC choice). Staff are added on the branch detail page.",
   branchesEmpty: "No branches yet.",
 
   packageMigrationMsg: "The package feature is not active yet — the migration has not been run.",
@@ -989,7 +1017,7 @@ const en = {
   usersEmpty: "No login accounts yet.",
   usersFootnote:
     "One branch shares one account; the salesperson's name and PIC are still picked from the staff " +
-    "list when creating an order. The sign-in email is not shown in this list — note it down when " +
+    "list when creating an order. The login ID is not shown in this list — note it down when " +
     "the account is created. The password is chosen by the store and typed in by the admin when " +
     "the account is created; once saved, the system can never show it again to anyone. If the store " +
     "forgets it, press Reset Password on its row to set a new one — do not create a second account " +
@@ -1009,10 +1037,11 @@ const en = {
   userNameFieldLabel: "Name *",
   userNameHint: "The name shown in the accounts list, e.g. the store or branch name.",
   userBranchFieldLabel: "Branch *",
-  userEmailFieldLabel: "Sign-in email *",
+  userEmailFieldLabel: "Login ID *",
   userEmailHint:
-    "It does not need to be a real email — this address is only used to sign in, it does not " +
-    "receive mail. The suggestion follows the partner code and branch code automatically.",
+    "Suggested automatically from the partner code and branch code — leaving it as is works " +
+    "fine, and it can be edited. It looks like an email, but it is not a real mailbox and " +
+    "receives no mail; the store types this ID into the Email box when signing in.",
   userPasswordFieldLabel: "Password chosen by the store *",
   userPasswordHint:
     "Type the password the store itself asked for (usually sent over WhatsApp) — not a " +
@@ -1025,10 +1054,11 @@ const en = {
     "The password below is visible only NOW, because you just typed it in yourself. The system " +
     "does not keep a readable copy, so once this box is closed nobody — including SANCI — can see " +
     "it again. Make sure the store already has this password before closing this box.",
-  userCredentialEmailLabel: "Sign-in email",
+  userCredentialEmailLabel: "Login ID",
   userCredentialPasswordLabel: "Password",
   userCredentialFootnote:
-    "This email does not receive mail — it only serves as a sign-in name. If the store forgets the " +
+    "This login ID is shaped like an email but receives no mail — when signing in, the store " +
+    "types it into the Email box. If the store forgets the " +
     "password, do not create a new account: open the Accounts tab, then press Reset Password on its " +
     "row to set a new one.",
   copyCredentialsBtn: "Copy email & password",
@@ -1082,12 +1112,12 @@ const en = {
     "technical staff member to fill in the SUPABASE_SERVICE_ROLE_KEY environment variable in " +
     "Vercel, then open this page again. None of what you entered was saved.",
   userEmailTaken:
-    "This email is already in use. Use a different one. If you believe this email should not be " +
+    "This login ID is already in use. Use a different one. If you believe this ID should not be " +
     "taken, contact technical staff — do not force it to be recreated.",
   userWeakPassword:
     "The login system rejected that password because it does not meet the security requirements. " +
     "Ask the store to choose a longer password that mixes upper case, lower case, and numbers.",
-  userEmailRejected: "The login system rejected this email. Check the spelling, then try again.",
+  userEmailRejected: "The login system rejected this login ID. Check the spelling, then try again.",
   userCreateFailedGeneric: "Cannot create the login account right now. Please try again in a moment.",
   userCreateCleanRollback:
     "The login account FAILED to be created and nothing was left behind in the system. Please try " +
@@ -1097,8 +1127,8 @@ const en = {
     "partner, so it cannot be used to sign in. Do not create it again with the same email. Note " +
     "this email down and contact technical staff.",
   userNameRequiredField: "Name is required.",
-  userEmailRequiredField: "Email is required.",
-  userEmailFormatInvalid: "The email format is not valid yet. Example: gh-bsd@sanci.com",
+  userEmailRequiredField: "The login ID is required.",
+  userEmailFormatInvalid: "The login ID must be shaped like an email address. Example: gh-bsd@sanci.com",
   userPasswordRequiredField: "The store's password is required.",
   userPasswordTooShort: "Password must be at least {min} characters. Ask the store to choose a longer one.",
   userBranchRequiredField: "A branch must be selected.",
@@ -1641,9 +1671,12 @@ const zh = {
   partnerEndPartnershipBtn: "结束合作",
   partnerDeleteDraftBtn: "删除草稿",
   partnerActivateBtn: "启用合作商",
-  partnerActivateHint: "请先完成全部启用条件才能启用。",
+  partnerActivateHint: "旁边“启用条件”卡片中的步骤全部完成后，此按钮才能点击。",
   partnerDeactivateModalTitle: "确定结束与 {name} 的合作？",
-  partnerDeactivateBody: "状态将变为已停用。所有分店、员工和历史记录都会保留。",
+  partnerDeactivateBody:
+    "状态将变为已停用，该合作商会退出日常工作流程。所有分店、员工和历史记录都会保留，管理员以后仍可" +
+    "通过“重新启用”按钮恢复合作。如果只是想暂时停一停，请用“暂停”，不要用这个按钮。",
+  partnerDeactivateFieldLabel: "输入 {code} 以确认",
   partnerDeactivateConfirmBtn: "结束合作",
   partnerDeleteModalTitle: "删除 {name}？",
   partnerDeleteFieldLabel: "输入 {code} 以永久删除",
@@ -1665,11 +1698,16 @@ const zh = {
 
   partnerInfoTitle: "合作商信息",
   activationRequirementsTitle: "启用条件",
-  gateReqName: "合作商名称",
-  gateReqCode: "合作商编号",
+  gateIntro: "请先完成这三个步骤；全部完成后，“启用合作商”按钮才能点击。",
   gateReqBranch: "至少 1 个启用分店",
   gateReqUser: "至少 1 个启用登录账号",
   gateReqAccess: "已设置权限",
+  gateGoBranches: "打开“分店”标签页",
+  gateGoUsers: "打开“账号”标签页",
+  gateGoAccess: "打开“权限”标签页",
+  gateUnknownNote: "暂时无法检查 —— 请刷新页面重试。",
+  gateStaffRecommended: "至少 1 名员工 —— 建议完成",
+  gateStaffWhy: "不影响启用，但分店以后创建订单时需要（选择销售员/负责人）。员工在分店详情页添加。",
   branchesEmpty: "暂无分店。",
 
   packageMigrationMsg: "套装功能尚未启用 —— 迁移脚本还没有执行。",
@@ -1722,7 +1760,7 @@ const zh = {
   usersNoActiveBranch: "还没有启用的分店。请先到“分店”标签页新建并启用分店 —— 每个登录账号都必须绑定一个分店。",
   usersEmpty: "暂无登录账号。",
   usersFootnote:
-    "一个分店使用一个共用账号；创建订单时，销售员姓名和负责人仍从员工名单中选择。登录邮箱不会显示在" +
+    "一个分店使用一个共用账号；创建订单时，销售员姓名和负责人仍从员工名单中选择。登录 ID 不会显示在" +
     "此列表中 —— 请在创建账号时记录下来。密码由门店自行决定，由管理员在创建账号时输入；保存后系统" +
     "无法再次显示给任何人。如果门店忘记密码，点击对应行的“重设密码”设置新密码 —— 不要为同一分店" +
     "重复新建账号。",
@@ -1740,8 +1778,10 @@ const zh = {
   userNameFieldLabel: "名称 *",
   userNameHint: "显示在账号列表中的名称，例如门店或分店名称。",
   userBranchFieldLabel: "分店 *",
-  userEmailFieldLabel: "登录邮箱 *",
-  userEmailHint: "不需要是真实邮箱 —— 此地址仅用于登录，不会收信。系统会根据合作商编号和分店编号自动生成建议地址。",
+  userEmailFieldLabel: "登录 ID *",
+  userEmailHint:
+    "系统已根据合作商编号和分店编号自动生成建议，直接使用即可，也可以修改。它看起来像邮箱，但不是" +
+    "真实邮箱，也不会收信；门店登录时把这个 ID 填进“邮箱”一栏。",
   userPasswordFieldLabel: "门店选定的密码 *",
   userPasswordHint:
     "请输入门店自己要求的密码（通常会通过 WhatsApp 告知）—— 不是系统生成的密码。最少 {min} 位字符。" +
@@ -1752,11 +1792,11 @@ const zh = {
   userCredentialWarning:
     "下方的密码只有现在能看到，因为是你刚刚亲手输入的。系统不会保存可再次读取的密码副本，所以这个" +
     "弹窗关闭后，任何人 —— 包括 SANCI —— 都无法再次看到它。请确认门店已经拿到这个密码，再关闭弹窗。",
-  userCredentialEmailLabel: "登录邮箱",
+  userCredentialEmailLabel: "登录 ID",
   userCredentialPasswordLabel: "密码",
   userCredentialFootnote:
-    "该邮箱不会收信 —— 它的作用只是登录用户名。如果门店忘记密码，不要新建账号：请打开“账号”标签页，" +
-    "在对应行点击“重设密码”设置新密码。",
+    "这个登录 ID 虽然是邮箱格式，但不会收信 —— 门店登录时把它填进“邮箱”一栏。如果门店忘记密码，" +
+    "不要新建账号：请打开“账号”标签页，在对应行点击“重设密码”设置新密码。",
   copyCredentialsBtn: "复制邮箱和密码",
   copyDoneBtn: "已经记录 —— 关闭",
   copySuccessMsg: "已复制。现在去 WhatsApp 发给店长吧。",
@@ -1796,17 +1836,17 @@ const zh = {
   userServiceKeyMissingCreate:
     "由于服务器设置尚未完成，暂时无法创建登录账号。请让技术人员在 Vercel 中填写环境变量 " +
     "SUPABASE_SERVICE_ROLE_KEY，然后重新打开本页面。你输入的内容都没有被保存。",
-  userEmailTaken: "该邮箱已被使用，请换一个。如果你认为这个邮箱不应该被占用，请联系技术人员 —— 不要强行重新创建。",
+  userEmailTaken: "该登录 ID 已被使用，请换一个。如果你认为它不应该被占用，请联系技术人员 —— 不要强行重新创建。",
   userWeakPassword: "登录系统拒绝了该密码，因为不满足安全要求。请让门店选择更长的密码，并混合使用大写字母、小写字母和数字。",
-  userEmailRejected: "登录系统拒绝了这个邮箱，请检查拼写后重试。",
+  userEmailRejected: "登录系统拒绝了这个登录 ID，请检查拼写后重试。",
   userCreateFailedGeneric: "现在无法创建登录账号，请稍后再试。",
   userCreateCleanRollback: "登录账号创建失败，系统中没有留下任何残留数据。请用相同邮箱再试一次。",
   userHalfCreated:
     "邮箱 {email} 的登录账号已在登录系统中创建，但尚未关联到合作商，因此还不能用于登录。请不要用同" +
     "一邮箱再次创建。请记下该邮箱并联系技术人员。",
   userNameRequiredField: "名称为必填项。",
-  userEmailRequiredField: "邮箱为必填项。",
-  userEmailFormatInvalid: "邮箱格式不正确。示例：gh-bsd@sanci.com",
+  userEmailRequiredField: "登录 ID 为必填项。",
+  userEmailFormatInvalid: "登录 ID 需要是邮箱格式。示例：gh-bsd@sanci.com",
   userPasswordRequiredField: "门店的密码为必填项。",
   userPasswordTooShort: "密码至少需要 {min} 位字符。请让门店选择更长的密码。",
   userBranchRequiredField: "必须选择分店。",
