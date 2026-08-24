@@ -1185,6 +1185,15 @@ admin kalkulator）觸頂時顯示警語（新 key `common.catalogListCappedMsg`
 
 尚未做（照審計排序）：#10 縮圖變體（等 #4 上線後評估）、#2b middleware 瘦身（高風險最後）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
 
+### Partner「Inactive 可一鍵恢復」（2026-08-24，實際誤按事故驅動）
+
+Jenzo 在手機上誤按紅色「End partnership」，Sanci partner 變 INACTIVE，而介面
+上沒有任何恢復入口——唯一救援是手動 SQL（已執行救回）。修正：Overview 的
+「Reactivate」按鈕從只給 SUSPENDED 擴大到 SUSPENDED＋INACTIVE。安全性不變：
+`setPartnerStatus("ACTIVE")` 在 server 端本來就會重新驗證全部啟用條件（分行/
+帳號/權限已設定），介面按鈕只是入口不是防線。「終結狀態不可逆」的原始設計
+判斷在真實誤觸面前讓步——admin 是受信任角色，誤按的成本不該是跑 SQL。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

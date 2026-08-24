@@ -222,7 +222,12 @@ export default function PartnerActions({
             {m.admin.partnerSuspendBtn}
           </button>
         )}
-        {partner.status === "SUSPENDED" && (
+        {/* INACTIVE ikut bisa di-Reactivate (2026-08-24): "End partnership"
+            pernah terpencet keliru di ponsel dan satu-satunya jalan pulih
+            adalah SQL manual — terlalu kejam untuk salah ketuk. Server action
+            setPartnerStatus("ACTIVE") tetap memverifikasi ulang seluruh
+            syarat aktivasi di server, jadi ini tidak melonggarkan apa pun. */}
+        {(partner.status === "SUSPENDED" || partner.status === "INACTIVE") && (
           <button className="btn sm" onClick={onReactivate} disabled={submitting}>
             {m.admin.partnerReactivateBtn}
           </button>
