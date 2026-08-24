@@ -1213,6 +1213,30 @@ guard 對 admin short-circuit——**admin 轉單價格必定落地**，無降�
 不變；③同瀏覽器 admin/分店 hand-off 互不可見；④「Abaikan」後不再出現；
 ⑤弱網重送不產生重複品項。
 
+### 建單表單內建產品選擇器（2026-08-24，owner：「在 create order 也要可以做訂單，跟計算機連動，省載入」）
+
+兩邊建單表單（`/admin/orders/baru`＋`/cabang/pesanan/baru`）新增「Isi Pesanan」
+區塊＋共用選擇器元件（`lib/order-item-picker.tsx`）：「＋Tambah Produk」開
+modal——搜尋（名稱/代碼/分類）＋分類 chip 列＋48px 懶載縮圖清單（contain、
+onError placeholder、缺貨灰化仍可見）。**產品清單延遲載入**（第一次開 modal
+才 fetch，新增兩支讀取 action；分店端沿用 kalkulator 的目錄開通閘門與
+catalogNotOpenedMsg，錯誤≠未開通≠空清單三態分明）；`.limit(200)`＋觸頂警語。
+選定品項列在表單上（數量 stepper、IDR 單價欄、刪除），建單成功後經既有批次
+`copyCalcCartItemsToOrder` 一次寫入。
+
+**與計算機 hand-off 統一為單一清單**：「Gunakan angka ini」把 hand-off 品項
+灌進 Isi Pesanan 清單（同品項數量合併、已填價格不覆寫），此後只有一條寫入
+路徑（`applyPickedItemsIfNeeded`）——雙寫不可能發生；折扣鏈套用維持原樣。
+idempotency 沿用 `:calc-item:` 命名空間（清單統一後「來源」對單一列無定義，
+分來源後綴反而開雙鍵漏洞——決策記錄於 action 註解）。Package 複製（`:item:`）
+並存不衝突。First Load 每表單 +3 kB（共用 chunk）。零 migration。
+
+**待 Jenzo 實機驗證**：①admin 開選擇器→縮圖/搜尋/分類 chip→加品項填價→
+建單→品項連價落地；②分店端同流程（有 can_edit_offer 價格落地；無則品項
+落地無價＋降級提示）；③未開通目錄的分店在選擇器看到「katalog belum dibuka」；
+④計算機轉單→「Gunakan angka ini」→品項預填進清單可編輯→建單後品項恰好
+一份；⑤弱網重送零重複；⑥Package＋手選品項同單並存。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
