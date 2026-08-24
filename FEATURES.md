@@ -1194,6 +1194,25 @@ Jenzo 在手機上誤按紅色「End partnership」，Sanci partner 變 INACTIVE
 帳號/權限已設定），介面按鈕只是入口不是防線。「終結狀態不可逆」的原始設計
 判斷在真實誤觸面前讓步——admin 是受信任角色，誤按的成本不該是跑 SQL。
 
+### Admin 計算機「Buat Pesanan」轉單（2026-08-24，owner：「報價計算機沒看到可以帶進去訂單」）
+
+關閉第十七切片留下的 v1 邊界：`/admin/kalkulator` 現在有「Buat Pesanan」CTA，
+機制與分店端鏡像——hand-off 經 localStorage（**per-area key**：cabang 沿用舊
+key 不變、admin 新增 `:admin` 後綴，同一瀏覽器換帳號不互相污染）帶購物車品項
+＋折扣鏈到 `/admin/orders/baru`；表單出現「Gunakan angka ini／Abaikan」banner，
+接受＝subtotal 預填消費金額；建單成功後兩個獨立 best-effort 寫入（各自的結果
+banner，LESSONS #10）：折扣鏈走 admin `setOrderOffer`（admin 不受權限閘門，
+0013/0015 fn_is_admin 放行——讀證），品項走跨區直接 import 的
+`copyCalcCartItemsToOrder`（讀證：無 getIdentity、oi_admin_all 覆蓋、price
+guard 對 admin short-circuit——**admin 轉單價格必定落地**，無降級情境）。
+`KalkulatorConvert` prop 增加 `href`（轉單目的地由掛載 route 決定，不再寫死）。
+12 個新 admin i18n key（id/en/zh）。零 migration。
+
+**待 Jenzo 實機驗證**：①admin 計算機堆含價購物車→Buat Pesanan→banner 出現→
+建單→品項連單價落地＋折扣鏈套用於訂單 Penawaran；②分店端計算機與轉單全程
+不變；③同瀏覽器 admin/分店 hand-off 互不可見；④「Abaikan」後不再出現；
+⑤弱網重送不產生重複品項。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
