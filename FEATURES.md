@@ -1237,6 +1237,29 @@ idempotency 沿用 `:calc-item:` 命名空間（清單統一後「來源」對�
 ④計算機轉單→「Gunakan angka ini」→品項預填進清單可編輯→建單後品項恰好
 一份；⑤弱網重送零重複；⑥Package＋手選品項同單並存。
 
+### Partner 開通流程直覺化（2026-08-24，owner：「設定 partner 跟 account 不夠直覺，還需要教育訓練」）
+
+昨日實測中 owner 從零開通 Sanci partner 卡了四次（不知啟用前置條件、按鈕不說
+缺什麼、登入 Email 造成困惑、誤按 End partnership 需 SQL 救援）。四項修正：
+
+1. **Draft Partner 的 Overview 換上「三步設定卡」**：即時 ✓/○ 顯示三個真正的
+   啟用條件（≥1 啟用分行、≥1 登入帳號、權限已設定——與 `setPartnerStatus`
+   server 端閘門逐字對齊），未完成項附直達分頁的跳轉連結；第四行「員工
+   （disarankan）」視覺分隔、不擋啟用（建訂單才需要）。查詢失敗顯示「—／
+   目前無法檢查」而非「未完成」（LESSONS #10 三態）。
+2. **Activate 按鈕誠實化**：三項未全 ✓ 時不亮，缺什麼看卡片；server 端
+   `setPartnerStatus` 重驗照舊（防線不動）。
+3. **帳號表單**：「Email untuk masuk」改為「ID login」＋說明（系統自動建議、
+   長得像 email 但不是真信箱、登入頁照填即可）；四條相關驗證訊息同步改詞；
+   GLOSSARY 加詞條。owner 明確否決自動產生密碼——未加。
+4. **End partnership 加打字確認**（輸入 partner code 才能按，沿用刪除草稿的
+   防呆型式），文案講明可由 admin 用「Aktifkan lagi」復原、僅暫停該用
+   Tangguhkan；順帶 `onReactivate` 失敗不再靜默（surface server 訊息）。
+
+**待 Jenzo 實機驗證**：零指引從頭開通一個新 Draft partner——三步卡逐項打勾、
+連結落點正確、全 ✓ 才能按 Activate 且一次成功；End partnership 需打 code；
+INACTIVE 後「Aktifkan lagi」可自助復原。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
