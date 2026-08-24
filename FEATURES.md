@@ -1177,6 +1177,12 @@ admin kalkulator）觸頂時顯示警語（新 key `common.catalogListCappedMsg`
 分兩種分店權限各試一次——①有 can_edit_offer：全部品項連價格都正確落地；
 ②沒有：品項仍全部落地但價格欄位空白、畫面顯示降級提示。
 
+**同日 #4 收尾（2026-08-24, Jenzo 執行）**：`import-master-data/run.mjs` 在
+`adm.sanci@gmail.com` 帳號下重跑成功——169 個既有產品全數更新、169 張照片
+全部覆寫成功、0 失敗（`code` 唯一鍵 upsert，冪等重跑不產生重複）。既有物件
+現在全部套用新的 `cacheControl: 31536000` 標頭，#4 從「程式碼已改」變成
+「production 資料也已生效」。
+
 尚未做（照審計排序）：#10 縮圖變體（等 #4 上線後評估）、#2b middleware 瘦身（高風險最後）。上傳三處的動態 import（#3 後半）因涉弱網補償鏈，另行單獨驗證。
 
 ## 已知刻意保留的「怪東西」
