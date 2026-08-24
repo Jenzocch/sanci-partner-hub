@@ -311,14 +311,20 @@ const id = {
   calcHandoffAppliedFailed:
     "Pesanan berhasil dibuat, tapi rantai diskon dari Kalkulator Penawaran belum bisa otomatis diterapkan — toko " +
     "Anda mungkin belum punya izin diskon. Masukkan manual di halaman pesanan ini, atau hubungi SANCI Admin.",
-  calcItemsAppliedOk: "{n} produk dari kalkulator berhasil ditambahkan ke pesanan ini.",
+  // Hasil penulisan baris "Isi Pesanan" form pesanan baru (fitur picker
+  // 2026-08-24). SATU daftar + SATU jalur tulis: baris bisa berasal dari
+  // picker produk maupun prefill hand-off Kalkulator — kunci lama
+  // calcItemsApplied{Ok,Partial,Failed} (yang menyebut "dari kalkulator")
+  // dihapus bersama pemakainya; PriceNote TETAP karena kalimatnya tidak
+  // menyebut kalkulator dan degradasi izin harganya sama persis.
   calcItemsAppliedPriceNote:
     "Harga per barang tidak ikut karena toko Anda belum punya izin \"Lihat & atur Penawaran SANCI\".",
-  calcItemsAppliedPartial:
-    "{n} dari {total} produk dari kalkulator berhasil ditambahkan ke pesanan ini; sisanya gagal — cek dan tambahkan " +
-    "manual di Isi Pesanan bila perlu.",
-  calcItemsAppliedFailed:
-    "Pesanan berhasil dibuat, tapi produk dari kalkulator belum bisa otomatis ditambahkan — tambahkan manual di " +
+  formItemsAppliedOk: "{n} produk berhasil ditambahkan ke pesanan ini.",
+  formItemsAppliedPartial:
+    "{n} dari {total} produk berhasil ditambahkan ke pesanan ini; sisanya gagal — cek dan tambahkan manual di " +
+    "Isi Pesanan bila perlu.",
+  formItemsAppliedFailed:
+    "Pesanan berhasil dibuat, tapi produk yang dipilih belum bisa otomatis ditambahkan — tambahkan manual di " +
     "Isi Pesanan.",
 } as const;
 
@@ -593,14 +599,14 @@ const en = {
   calcHandoffAppliedFailed:
     "The order was created, but the Offer Calculator's discount chain couldn't be applied automatically — your " +
     "store may not have discount permission yet. Enter it manually on this order's page, or contact SANCI Admin.",
-  calcItemsAppliedOk: "{n} products from the calculator were added to this order.",
   calcItemsAppliedPriceNote:
     "Prices weren't carried over because your store doesn't have \"View & set SANCI Offer\" permission yet.",
-  calcItemsAppliedPartial:
-    "{n} of {total} products from the calculator were added to this order; the rest failed — check and add them " +
-    "manually in Order Items if needed.",
-  calcItemsAppliedFailed:
-    "The order was created, but the calculator's products couldn't be added automatically — add them manually in " +
+  formItemsAppliedOk: "{n} products were added to this order.",
+  formItemsAppliedPartial:
+    "{n} of {total} products were added to this order; the rest failed — check and add them manually in " +
+    "Order Items if needed.",
+  formItemsAppliedFailed:
+    "The order was created, but the selected products couldn't be added automatically — add them manually in " +
     "Order Items.",
 } satisfies Shape;
 
@@ -859,11 +865,11 @@ const zh = {
   calcHandoffAppliedFailed:
     "订单已经创建成功,但方案计算器的折扣链无法自动应用 —— 您的门店可能还没有折扣权限。请在这笔订单页面手动" +
     "输入,或联系 SANCI 管理员。",
-  calcItemsAppliedOk: "已成功把计算器里的 {n} 件产品加入这笔订单。",
   calcItemsAppliedPriceNote: "价格没有一起带过来 —— 您的门店还没有\"查看及设置 SANCI 方案\"权限。",
-  calcItemsAppliedPartial:
-    "计算器里 {total} 件产品中,{n} 件已成功加入这笔订单;其余失败了 —— 请到订单明细查看,需要的话手动补上。",
-  calcItemsAppliedFailed: "订单已经创建成功,但计算器里的产品无法自动加入 —— 请到订单明细手动补上。",
+  formItemsAppliedOk: "已成功把 {n} 件产品加入这笔订单。",
+  formItemsAppliedPartial:
+    "{total} 件产品中,{n} 件已成功加入这笔订单;其余失败了 —— 请到订单明细查看,需要的话手动补上。",
+  formItemsAppliedFailed: "订单已经创建成功,但选中的产品无法自动加入 —— 请到订单明细手动补上。",
 } satisfies Shape;
 
 export const cabang = { id, en, zh };

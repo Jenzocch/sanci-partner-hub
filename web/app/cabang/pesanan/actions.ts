@@ -36,6 +36,7 @@ import {
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
+import type { StockStatus } from "@/lib/catalog-shared";
 // Dipakai BERSAMA jalur admin (web/app/admin/actions-create-order.ts) — logika
 // pindah ke lib/order-create-shared.ts saat fitur "admin membuat pesanan atas
 // nama cabang" dibuat, TANPA perubahan perilaku (lihat kepala berkas itu).
@@ -1285,13 +1286,18 @@ export async function getOrderInvoiceSignedUrl(orderId: string): Promise<Invoice
 }
 
 /* ------------------------------------------------------------------ *
- * Kalkulator Penawaran → order_items (order_items, migrasi 0014). Hand-off
- * SEKALI PAKAI dari /cabang/kalkulator (lib/calculator-shared.ts::CalcHandoff)
- * — dipanggil client SETELAH pesanan berhasil dibuat, di titik yang SAMA
- * dengan setOrderOfferBranch di bawah (applyCalcHandoffIfNeeded,
- * new-order-form.tsx), HANYA kalau staf menekan "Gunakan angka ini" pada
- * banner hand-off. Sepupu langsung copyPackageItemsToOrder di atas — pola
- * idempotency/error-handling SENGAJA disalin, bukan diciptakan baru.
+ * Baris "Isi Pesanan" form pesanan baru → order_items (migrasi 0014).
+ * Lahir sebagai penulis hand-off Kalkulator; sejak fitur picker Isi Pesanan
+ * (2026-08-24) fungsi ini adalah SATU-SATUNYA jalur tulis baris bebas saat
+ * pembuatan pesanan, untuk KEDUA form (/cabang/pesanan/baru dan
+ * /admin/orders/baru — impor lintas area yang disengaja, lihat catatan di
+ * form admin): baris hand-off Kalkulator dituangkan dulu ke daftar Isi
+ * Pesanan form saat "Gunakan angka ini" ditekan, lalu daftar itu (hand-off
+ * + pilihan picker, sudah tergabung) ditulis lewat SATU panggilan fungsi ini
+ * SETELAH pesanan berhasil dibuat (applyPickedItemsIfNeeded di kedua form)
+ * — tidak pernah ada dua tulisan untuk daftar yang sama. Sepupu langsung
+ * copyPackageItemsToOrder di atas — pola idempotency/error-handling SENGAJA
+ * disalin, bukan diciptakan baru.
  * ------------------------------------------------------------------ */
 
 const MAX_CALC_ITEM_UNIT_PRICE = 9_999_999_999_999;
@@ -1386,12 +1392,20 @@ export type CopyCalcItemsOutcome = {
  * SEBELUMNYA akan dilewati DO NOTHING dan TIDAK ikut ke `created` panggilan
  * ini — idempotency (tidak ada baris ganda) tetap terjaga, hanya angka
  * `created` yang bisa under-count relatif ke keadaan DB sesungguhnya. Ini
- * TIDAK bisa terjadi lewat jalur pemanggilan yang ada sekarang: satu-satunya
- * pemanggil (new-order-form.tsx::applyCalcHandoffIfNeeded) memanggil fungsi
- * ini TEPAT SEKALI per pembuatan pesanan (requestIdRef di-null-kan sesudah
- * order dibuat, tidak ada tombol retry untuk calcItemsMsg) — sama seperti
- * copyPackageItemsToOrder yang JUGA tidak menambah query konfirmasi ulang
- * untuk kasus retry yang tidak bisa terjadi lewat pemanggil yang ada.
+ * TIDAK bisa terjadi lewat jalur pemanggilan yang ada sekarang: kedua
+ * pemanggil (applyPickedItemsIfNeeded di form cabang DAN form admin)
+ * memanggil fungsi ini TEPAT SEKALI per pembuatan pesanan (requestIdRef
+ * di-null-kan sesudah order dibuat, tidak ada tombol retry untuk itemsMsg)
+ * — sama seperti copyPackageItemsToOrder yang JUGA tidak menambah query
+ * konfirmasi ulang untuk kasus retry yang tidak bisa terjadi lewat
+ * pemanggil yang ada.
+ *
+ * Sufiks per baris TETAP `:calc-item:` walau barisnya kini bisa berasal
+ * dari picker (bukan kalkulator): begitu daftar disatukan, "asal" sebuah
+ * baris tidak lagi terdefinisi per baris (baris hand-off bisa diubah/
+ * dihapus/ditambah lagi lewat picker) — sufiks per-asal justru membuka
+ * celah dua kunci untuk produk yang sama. SATU ruang nama untuk SATU jalur
+ * tulis; nilai string-nya sendiri opak, tidak pernah diurai siapa pun.
  */
 export async function copyCalcCartItemsToOrder(
   orderId: string,
@@ -1643,4 +1657,70 @@ export async function setOrderOfferBranch(
       finalAmount: Number(written.data.final_amount ?? Number(written.data.amount)),
     },
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Daftar produk untuk picker "Isi Pesanan" di form pesanan baru
+ * (lib/order-item-picker.tsx, fitur 2026-08-24). Dimuat MALAS: dipanggil
+ * client saat picker pertama kali dibuka — halaman form sendiri TIDAK
+ * mengambil daftar produk di muka (form harus tetap ringan).
+ *
+ * Gerbang & query SENGAJA identik dengan /cabang/kalkulator/page.tsx:
+ * partner_users → sanci_catalog_access (gerbang sungguhan, dicek DULU) →
+ * sanci_products (RLS sp_partner_read sudah membatasi ke produk ACTIVE
+ * katalog yang dibuka — zero-trust frontend). Kalau katalog belum dibuka,
+ * picker menampilkan catalogNotOpenedMsg yang sama dengan halaman
+ * Produk/Kalkulator, bukan daftar kosong. Error DB tidak pernah disamarkan
+ * jadi "belum dibuka"/"kosong" (LESSONS #10) — tiap sebab punya status
+ * sendiri dan client memetakannya ke kalimat slice cabang.
+ * ------------------------------------------------------------------ */
+
+export type PickerProductRow = {
+  id: string;
+  name: string;
+  code: string | null;
+  category: string | null;
+  photo_url: string | null;
+  stock_status: StockStatus;
+};
+
+export type BranchPickerProductsOutcome =
+  | { status: "ok"; products: PickerProductRow[]; capped: boolean }
+  | { status: "not_opened" }
+  | { status: "module_inactive" }
+  | { status: "error" };
+
+export async function getPickerProductsBranch(): Promise<BranchPickerProductsOutcome> {
+  const supabase = await createClient();
+  // Tanpa auth.getUser() (pola halaman kalkulator): RLS batasnya — sesi tak
+  // sah membuat partner_users pulang kosong, dilaporkan sebagai error biasa
+  // (pengguna form ini pasti sudah login; kosong = ada yang tidak beres).
+  const { data: pu, error: puError } = await supabase
+    .from("partner_users")
+    .select("partner_id")
+    .maybeSingle();
+  if (puError || !pu) return { status: "error" };
+
+  const { data: access, error: accessError } = await supabase
+    .from("sanci_catalog_access")
+    .select("enabled")
+    .eq("partner_id", pu.partner_id)
+    .maybeSingle();
+  if (accessError) {
+    return isMissingTableError(accessError) ? { status: "module_inactive" } : { status: "error" };
+  }
+  if (!(access as { enabled: boolean } | null)?.enabled) return { status: "not_opened" };
+
+  const { data: products, error: productsError } = await supabase
+    .from("sanci_products")
+    .select("id, name, code, category, photo_url, stock_status")
+    .order("name")
+    .limit(200);
+  if (productsError) {
+    return isMissingTableError(productsError) ? { status: "module_inactive" } : { status: "error" };
+  }
+  const rows = (products ?? []) as PickerProductRow[];
+  // .limit(200) bisa memotong diam-diam — client menampilkan
+  // catalogListCappedMsg saat mentok (audit 2026-08-22 #11).
+  return { status: "ok", products: rows, capped: rows.length === 200 };
 }

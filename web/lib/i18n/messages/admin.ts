@@ -50,13 +50,20 @@ const id = {
   calcAdminHandoffAppliedFailed:
     "Pesanan berhasil dibuat, tapi rantai diskon dari Kalkulator Penawaran belum bisa otomatis diterapkan — atur " +
     "manual di bagian Penawaran SANCI halaman pesanan.",
-  calcAdminItemsAppliedOk: "{n} produk dari kalkulator berhasil ditambahkan ke pesanan ini.",
+  // Hasil penulisan baris "Isi Pesanan" form pesanan baru (fitur picker
+  // 2026-08-24). SATU daftar + SATU jalur tulis: baris bisa berasal dari
+  // picker produk maupun prefill hand-off Kalkulator — kunci lama
+  // calcAdminItemsApplied{Ok,Partial,Failed} (yang menyebut "dari
+  // kalkulator") dihapus bersama pemakainya; PriceNote TETAP karena
+  // kalimatnya tidak menyebut kalkulator (dan untuk sesi admin seharusnya
+  // mustahil terpicu — fn_is_admin melepas price guard, 0014).
   calcAdminItemsAppliedPriceNote: "Harga per barang tidak ikut tersimpan — cek dan lengkapi di Isi Pesanan.",
-  calcAdminItemsAppliedPartial:
-    "{n} dari {total} produk dari kalkulator berhasil ditambahkan ke pesanan ini; sisanya gagal — cek dan " +
-    "tambahkan manual di Isi Pesanan.",
-  calcAdminItemsAppliedFailed:
-    "Pesanan berhasil dibuat, tapi produk dari kalkulator belum bisa otomatis ditambahkan — tambahkan manual di " +
+  formItemsAppliedOk: "{n} produk berhasil ditambahkan ke pesanan ini.",
+  formItemsAppliedPartial:
+    "{n} dari {total} produk berhasil ditambahkan ke pesanan ini; sisanya gagal — cek dan tambahkan manual di " +
+    "Isi Pesanan.",
+  formItemsAppliedFailed:
+    "Pesanan berhasil dibuat, tapi produk yang dipilih belum bisa otomatis ditambahkan — tambahkan manual di " +
     "Isi Pesanan.",
 
   // ---- Dipakai lintas layar admin ----
@@ -842,13 +849,13 @@ const en = {
   calcAdminHandoffAppliedFailed:
     "The order was created, but the calculator's discount chain could not be applied automatically — set it " +
     "manually in the SANCI Offer section of the order page.",
-  calcAdminItemsAppliedOk: "{n} products from the calculator were added to this order.",
   calcAdminItemsAppliedPriceNote: "Per-item prices were not saved — review and complete them under Order items.",
-  calcAdminItemsAppliedPartial:
-    "{n} of {total} products from the calculator were added to this order; the rest failed — review and add " +
-    "them manually under Order items.",
-  calcAdminItemsAppliedFailed:
-    "The order was created, but the calculator's products could not be added automatically — add them manually " +
+  formItemsAppliedOk: "{n} products were added to this order.",
+  formItemsAppliedPartial:
+    "{n} of {total} products were added to this order; the rest failed — review and add them manually under " +
+    "Order items.",
+  formItemsAppliedFailed:
+    "The order was created, but the selected products could not be added automatically — add them manually " +
     "under Order items.",
 
   openBtn: "Open",
@@ -1584,12 +1591,12 @@ const zh = {
   calcAdminHandoffAppliedOk: "方案计算器的折扣链已成功应用到这笔订单的 SANCI 方案金额。",
   calcAdminHandoffAppliedFailed:
     "订单已经创建成功,但计算器的折扣链无法自动应用 —— 请到订单页面的 SANCI 方案金额部分手动设置。",
-  calcAdminItemsAppliedOk: "已成功把计算器里的 {n} 件产品加入这笔订单。",
   calcAdminItemsAppliedPriceNote: "单价没有一起保存 —— 请到订单明细检查并补上。",
-  calcAdminItemsAppliedPartial:
-    "计算器里的 {total} 件产品成功加入了 {n} 件;其余失败 —— 请到订单明细检查并手动补上。",
-  calcAdminItemsAppliedFailed:
-    "订单已经创建成功,但计算器里的产品无法自动加入 —— 请到订单明细手动补上。",
+  formItemsAppliedOk: "已成功把 {n} 件产品加入这笔订单。",
+  formItemsAppliedPartial:
+    "{total} 件产品中,{n} 件已成功加入这笔订单;其余失败 —— 请到订单明细检查并手动补上。",
+  formItemsAppliedFailed:
+    "订单已经创建成功,但选中的产品无法自动加入 —— 请到订单明细手动补上。",
 
   openBtn: "打开",
   filterStatusAll: "状态：全部",

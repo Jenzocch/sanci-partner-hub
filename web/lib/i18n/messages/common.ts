@@ -297,6 +297,15 @@ const id = {
   noProductsYet: "Belum ada produk di katalog.",
   noProductsMatchSearch: "Tidak ada produk yang cocok dengan pencarian.",
   noPhotoPlaceholder: "Tidak ada foto",
+  // ── Picker produk di form pembuatan pesanan (lib/order-item-picker.tsx) ──
+  // Dipasang di DUA form (/admin/orders/baru + /cabang/pesanan/baru) — syarat
+  // "benar-benar dipakai dua area" untuk menaruh kunci di common terpenuhi.
+  // Judul modalnya memakai ulang calcGoToProductsCta ("Pilih Produk") dan
+  // tombol per barisnya memakai `add` — konsep yang sama tidak diberi kunci
+  // kedua (GLOSSARY: satu konsep satu kata).
+  pickerOpenCta: "+ Tambah Produk",
+  pickerAddAria: "Tambah {name} ke pesanan",
+  pickerEmptyHint: "Opsional — pesanan tetap bisa dibuat tanpa daftar produk.",
   // Dulu ada DUA kunci dengan teks identik kata per kata di ketiga bahasa:
   // cabangOfferFinalNegative (cabang.ts) dan orderOfferFinalNegative
   // (admin.ts). Sekarang SATU kunci untuk kalkulator + form penawaran cabang
@@ -561,6 +570,9 @@ const en = {
   noProductsYet: "No products in the catalog yet.",
   noProductsMatchSearch: "No products match your search.",
   noPhotoPlaceholder: "No photo",
+  pickerOpenCta: "+ Add product",
+  pickerAddAria: "Add {name} to the order",
+  pickerEmptyHint: "Optional — the order can still be created without a product list.",
   offerFinalNegative:
     "This combination of discount/markup/cash discount produces a negative final price. Please check the values.",
   calcPageTitle: "Offer Calculator",
@@ -816,6 +828,9 @@ const zh = {
   noProductsYet: "产品目录里还没有产品。",
   noProductsMatchSearch: "没有符合搜索条件的产品。",
   noPhotoPlaceholder: "没有照片",
+  pickerOpenCta: "+ 新增产品",
+  pickerAddAria: "把{name}加入订单",
+  pickerEmptyHint: "可选 —— 不选产品也能创建订单。",
   offerFinalNegative: "这个折扣/加成/现金折让组合会得出负数的最终金额，请检查数值。",
   calcPageTitle: "方案计算器",
   calcTabProducts: "产品",

@@ -49,12 +49,18 @@ import {
   getBranchStaffOptions,
   getOrderSummaryAdmin,
   getPartnerOrderOptions,
+  getPickerProductsAdmin,
   searchCustomerByPhoneAdmin,
   type AdminOrderCreated,
   type BranchOption,
   type PackageOption,
   type StaffOption,
 } from "../../actions-create-order";
+import OrderItemsSection, {
+  mergeLinesFromHandoff,
+  type PickedLine,
+  type PickerLoadResult,
+} from "@/lib/order-item-picker";
 import { INVOICE_ACCEPT, unggahInvoiceAdmin } from "./invoice-upload-admin";
 
 type PartnerOption = { id: string; name: string };
@@ -111,21 +117,34 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
 
   // Hand-off dari Kalkulator Penawaran admin (/admin/kalkulator, sekali pakai
   // lewat localStorage key area "admin" — lihat lib/calculator-shared.ts).
-  // Cermin persis mekanisme cabang (cabang/pesanan/baru/new-order-form.tsx::
-  // applyCalcHandoffIfNeeded): TIDAK PERNAH diterapkan diam-diam — admin harus
-  // menekan "Gunakan angka ini" dulu; `calcApply` hanya menandai NIAT, dua
-  // tulisan sungguhannya (rantai diskon lewat setOrderOffer, baris keranjang
-  // lewat copyCalcCartItemsToOrder) baru terjadi SETELAH pesanan berhasil
-  // dibuat. Bedanya dari cabang: aksi penawarannya setOrderOffer (admin,
+  // Cermin persis mekanisme cabang (cabang/pesanan/baru/new-order-form.tsx):
+  // TIDAK PERNAH diterapkan diam-diam — admin harus menekan "Gunakan angka
+  // ini" dulu. Sejak fitur picker Isi Pesanan (2026-08-24), menekan tombol itu
+  // juga MENUANGKAN baris keranjang hand-off ke daftar Isi Pesanan form
+  // (itemLines di bawah) — terlihat dan bisa diubah sebelum submit; `calcApply`
+  // hanya menandai NIAT untuk rantai diskonnya (setOrderOffer di
+  // applyCalcHandoffIfNeeded), sedangkan barisnya ditulis lewat jalur tunggal
+  // applyPickedItemsIfNeeded — dua-duanya SETELAH pesanan berhasil dibuat.
+  // Bedanya dari cabang: aksi penawarannya setOrderOffer (admin,
   // actions-orders.ts) — admin tidak pernah digerbang izin penawaran (0014/
   // 0015 melepas lewat fn_is_admin), jadi tidak ada degradasi izin di sini.
   const [calcHandoff, setCalcHandoff] = useState<CalcHandoff | null>(null);
   const [calcApply, setCalcApply] = useState(false);
   const [calcOutcomeMsg, setCalcOutcomeMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  /** Hasil copyCalcCartItemsToOrder — TERPISAH dari calcOutcomeMsg (rantai
+
+  /**
+   * Baris "Isi Pesanan" yang dipilih di form (fitur picker 2026-08-24) —
+   * SATU daftar untuk DUA sumber: picker produk DAN prefill hand-off
+   * Kalkulator ("Gunakan angka ini" menuangkan baris hand-off ke sini).
+   * Satu daftar = satu jalur tulis (applyPickedItemsIfNeeded) — penulisan
+   * baris yang dulu ada di applyCalcHandoffIfNeeded DIPINDAH ke sana,
+   * tidak pernah dobel. Cermin persis mekanisme form cabang.
+   */
+  const [itemLines, setItemLines] = useState<PickedLine[]>([]);
+  /** Hasil penulisan baris Isi Pesanan — TERPISAH dari calcOutcomeMsg (rantai
    * diskon): dua tulisan best-effort independen, satu bisa berhasil sementara
    * yang lain gagal, dan admin perlu tahu keduanya (LESSONS #10). */
-  const [calcItemsMsg, setCalcItemsMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [itemsMsg, setItemsMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     setCalcHandoff(readCalcHandoff("admin"));
@@ -264,10 +283,17 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     if (el) el.value = value;
   }
 
-  /** Admin menekan "Gunakan angka ini" pada banner hand-off Kalkulator. */
+  /**
+   * Admin menekan "Gunakan angka ini" pada banner hand-off Kalkulator.
+   * Baris keranjang hand-off DITUANGKAN ke daftar Isi Pesanan form (terlihat
+   * dan bisa diubah sebelum submit) — penulisannya nanti lewat jalur tunggal
+   * applyPickedItemsIfNeeded; `calcApply` tinggal menandai niat untuk rantai
+   * diskonnya saja (applyCalcHandoffIfNeeded).
+   */
   function handleUseCalcHandoff() {
     if (!calcHandoff) return;
     setFieldValue("partner_purchase_amount", formatIDR(calcHandoff.subtotal));
+    setItemLines((prev) => mergeLinesFromHandoff(prev, calcHandoff.lines));
     setCalcApply(true);
   }
   /** Admin menekan "Abaikan" — buang hand-off sepenuhnya, tidak ada yang dipakai. */
@@ -279,19 +305,18 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
 
   /**
    * Dipanggil SETELAH pesanan berhasil dibuat (kedua jalur sukses di
-   * onSubmitOrder) — cermin applyCalcHandoffIfNeeded milik form cabang. DUA
-   * tulisan best-effort independen: kegagalan di sini TIDAK PERNAH
-   * membatalkan pesanan yang sudah tersimpan, masing-masing dilaporkan lewat
-   * banner-nya sendiri (LESSONS #10 — jangan mencampur dua hasil independen
-   * jadi satu pesan kabur). Hand-off selalu dihapus sesudahnya (sekali pakai)
-   * terlepas dari hasil keduanya.
-   *
-   * `orderClientRequestId` = rid dasar form (SEBELUM requestIdRef di-null-kan)
-   * — kunci idempotency deterministik per baris di copyCalcCartItemsToOrder
-   * (`{rid}:calc-item:{product_id}`, tidak bentrok dengan `:item:{product_id}`
-   * milik salinan Package dari createOrderForBranch).
+   * onSubmitOrder) — cermin applyCalcHandoffIfNeeded milik form cabang.
+   * Sejak fitur picker Isi Pesanan (2026-08-24) fungsi ini HANYA menerapkan
+   * rantai diskon hand-off — penulisan baris keranjangnya pindah ke
+   * applyPickedItemsIfNeeded (baris hand-off dituangkan ke daftar Isi
+   * Pesanan form saat "Gunakan angka ini" ditekan: satu daftar, satu jalur
+   * tulis, tidak pernah dobel). Penerapan setOrderOffer-nya sendiri TIDAK
+   * berubah sedikit pun (admin tidak pernah digerbang izin penawaran —
+   * 0014/0015 melepas lewat fn_is_admin). Best-effort: kegagalan di sini
+   * TIDAK PERNAH membatalkan pesanan yang sudah tersimpan (LESSONS #10).
+   * Hand-off selalu dihapus sesudahnya (sekali pakai) terlepas dari hasilnya.
    */
-  async function applyCalcHandoffIfNeeded(orderId: string, orderClientRequestId: string) {
+  async function applyCalcHandoffIfNeeded(orderId: string) {
     if (!calcApply || !calcHandoff) return;
     const offerOut = await submitSafely({
       kind: "update",
@@ -313,51 +338,92 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
       text: offerApplied ? m.admin.calcAdminHandoffAppliedOk : m.admin.calcAdminHandoffAppliedFailed,
     });
 
-    if (calcHandoff.lines.length > 0) {
-      const itemsOut = await submitSafely({
-        kind: "update",
-        messages: m,
-        run: () =>
-          copyCalcCartItemsToOrder(
-            orderId,
-            orderClientRequestId,
-            calcHandoff.lines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty }))
-          ),
-      });
-      if (itemsOut.status === "ok") {
-        const r = itemsOut.result;
-        if (r.created === 0) {
-          setCalcItemsMsg({ ok: false, text: m.admin.calcAdminItemsAppliedFailed });
-        } else if (r.created < r.total) {
-          setCalcItemsMsg({
-            ok: false,
-            text: m.admin.calcAdminItemsAppliedPartial
-              .replace("{n}", String(r.created))
-              .replace("{total}", String(r.total)),
-          });
-        } else {
-          const base = m.admin.calcAdminItemsAppliedOk.replace("{n}", String(r.created));
-          // priceGuardDegraded seharusnya mustahil untuk sesi admin
-          // (fn_guard_order_item_price_cols return new lewat fn_is_admin, 0014)
-          // — tetap ditangani jujur kalau entah bagaimana terjadi, jangan
-          // mengklaim harga tersimpan tanpa bukti (LESSONS #7).
-          setCalcItemsMsg({
-            ok: true,
-            text: r.priceGuardDegraded ? `${base} ${m.admin.calcAdminItemsAppliedPriceNote}` : base,
-          });
-        }
-      } else {
-        // Respons hilang / offline — bukan bukti gagal, tapi tidak boleh
-        // diklaim sukses tanpa konfirmasi server (LESSONS #2). Pesan jujur,
-        // admin diarahkan mengecek Isi Pesanan sendiri.
-        setCalcItemsMsg({ ok: false, text: m.admin.calcAdminItemsAppliedFailed });
-      }
-    }
-
     clearCalcHandoff("admin");
     setCalcHandoff(null);
     setCalcApply(false);
   }
+
+  /**
+   * Menulis baris "Isi Pesanan" form (picker + prefill hand-off) SETELAH
+   * pesanan berhasil dibuat — lewat copyCalcCartItemsToOrder (impor lintas
+   * area yang sudah terbukti aman, lihat catatan pada import di atas;
+   * sufiks per barisnya tetap `{rid}:calc-item:{productId}` — karena hanya
+   * ada SATU jalur tulis, satu ruang nama sufiks ini cukup dan tidak pernah
+   * bentrok dengan `:item:{productId}` milik salinan Package dari
+   * createOrderForBranch). Best-effort independen dari rantai diskon:
+   * kegagalan TIDAK membatalkan pesanan, dilaporkan lewat banner-nya
+   * sendiri (LESSONS #10).
+   *
+   * `orderClientRequestId` = rid dasar form (SEBELUM requestIdRef
+   * di-null-kan) — kunci idempotency deterministik per baris (LESSONS
+   * #3/#21): retry tidak pernah menggandakan baris.
+   */
+  async function applyPickedItemsIfNeeded(orderId: string, orderClientRequestId: string) {
+    if (itemLines.length === 0) return;
+    const itemsOut = await submitSafely({
+      kind: "update",
+      messages: m,
+      run: () =>
+        copyCalcCartItemsToOrder(
+          orderId,
+          orderClientRequestId,
+          itemLines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty }))
+        ),
+    });
+    if (itemsOut.status === "ok") {
+      const r = itemsOut.result;
+      if (r.created === 0) {
+        setItemsMsg({ ok: false, text: m.admin.formItemsAppliedFailed });
+      } else if (r.created < r.total) {
+        setItemsMsg({
+          ok: false,
+          text: m.admin.formItemsAppliedPartial
+            .replace("{n}", String(r.created))
+            .replace("{total}", String(r.total)),
+        });
+      } else {
+        const base = m.admin.formItemsAppliedOk.replace("{n}", String(r.created));
+        // priceGuardDegraded seharusnya mustahil untuk sesi admin
+        // (fn_guard_order_item_price_cols return new lewat fn_is_admin, 0014)
+        // — tetap ditangani jujur kalau entah bagaimana terjadi, jangan
+        // mengklaim harga tersimpan tanpa bukti (LESSONS #7).
+        setItemsMsg({
+          ok: true,
+          text: r.priceGuardDegraded ? `${base} ${m.admin.calcAdminItemsAppliedPriceNote}` : base,
+        });
+      }
+    } else {
+      // Respons hilang / offline — bukan bukti gagal, tapi tidak boleh
+      // diklaim sukses tanpa konfirmasi server (LESSONS #2). Pesan jujur,
+      // admin diarahkan mengecek Isi Pesanan sendiri.
+      setItemsMsg({ ok: false, text: m.admin.formItemsAppliedFailed });
+    }
+  }
+
+  /** Pemuatan malas daftar produk picker — status dipetakan ke kalimat admin di sini. */
+  const loadPickerProducts = useCallback(async (): Promise<PickerLoadResult> => {
+    try {
+      const res = await getPickerProductsAdmin();
+      if (res.status === "ok") {
+        return {
+          ok: true,
+          capped: res.capped,
+          products: res.products.map((p) => ({
+            id: p.id,
+            name: p.name,
+            code: p.code,
+            category: p.category,
+            photoUrl: p.photo_url,
+            stockStatus: p.stock_status,
+          })),
+        };
+      }
+      if (res.status === "module_inactive") return { ok: false, message: m.admin.catalogMigrationMsg };
+      return { ok: false, message: m.common.errorLoad };
+    } catch {
+      return { ok: false, message: m.common.errorLoad };
+    }
+  }, [m]);
 
   /** Prefill alamat kirim dari alamat pelanggan — hanya kalau masih kosong (LESSONS #1). */
   function prefillShippingAddress(c: FoundCustomer) {
@@ -399,7 +465,8 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     setPartialMsg(null);
     setInvoiceMsg(null);
     setCalcOutcomeMsg(null);
-    setCalcItemsMsg(null);
+    setItemsMsg(null);
+    setItemLines([]);
     // Hand-off (kalau ada) sudah dikonsumsi (dipakai atau diabaikan) sebelum
     // sampai di sini — pesanan berikutnya di sesi form yang sama TIDAK boleh
     // diam-diam memakai angka kalkulator yang sudah dipakai untuk pesanan lain.
@@ -473,7 +540,8 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
       requestIdRef.current = null;
       if (summary.status === "found") {
         await withInvoice(out.id);
-        await applyCalcHandoffIfNeeded(out.id, rid);
+        await applyCalcHandoffIfNeeded(out.id);
+        await applyPickedItemsIfNeeded(out.id, rid);
         setOrderResult({ ...summary.order, customerId: foundCustomer?.id ?? "" });
         setPhase("order_success");
       } else {
@@ -508,7 +576,8 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     }
     requestIdRef.current = null;
     await withInvoice(res.data.id);
-    await applyCalcHandoffIfNeeded(res.data.id, rid);
+    await applyCalcHandoffIfNeeded(res.data.id);
+    await applyPickedItemsIfNeeded(res.data.id, rid);
     setOrderResult(res.data);
     setPhase("order_success");
   }
@@ -522,8 +591,8 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
         {calcOutcomeMsg && (
           <div className={`banner ${calcOutcomeMsg.ok ? "ok" : "warn"}`}>{calcOutcomeMsg.text}</div>
         )}
-        {calcItemsMsg && (
-          <div className={`banner ${calcItemsMsg.ok ? "ok" : "warn"}`}>{calcItemsMsg.text}</div>
+        {itemsMsg && (
+          <div className={`banner ${itemsMsg.ok ? "ok" : "warn"}`}>{itemsMsg.text}</div>
         )}
         <dl className="kv">
           <dt>{m.common.orderNumber}</dt>
@@ -761,6 +830,14 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
               {!hasPackages && errs.package_name && <div className="err-text">{errs.package_name}</div>}
             </div>
           )}
+
+          {/* ── Isi Pesanan (picker produk, 2026-08-24) — baris ditulis SETELAH
+                pesanan berhasil dibuat (applyPickedItemsIfNeeded); komposabel
+                dengan Package di atas (sufiks idempotency berbeda). ── */}
+          <h4 style={{ fontSize: "var(--fs-sec)", fontWeight: 600, margin: "0 0 7px" }}>
+            {m.admin.orderItemsCardTitle}
+          </h4>
+          <OrderItemsSection lines={itemLines} onLinesChange={setItemLines} loadProducts={loadPickerProducts} />
 
           {staffState === "loading" && <div className="hint">{m.common.loading}</div>}
           {staffState === "error" && (
