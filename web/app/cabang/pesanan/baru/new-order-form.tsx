@@ -20,13 +20,13 @@ import {
   createCustomerAndOrder,
   createCustomerOnly,
   getOrderSummary,
-  getPickerProductsBranch,
   lookupCustomerRequestId,
   lookupOrderRequestId,
   searchCustomerByPhone,
   setOrderOfferBranch,
   type OrderCreated,
 } from "../actions";
+import { getCatalogPageBranch } from "@/app/cabang/catalog-actions";
 import OrderItemsSection, {
   mergeLinesFromHandoff,
   type PickedLine,
@@ -308,31 +308,41 @@ export default function NewOrderForm({
     }
   }
 
-  /** Pemuatan malas daftar produk picker — status area dipetakan ke kalimat slice cabang di sini. */
-  const loadPickerProducts = useCallback(async (): Promise<PickerLoadResult> => {
-    try {
-      const res = await getPickerProductsBranch();
-      if (res.status === "ok") {
-        return {
-          ok: true,
-          capped: res.capped,
-          products: res.products.map((p) => ({
-            id: p.id,
-            name: p.name,
-            code: p.code,
-            category: p.category,
-            photoUrl: p.photo_url,
-            stockStatus: p.stock_status,
-          })),
-        };
+  /** Pemuatan malas + berhalaman daftar produk picker (kontrak lib/
+   *  catalog-query.ts) — status area dipetakan ke kalimat slice cabang di sini. */
+  const loadPickerProducts = useCallback(
+    async (input: {
+      q: string;
+      category: string | null;
+      offset: number;
+      withCategories?: boolean;
+    }): Promise<PickerLoadResult> => {
+      try {
+        const res = await getCatalogPageBranch(input);
+        if (res.status === "ok") {
+          return {
+            ok: true,
+            hasMore: res.hasMore,
+            categories: res.categories,
+            products: res.products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              code: p.code,
+              category: p.category,
+              photoUrl: p.photo_url,
+              stockStatus: p.stock_status,
+            })),
+          };
+        }
+        if (res.status === "not_opened") return { ok: false, message: m.cabang.catalogNotOpenedMsg };
+        if (res.status === "module_inactive") return { ok: false, message: m.cabang.errCatalogModuleInactive };
+        return { ok: false, message: m.cabang.errProductListLoadFailed };
+      } catch {
+        return { ok: false, message: m.cabang.errProductListLoadFailed };
       }
-      if (res.status === "not_opened") return { ok: false, message: m.cabang.catalogNotOpenedMsg };
-      if (res.status === "module_inactive") return { ok: false, message: m.cabang.errCatalogModuleInactive };
-      return { ok: false, message: m.cabang.errProductListLoadFailed };
-    } catch {
-      return { ok: false, message: m.cabang.errProductListLoadFailed };
-    }
-  }, [m]);
+    },
+    [m]
+  );
 
   /**
    * Prefill shipping_address dari alamat pelanggan (0014) — HANYA kalau

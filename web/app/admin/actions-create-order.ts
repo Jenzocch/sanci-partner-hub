@@ -67,7 +67,6 @@ import {
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
-import type { StockStatus } from "@/lib/catalog-shared";
 import {
   copyPackageItemsToOrder,
   verifyActiveStaffInBranch,
@@ -715,54 +714,11 @@ export async function createOrderForBranch(input: {
   return { data: { ...summary, customerId: customer.id, itemsCopyWarning } };
 }
 
-/* ------------------------------------------------------------------ *
- * Daftar produk untuk picker "Isi Pesanan" di form pesanan baru admin
- * (lib/order-item-picker.tsx, fitur 2026-08-24). Dimuat MALAS: dipanggil
- * client saat picker pertama kali dibuka — halaman form TIDAK mengambil
- * daftar produk di muka (idiom yang sama dengan getPartnerOrderOptions di
- * atas: data dinamis form diambil lewat Server Action sesuai kebutuhan).
- *
- * Sumber produk SENGAJA identik dengan /admin/kalkulator/page.tsx: TANPA
- * gerbang sanci_catalog_access (itu gerbang "katalog dibuka untuk partner
- * mana"; admin pemilik katalognya) — semua produk ACTIVE lewat RLS admin
- * sp_admin_all (0010), order by name, limit 200. Kegagalan dilaporkan
- * eksplisit dengan tombol coba lagi di picker (LESSONS #10), tidak pernah
- * disamarkan jadi "katalog kosong".
- * ------------------------------------------------------------------ */
-
-export type AdminPickerProductRow = {
-  id: string;
-  name: string;
-  code: string | null;
-  category: string | null;
-  photo_url: string | null;
-  stock_status: StockStatus;
-};
-
-export type AdminPickerProductsOutcome =
-  | { status: "ok"; products: AdminPickerProductRow[]; capped: boolean }
-  | { status: "module_inactive" }
-  | { status: "error" };
-
-export async function getPickerProductsAdmin(): Promise<AdminPickerProductsOutcome> {
-  const supabase = await createClient();
-  const admin = await requireAdmin(supabase);
-  if (admin.status !== "ok") return { status: "error" };
-
-  const { data: products, error } = await supabase
-    .from("sanci_products")
-    .select("id, name, code, category, photo_url, stock_status")
-    .eq("status", "ACTIVE")
-    .order("name")
-    .limit(200);
-  if (error) {
-    return isMissingTableError(error) ? { status: "module_inactive" } : { status: "error" };
-  }
-  const rows = (products ?? []) as AdminPickerProductRow[];
-  // .limit(200) bisa memotong diam-diam — client menampilkan
-  // catalogListCappedMsg saat mentok (audit 2026-08-22 #11).
-  return { status: "ok", products: rows, capped: rows.length === 200 };
-}
+/* getPickerProductsAdmin (pemuatan ≤200 sekali jalan untuk picker) DIHAPUS
+ * 2026-08-26 — digantikan getCatalogPageAdmin di app/admin/catalog-actions.ts
+ * (pencarian/kategori di database + halaman 60, kontrak lib/catalog-query.ts).
+ * Kebijakan sumbernya tidak berubah: produk ACTIVE, tanpa gerbang
+ * sanci_catalog_access, RLS sp_admin_all tetap penegaknya. */
 
 /* ------------------------------------------------------------------ *
  * Catat path invoice yang diunggah admin (cermin setOrderInvoicePath cabang;

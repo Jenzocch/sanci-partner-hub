@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
+import type { CatalogPageInput, CatalogPageOutcome } from "@/lib/catalog-query";
+import { useCatalogSearch, type CatalogFetchResult } from "@/lib/use-catalog-search";
 import { useCommonMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import DraftBanner from "@/lib/draft-banner";
@@ -49,6 +51,19 @@ export type KalkulatorProduct = {
 export type KalkulatorConvert = { cta: string; scopeNote: string; href: string };
 
 /**
+ * Pesan hasil fetch katalog per area — komponen ini hanya membaca slice
+ * `common`, sedangkan kalimat "katalog belum dibuka"/"modul belum aktif"/
+ * "gagal memuat" milik slice area pemasang, jadi dikirim sebagai prop string
+ * (pola yang sama dengan `convert`). `notOpened` hanya relevan di cabang
+ * (action admin tidak pernah mengembalikan status itu).
+ */
+export type KalkulatorFetchMessages = {
+  notOpened?: string;
+  moduleInactive: string;
+  loadFailed: string;
+};
+
+/**
  * Kalkulator Penawaran — dipasang di DUA route: /cabang/kalkulator (sejak
  * awal) dan /admin/kalkulator (2026-08-22). SATU komponen, bukan dua salinan
  * — lihat catatan panjang di masing-masing page.tsx untuk penyimpangan
@@ -60,11 +75,23 @@ export type KalkulatorConvert = { cta: string; scopeNote: string; href: string }
  * Cabang MAUPUN Admin), kecuali CTA konversi (prop, lihat KalkulatorConvert).
  */
 export default function KalkulatorClient({
-  products,
+  initialProducts,
+  initialHasMore,
+  initialCategories,
+  fetchPage,
+  fetchMessages,
   area,
   convert,
 }: {
-  products: KalkulatorProduct[];
+  /** Batch pertama (60) hasil render server — halaman langsung terisi tanpa
+   *  fetch client di paint pertama; batch berikut & pencarian lewat fetchPage. */
+  initialProducts: KalkulatorProduct[];
+  initialHasMore: boolean;
+  /** Daftar kategori LENGKAP (independen dari halaman yang sedang tampil). */
+  initialCategories: string[];
+  /** Server Action katalog milik area pemasang (kontrak lib/catalog-query.ts). */
+  fetchPage: (input: CatalogPageInput) => Promise<CatalogPageOutcome>;
+  fetchMessages: KalkulatorFetchMessages;
   /** Menentukan key draf localStorage (terpisah per area, lihat calculator-shared.ts). */
   area: CalcArea;
   convert: KalkulatorConvert | null;
@@ -73,8 +100,6 @@ export default function KalkulatorClient({
   const router = useRouter();
 
   const [tab, setTab] = useState<"produk" | "keranjang">("produk");
-  const [q, setQ] = useState("");
-  const [kategori, setKategori] = useState<string | null>(null);
 
   const [lines, setLines] = useState<CalcLine[]>([]);
   const [discountSlots, setDiscountSlots] = useState<string[]>([""]);
@@ -134,25 +159,59 @@ export default function KalkulatorClient({
     };
   }, [ready, area, lines, discountSlots, markup, cash]);
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((it) => {
-      if (it.category) set.add(it.category);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, m.dateLocale));
-  }, [products, m.dateLocale]);
+  // Pencarian + kategori dieksekusi SERVER (kontrak lib/catalog-query.ts) —
+  // memo `filtered`/`categories` lama diganti hook bersama. Outcome area
+  // dipetakan ke kalimat lewat prop fetchMessages di sini supaya komponen
+  // tetap bebas slice cabang/admin.
+  const fetchForHook = useCallback(
+    async (input: { q: string; category: string | null; offset: number; withCategories?: boolean }): Promise<
+      CatalogFetchResult<KalkulatorProduct>
+    > => {
+      try {
+        const res = await fetchPage(input);
+        if (res.status === "ok") {
+          return {
+            ok: true,
+            hasMore: res.hasMore,
+            categories: res.categories,
+            products: res.products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              code: p.code,
+              category: p.category,
+              photoUrl: p.photo_url,
+              stockStatus: p.stock_status,
+            })),
+          };
+        }
+        if (res.status === "not_opened") {
+          return { ok: false, message: fetchMessages.notOpened ?? fetchMessages.loadFailed };
+        }
+        if (res.status === "module_inactive") {
+          return { ok: false, message: fetchMessages.moduleInactive };
+        }
+        return { ok: false, message: fetchMessages.loadFailed };
+      } catch {
+        return { ok: false, message: fetchMessages.loadFailed };
+      }
+    },
+    [fetchPage, fetchMessages]
+  );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return products.filter((it) => {
-      if (kategori && it.category !== kategori) return false;
-      if (!needle) return true;
-      if (it.name.toLowerCase().includes(needle)) return true;
-      if (it.code && it.code.toLowerCase().includes(needle)) return true;
-      if (it.category && it.category.toLowerCase().includes(needle)) return true;
-      return false;
-    });
-  }, [products, q, kategori]);
+  const katalog = useCatalogSearch<KalkulatorProduct>({
+    fetchPage: fetchForHook,
+    initial: { products: initialProducts, hasMore: initialHasMore },
+    initialCategories,
+    fallbackErrorMessage: fetchMessages.loadFailed,
+  });
+  const { products, hasMore, searching, loadingMore, error: catalogError } = katalog;
+  const q = katalog.q;
+  const kategori = katalog.category;
+
+  const categories = useMemo(
+    () => [...katalog.categories].sort((a, b) => a.localeCompare(b, m.dateLocale)),
+    [katalog.categories, m.dateLocale]
+  );
 
   const cartQtyByProduct = useMemo(() => {
     const map = new Map<string, number>();
@@ -347,7 +406,7 @@ export default function KalkulatorClient({
               type="search"
               placeholder={m.produkSearchPlaceholder}
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => katalog.setQuery(e.target.value)}
             />
           </div>
 
@@ -356,7 +415,7 @@ export default function KalkulatorClient({
               <button
                 type="button"
                 className={`${styles.filterchip}${kategori === null ? ` ${styles.filterOn}` : ""}`}
-                onClick={() => setKategori(null)}
+                onClick={() => katalog.setCategoryFilter(null)}
               >
                 {m.filterAll}
               </button>
@@ -365,7 +424,7 @@ export default function KalkulatorClient({
                   key={c}
                   type="button"
                   className={`${styles.filterchip}${kategori === c ? ` ${styles.filterOn}` : ""}`}
-                  onClick={() => setKategori((cur) => (cur === c ? null : c))}
+                  onClick={() => katalog.setCategoryFilter(kategori === c ? null : c)}
                 >
                   {c}
                 </button>
@@ -373,13 +432,20 @@ export default function KalkulatorClient({
             </div>
           )}
 
+          {/* Pencarian gagal (jaringan lemah) TIDAK mengosongkan daftar —
+              hasil sebelumnya tetap tampil di bawah banner ini. */}
+          {catalogError && <div className="banner bad">{catalogError}</div>}
+          {searching && <div className="hint">{m.loading}</div>}
+
           {products.length === 0 ? (
-            <div className="card emptybox">{m.noProductsYet}</div>
-          ) : filtered.length === 0 ? (
-            <div className="card emptybox">{m.noProductsMatchSearch}</div>
+            !searching && (
+              <div className="card emptybox">
+                {katalog.isFiltered ? m.noProductsMatchSearch : m.noProductsYet}
+              </div>
+            )
           ) : (
             <div className={styles.grid}>
-              {filtered.map((p) => {
+              {products.map((p) => {
                 const inCartQty = cartQtyByProduct.get(p.id) ?? 0;
                 const isOut = p.stockStatus === "OUT_OF_STOCK";
                 // Kartu = <div>, bukan <button>: begitu produk masuk keranjang,
@@ -453,6 +519,14 @@ export default function KalkulatorClient({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {hasMore && products.length > 0 && (
+            <div className="btnrow" style={{ justifyContent: "center", marginTop: 14 }}>
+              <button type="button" className="btn" onClick={katalog.loadMore} disabled={loadingMore || searching}>
+                {loadingMore ? m.loading : m.loadMoreCta}
+              </button>
             </div>
           )}
         </>

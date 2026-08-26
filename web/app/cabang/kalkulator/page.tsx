@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
 import type { StockStatus } from "@/lib/catalog-shared";
+import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/lib/catalog-query";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 import KalkulatorClient, { type KalkulatorProduct } from "@/lib/kalkulator-client";
+import { getCatalogPageBranch } from "@/app/cabang/catalog-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -125,11 +127,21 @@ export default async function KalkulatorPage() {
 
   // RLS pada sanci_products sudah membatasi ke produk ACTIVE milik katalog
   // yang dibuka untuk partner ini (zero-trust frontend, sama seperti /produk).
-  const { data: products, error: productsError } = await supabase
-    .from("sanci_products")
-    .select("id, name, code, category, photo_url, stock_status")
-    .order("name")
-    .limit(200);
+  // BATCH PERTAMA (60) dirender server supaya halaman langsung terisi; batch
+  // berikut + pencarian/kategori berjalan di server lewat getCatalogPageBranch
+  // (kontrak lib/catalog-query.ts — menggantikan .limit(200) lama). Daftar
+  // kategori diambil SEKALI dan lengkap (independen dari halaman yang tampil);
+  // kalau query kategorinya gagal, chip tidak tampil (degradasi kosmetik —
+  // lihat catatan fetchCatalogCategories), daftar produk tetap jalan.
+  const [{ data: products, error: productsError }, categories] = await Promise.all([
+    supabase
+      .from("sanci_products")
+      .select("id, name, code, category, photo_url, stock_status")
+      .order("name")
+      .order("id")
+      .range(0, CATALOG_PAGE_SIZE),
+    fetchCatalogCategories(supabase),
+  ]);
 
   if (productsError) {
     if (isMissingTableError(productsError)) {
@@ -155,7 +167,8 @@ export default async function KalkulatorPage() {
     );
   }
 
-  const items: KalkulatorProduct[] = ((products ?? []) as ProductQueryRow[]).map((p) => ({
+  const page = finishCatalogPage((products ?? []) as ProductQueryRow[]);
+  const items: KalkulatorProduct[] = page.products.map((p) => ({
     id: p.id,
     name: p.name,
     code: p.code,
@@ -168,14 +181,21 @@ export default async function KalkulatorPage() {
     <main className="pwrap">
       <BackRow m={m} />
       <h2 className="mtitle">{m.common.calcPageTitle}</h2>
-      {/* .limit(200) di atas bisa memotong diam-diam (audit 2026-08-22 #11). */}
-      {items.length === 200 && <div className="banner warn">{m.common.catalogListCappedMsg}</div>}
       <div className="banner info">{m.cabang.calcIntroNote}</div>
       {/* Teks CTA/scope note milik slice cabang (menyebut alur pesanan
           cabang); href menunjuk form yang membaca hand-off area "cabang"
-          (lihat KalkulatorConvert di lib/kalkulator-client.tsx). */}
+          (lihat KalkulatorConvert di lib/kalkulator-client.tsx). Pesan hasil
+          fetch juga milik slice cabang — dikirim sebagai prop string. */}
       <KalkulatorClient
-        products={items}
+        initialProducts={items}
+        initialHasMore={page.hasMore}
+        initialCategories={categories ?? []}
+        fetchPage={getCatalogPageBranch}
+        fetchMessages={{
+          notOpened: m.cabang.catalogNotOpenedMsg,
+          moduleInactive: m.cabang.errCatalogModuleInactive,
+          loadFailed: m.cabang.errProductListLoadFailed,
+        }}
         area="cabang"
         convert={{
           cta: m.cabang.calcConvertCta,

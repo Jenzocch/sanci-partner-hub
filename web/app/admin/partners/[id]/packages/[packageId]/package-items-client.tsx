@@ -1,17 +1,19 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
+import { useCatalogSearch, type CatalogFetchResult } from "@/lib/use-catalog-search";
 import {
   addPackageItem,
   updatePackageItemQuantity,
   removePackageItem,
 } from "../../../../actions-package-items";
 import { lookupByRequestId } from "../../../../actions-lookup";
+import { getCatalogPageAdmin } from "../../../../catalog-actions";
 
 export type PackageItem = {
   id: string;
@@ -71,11 +73,13 @@ function Thumb({ url, name }: { url: string | null; name: string }) {
 export default function PackageItemsClient({
   packageId,
   items,
-  catalog,
+  initialCatalog,
 }: {
   packageId: string;
   items: PackageItem[];
-  catalog: CatalogProduct[];
+  /** Batch pertama katalog dari server page; null = query awalnya gagal —
+   *  client memuat sendiri saat mount (jalur retry, LESSONS #10). */
+  initialCatalog: { products: CatalogProduct[]; hasMore: boolean } | null;
 }) {
   const router = useRouter();
   const m = useAdminMessages();
@@ -84,7 +88,6 @@ export default function PackageItemsClient({
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
   // Pemilih produk
-  const [q, setQ] = useState("");
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [qty, setQty] = useState("1");
   const requestId = useRef<string | null>(null);
@@ -92,22 +95,74 @@ export default function PackageItemsClient({
   // Jumlah per baris yang sedang diketik (belum disimpan).
   const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
 
+  // Pencarian kini dieksekusi DATABASE dengan batch 60 + "Muat Lebih Banyak"
+  // (kontrak lib/catalog-query.ts, 2026-08-26 — menggantikan pola "muat utuh
+  // lalu saring di client"). matchCategory:false mempertahankan semantik
+  // pencarian lama layar ini: nama/kode saja, tanpa kategori (placeholder-nya
+  // pun berbunyi begitu). Layar ini tidak punya baris chip kategori — hanya
+  // pemuatan datanya yang berubah, UX-nya tetap.
+  const fetchForHook = useCallback(
+    async (input: { q: string; category: string | null; offset: number }): Promise<
+      CatalogFetchResult<CatalogProduct>
+    > => {
+      try {
+        const res = await getCatalogPageAdmin({ ...input, matchCategory: false });
+        if (res.status === "ok") {
+          return {
+            ok: true,
+            hasMore: res.hasMore,
+            products: res.products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              code: p.code,
+              photoUrl: p.photo_url,
+              stockStatus: p.stock_status,
+            })),
+          };
+        }
+        if (res.status === "module_inactive") return { ok: false, message: m.admin.catalogMigrationMsg };
+        return { ok: false, message: m.common.errorLoad };
+      } catch {
+        return { ok: false, message: m.common.errorLoad };
+      }
+    },
+    [m]
+  );
+
+  const katalog = useCatalogSearch<CatalogProduct>({
+    fetchPage: fetchForHook,
+    initial: initialCatalog,
+    fallbackErrorMessage: m.common.errorLoad,
+  });
+  const { ensureLoaded } = katalog;
+
+  // Batch pertama server gagal → muat lewat action begitu komponen hidup
+  // (idempoten; jalur happy tidak pernah fetch di paint pertama).
+  useEffect(() => {
+    if (initialCatalog === null) ensureLoaded();
+  }, [initialCatalog, ensureLoaded]);
+
   const alreadyIn = useMemo(() => new Set(items.map((it) => it.productId)), [items]);
 
   // Produk yang SUDAH ada di package dikeluarkan dari hasil pencarian: lebih
   // ramah daripada membiarkan admin menambahkannya lalu ditolak server dengan
   // "sudah ada di package" (server tetap menolak — ini hanya lapisan UI).
-  const pickable = useMemo(() => catalog.filter((p) => !alreadyIn.has(p.id)), [catalog, alreadyIn]);
+  const pickable = useMemo(
+    () => katalog.products.filter((p) => !alreadyIn.has(p.id)),
+    [katalog.products, alreadyIn]
+  );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return pickable;
-    return pickable.filter(
-      (p) =>
-        p.name.toLowerCase().includes(needle) ||
-        (p.code ? p.code.toLowerCase().includes(needle) : false)
-    );
-  }, [pickable, q]);
+  /** Keadaan pemilih, dari data yang SUDAH termuat + flag hasMore server. */
+  const catalogLoading = !katalog.loadedOnce && katalog.searching;
+  const catalogInitialError = !katalog.loadedOnce && !katalog.searching ? katalog.error : null;
+  const catalogEmpty =
+    katalog.loadedOnce && katalog.products.length === 0 && !katalog.isFiltered && !katalog.hasMore;
+  const allAdded =
+    katalog.loadedOnce &&
+    !catalogEmpty &&
+    pickable.length === 0 &&
+    !katalog.isFiltered &&
+    !katalog.hasMore;
 
   function resetPesan() {
     setNetMsg(null);
@@ -132,7 +187,7 @@ export default function PackageItemsClient({
       requestId.current = null;
       setPickedId(null);
       setQty("1");
-      setQ("");
+      katalog.setQuery("");
       router.refresh();
       return;
     }
@@ -153,7 +208,7 @@ export default function PackageItemsClient({
     release();
     setPickedId(null);
     setQty("1");
-    setQ("");
+    katalog.setQuery("");
     router.refresh();
   }
 
@@ -297,9 +352,20 @@ export default function PackageItemsClient({
       <div className="card" style={{ marginTop: 18 }}>
         <h2>{m.admin.packageItemsAdd}</h2>
 
-        {catalog.length === 0 ? (
+        {catalogLoading ? (
+          <div className="hint">{m.common.loading}</div>
+        ) : catalogInitialError ? (
+          <div className="banner bad">
+            {catalogInitialError}
+            <div className="btnrow-inline">
+              <button type="button" className="btn sm" onClick={katalog.reload}>
+                {m.common.retry}
+              </button>
+            </div>
+          </div>
+        ) : catalogEmpty ? (
           <div className="small muted">{m.admin.packageItemCatalogEmpty}</div>
-        ) : pickable.length === 0 ? (
+        ) : allAdded ? (
           <div className="small muted">{m.admin.packageItemsAllAdded}</div>
         ) : (
           <>
@@ -308,14 +374,19 @@ export default function PackageItemsClient({
               <input
                 id="ppi_q"
                 type="search"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
+                value={katalog.q}
+                onChange={(e) => katalog.setQuery(e.target.value)}
                 placeholder={m.admin.packageItemsSearchPlaceholder}
               />
             </div>
 
-            {filtered.length === 0 ? (
-              <div className="small muted">{m.admin.packageItemsNoMatch}</div>
+            {/* Pencarian gagal ≠ hasil kosong — daftar yang sudah termuat
+                tetap tampil di bawah banner (jaringan lemah, LESSONS #10). */}
+            {katalog.error && <div className="banner bad">{katalog.error}</div>}
+            {katalog.searching && <div className="hint">{m.common.loading}</div>}
+
+            {pickable.length === 0 && !katalog.hasMore ? (
+              !katalog.searching && <div className="small muted">{m.admin.packageItemsNoMatch}</div>
             ) : (
               <div
                 style={{
@@ -325,7 +396,7 @@ export default function PackageItemsClient({
                   borderRadius: 8,
                 }}
               >
-                {filtered.map((p) => {
+                {pickable.map((p) => {
                   const dipilih = pickedId === p.id;
                   return (
                     <button
@@ -357,6 +428,18 @@ export default function PackageItemsClient({
                     </button>
                   );
                 })}
+                {katalog.hasMore && (
+                  <div className="btnrow" style={{ justifyContent: "center", margin: "10px 0" }}>
+                    <button
+                      type="button"
+                      className="btn sm"
+                      onClick={katalog.loadMore}
+                      disabled={katalog.loadingMore || katalog.searching}
+                    >
+                      {katalog.loadingMore ? m.common.loading : m.common.loadMoreCta}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
+import { useCatalogSearch, type CatalogFetchResult } from "@/lib/use-catalog-search";
 import { useCabangMessages } from "@/lib/i18n/provider";
+import { getCatalogPageBranch } from "@/app/cabang/catalog-actions";
 import styles from "./produk.module.css";
 
 export type ProdukItem = {
@@ -15,33 +17,73 @@ export type ProdukItem = {
   stockStatus: StockStatus;
 };
 
-export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
+/**
+ * Daftar Produk cabang — sejak 2026-08-26 pencarian & filter kategori
+ * dieksekusi DATABASE dan daftar tumbuh per 60 lewat "Muat Lebih Banyak"
+ * (kontrak lib/catalog-query.ts; menggantikan pola lama "muat ≤200 lalu
+ * saring di client"). Batch pertama tetap dirender server (props initial*);
+ * fetch lanjutan lewat getCatalogPageBranch — gerbang katalog + RLS yang
+ * sama dengan halaman ini sendiri. Outcome fetch dipetakan ke kalimat slice
+ * cabang di sini (error ≠ belum dibuka ≠ kosong, LESSONS #10); kegagalan
+ * pencarian membiarkan hasil sebelumnya tetap tampil (lihat hook).
+ */
+export default function ProdukListClient({
+  initialItems,
+  initialHasMore,
+  categories,
+}: {
+  initialItems: ProdukItem[];
+  initialHasMore: boolean;
+  /** Daftar kategori LENGKAP dari server page (independen dari halaman tampil). */
+  categories: string[];
+}) {
   const m = useCabangMessages();
-  const [q, setQ] = useState("");
-  const [kategori, setKategori] = useState<string | null>(null);
   const [selected, setSelected] = useState<ProdukItem | null>(null);
 
-  // Daftar kategori diambil dari data yang sudah termuat (limit 200), bukan
-  // query terpisah — kategori hanyalah nilai teks bebas pada sanci_products.
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    items.forEach((it) => {
-      if (it.category) set.add(it.category);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, m.common.dateLocale));
-  }, [items, m.common.dateLocale]);
+  const fetchForHook = useCallback(
+    async (input: { q: string; category: string | null; offset: number; withCategories?: boolean }): Promise<
+      CatalogFetchResult<ProdukItem>
+    > => {
+      try {
+        const res = await getCatalogPageBranch(input);
+        if (res.status === "ok") {
+          return {
+            ok: true,
+            hasMore: res.hasMore,
+            categories: res.categories,
+            products: res.products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              code: p.code,
+              category: p.category,
+              description: p.description ?? null,
+              photoUrl: p.photo_url,
+              stockStatus: p.stock_status,
+            })),
+          };
+        }
+        if (res.status === "not_opened") return { ok: false, message: m.cabang.catalogNotOpenedMsg };
+        if (res.status === "module_inactive") return { ok: false, message: m.cabang.errCatalogModuleInactive };
+        return { ok: false, message: m.cabang.errProductListLoadFailed };
+      } catch {
+        return { ok: false, message: m.cabang.errProductListLoadFailed };
+      }
+    },
+    [m]
+  );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return items.filter((it) => {
-      if (kategori && it.category !== kategori) return false;
-      if (!needle) return true;
-      if (it.name.toLowerCase().includes(needle)) return true;
-      if (it.code && it.code.toLowerCase().includes(needle)) return true;
-      if (it.category && it.category.toLowerCase().includes(needle)) return true;
-      return false;
-    });
-  }, [items, q, kategori]);
+  const katalog = useCatalogSearch<ProdukItem>({
+    fetchPage: fetchForHook,
+    initial: { products: initialItems, hasMore: initialHasMore },
+    initialCategories: categories,
+    fallbackErrorMessage: m.cabang.errProductListLoadFailed,
+  });
+  const { products, hasMore, searching, loadingMore, error } = katalog;
+
+  const sortedCategories = useMemo(
+    () => [...katalog.categories].sort((a, b) => a.localeCompare(b, m.common.dateLocale)),
+    [katalog.categories, m.common.dateLocale]
+  );
 
   return (
     <>
@@ -50,26 +92,26 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
           className="search-input"
           type="search"
           placeholder={m.common.produkSearchPlaceholder}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          value={katalog.q}
+          onChange={(e) => katalog.setQuery(e.target.value)}
         />
       </div>
 
-      {categories.length > 0 && (
+      {sortedCategories.length > 0 && (
         <div className={styles.filters}>
           <button
             type="button"
-            className={`${styles.filterchip}${kategori === null ? ` ${styles.filterOn}` : ""}`}
-            onClick={() => setKategori(null)}
+            className={`${styles.filterchip}${katalog.category === null ? ` ${styles.filterOn}` : ""}`}
+            onClick={() => katalog.setCategoryFilter(null)}
           >
             {m.common.filterAll}
           </button>
-          {categories.map((c) => (
+          {sortedCategories.map((c) => (
             <button
               key={c}
               type="button"
-              className={`${styles.filterchip}${kategori === c ? ` ${styles.filterOn}` : ""}`}
-              onClick={() => setKategori((cur) => (cur === c ? null : c))}
+              className={`${styles.filterchip}${katalog.category === c ? ` ${styles.filterOn}` : ""}`}
+              onClick={() => katalog.setCategoryFilter(katalog.category === c ? null : c)}
             >
               {c}
             </button>
@@ -77,13 +119,20 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
         </div>
       )}
 
-      {items.length === 0 ? (
-        <div className="card emptybox">{m.common.noProductsYet}</div>
-      ) : filtered.length === 0 ? (
-        <div className="card emptybox">{m.common.noProductsMatchSearch}</div>
+      {/* Pencarian gagal ≠ daftar kosong: hasil sebelumnya tetap tampil di
+          bawah banner ini (jaringan lemah tidak boleh mengosongkan layar). */}
+      {error && <div className="banner bad">{error}</div>}
+      {searching && <div className="hint">{m.common.loading}</div>}
+
+      {products.length === 0 ? (
+        !searching && (
+          <div className="card emptybox">
+            {katalog.isFiltered ? m.common.noProductsMatchSearch : m.common.noProductsYet}
+          </div>
+        )
       ) : (
         <div className={styles.grid}>
-          {filtered.map((it) => {
+          {products.map((it) => {
             const isOut = it.stockStatus === "OUT_OF_STOCK";
             return (
               <button
@@ -109,6 +158,19 @@ export default function ProdukListClient({ items }: { items: ProdukItem[] }) {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {hasMore && products.length > 0 && (
+        <div className="btnrow" style={{ justifyContent: "center", marginTop: 14 }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={katalog.loadMore}
+            disabled={loadingMore || searching}
+          >
+            {loadingMore ? m.common.loading : m.common.loadMoreCta}
+          </button>
         </div>
       )}
 

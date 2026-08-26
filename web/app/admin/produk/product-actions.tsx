@@ -11,7 +11,15 @@ import { useAdminMessages } from "@/lib/i18n/provider";
 import { setProductStatus, setProductStockStatus, updateProduct } from "../actions-products";
 import { unggahFotoProduk } from "./upload-product-photo";
 
-export default function ProductActions({ product }: { product: SanciProductRow }) {
+/**
+ * Baris yang benar-benar dipakai kartu + modal Ubah — created_at/updated_at
+ * tidak lagi diambil halaman (audit 2026-08-22: tidak pernah dirender),
+ * jadi tipe prop di sini melepasnya juga (Omit, bukan tipe baru, supaya
+ * kolom lain tetap terkunci ke kontrak lib/catalog-shared.ts).
+ */
+type ProductActionRow = Omit<SanciProductRow, "created_at" | "updated_at">;
+
+export default function ProductActions({ product }: { product: ProductActionRow }) {
   const router = useRouter();
   const m = useAdminMessages();
   const [modal, setModal] = useState<null | "edit">(null);

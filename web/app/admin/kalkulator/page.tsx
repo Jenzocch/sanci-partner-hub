@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import type { StockStatus } from "@/lib/catalog-shared";
+import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/lib/catalog-query";
 import { getAdminMessages } from "@/lib/i18n";
 import KalkulatorClient, { type KalkulatorProduct } from "@/lib/kalkulator-client";
+import { getCatalogPageAdmin } from "@/app/admin/catalog-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -52,15 +54,23 @@ export default async function AdminKalkulatorPage() {
   const m = await getAdminMessages();
   const supabase = await createClient();
 
-  // Sama dengan query /cabang/kalkulator (order by name, limit 200) supaya
-  // kedua kalkulator menampilkan katalog dengan cara yang sama — bedanya
-  // hanya filter status eksplisit (lihat catatan #1 di atas).
-  const { data: products, error } = await supabase
-    .from("sanci_products")
-    .select("id, name, code, category, photo_url, stock_status")
-    .eq("status", "ACTIVE")
-    .order("name")
-    .limit(200);
+  // Sama dengan query /cabang/kalkulator (batch pertama 60, order name+id)
+  // supaya kedua kalkulator menampilkan katalog dengan cara yang sama —
+  // bedanya hanya filter status eksplisit (lihat catatan #1 di atas). Batch
+  // berikut + pencarian/kategori dieksekusi server lewat getCatalogPageAdmin
+  // (kontrak lib/catalog-query.ts — menggantikan .limit(200) lama). Daftar
+  // kategori lengkap diambil sekali; kegagalannya = chip tidak tampil
+  // (degradasi kosmetik, lihat fetchCatalogCategories).
+  const [{ data: products, error }, categories] = await Promise.all([
+    supabase
+      .from("sanci_products")
+      .select("id, name, code, category, photo_url, stock_status")
+      .eq("status", "ACTIVE")
+      .order("name")
+      .order("id")
+      .range(0, CATALOG_PAGE_SIZE),
+    fetchCatalogCategories(supabase, { activeOnly: true }),
+  ]);
 
   if (isMissingTableErr(error)) {
     return (
@@ -85,7 +95,8 @@ export default async function AdminKalkulatorPage() {
     );
   }
 
-  const items: KalkulatorProduct[] = ((products ?? []) as ProductQueryRow[]).map((p) => ({
+  const page = finishCatalogPage((products ?? []) as ProductQueryRow[]);
+  const items: KalkulatorProduct[] = page.products.map((p) => ({
     id: p.id,
     name: p.name,
     code: p.code,
@@ -99,11 +110,16 @@ export default async function AdminKalkulatorPage() {
       <div className="worktop">
         <h1>{m.common.calcPageTitle}</h1>
       </div>
-      {/* .limit(200) di atas bisa memotong diam-diam (audit 2026-08-22 #11). */}
-      {items.length === 200 && <div className="banner warn">{m.common.catalogListCappedMsg}</div>}
       <div className="banner info">{m.admin.calcAdminIntroNote}</div>
       <KalkulatorClient
-        products={items}
+        initialProducts={items}
+        initialHasMore={page.hasMore}
+        initialCategories={categories ?? []}
+        fetchPage={getCatalogPageAdmin}
+        fetchMessages={{
+          moduleInactive: m.admin.catalogMigrationMsg,
+          loadFailed: m.common.errorLoad,
+        }}
         area="admin"
         convert={{
           cta: m.admin.calcAdminConvertCta,

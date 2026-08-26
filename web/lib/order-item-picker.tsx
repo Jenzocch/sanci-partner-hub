@@ -15,9 +15,12 @@
  * Keputusan desain yang mengikat komponen ini:
  *   - Daftar produk dimuat MALAS: halaman form TIDAK boleh mengambil daftar
  *     produk di muka (form-nya harus tetap ringan) — fetch pertama terjadi
- *     saat picker dibuka, lewat Server Action per area (`loadProducts` prop),
- *     lalu di-cache di state selama halaman hidup. `.limit(200)` + peringatan
- *     `catalogListCappedMsg` mengikuti pola kedua kalkulator (audit #11).
+ *     saat picker dibuka, lewat Server Action per area (`loadProducts` prop).
+ *     Sejak 2026-08-26 pencarian/kategori dieksekusi DATABASE dan daftar
+ *     tumbuh per 60 lewat "Muat Lebih Banyak" (kontrak lib/catalog-query.ts,
+ *     hook lib/use-catalog-search.ts) — menggantikan pola `.limit(200)` +
+ *     peringatan catalogListCappedMsg. Daftar kategori chip diminta pada
+ *     fetch pertama (withCategories) supaya lengkap terlepas halaman tampil.
  *   - Produk habis stok TETAP tampil, hanya diredam visual (aturan kejujuran
  *     yang sama dengan kalkulator — menyembunyikan barang ≠ jujur soal stok).
  *   - Pilih produk = qty 1; produk yang sama digabung dengan MENJUMLAH qty
@@ -40,6 +43,7 @@
 
 import { useMemo, useState } from "react";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
+import { useCatalogSearch, type CatalogFetchInput } from "@/lib/use-catalog-search";
 import { useCommonMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import { CALC_MAX_QTY, type CalcHandoffLine } from "@/lib/calculator-shared";
@@ -64,13 +68,14 @@ export type PickedLine = {
 };
 
 /**
- * Hasil pemuatan daftar produk, SUDAH diterjemahkan area pemasang: outcome
- * area-spesifik (katalog belum dibuka / migrasi belum jalan / error) dipetakan
- * ke kalimat slice masing-masing SEBELUM sampai ke komponen ini, supaya
- * komponen bebas dari slice cabang/admin.
+ * Hasil pemuatan SATU halaman daftar produk, SUDAH diterjemahkan area
+ * pemasang: outcome area-spesifik (katalog belum dibuka / migrasi belum
+ * jalan / error) dipetakan ke kalimat slice masing-masing SEBELUM sampai ke
+ * komponen ini, supaya komponen bebas dari slice cabang/admin. `categories`
+ * hanya terisi saat diminta lewat withCategories (fetch pertama).
  */
 export type PickerLoadResult =
-  | { ok: true; products: PickerProduct[]; capped: boolean }
+  | { ok: true; products: PickerProduct[]; hasMore: boolean; categories?: string[] }
   | { ok: false; message: string };
 
 /**
@@ -97,12 +102,6 @@ export function mergeLinesFromHandoff(prev: PickedLine[], handoffLines: CalcHand
   }
   return next;
 }
-
-type LoadState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; products: PickerProduct[]; capped: boolean };
 
 /**
  * Thumbnail 48px mengikuti aturan lib/catalog-shared.ts untuk `<img>` biasa:
@@ -156,54 +155,37 @@ export default function OrderItemsSection({
 }: {
   lines: PickedLine[];
   onLinesChange: (next: PickedLine[]) => void;
-  /** Server Action per area, dibungkus form pemasang (lihat PickerLoadResult). */
-  loadProducts: () => Promise<PickerLoadResult>;
+  /** Server Action per area, dibungkus form pemasang (lihat PickerLoadResult).
+   *  Pencocokan nama/kode/kategori kini terjadi di query action-nya —
+   *  semantiknya sama dengan memo `filtered` lama (lib/catalog-query.ts). */
+  loadProducts: (input: CatalogFetchInput) => Promise<PickerLoadResult>;
 }) {
   const m = useCommonMessages();
   const [open, setOpen] = useState(false);
-  const [load, setLoad] = useState<LoadState>({ status: "idle" });
-  const [q, setQ] = useState("");
-  const [kategori, setKategori] = useState<string | null>(null);
 
-  function fetchProducts() {
-    setLoad({ status: "loading" });
-    loadProducts()
-      .then((res) => {
-        if (res.ok) setLoad({ status: "ready", products: res.products, capped: res.capped });
-        else setLoad({ status: "error", message: res.message });
-      })
-      .catch(() => setLoad({ status: "error", message: m.errorLoad }));
-  }
+  // Mode MALAS (initial: null): fetch pertama saat picker dibuka; hasil
+  // di-cache hook selama halaman hidup (buka-tutup modal tidak fetch ulang).
+  const katalog = useCatalogSearch<PickerProduct>({
+    fetchPage: loadProducts,
+    initial: null,
+    fallbackErrorMessage: m.errorLoad,
+  });
+  const { products, hasMore, searching, loadingMore, error, loadedOnce } = katalog;
 
   function handleOpen() {
     setOpen(true);
-    // Cache untuk seumur halaman: hanya fetch kalau belum pernah berhasil.
-    if (load.status === "idle" || load.status === "error") fetchProducts();
+    katalog.ensureLoaded();
   }
 
-  const products = useMemo(() => (load.status === "ready" ? load.products : []), [load]);
+  const categories = useMemo(
+    () => [...katalog.categories].sort((a, b) => a.localeCompare(b, m.dateLocale)),
+    [katalog.categories, m.dateLocale]
+  );
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.category) set.add(p.category);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, m.dateLocale));
-  }, [products, m.dateLocale]);
-
-  // Pencocokan substring nama/kode/kategori — sama dengan memo `filtered`
-  // di lib/kalkulator-client.tsx.
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return products.filter((p) => {
-      if (kategori && p.category !== kategori) return false;
-      if (!needle) return true;
-      if (p.name.toLowerCase().includes(needle)) return true;
-      if (p.code && p.code.toLowerCase().includes(needle)) return true;
-      if (p.category && p.category.toLowerCase().includes(needle)) return true;
-      return false;
-    });
-  }, [products, q, kategori]);
+  /** Pemuatan pertama gagal total (belum ada daftar sehat) vs error susulan
+   *  (daftar lama tetap tampil) — dua perlakuan berbeda di JSX bawah. */
+  const initialLoading = !loadedOnce && searching;
+  const initialError = !loadedOnce && !searching ? error : null;
 
   const qtyByProduct = useMemo(() => {
     const map = new Map<string, number>();
@@ -322,36 +304,35 @@ export default function OrderItemsSection({
           <div className="modal" role="dialog" aria-modal="true" aria-label={m.calcGoToProductsCta}>
             <h2>{m.calcGoToProductsCta}</h2>
 
-            {load.status === "loading" && <div className="hint">{m.loading}</div>}
-            {load.status === "error" && (
+            {initialLoading && <div className="hint">{m.loading}</div>}
+            {initialError && (
               <div className="banner bad">
-                {load.message}
+                {initialError}
                 <div className="btnrow-inline">
-                  <button type="button" className="btn sm" onClick={fetchProducts}>
+                  <button type="button" className="btn sm" onClick={katalog.reload}>
                     {m.retry}
                   </button>
                 </div>
               </div>
             )}
 
-            {load.status === "ready" && (
+            {loadedOnce && (
               <>
-                {load.capped && <div className="banner warn">{m.catalogListCappedMsg}</div>}
                 <div className="searchrow" style={{ marginBottom: 10 }}>
                   <input
                     className="search-input"
                     type="search"
                     placeholder={m.produkSearchPlaceholder}
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
+                    value={katalog.q}
+                    onChange={(e) => katalog.setQuery(e.target.value)}
                   />
                 </div>
                 {categories.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
                     <button
                       type="button"
-                      className={`btn sm${kategori === null ? " primary" : ""}`}
-                      onClick={() => setKategori(null)}
+                      className={`btn sm${katalog.category === null ? " primary" : ""}`}
+                      onClick={() => katalog.setCategoryFilter(null)}
                     >
                       {m.filterAll}
                     </button>
@@ -359,8 +340,8 @@ export default function OrderItemsSection({
                       <button
                         key={c}
                         type="button"
-                        className={`btn sm${kategori === c ? " primary" : ""}`}
-                        onClick={() => setKategori((cur) => (cur === c ? null : c))}
+                        className={`btn sm${katalog.category === c ? " primary" : ""}`}
+                        onClick={() => katalog.setCategoryFilter(katalog.category === c ? null : c)}
                       >
                         {c}
                       </button>
@@ -368,13 +349,20 @@ export default function OrderItemsSection({
                   </div>
                 )}
 
+                {/* Error susulan (pencarian/muat-lebih gagal): daftar yang
+                    sudah ada TETAP tampil di bawahnya, tidak dikosongkan. */}
+                {error && <div className="banner bad">{error}</div>}
+                {searching && <div className="hint">{m.loading}</div>}
+
                 {products.length === 0 ? (
-                  <div className="emptybox">{m.noProductsYet}</div>
-                ) : filtered.length === 0 ? (
-                  <div className="emptybox">{m.noProductsMatchSearch}</div>
+                  !searching && (
+                    <div className="emptybox">
+                      {katalog.isFiltered ? m.noProductsMatchSearch : m.noProductsYet}
+                    </div>
+                  )
                 ) : (
                   <div style={{ maxHeight: "52vh", overflowY: "auto" }}>
-                    {filtered.map((p) => {
+                    {products.map((p) => {
                       const inListQty = qtyByProduct.get(p.id) ?? 0;
                       const isOut = p.stockStatus === "OUT_OF_STOCK";
                       return (
@@ -408,6 +396,18 @@ export default function OrderItemsSection({
                         </div>
                       );
                     })}
+                    {hasMore && (
+                      <div className="btnrow" style={{ justifyContent: "center", margin: "10px 0" }}>
+                        <button
+                          type="button"
+                          className="btn sm"
+                          onClick={katalog.loadMore}
+                          disabled={loadingMore || searching}
+                        >
+                          {loadingMore ? m.loading : m.loadMoreCta}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

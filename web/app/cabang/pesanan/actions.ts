@@ -36,7 +36,6 @@ import {
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
-import type { StockStatus } from "@/lib/catalog-shared";
 // Dipakai BERSAMA jalur admin (web/app/admin/actions-create-order.ts) — logika
 // pindah ke lib/order-create-shared.ts saat fitur "admin membuat pesanan atas
 // nama cabang" dibuat, TANPA perubahan perilaku (lihat kepala berkas itu).
@@ -1684,68 +1683,8 @@ export async function setOrderOfferBranch(
   };
 }
 
-/* ------------------------------------------------------------------ *
- * Daftar produk untuk picker "Isi Pesanan" di form pesanan baru
- * (lib/order-item-picker.tsx, fitur 2026-08-24). Dimuat MALAS: dipanggil
- * client saat picker pertama kali dibuka — halaman form sendiri TIDAK
- * mengambil daftar produk di muka (form harus tetap ringan).
- *
- * Gerbang & query SENGAJA identik dengan /cabang/kalkulator/page.tsx:
- * partner_users → sanci_catalog_access (gerbang sungguhan, dicek DULU) →
- * sanci_products (RLS sp_partner_read sudah membatasi ke produk ACTIVE
- * katalog yang dibuka — zero-trust frontend). Kalau katalog belum dibuka,
- * picker menampilkan catalogNotOpenedMsg yang sama dengan halaman
- * Produk/Kalkulator, bukan daftar kosong. Error DB tidak pernah disamarkan
- * jadi "belum dibuka"/"kosong" (LESSONS #10) — tiap sebab punya status
- * sendiri dan client memetakannya ke kalimat slice cabang.
- * ------------------------------------------------------------------ */
-
-export type PickerProductRow = {
-  id: string;
-  name: string;
-  code: string | null;
-  category: string | null;
-  photo_url: string | null;
-  stock_status: StockStatus;
-};
-
-export type BranchPickerProductsOutcome =
-  | { status: "ok"; products: PickerProductRow[]; capped: boolean }
-  | { status: "not_opened" }
-  | { status: "module_inactive" }
-  | { status: "error" };
-
-export async function getPickerProductsBranch(): Promise<BranchPickerProductsOutcome> {
-  const supabase = await createClient();
-  // Tanpa auth.getUser() (pola halaman kalkulator): RLS batasnya — sesi tak
-  // sah membuat partner_users pulang kosong, dilaporkan sebagai error biasa
-  // (pengguna form ini pasti sudah login; kosong = ada yang tidak beres).
-  const { data: pu, error: puError } = await supabase
-    .from("partner_users")
-    .select("partner_id")
-    .maybeSingle();
-  if (puError || !pu) return { status: "error" };
-
-  const { data: access, error: accessError } = await supabase
-    .from("sanci_catalog_access")
-    .select("enabled")
-    .eq("partner_id", pu.partner_id)
-    .maybeSingle();
-  if (accessError) {
-    return isMissingTableError(accessError) ? { status: "module_inactive" } : { status: "error" };
-  }
-  if (!(access as { enabled: boolean } | null)?.enabled) return { status: "not_opened" };
-
-  const { data: products, error: productsError } = await supabase
-    .from("sanci_products")
-    .select("id, name, code, category, photo_url, stock_status")
-    .order("name")
-    .limit(200);
-  if (productsError) {
-    return isMissingTableError(productsError) ? { status: "module_inactive" } : { status: "error" };
-  }
-  const rows = (products ?? []) as PickerProductRow[];
-  // .limit(200) bisa memotong diam-diam — client menampilkan
-  // catalogListCappedMsg saat mentok (audit 2026-08-22 #11).
-  return { status: "ok", products: rows, capped: rows.length === 200 };
-}
+/* getPickerProductsBranch (pemuatan ≤200 sekali jalan untuk picker) DIHAPUS
+ * 2026-08-26 — digantikan getCatalogPageBranch di app/cabang/catalog-actions.ts
+ * (pencarian/kategori di database + halaman 60, kontrak lib/catalog-query.ts).
+ * Gerbangnya tidak berubah: partner_users → sanci_catalog_access → RLS
+ * sp_partner_read, dengan pemetaan status LESSONS #10 yang sama. */

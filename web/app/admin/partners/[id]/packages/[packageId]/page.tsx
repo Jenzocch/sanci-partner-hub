@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminMessages } from "@/lib/i18n";
 import type { StockStatus } from "@/lib/catalog-shared";
+import { CATALOG_PAGE_SIZE, finishCatalogPage } from "@/lib/catalog-query";
 import PackageItemsClient, { type PackageItem, type CatalogProduct } from "./package-items-client";
 
 export const dynamic = "force-dynamic";
@@ -39,14 +40,18 @@ export default async function PackageItemsPage({
   // sehingga embed-nya gagal saat dijalankan — kasus ini berbeda, jangan
   // menerapkan pelajaran itu di tempat yang tidak berlaku.)
   //
-  // Katalog untuk pemilih "tambah produk". 169 baris hari ini — cukup kecil
-  // untuk dimuat utuh lalu disaring di sisi client, sama seperti pola di
-  // app/cabang/produk/produk-list-client.tsx.
+  // Katalog untuk pemilih "tambah produk": BATCH PERTAMA (60) dirender
+  // server; pencarian & batch berikut dieksekusi database lewat
+  // getCatalogPageAdmin (kontrak lib/catalog-query.ts, 2026-08-26 —
+  // menggantikan pola lama "muat utuh lalu saring di client"). Kalau query
+  // batch pertamanya gagal, client menerima null dan memuat sendiri saat
+  // mount (jalur retry dengan banner error — LESSONS #10, error ≠ kosong;
+  // versi lama diam-diam menampilkan "katalog kosong" pada error ini).
   const [
     { data: pkg, error: pkgErr },
     { data: partner },
     { data: itemRows, error: itemsErr },
-    { data: catalogRows },
+    { data: catalogRows, error: catalogErr },
   ] = await Promise.all([
     supabase
       .from("partner_packages")
@@ -68,7 +73,9 @@ export default async function PackageItemsPage({
       .from("sanci_products")
       .select("id, name, code, photo_url, stock_status")
       .eq("status", "ACTIVE")
-      .order("name"),
+      .order("name")
+      .order("id")
+      .range(0, CATALOG_PAGE_SIZE),
   ]);
 
   if (isMissingTableErr(pkgErr)) {
@@ -124,21 +131,29 @@ export default async function PackageItemsPage({
     };
   });
 
-  const catalog: CatalogProduct[] = (
-    (catalogRows ?? []) as {
-      id: string;
-      name: string;
-      code: string | null;
-      photo_url: string | null;
-      stock_status: StockStatus;
-    }[]
-  ).map((p) => ({
-    id: p.id,
-    name: p.name,
-    code: p.code,
-    photoUrl: p.photo_url,
-    stockStatus: p.stock_status,
-  }));
+  const catalogPage = catalogErr
+    ? null
+    : finishCatalogPage(
+        (catalogRows ?? []) as {
+          id: string;
+          name: string;
+          code: string | null;
+          photo_url: string | null;
+          stock_status: StockStatus;
+        }[]
+      );
+  const initialCatalog: { products: CatalogProduct[]; hasMore: boolean } | null = catalogPage
+    ? {
+        hasMore: catalogPage.hasMore,
+        products: catalogPage.products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          code: p.code,
+          photoUrl: p.photo_url,
+          stockStatus: p.stock_status,
+        })),
+      }
+    : null;
 
   return (
     <div>
@@ -162,7 +177,7 @@ export default async function PackageItemsPage({
           <div className="err">{m.common.errorLoad}</div>
         </div>
       ) : (
-        <PackageItemsClient packageId={packageId} items={items} catalog={catalog} />
+        <PackageItemsClient packageId={packageId} items={items} initialCatalog={initialCatalog} />
       )}
     </div>
   );

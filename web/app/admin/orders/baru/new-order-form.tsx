@@ -49,13 +49,13 @@ import {
   getBranchStaffOptions,
   getOrderSummaryAdmin,
   getPartnerOrderOptions,
-  getPickerProductsAdmin,
   searchCustomerByPhoneAdmin,
   type AdminOrderCreated,
   type BranchOption,
   type PackageOption,
   type StaffOption,
 } from "../../actions-create-order";
+import { getCatalogPageAdmin } from "../../catalog-actions";
 import OrderItemsSection, {
   mergeLinesFromHandoff,
   type PickedLine,
@@ -400,30 +400,40 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     }
   }
 
-  /** Pemuatan malas daftar produk picker — status dipetakan ke kalimat admin di sini. */
-  const loadPickerProducts = useCallback(async (): Promise<PickerLoadResult> => {
-    try {
-      const res = await getPickerProductsAdmin();
-      if (res.status === "ok") {
-        return {
-          ok: true,
-          capped: res.capped,
-          products: res.products.map((p) => ({
-            id: p.id,
-            name: p.name,
-            code: p.code,
-            category: p.category,
-            photoUrl: p.photo_url,
-            stockStatus: p.stock_status,
-          })),
-        };
+  /** Pemuatan malas + berhalaman daftar produk picker (kontrak lib/
+   *  catalog-query.ts) — status dipetakan ke kalimat admin di sini. */
+  const loadPickerProducts = useCallback(
+    async (input: {
+      q: string;
+      category: string | null;
+      offset: number;
+      withCategories?: boolean;
+    }): Promise<PickerLoadResult> => {
+      try {
+        const res = await getCatalogPageAdmin(input);
+        if (res.status === "ok") {
+          return {
+            ok: true,
+            hasMore: res.hasMore,
+            categories: res.categories,
+            products: res.products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              code: p.code,
+              category: p.category,
+              photoUrl: p.photo_url,
+              stockStatus: p.stock_status,
+            })),
+          };
+        }
+        if (res.status === "module_inactive") return { ok: false, message: m.admin.catalogMigrationMsg };
+        return { ok: false, message: m.common.errorLoad };
+      } catch {
+        return { ok: false, message: m.common.errorLoad };
       }
-      if (res.status === "module_inactive") return { ok: false, message: m.admin.catalogMigrationMsg };
-      return { ok: false, message: m.common.errorLoad };
-    } catch {
-      return { ok: false, message: m.common.errorLoad };
-    }
-  }, [m]);
+    },
+    [m]
+  );
 
   /** Prefill alamat kirim dari alamat pelanggan — hanya kalau masih kosong (LESSONS #1). */
   function prefillShippingAddress(c: FoundCustomer) {

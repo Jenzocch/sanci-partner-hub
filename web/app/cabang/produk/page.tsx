@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
 import type { StockStatus } from "@/lib/catalog-shared";
+import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/lib/catalog-query";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 import ProdukListClient, { type ProdukItem } from "./produk-list-client";
 
@@ -108,11 +109,20 @@ export default async function ProdukPage() {
   // RLS pada sanci_products sudah membatasi ke produk status ACTIVE milik
   // katalog yang dibuka untuk partner ini — tidak ada filter tambahan di
   // sini (zero-trust frontend: query langsung pakai hasil RLS, LESSONS).
-  const { data: products, error: productsError } = await supabase
-    .from("sanci_products")
-    .select("id, name, code, category, description, photo_url, stock_status")
-    .order("name")
-    .limit(200);
+  // BATCH PERTAMA (60) dirender server; pencarian/kategori/batch berikut
+  // dieksekusi server lewat getCatalogPageBranch (kontrak lib/
+  // catalog-query.ts — menggantikan .limit(200) lama). Daftar kategori chip
+  // diambil SEKALI dan lengkap; kegagalannya = chip tidak tampil (degradasi
+  // kosmetik, lihat fetchCatalogCategories), daftar produk tetap jalan.
+  const [{ data: products, error: productsError }, categories] = await Promise.all([
+    supabase
+      .from("sanci_products")
+      .select("id, name, code, category, description, photo_url, stock_status")
+      .order("name")
+      .order("id")
+      .range(0, CATALOG_PAGE_SIZE),
+    fetchCatalogCategories(supabase),
+  ]);
 
   if (productsError) {
     if (isMissingTableError(productsError)) {
@@ -138,7 +148,8 @@ export default async function ProdukPage() {
     );
   }
 
-  const items: ProdukItem[] = ((products ?? []) as ProductQueryRow[]).map((p) => ({
+  const page = finishCatalogPage((products ?? []) as ProductQueryRow[]);
+  const items: ProdukItem[] = page.products.map((p) => ({
     id: p.id,
     name: p.name,
     code: p.code,
@@ -152,10 +163,11 @@ export default async function ProdukPage() {
     <main className="pwrap">
       <BackRow m={m} />
       <h2 className="mtitle">{m.cabang.homeProducts}</h2>
-      {/* .limit(200) di atas bisa memotong diam-diam — beri tahu, jangan
-          biarkan produk ke-201 hilang tanpa jejak (audit 2026-08-22 #11). */}
-      {items.length === 200 && <div className="banner warn">{m.common.catalogListCappedMsg}</div>}
-      <ProdukListClient items={items} />
+      <ProdukListClient
+        initialItems={items}
+        initialHasMore={page.hasMore}
+        categories={categories ?? []}
+      />
     </main>
   );
 }
