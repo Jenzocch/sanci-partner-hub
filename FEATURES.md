@@ -1308,8 +1308,10 @@ App 層：兩邊建單表單選填「Nomor PO Pelanggan」、分店 Ubah Pesanan
 單編號，永不空行）；所有讀寫對「0020 未跑」42703 誠實降級，先部署後跑 SQL
 安全。audit-format 標籤、三語 i18n、GLOSSARY 加詞（PO 列入不翻譯清單）。
 
-**⚠️ 待 Jenzo 執行**：`supabase/migrations/0020_order_customer_po.sql` 貼進
-Supabase SQL Editor 執行，回貼 14 列結果核對（期望值見對話/檔內註解）。
+**Migration 0020 狀態：`VERIFIED`(production)** — 2026-08-24 Jenzo 執行成功
+並回貼，14 列數字與期望完全相符（含四個負面/保持斷言：NO_CHECK 0、
+ORDER_POLICIES 4、ORDER_DELETE_POLICY 0、AUDIT_STILL_0018_* 1/1）。
+**0001–0020 全鏈已在 production 套用並驗證。**
 已知後續：sheets-orders 匯出尚無 PO 欄（記錄未做）。
 
 ### 型錄伺服器搜尋＋分批載入（已建議待 owner 確認）
