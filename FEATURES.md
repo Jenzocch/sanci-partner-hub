@@ -1356,9 +1356,10 @@ partner** 的價，換 partner 強制重掛防殘價）；audit-format 三動作
 GLOSSARY 加 Harga Normal/Harga Dasar 並明文區隔 Penawaran SANCI。owner 定案
 邊界：admin 各店覆寫檢視 v1 不做、基準價隨目錄閘門、頁名 Harga Normal。
 
-**⚠️ 待 Jenzo 執行**：`supabase/migrations/0021_partner_price_list.sql` 貼進
-SQL Editor 執行，回貼 39 列驗證結果核對。程式先上線亦安全（未跑 SQL 前所有
-價格面誠實降級為現在的手動輸入）。
+**Migration 0021 狀態：`VERIFIED`(production)** — 2026-08-26 Jenzo 執行成功
+並回貼，39 列數字與期望完全相符（含 PRODUCT_NO_PRICE_COLUMN 0、
+PRICE_BASE_NONADMIN_WRITE 0、STAMP_FN_EXEC_* 全 0、17 個 AUDIT_KEEP_* 全 1）。
+**0001–0021 全鏈已在 production 套用並驗證。**
 
 ## 已知刻意保留的「怪東西」
 
