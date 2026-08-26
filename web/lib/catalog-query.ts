@@ -66,10 +66,24 @@ export type CatalogPageInput = {
    * harus lengkap terlepas dari halaman/pencarian yang sedang tampil.
    */
   withCategories?: boolean;
+  /**
+   * Minta harga EFEKTIF (0021: override partner → Harga Dasar SANCI) ikut
+   * menempel di tiap baris (`price`) — HANYA konteks penetapan harga
+   * (kalkulator, picker Isi Pesanan) yang menyetel ini. Layar jelajah
+   * katalog (/cabang/produk, grid /admin/produk) TIDAK menyetelnya dan
+   * tetap bebas harga (aturan 0010 yang dipertahankan 0021). Bukan lubang
+   * keamanan kalau client iseng menyetelnya: baris harga yang bisa
+   * terbaca dibatasi RLS 0021 (gerbang katalog + partner sendiri), flag
+   * ini murni soal tampilan/berat respons.
+   */
+  withPrices?: boolean;
 };
 
 /** Baris produk seperti keluar dari PostgREST (snake_case). `description`
- *  hanya diisi action yang layarnya menampilkannya (produk cabang). */
+ *  hanya diisi action yang layarnya menampilkannya (produk cabang);
+ *  `price` (harga efektif 0021, rupiah bulat) hanya diisi kalau pemanggil
+ *  meminta `withPrices` DAN barisnya punya harga — ditempelkan action di
+ *  server SETELAH query produk, bukan kolom PostgREST. */
 export type CatalogProductRow = {
   id: string;
   name: string;
@@ -78,6 +92,7 @@ export type CatalogProductRow = {
   description?: string | null;
   photo_url: string | null;
   stock_status: StockStatus;
+  price?: number | null;
 };
 
 /**
@@ -96,6 +111,7 @@ export function normalizeCatalogPageInput(input: CatalogPageInput): {
   category: string | null;
   offset: number;
   withCategories: boolean;
+  withPrices: boolean;
 } {
   const rawOffset = input.offset;
   const offset =
@@ -105,7 +121,13 @@ export function normalizeCatalogPageInput(input: CatalogPageInput): {
   const q = typeof input.q === "string" ? input.q.trim().slice(0, MAX_QUERY_LENGTH) : "";
   const category =
     typeof input.category === "string" && input.category.trim() !== "" ? input.category : null;
-  return { q, category, offset, withCategories: input.withCategories === true };
+  return {
+    q,
+    category,
+    offset,
+    withCategories: input.withCategories === true,
+    withPrices: input.withPrices === true,
+  };
 }
 
 /**

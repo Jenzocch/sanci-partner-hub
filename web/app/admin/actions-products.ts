@@ -246,6 +246,107 @@ export async function setProductPhoto(id: string, photoUrl: string): Promise<Act
 }
 
 /**
+ * Harga Dasar SANCI sebuah produk (0021, baris product_prices ber-
+ * partner_id NULL) — untuk PREFILL kolom harga di modal Ubah/Tambah
+ * Produk. `{ data: null }` = memang belum ada harga dasar; `{ error }` =
+ * query GAGAL (beda keadaan, LESSONS #10 — pemanggil menonaktifkan kolom
+ * harganya alih-alih menampilkan "kosong" yang bisa menghapus harga saat
+ * disimpan).
+ */
+export async function getProductBasePrice(id: string): Promise<ActionResult<number | null>> {
+  const m = await getAdminMessages();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_prices")
+    .select("price")
+    .eq("product_id", id)
+    .is("partner_id", null)
+    .maybeSingle();
+  if (error) {
+    if (isMissingTable(error.code)) return { error: { message: m.admin.catalogMigrationMsg } };
+    return { error: { message: m.common.errorLoad } };
+  }
+  return { data: (data as { price: number } | null)?.price ?? null };
+}
+
+/**
+ * Tulis/hapus Harga Dasar SANCI (0021). `priceRaw` kosong = HAPUS baris
+ * dasar (produk kembali "tanpa harga dasar"); selain itu wajib bilangan
+ * bulat rupiah >= 0 (dipangkas dari input bebas format, LESSONS #6 —
+ * server yang mem-parse ulang, tidak percaya angka jadi dari client).
+ *
+ * Kenapa UPDATE-dulu-INSERT dan bukan upsert PostgREST: baris dasar
+ * dipaku index parsial UNIQUE (product_id) WHERE partner_id IS NULL, dan
+ * `on_conflict` PostgREST tidak bisa menyebut predikat parsial — inference
+ * gagal. Pola di sini TETAP aman terhadap balapan (LESSONS #3): index
+ * parsial itulah pertahanannya — INSERT yang kalah balapan mendapat 23505
+ * dan dipulihkan dengan UPDATE ulang, bukan menghasilkan baris kedua.
+ */
+export async function setProductBasePrice(
+  id: string,
+  priceRaw: string
+): Promise<ActionResult<true>> {
+  const m = await getAdminMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  const trimmed = priceRaw.trim();
+  if (trimmed === "") {
+    // Hapus harga dasar. 0 baris terhapus = memang sudah tidak ada — sama
+    // hasil akhirnya, tetap sukses (operasi idempoten).
+    const { error } = await supabase
+      .from("product_prices")
+      .delete()
+      .eq("product_id", id)
+      .is("partner_id", null);
+    if (error) {
+      if (isMissingTable(error.code)) return { error: { message: m.admin.catalogMigrationMsg } };
+      return { error: { message: PESAN.serverSibuk } };
+    }
+    return { data: true };
+  }
+
+  const digits = trimmed.replace(/[^0-9]/g, "");
+  const price = digits === "" ? NaN : Number(digits);
+  if (!Number.isSafeInteger(price) || price < 0 || price > 99_999_999_999_999) {
+    return { error: { field: "base_price", message: m.admin.productBasePriceInvalid } };
+  }
+
+  const doUpdate = () =>
+    supabase
+      .from("product_prices")
+      .update({ price })
+      .eq("product_id", id)
+      .is("partner_id", null)
+      .select("id");
+
+  const { data: updated, error: updateError } = await doUpdate();
+  if (updateError) {
+    if (isMissingTable(updateError.code)) return { error: { message: m.admin.catalogMigrationMsg } };
+    return { error: { message: PESAN.serverSibuk } };
+  }
+  if ((updated ?? []).length > 0) return { data: true };
+
+  const { error: insertError } = await supabase
+    .from("product_prices")
+    .insert({ product_id: id, partner_id: null, price });
+  if (insertError) {
+    if (isMissingTable(insertError.code)) return { error: { message: m.admin.catalogMigrationMsg } };
+    if (insertError.code === "23505") {
+      // Kalah balapan dengan penulis lain — barisnya SUDAH ada sekarang,
+      // update ulang sekali (bukan error pengguna, LESSONS #21 sekeluarga).
+      const { data: retried, error: retryError } = await doUpdate();
+      if (retryError || (retried ?? []).length === 0) {
+        return { error: { message: PESAN.serverSibuk } };
+      }
+      return { data: true };
+    }
+    return { error: { message: PESAN.serverSibuk } };
+  }
+  return { data: true };
+}
+
+/**
  * Katalog Produk SANCI per partner: toggle admin-only. Tanpa baris di
  * sanci_catalog_access = TERTUTUP (default yang aman secara bisnis —
  * LESSONS #8: kalau nanti kolomnya lupa diisi, kegagalan diam-diam tidak

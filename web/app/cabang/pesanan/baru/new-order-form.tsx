@@ -318,7 +318,9 @@ export default function NewOrderForm({
       withCategories?: boolean;
     }): Promise<PickerLoadResult> => {
       try {
-        const res = await getCatalogPageBranch(input);
+        // withPrices (0021): prefill unitPrice dengan harga efektif toko
+        // ini (override sendiri → Harga Dasar SANCI) — tetap bisa diketik.
+        const res = await getCatalogPageBranch({ ...input, withPrices: true });
         if (res.status === "ok") {
           return {
             ok: true,
@@ -331,6 +333,7 @@ export default function NewOrderForm({
               category: p.category,
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
+              price: p.price ?? null,
             })),
           };
         }

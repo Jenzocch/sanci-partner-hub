@@ -33,6 +33,13 @@ export type KalkulatorProduct = {
   category: string | null;
   photoUrl: string | null;
   stockStatus: StockStatus;
+  /**
+   * Harga efektif 0021 (override partner → Harga Dasar SANCI) — PREFILL
+   * harga satuan saat produk masuk keranjang. null/absen = tidak ada
+   * harga di daftar (perilaku lama: mulai 0, ketik manual). Kolom harga
+   * keranjang SELALU tetap bisa diketik — ini nilai awal, bukan kunci.
+   */
+  price?: number | null;
 };
 
 /**
@@ -168,7 +175,11 @@ export default function KalkulatorClient({
       CatalogFetchResult<KalkulatorProduct>
     > => {
       try {
-        const res = await fetchPage(input);
+        // withPrices: batch susulan/pencarian juga membawa harga efektif
+        // 0021 untuk prefill addToCart — area action masing-masing yang
+        // menentukan harga siapa (cabang: partner sendiri; admin: Harga
+        // Dasar SANCI — kalkulator admin tanpa konteks partner).
+        const res = await fetchPage({ ...input, withPrices: true });
         if (res.status === "ok") {
           return {
             ok: true,
@@ -181,6 +192,7 @@ export default function KalkulatorClient({
               category: p.category,
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
+              price: p.price ?? null,
             })),
           };
         }
@@ -230,7 +242,13 @@ export default function KalkulatorClient({
         next[idx] = { ...next[idx], qty: Math.min(CALC_MAX_QTY, next[idx].qty + 1) };
         return next;
       }
-      return [...prev, { productId: p.id, name: p.name, code: p.code, photoUrl: p.photoUrl, unitPrice: 0, qty: 1 }];
+      // Prefill harga efektif 0021 (daftar harga = NILAI AWAL, bukan kunci
+      // — kolom harga keranjang tetap bisa diketik seperti biasa). Tanpa
+      // harga di daftar → 0, persis perilaku lama.
+      return [
+        ...prev,
+        { productId: p.id, name: p.name, code: p.code, photoUrl: p.photoUrl, unitPrice: p.price ?? 0, qty: 1 },
+      ];
     });
   }
   function removeLine(productId: string) {

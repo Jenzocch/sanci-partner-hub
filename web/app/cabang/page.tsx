@@ -131,6 +131,16 @@ export default async function CabangHome() {
             <span className="arrow" aria-hidden="true">&rsaquo;</span>
           </Link>
         )}
+        {/* Harga Normal DI BAWAH Kalkulator (rencana 0021 — entry di bawah
+            Kalkulator): daftar harga adalah alat pendukung penawaran.
+            Gerbang tampil sama dengan Kalkulator/Produk; halamannya sendiri
+            yang menjelaskan kalau katalog belum dibuka. */}
+        {produkVisible && (
+          <Link href="/cabang/harga" className="biglink">
+            <span className="lbl">{m.cabang.homePriceList}</span>
+            <span className="arrow" aria-hidden="true">&rsaquo;</span>
+          </Link>
+        )}
         {produkVisible && (
           <Link href="/cabang/produk" className="biglink">
             <span className="lbl">{m.cabang.homeProducts}</span>

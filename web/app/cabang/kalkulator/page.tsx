@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
 import type { StockStatus } from "@/lib/catalog-shared";
 import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/lib/catalog-query";
+import { fetchEffectivePrices } from "@/lib/price-query";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 import KalkulatorClient, { type KalkulatorProduct } from "@/lib/kalkulator-client";
 import { getCatalogPageBranch } from "@/app/cabang/catalog-actions";
@@ -168,6 +169,17 @@ export default async function KalkulatorPage() {
   }
 
   const page = finishCatalogPage((products ?? []) as ProductQueryRow[]);
+
+  // Harga efektif 0021 (override toko ini → Harga Dasar SANCI) untuk
+  // PREFILL harga satuan batch pertama — batch berikut/pencarian membawa
+  // harganya sendiri lewat getCatalogPageBranch (withPrices). Gagal/tabel
+  // belum ada (LESSONS #12) = null → prefill degradasi diam-diam ke
+  // perilaku lama (mulai 0, ketik manual) — prefill hanyalah kenyamanan.
+  const prices = await fetchEffectivePrices(
+    supabase,
+    page.products.map((p) => p.id),
+    pu.partner_id
+  );
   const items: KalkulatorProduct[] = page.products.map((p) => ({
     id: p.id,
     name: p.name,
@@ -175,6 +187,7 @@ export default async function KalkulatorPage() {
     category: p.category,
     photoUrl: p.photo_url,
     stockStatus: p.stock_status,
+    price: prices?.get(p.id)?.price ?? null,
   }));
 
   return (

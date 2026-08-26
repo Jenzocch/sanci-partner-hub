@@ -98,6 +98,10 @@ function fieldLabel(m: AdminMessages, key: string): string | undefined {
     doc_type: m.admin.docColType,
     doc_number: m.admin.docNumberLabel,
     doc_date: m.admin.docColDate,
+    // 0021 — product_prices.price: nilai bisnis tunggal (rupiah bulat),
+    // dirender lewat formatIDR di asLabel() di bawah. partner_id/product_id/
+    // updated_by pada tabel yang sama masuk SKIP (UUID relasi/aktor).
+    price: c.price,
     // 0018 — customer_sources.label (baris masternya sendiri, bukan
     // customers.source_id/sales_staff_id — keduanya SKIP di bawah, sama
     // pola dengan package_id/product_id: UUID relasi murni yang lebih
@@ -184,6 +188,8 @@ function asLabel(m: AdminMessages, key: string, v: unknown): string {
   // Rupiah atau baris ini harus dipersempit — lihat catatan di fieldLabel().
   // cash_discount/final_amount (0015) ikut daftar ini dengan alasan yang sama
   // persis — keduanya numeric(15,2), keduanya Rupiah sungguhan.
+  // `price` (0021, product_prices) ikut daftar Rupiah ini: bigint → angka
+  // JSON lewat to_jsonb, rupiah bulat sungguhan (LESSONS #28).
   if (
     (key === "partner_purchase_amount" ||
       key === "amount" ||
@@ -191,7 +197,8 @@ function asLabel(m: AdminMessages, key: string, v: unknown): string {
       key === "unit_price" ||
       key === "line_discount" ||
       key === "cash_discount" ||
-      key === "final_amount") &&
+      key === "final_amount" ||
+      key === "price") &&
     typeof v === "number"
   ) {
     return formatIDR(v);
@@ -271,6 +278,12 @@ const SKIP = new Set([
   // sources.code/sanci_sales_staff.code — dipetakan per NAMA KOLOM, bukan
   // per tabel, jadi tidak perlu baris baru).
   "attributed_staff_id",
+  // Ditambahkan migrasi 0021: updated_by pada product_prices adalah UUID
+  // aktor (kelas created_by/cancelled_by/customer_arrived_by di atas —
+  // LESSONS #28: aktor sudah terbaca dari baris audit itu sendiri
+  // (actor_user_id/actor_role), UUID mentahnya tidak boleh bocor ke diff).
+  // product_id/partner_id/updated_at sudah lama ada di daftar ini.
+  "updated_by",
 ]);
 
 // Kode aksi audit → KUNCI kalimat di common.ts (dipakai halaman Activity).
@@ -323,6 +336,12 @@ const ACTION_KEYS: Record<string, keyof AdminMessages["common"]> = {
   PACKAGE_ITEM_CREATED: "auditPackageItemAdded",
   PACKAGE_ITEM_UPDATED: "auditPackageItemUpdated",
   PACKAGE_ITEM_DELETED: "auditPackageItemRemoved",
+  // 0021 — daftar harga (product_prices). Tabel tanpa kolom status, jadi
+  // hanya tiga aksi generik ini yang bisa muncul. "Dihapus" = kembali ke
+  // Harga Dasar SANCI (override dicabut) ATAU harga dasar dicabut admin.
+  PRODUCT_PRICE_CREATED: "auditProductPriceSet",
+  PRODUCT_PRICE_UPDATED: "auditProductPriceUpdated",
+  PRODUCT_PRICE_DELETED: "auditProductPriceRemoved",
   PRODUCT_CREATED: "auditProductCreated",
   PRODUCT_UPDATED: "auditProductUpdated",
   PRODUCT_STATUS_CHANGED: "auditProductStatusChanged",

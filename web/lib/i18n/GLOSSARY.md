@@ -42,6 +42,8 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Pelanggan sudah datang | Pelanggan Tiba | 客户已到店 | Customer Arrived |
 | Catatan khusus SANCI | Catatan Internal | 内部备注 | Internal Note |
 | Nilai penawaran SANCI per pesanan | Penawaran SANCI | SANCI 方案金额 | SANCI Offer |
+| Harga jual normal TOKO per PRODUK, sebelum diskon (0021, override per partner) — BUKAN "Penawaran SANCI" (itu nilai TINGKAT PESANAN, lihat catatan 0021 di bawah) | Harga Normal | 标准售价 | Normal price |
+| Harga dasar PRODUK milik SANCI (0021, baris partner NULL) — titik awal semua partner, bisa ditimpa Harga Normal masing-masing | Harga Dasar SANCI | SANCI 基准价 | SANCI base price |
 | Uang muka pesanan | Uang Muka (DP) | 订金 | Down payment (DP) |
 | Syarat pembayaran (teks bebas) | Kondisi Pembayaran | 付款条件 | Payment condition |
 | Alamat tujuan kirim satu pesanan | Alamat Pengiriman | 收货地址 | Shipping address |
@@ -123,6 +125,17 @@ SANCI 及各合作商名称、订单编号与各种代码。
 **某一笔订单**手工决定的方案金额，跟产品目录没有关系——**产品目录永远不放
 价格（0010 的铁律，至今有效）**。所以三种语言都不用"Harga / Price / 价格"
 这类词指产品，避免有人误以为系统里开始有产品定价了。
+
+**0021 更新（owner 2026-08-26 拍板"按 Partner 設價目表"）——上一段的边界
+收窄，不是推翻**：0021 新增了**独立的价目表**（`product_prices`：
+"Harga Dasar SANCI" = SANCI 基准价；"Harga Normal" = 各合作商门店自己的
+标准售价，可覆盖基准价）。`sanci_products` 依然一个价格栏都没有
+（PRODUCT_NO_PRICE_COLUMN=0 在 0021 里再断言一次），**目录浏览页
+（/cabang/produk、/admin/produk 网格）依然不显示价格**——价格只出现在
+定价情境（计算器/订单明细的预填、/cabang/harga、产品编辑弹窗）。三个词
+严格区分，不许混用：**Penawaran SANCI**（订单层级方案金额，0013）／
+**Harga Dasar SANCI**（SANCI 的产品基准价，0021）／**Harga Normal**
+（门店自己的产品标准售价，0021）。
 
 **订单层级的折扣链计算——owner 已拍板要做**（Jenzo 2026-08-19/20 亲自定案，
 含算例确认）：早先这里写过"系统不计算折扣，只记录人决定的那个数字"——那句

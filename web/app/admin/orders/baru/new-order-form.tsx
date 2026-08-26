@@ -410,7 +410,18 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
       withCategories?: boolean;
     }): Promise<PickerLoadResult> => {
       try {
-        const res = await getCatalogPageAdmin(input);
+        // withPrices + pricePartnerId (0021): prefill unitPrice dengan harga
+        // efektif PARTNER TERPILIH form ini (override partner itu → Harga
+        // Dasar SANCI) — partner sudah dipilih sebelum section Isi Pesanan
+        // bisa dipakai (fieldset digerbang orderSectionReady). Komponen
+        // picker di bawah di-remount per partner (key={partnerId}) supaya
+        // daftar produk yang di-cache hook tidak membawa harga partner
+        // SEBELUMNYA saat admin berganti partner.
+        const res = await getCatalogPageAdmin({
+          ...input,
+          withPrices: true,
+          pricePartnerId: partnerId || null,
+        });
         if (res.status === "ok") {
           return {
             ok: true,
@@ -423,6 +434,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
               category: p.category,
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
+              price: p.price ?? null,
             })),
           };
         }
@@ -432,7 +444,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
         return { ok: false, message: m.common.errorLoad };
       }
     },
-    [m]
+    [m, partnerId]
   );
 
   /** Prefill alamat kirim dari alamat pelanggan — hanya kalau masih kosong (LESSONS #1). */
@@ -848,7 +860,17 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
           <h4 style={{ fontSize: "var(--fs-sec)", fontWeight: 600, margin: "0 0 7px" }}>
             {m.admin.orderItemsCardTitle}
           </h4>
-          <OrderItemsSection lines={itemLines} onLinesChange={setItemLines} loadProducts={loadPickerProducts} />
+          {/* key={partnerId}: reset cache daftar picker saat ganti partner —
+              harga prefill (0021) milik partner terpilih, bukan sisa cache
+              partner sebelumnya. Baris yang SUDAH dipilih (itemLines) hidup
+              di state form, tidak ikut ter-reset (nilainya sudah terlihat
+              dan bisa diubah — aturan prefill-bukan-kunci). */}
+          <OrderItemsSection
+            key={partnerId}
+            lines={itemLines}
+            onLinesChange={setItemLines}
+            loadProducts={loadPickerProducts}
+          />
 
           {staffState === "loading" && <div className="hint">{m.common.loading}</div>}
           {staffState === "error" && (

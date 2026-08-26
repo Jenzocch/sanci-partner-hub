@@ -476,6 +476,19 @@ const id = {
   productCodeFieldLabel: "Kode",
   productCategoryFieldLabel: "Kategori",
   productStockStatusFieldLabel: "Status Stok",
+  // ── Harga Dasar SANCI (0021) — kolom di modal Tambah/Ubah Produk. ──
+  // Grid /admin/produk TETAP bebas harga (keputusan rencana 0021 — layar
+  // jelajah bersih); modal inilah permukaan kelolanya. Jangan dicampur
+  // dengan "Penawaran SANCI" (nilai penawaran TINGKAT PESANAN, 0013).
+  productBasePriceFieldLabel: "Harga Dasar SANCI (Rp)",
+  productBasePriceHint:
+    "Opsional. Titik awal harga untuk semua partner — tiap partner bisa menimpanya dengan Harga Normal " +
+    "tokonya sendiri. Kosongkan lalu simpan untuk menghapus.",
+  productBasePriceLoadFailed:
+    "Harga dasar gagal dimuat — kolom dinonaktifkan supaya tidak menghapus harga tanpa sengaja. Tutup lalu buka lagi untuk mencoba ulang.",
+  productBasePriceSaveFailed:
+    "Produk tersimpan, tapi Harga Dasar SANCI GAGAL tersimpan. Buka Ubah Produk lalu isi lagi.",
+  productBasePriceInvalid: "Isi angka rupiah yang benar.",
   productPhotoFieldLabel: "Foto (opsional)",
   productPhotoHint: "PNG, JPG, atau WebP. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim.",
   productPhotoHintKeep: "PNG, JPG, atau WebP. Maksimal 5 MB. Biarkan kosong kalau tidak ingin mengubah foto.",
@@ -1280,6 +1293,15 @@ const en = {
   productCodeFieldLabel: "Code",
   productCategoryFieldLabel: "Category",
   productStockStatusFieldLabel: "Stock Status",
+  productBasePriceFieldLabel: "SANCI base price (Rp)",
+  productBasePriceHint:
+    "Optional. The starting price for every partner — each partner can override it with their own store's " +
+    "normal price. Clear the field and save to remove it.",
+  productBasePriceLoadFailed:
+    "The base price could not be loaded — the field is disabled so a price can't be removed by accident. Close and reopen to retry.",
+  productBasePriceSaveFailed:
+    "The product was saved, but the SANCI base price FAILED to save. Open Edit Product and enter it again.",
+  productBasePriceInvalid: "Enter a valid rupiah amount.",
   productPhotoFieldLabel: "Photo (optional)",
   productPhotoHint: "PNG, JPG, or WebP. Maximum 5 MB — the image is resized automatically before upload.",
   productPhotoHintKeep: "PNG, JPG, or WebP. Maximum 5 MB. Leave blank to keep the current photo.",
@@ -2006,6 +2028,11 @@ const zh = {
   productCodeFieldLabel: "编号",
   productCategoryFieldLabel: "分类",
   productStockStatusFieldLabel: "库存状态",
+  productBasePriceFieldLabel: "SANCI 基准价(Rp)",
+  productBasePriceHint: "选填。所有合作商的起始价 —— 每个合作商都可以用本店标准售价覆盖。清空后保存即删除。",
+  productBasePriceLoadFailed: "基准价加载失败 —— 为避免误删价格,此栏已停用。请关闭后重新打开再试。",
+  productBasePriceSaveFailed: "产品已保存,但 SANCI 基准价保存失败。请打开\"修改产品\"重新填写。",
+  productBasePriceInvalid: "请输入正确的 Rupiah 金额。",
   productPhotoFieldLabel: "照片（选填）",
   productPhotoHint: "PNG、JPG 或 WebP 格式。最大 5 MB —— 图片会在上传前自动压缩。",
   productPhotoHintKeep: "PNG、JPG 或 WebP 格式。最大 5 MB。留空表示不修改照片。",

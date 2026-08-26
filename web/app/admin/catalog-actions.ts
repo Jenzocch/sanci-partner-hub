@@ -37,6 +37,7 @@ import {
   type CatalogPageOutcome,
   type CatalogProductRow,
 } from "@/lib/catalog-query";
+import { attachEffectivePrices, fetchEffectivePrices } from "@/lib/price-query";
 
 /** Idiom verifikasi admin yang sama dengan actions-create-order.ts — untuk
  *  action baca-saja ini semua kegagalan cukup dipetakan ke "error". */
@@ -53,13 +54,24 @@ async function isAdminSession(supabase: SupabaseServerClient): Promise<boolean> 
 }
 
 /**
- * Input admin menambah SATU field opsional di atas kontrak bersama:
- * `matchCategory:false` membatasi pencarian ke nama/kode saja — dipakai
- * pemilih produk Package, yang memo `filtered` lamanya memang tidak pernah
- * mencocokkan kategori (placeholder-nya pun berbunyi "nama atau kode").
- * Kalkulator/picker memakai default (nama/kode/kategori, sama dengan cabang).
+ * Input admin menambah DUA field opsional di atas kontrak bersama:
+ *   - `matchCategory:false` membatasi pencarian ke nama/kode saja — dipakai
+ *     pemilih produk Package, yang memo `filtered` lamanya memang tidak
+ *     pernah mencocokkan kategori (placeholder-nya pun berbunyi "nama atau
+ *     kode"). Kalkulator/picker memakai default (nama/kode/kategori, sama
+ *     dengan cabang).
+ *   - `pricePartnerId` (hanya berarti bersama `withPrices`, 0021): harga
+ *     efektif dihitung untuk PARTNER TERPILIH itu (form pesanan admin —
+ *     partnernya sudah dipilih di form). Kosong/absen = hanya Harga Dasar
+ *     SANCI (kalkulator admin — tanpa konteks partner, keputusan rencana
+ *     0021). Nilai ini dipakai murni sebagai filter baca di bawah sesi
+ *     ADMIN (sudah diverifikasi isAdminSession + RLS pp_admin_all) — bukan
+ *     kolom tulisan, jadi bukan permukaan penyalahgunaan LESSONS #6.
  */
-export type AdminCatalogPageInput = CatalogPageInput & { matchCategory?: boolean };
+export type AdminCatalogPageInput = CatalogPageInput & {
+  matchCategory?: boolean;
+  pricePartnerId?: string | null;
+};
 
 export async function getCatalogPageAdmin(input: AdminCatalogPageInput): Promise<CatalogPageOutcome> {
   const supabase = await createClient();
@@ -85,12 +97,29 @@ export async function getCatalogPageAdmin(input: AdminCatalogPageInput): Promise
 
   const page = finishCatalogPage((products ?? []) as CatalogProductRow[]);
 
+  // Harga efektif (0021) untuk prefill kalkulator/picker admin — lihat
+  // catatan pricePartnerId di atas. Gagal/tabel belum ada (LESSONS #12) =
+  // tanpa field price, prefill degradasi diam-diam (lib/price-query.ts).
+  let rows = page.products;
+  if (norm.withPrices) {
+    const pricePartnerId =
+      typeof input.pricePartnerId === "string" && input.pricePartnerId.trim() !== ""
+        ? input.pricePartnerId
+        : null;
+    const prices = await fetchEffectivePrices(
+      supabase,
+      rows.map((p) => p.id),
+      pricePartnerId
+    );
+    rows = attachEffectivePrices(rows, prices);
+  }
+
   let categories: string[] | undefined;
   if (norm.withCategories) {
     categories = (await fetchCatalogCategories(supabase, { activeOnly: true })) ?? undefined;
   }
 
-  return { status: "ok", ...page, categories };
+  return { status: "ok", products: rows, hasMore: page.hasMore, categories };
 }
 
 /* ------------------------------------------------------------------ *

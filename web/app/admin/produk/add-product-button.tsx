@@ -8,7 +8,8 @@ import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { type StockStatus } from "@/lib/catalog-shared";
 import { useAdminMessages } from "@/lib/i18n/provider";
-import { createProduct } from "../actions-products";
+import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
+import { createProduct, setProductBasePrice } from "../actions-products";
 import { lookupByRequestId } from "../actions-lookup";
 import { unggahFotoProduk } from "./upload-product-photo";
 
@@ -79,6 +80,17 @@ export default function AddProductButton() {
     draft.clear();
     requestId.current = null;
 
+    // Harga Dasar SANCI (0021) — best-effort SETELAH produk pasti tersimpan
+    // (pola foto di bawah): kegagalannya tidak membatalkan produk yang sudah
+    // ada. Gagal → beri tahu lewat alert (idiom aksi kartu di layar ini) dan
+    // arahkan mengisinya ulang lewat modal Ubah — JANGAN diklaim tersimpan
+    // tanpa bukti (LESSONS #7).
+    const basePriceRaw = String(fd.get("base_price") || "").trim();
+    if (basePriceRaw !== "") {
+      const priceRes = await setProductBasePrice(newId, basePriceRaw);
+      if ("error" in priceRes) alert(m.admin.productBasePriceSaveFailed);
+    }
+
     // Foto diurus PALING AKHIR, sesudah data produk dipastikan tersimpan.
     // Kegagalan foto tidak boleh membuat langkah ini terasa gagal — produk
     // sudah ada, pengguna cukup diberi tahu lewat peringatan halaman berikutnya.
@@ -131,6 +143,24 @@ export default function AddProductButton() {
               <option value="LIMITED">{m.common.stockLimited}</option>
               <option value="OUT_OF_STOCK">{m.common.stockOutOfStock}</option>
             </select>
+          </div>
+          {/* Harga Dasar SANCI (0021) — opsional; kosong = produk tanpa
+              harga dasar (kalkulator/picker mulai 0 seperti biasa). Ber-
+              atribut name supaya ikut draf lokal seperti field lain. */}
+          <div className="field">
+            <label htmlFor="np_base_price">{m.admin.productBasePriceFieldLabel}</label>
+            <input
+              id="np_base_price"
+              name="base_price"
+              type="text"
+              inputMode="numeric"
+              placeholder="Rp 0"
+              onChange={(e) => {
+                const n = parseIDRInput(e.target.value);
+                e.target.value = n === null ? "" : formatIDR(n);
+              }}
+            />
+            <div className="hint">{m.admin.productBasePriceHint}</div>
           </div>
           <div className="field">
             <label htmlFor="np_photo">{m.admin.productPhotoFieldLabel}</label>

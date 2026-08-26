@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { StockStatus } from "@/lib/catalog-shared";
 import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/lib/catalog-query";
+import { fetchEffectivePrices } from "@/lib/price-query";
 import { getAdminMessages } from "@/lib/i18n";
 import KalkulatorClient, { type KalkulatorProduct } from "@/lib/kalkulator-client";
 import { getCatalogPageAdmin } from "@/app/admin/catalog-actions";
@@ -96,6 +97,17 @@ export default async function AdminKalkulatorPage() {
   }
 
   const page = finishCatalogPage((products ?? []) as ProductQueryRow[]);
+
+  // Prefill Harga Dasar SANCI (0021) untuk batch pertama — kalkulator admin
+  // TIDAK punya konteks partner (keputusan rencana 0021), jadi partnerId
+  // null = hanya harga dasar. Batch berikut lewat getCatalogPageAdmin
+  // (withPrices, tanpa pricePartnerId — jalur yang sama). Gagal/tabel
+  // belum ada (LESSONS #12) = null → prefill degradasi ke perilaku lama.
+  const prices = await fetchEffectivePrices(
+    supabase,
+    page.products.map((p) => p.id),
+    null
+  );
   const items: KalkulatorProduct[] = page.products.map((p) => ({
     id: p.id,
     name: p.name,
@@ -103,6 +115,7 @@ export default async function AdminKalkulatorPage() {
     category: p.category,
     photoUrl: p.photo_url,
     stockStatus: p.stock_status,
+    price: prices?.get(p.id)?.price ?? null,
   }));
 
   return (

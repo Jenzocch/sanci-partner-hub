@@ -8,8 +8,28 @@ import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { type SanciProductRow, type StockStatus } from "@/lib/catalog-shared";
 import { useAdminMessages } from "@/lib/i18n/provider";
-import { setProductStatus, setProductStockStatus, updateProduct } from "../actions-products";
+import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
+import {
+  getProductBasePrice,
+  setProductBasePrice,
+  setProductStatus,
+  setProductStockStatus,
+  updateProduct,
+} from "../actions-products";
 import { unggahFotoProduk } from "./upload-product-photo";
+
+/**
+ * Kolom Harga Dasar SANCI (0021) di modal Ubah. Nilainya dimuat MALAS saat
+ * modal dibuka (grid /admin/produk tetap bebas harga — rencana 0021; query
+ * daftar tidak disentuh). "error" ≠ "belum ada harga" (LESSONS #10):
+ * saat gagal dimuat kolomnya DINONAKTIFKAN — kolom kosong yang tampil
+ * seolah "belum ada harga" akan MENGHAPUS harga dasar saat disimpan.
+ */
+type BasePriceState =
+  | { status: "loading" }
+  /** `message` = sebab dari server kalau ada (mis. migrasi 0021 belum jalan) — lebih jujur dari kalimat generik. */
+  | { status: "error"; message?: string }
+  | { status: "ready"; initial: string; value: string };
 
 /**
  * Baris yang benar-benar dipakai kartu + modal Ubah — created_at/updated_at
@@ -29,13 +49,37 @@ export default function ProductActions({ product }: { product: ProductActionRow 
   const [fotoMsg, setFotoMsg] = useState<string | null>(null);
   const [stockBusy, setStockBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
+  const [priceMsg, setPriceMsg] = useState<string | null>(null);
+  const [basePrice, setBasePrice] = useState<BasePriceState>({ status: "loading" });
   const draft = useLocalDraft("product", product.id, modal === "edit");
 
   function openEdit() {
     reset();
     setErrs({});
     setNetMsg(null);
+    setPriceMsg(null);
     setModal("edit");
+    // Harga Dasar SANCI dimuat malas per pembukaan modal (0021) — nilai
+    // segar tiap kali, bukan cache kartu.
+    setBasePrice({ status: "loading" });
+    getProductBasePrice(product.id)
+      .then((res) => {
+        if ("error" in res) {
+          setBasePrice({ status: "error", message: res.error.message });
+          return;
+        }
+        const formatted = res.data === null ? "" : formatIDR(res.data);
+        setBasePrice({ status: "ready", initial: formatted, value: formatted });
+      })
+      .catch(() => setBasePrice({ status: "error" }));
+  }
+
+  function onBasePriceChange(raw: string) {
+    setBasePrice((prev) => {
+      if (prev.status !== "ready") return prev;
+      const n = parseIDRInput(raw);
+      return { ...prev, value: n === null ? "" : formatIDR(n) };
+    });
   }
 
   function closeModal() {
@@ -72,6 +116,17 @@ export default function ProductActions({ product }: { product: ProductActionRow 
       return;
     }
     draft.clear();
+
+    // Harga Dasar SANCI (0021) — best-effort SETELAH data produk pasti
+    // tersimpan (pola foto di bawah): kegagalannya cuma peringatan, tidak
+    // membatalkan simpanan produk. Hanya ditulis kalau nilainya MEMANG
+    // berubah (dirty-check terhadap nilai awal yang dimuat) dan kolomnya
+    // sempat termuat sehat — kolom yang gagal dimuat dinonaktifkan di JSX,
+    // jadi tidak pernah menghapus harga tanpa sepengetahuan admin.
+    if (basePrice.status === "ready" && basePrice.value !== basePrice.initial) {
+      const priceRes = await setProductBasePrice(product.id, basePrice.value);
+      if ("error" in priceRes) setPriceMsg(m.admin.productBasePriceSaveFailed);
+    }
 
     // Foto diurus PALING AKHIR, sesudah data produk dipastikan tersimpan
     // (SPEC-style logo partner: kegagalan foto cuma peringatan).
@@ -112,6 +167,7 @@ export default function ProductActions({ product }: { product: ProductActionRow 
   return (
     <>
       {fotoMsg && <div className="banner warn">{fotoMsg}</div>}
+      {priceMsg && <div className="banner warn">{priceMsg}</div>}
 
       <div>
         <label
@@ -173,6 +229,35 @@ export default function ProductActions({ product }: { product: ProductActionRow 
               <div className="field">
                 <label htmlFor={`ep_desc_${product.id}`}>{m.common.description}</label>
                 <textarea id={`ep_desc_${product.id}`} name="description" defaultValue={product.description || ""} />
+              </div>
+              {/* Harga Dasar SANCI (0021). SENGAJA tanpa atribut `name`:
+                  input terkontrol yang dimuat async — draf lokal (yang cuma
+                  membaca field ber-name) tidak boleh memulihkan nilai basi
+                  ke sini (LESSONS #1 sekeluarga: nilai lama menimpa nilai
+                  segar). Saat gagal dimuat, kolom DINONAKTIFKAN — kolom
+                  kosong palsu yang tersimpan berarti MENGHAPUS harga. */}
+              <div className="field">
+                <label htmlFor={`ep_base_price_${product.id}`}>{m.admin.productBasePriceFieldLabel}</label>
+                <input
+                  id={`ep_base_price_${product.id}`}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Rp 0"
+                  value={basePrice.status === "ready" ? basePrice.value : ""}
+                  onChange={(e) => onBasePriceChange(e.target.value)}
+                  disabled={basePrice.status !== "ready"}
+                />
+                {basePrice.status === "loading" && <div className="hint">{m.common.loading}</div>}
+                {basePrice.status === "error" && (
+                  <div className="err-text">
+                    {basePrice.message
+                      ? `${basePrice.message} ${m.admin.productBasePriceLoadFailed}`
+                      : m.admin.productBasePriceLoadFailed}
+                  </div>
+                )}
+                {basePrice.status === "ready" && (
+                  <div className="hint">{m.admin.productBasePriceHint}</div>
+                )}
               </div>
               <div className="field">
                 <label htmlFor={`ep_photo_${product.id}`}>{m.admin.productPhotoFieldLabel}</label>

@@ -297,6 +297,29 @@ const id = {
   // dua area (/cabang/kalkulator dan /admin/kalkulator). Yang tersisa di
   // bawah ini HANYA yang menyebut alur pesanan cabang.
   homeCalculator: "Kalkulator Penawaran",
+  // ── Harga Normal (/cabang/harga, migrasi 0021) ──
+  // "Harga Normal" = harga jual normal toko ke pelanggan (sebelum diskon)
+  // — nama pilihan owner (GLOSSARY.md). Pembandingnya "Harga Dasar SANCI"
+  // (harga dasar milik SANCI, titik awal semua partner). JANGAN dicampur
+  // dengan "Penawaran SANCI" (nilai penawaran TINGKAT PESANAN, 0013).
+  homePriceList: "Harga Normal",
+  hargaPageTitle: "Harga Normal",
+  hargaIntroNote:
+    "Harga jual normal toko Anda per produk. Kosong = mengikuti Harga Dasar SANCI. Harga di sini otomatis " +
+    "terisi sebagai harga awal di Kalkulator dan Isi Pesanan — selalu bisa diubah saat dipakai.",
+  hargaBaseLabel: "Harga Dasar SANCI",
+  hargaMyLabel: "Harga Normal toko ini (Rp)",
+  hargaNoBase: "belum ditetapkan",
+  hargaFollowsBaseNote: "Mengikuti Harga Dasar SANCI.",
+  hargaResetCta: "Ikuti harga SANCI",
+  hargaSavedOk: "Harga tersimpan.",
+  hargaClearedOk: "Kembali mengikuti Harga Dasar SANCI.",
+  hargaSaveFailed: "Gagal menyimpan harga. Coba lagi.",
+  hargaSaveUnsure:
+    "Jawaban server tidak sampai — harga mungkin sudah tersimpan. Muat ulang halaman untuk memastikan sebelum mencoba lagi.",
+  hargaInvalidInput: "Isi angka rupiah yang benar.",
+  hargaModuleInactiveMsg:
+    "Fitur Harga Normal belum aktif di database (migrasi 0021 belum dijalankan). Hubungi SANCI Admin.",
   calcIntroNote:
     "Alat hitung cepat untuk dipakai langsung di depan pelanggan. Tidak ada yang tersimpan ke sistem sampai Anda " +
     "menekan \"Buat Pesanan\" — dan rantai diskon di sini bisa dipakai semua cabang, terlepas dari izin diskon pada " +
@@ -593,6 +616,25 @@ const en = {
   // FEATURES.md): no can_discount/can_edit_offer gate, and nothing is
   // written to the database while it's in use (localStorage only).
   homeCalculator: "Offer Calculator",
+  // Harga Normal (/cabang/harga, 0021) — owner-chosen name, GLOSSARY.md.
+  homePriceList: "Normal price",
+  hargaPageTitle: "Normal price",
+  hargaIntroNote:
+    "Your store's normal selling price per product. Empty = follows the SANCI base price. Prices here are " +
+    "filled in automatically as the starting price in the Calculator and Order items — always editable in use.",
+  hargaBaseLabel: "SANCI base price",
+  hargaMyLabel: "This store's normal price (Rp)",
+  hargaNoBase: "not set",
+  hargaFollowsBaseNote: "Following the SANCI base price.",
+  hargaResetCta: "Follow SANCI price",
+  hargaSavedOk: "Price saved.",
+  hargaClearedOk: "Now following the SANCI base price.",
+  hargaSaveFailed: "Could not save the price. Try again.",
+  hargaSaveUnsure:
+    "No reply from the server — the price may have been saved. Reload the page to check before trying again.",
+  hargaInvalidInput: "Enter a valid rupiah amount.",
+  hargaModuleInactiveMsg:
+    "The Normal price feature isn't active in the database yet (migration 0021 not run). Contact SANCI Admin.",
   calcIntroNote:
     "A quick calculator for use right in front of the customer. Nothing is saved to the system until you press " +
     "\"Create Order\" — and the discount chain here can be used by every branch, regardless of discount " +
@@ -867,6 +909,23 @@ const zh = {
   // can_discount/can_edit_offer 权限门槛,而且使用期间完全不写入数据库
   // (只存在浏览器 localStorage)。
   homeCalculator: "方案计算器",
+  // Harga Normal(/cabang/harga,0021)—— owner 指定叫法,GLOSSARY.md。
+  homePriceList: "标准售价",
+  hargaPageTitle: "标准售价",
+  hargaIntroNote:
+    "本店每件产品的标准售价。留空 = 跟随 SANCI 基准价。这里的价格会自动填入计算器和订单明细的起始价 —— " +
+    "使用时随时可以改。",
+  hargaBaseLabel: "SANCI 基准价",
+  hargaMyLabel: "本店标准售价(Rp)",
+  hargaNoBase: "未设置",
+  hargaFollowsBaseNote: "目前跟随 SANCI 基准价。",
+  hargaResetCta: "改回跟随 SANCI",
+  hargaSavedOk: "价格已保存。",
+  hargaClearedOk: "已改回跟随 SANCI 基准价。",
+  hargaSaveFailed: "价格保存失败,请重试。",
+  hargaSaveUnsure: "没有收到服务器回复 —— 价格可能已保存。请先刷新页面确认,再决定要不要重试。",
+  hargaInvalidInput: "请输入正确的 Rupiah 金额。",
+  hargaModuleInactiveMsg: "标准售价功能还没有启用(数据库迁移 0021 还没执行),请联系 SANCI 管理员。",
   calcIntroNote:
     "快速计算工具,可以直接在客户面前使用。在您按下\"创建订单\"之前,这里的任何内容都不会保存到系统 —— " +
     "而且这里的折扣链所有门店都能用,跟真实订单的折扣权限无关。",

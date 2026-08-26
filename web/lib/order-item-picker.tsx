@@ -55,6 +55,14 @@ export type PickerProduct = {
   category: string | null;
   photoUrl: string | null;
   stockStatus: StockStatus;
+  /**
+   * Harga efektif 0021 — PREFILL unitPrice saat produk ditambahkan
+   * (cabang: override toko sendiri → Harga Dasar SANCI; form admin: harga
+   * efektif partner TERPILIH). null/absen = mulai 0, ketik manual
+   * (perilaku lama). Kolom harga baris tetap selalu bisa diketik; di sisi
+   * cabang trg_order_item_price_guard (0014) tetap penentu akhirnya.
+   */
+  price?: number | null;
 };
 
 /** Satu baris Isi Pesanan yang dipilih di form (state React murni, bukan field form). */
@@ -202,7 +210,8 @@ export default function OrderItemsSection({
       onLinesChange(next);
       return;
     }
-    onLinesChange([...lines, { productId: p.id, name: p.name, code: p.code, unitPrice: 0, qty: 1 }]);
+    // Prefill harga efektif 0021 — nilai awal yang bisa diubah, bukan kunci.
+    onLinesChange([...lines, { productId: p.id, name: p.name, code: p.code, unitPrice: p.price ?? 0, qty: 1 }]);
   }
 
   function removeLine(productId: string) {

@@ -158,6 +158,11 @@ const id = {
   colorCode: "Kode Warna",
   customSize: "Ukuran Custom",
   unitPrice: "Harga Satuan",
+  // 0021 — kolom `price` di product_prices (daftar harga: Harga Dasar
+  // SANCI + Harga Normal partner). Kata "Harga" DI SINI diizinkan — 0021
+  // memang membuka konteks penetapan harga; layar jelajah katalog tetap
+  // bebas harga (GLOSSARY.md).
+  price: "Harga",
   lineDiscount: "Potongan Baris",
   // 0015 — rantai diskon TINGKAT PESANAN (order_sanci_offers). "Diskon" DI SINI
   // diizinkan (beda dari lineDiscount di atas) — lihat GLOSSARY.md §"订单层级
@@ -207,6 +212,12 @@ const id = {
   auditProductUpdated: "Produk diubah",
   auditProductStatusChanged: "Status produk berubah",
   auditProductDeleted: "Produk dihapus",
+  // 0021 — daftar harga (product_prices): tiga aksi generik saja (tabel
+  // tanpa kolom status). "Dihapus" = override dicabut (kembali ke Harga
+  // Dasar SANCI) atau harga dasar dicabut admin.
+  auditProductPriceSet: "Harga produk diisi",
+  auditProductPriceUpdated: "Harga produk diubah",
+  auditProductPriceRemoved: "Harga produk dihapus",
   auditCatalogAccessCreated: "Akses katalog dibuka",
   auditCatalogAccessUpdated: "Akses katalog diubah",
   auditPartnerCreated: "Partner dibuat",
@@ -467,6 +478,7 @@ const en = {
   colorCode: "Color code",
   customSize: "Custom size",
   unitPrice: "Unit price",
+  price: "Price",
   lineDiscount: "Line deduction",
   discountPcts: "Discount",
   markupPct: "Markup",
@@ -512,6 +524,9 @@ const en = {
   auditProductUpdated: "Product edited",
   auditProductStatusChanged: "Product status changed",
   auditProductDeleted: "Product deleted",
+  auditProductPriceSet: "Product price set",
+  auditProductPriceUpdated: "Product price changed",
+  auditProductPriceRemoved: "Product price removed",
   auditCatalogAccessCreated: "Catalog access opened",
   auditCatalogAccessUpdated: "Catalog access changed",
   auditPartnerCreated: "Partner added",
@@ -731,6 +746,7 @@ const zh = {
   colorCode: "颜色代码",
   customSize: "定制尺寸",
   unitPrice: "单价",
+  price: "价格",
   lineDiscount: "单行扣减金额",
   discountPcts: "折扣",
   markupPct: "加成",
@@ -776,6 +792,9 @@ const zh = {
   auditProductUpdated: "产品已修改",
   auditProductStatusChanged: "产品状态已变更",
   auditProductDeleted: "产品已删除",
+  auditProductPriceSet: "已设置产品价格",
+  auditProductPriceUpdated: "产品价格已修改",
+  auditProductPriceRemoved: "产品价格已删除",
   auditCatalogAccessCreated: "已开通产品目录权限",
   auditCatalogAccessUpdated: "产品目录权限已修改",
   auditPartnerCreated: "合作商已创建",

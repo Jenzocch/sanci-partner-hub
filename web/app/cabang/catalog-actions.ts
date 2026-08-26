@@ -39,6 +39,7 @@ import {
   type CatalogPageOutcome,
   type CatalogProductRow,
 } from "@/lib/catalog-query";
+import { attachEffectivePrices, fetchEffectivePrices } from "@/lib/price-query";
 
 export async function getCatalogPageBranch(input: CatalogPageInput): Promise<CatalogPageOutcome> {
   const supabase = await createClient();
@@ -79,6 +80,22 @@ export async function getCatalogPageBranch(input: CatalogPageInput): Promise<Cat
 
   const page = finishCatalogPage((products ?? []) as CatalogProductRow[]);
 
+  // Harga efektif (0021: override partner sendiri → Harga Dasar SANCI) —
+  // hanya kalau pemanggil memintanya (kalkulator/picker; layar jelajah
+  // TIDAK). partner_id dari lookup partner_users di atas (LESSONS #6),
+  // dan RLS pp_partner_read tetap penegak sesungguhnya. Gagal/tabel belum
+  // ada (LESSONS #12) = tanpa field price — prefill mendegradasi diam-diam
+  // ke perilaku lama (ketik manual), lihat lib/price-query.ts.
+  let rows = page.products;
+  if (norm.withPrices) {
+    const prices = await fetchEffectivePrices(
+      supabase,
+      rows.map((p) => p.id),
+      pu.partner_id
+    );
+    rows = attachEffectivePrices(rows, prices);
+  }
+
   let categories: string[] | undefined;
   if (norm.withCategories) {
     // Gagal mengambil kategori = degradasi kosmetik (chip tidak tampil),
@@ -86,5 +103,5 @@ export async function getCatalogPageBranch(input: CatalogPageInput): Promise<Cat
     categories = (await fetchCatalogCategories(supabase)) ?? undefined;
   }
 
-  return { status: "ok", ...page, categories };
+  return { status: "ok", products: rows, hasMore: page.hasMore, categories };
 }
