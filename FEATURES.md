@@ -1336,6 +1336,30 @@ picker×2 表單、Package 加產品）全數改為：**搜尋/分類過濾在�
 ⑥admin produk 篩選組合＋編輯 modal 描述預填正常；⑦計算機購物車在清單被
 過濾/翻頁後仍正常顯示、轉單不受影響。
 
+### Partner 價目表（migration 0021，2026-08-26，owner 三分岔定案後）
+
+**取價三層**：Partner 覆寫 → SANCI 基準（Harga Dasar SANCI）→ 手動輸入。新表
+`product_prices`（partner_id NULL=基準列；bigint rupiah；updated_at/by server
+強制）。**sanci_products 一欄未加**——0010 的 PRODUCT_NO_PRICE_COLUMN=0 在
+0021 驗證區塊原句重申；目錄瀏覽頁維持零價格。RLS：admin all；partner 讀=
+目錄開通閘門後的「自己覆寫＋基準列」；寫=只有自己 partner 列（基準列靠
+SQL NULL 語意天然擋下，90_behavior 實測）；PRICE_BASE_NONADMIN_WRITE=0 負面
+斷言釘死。fn_audit_row 從 0018 全複製＋恰一行新增（**親自 difflib 覆核：
++1/-0**）。本地：全鏈重放、冪等×3 零漂移、既有 121 項回歸全過、新套件
+22/22（含跨 partner 隔離、未開通全隱、審計 before/after、刪除回落）。
+
+App：`/cabang/harga`「**Harga Normal**」頁（型錄搜尋契約第 7 個消費者，
+基準→自訂價 inline 編輯＋「Ikuti harga SANCI」回落，回應遺失誠實報
+「不確定」）；admin 產品編輯 modal 加 Harga Dasar 欄（載入失敗鎖欄位防
+誤刪）；計算機/選擇器 addToCart 自動預填有效價（admin 代下單用**所選
+partner** 的價，換 partner 強制重掛防殘價）；audit-format 三動作＋IDR 標籤；
+GLOSSARY 加 Harga Normal/Harga Dasar 並明文區隔 Penawaran SANCI。owner 定案
+邊界：admin 各店覆寫檢視 v1 不做、基準價隨目錄閘門、頁名 Harga Normal。
+
+**⚠️ 待 Jenzo 執行**：`supabase/migrations/0021_partner_price_list.sql` 貼進
+SQL Editor 執行，回貼 39 列驗證結果核對。程式先上線亦安全（未跑 SQL 前所有
+價格面誠實降級為現在的手動輸入）。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
