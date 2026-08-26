@@ -1314,10 +1314,27 @@ ORDER_POLICIES 4、ORDER_DELETE_POLICY 0、AUDIT_STILL_0018_* 1/1）。
 **0001–0020 全鏈已在 production 套用並驗證。**
 已知後續：sheets-orders 匯出尚無 PO 欄（記錄未做）。
 
-### 型錄伺服器搜尋＋分批載入（已建議待 owner 確認）
+### 型錄伺服器搜尋＋分批載入（2026-08-26 完成，owner 確認「一定會超過」後）
 
-169/200 將必然超限（owner 確認「一定會超過」）。建議方案：搜尋/分類過濾改
-資料庫端執行＋「載入更多」分批（每批 60），覆蓋六個型錄畫面。等 owner 說做。
+六個型錄畫面（cabang produk、兩個 kalkulator、admin produk、Isi Pesanan
+picker×2 表單、Package 加產品）全數改為：**搜尋/分類過濾在資料庫執行**
+（ilike，300ms debounce，弱網失敗保留舊結果＋錯誤橫幅、不清空清單）＋
+**「Muat Lebih Banyak」每批 60**（`order(name).order(id)` 確定性排序防跨頁
+跳漏、sentinel 第 61 列判 hasMore、免 count 查詢）。共用契約
+`lib/catalog-query.ts`＋client hook `lib/use-catalog-search.ts`（競態序號
+防亂序、load-more 失敗按鈕變重試）。各區安全閘門逐一保留原樣（cabang 目錄
+開通三態、admin ACTIVE-only／全狀態各依舊）。分類 chip 全集另查（category
+單欄掃描上限 2000 附 RPC 逃生註記；查詢失敗＝無 chip 純化妝性降級）。
+**PostgREST `.or()` 注入防護**：雙層跳脫＋雙引號包裹（LESSONS #40 新條目，
+讀 supabase-js source 證實）；`*`→`%` 同義為已知可接受邊界。200 筆上限警語
+（`catalogListCappedMsg`）功成身退，鍵與四處用法一併移除。First Load 六路由
+各 +1~2 kB。零 migration。
+
+**待 Jenzo 實機驗證**：①各畫面搜尋能命中第 60 筆之後的產品；②含標點
+（`,` `(` `%` `"`）搜尋不炸、按字面匹配；③chip 全集先於載入更多出現；
+④載入更多無重複無跳漏；⑤未開通分店三態不變、斷網中搜尋保留舊清單；
+⑥admin produk 篩選組合＋編輯 modal 描述預填正常；⑦計算機購物車在清單被
+過濾/翻頁後仍正常顯示、轉單不受影響。
 
 ## 已知刻意保留的「怪東西」
 
