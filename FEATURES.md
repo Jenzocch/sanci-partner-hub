@@ -1454,6 +1454,26 @@ First Load JS 171 kB 完全沒變（Size 欄從 1.81→68.2 kB 只是 webpack �
 byte-for-byte 相同。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` 0 錯誤、
 `npx eslint .` 0 警告。
 
+### 分店端「Lihat isi」——唯讀查看 Package 內容（2026-08-27，migration 0012 早已開放的 RLS 路徑補上畫面）
+
+- 新頁面元件 `web/app/cabang/pesanan/package-contents.tsx` + server action
+  `web/app/cabang/package-items-actions.ts`。兩處入口：`/cabang/pesanan/baru`
+  選了真實 package 時、`/cabang/pesanan/[orderId]` package 名稱旁——按下才
+  載入，不吃額外首載往返。
+- 四態誠實區分（LESSONS #10）：載入中／失敗（可重試）／SANCI 尚未開放型錄／
+  package 本身沒內容。**產品被下架但仍在 package 裡的列不會消失**——
+  改顯示「Produk sudah ditarik dari katalog」並保留數量，不讓內容看起來比
+  實際少。
+- 純讀取，`partner_package_items` 對 partner 使用者本來就沒有任何寫入
+  policy（0012 §4）——沒有加、也不會加任何寫入路徑。
+- 已知邊界（**待 owner 決定**）：型錄未對某 partner 開放時，該店連自己
+  package 裡「SANCI 已內定」的產品名都看不到（`sp_partner_read` 卡住），
+  「Lihat isi」會顯示「型錄未開放」而非內容。要放行需要新的 RLS policy
+  （落在紅線內，本輪未動）。
+- 人工驗證（owner）：□ 分店選 package 後按「Lihat isi」看得到正確品項 □
+  已下架產品仍列出但標示「已從目錄下架」 □ 型錄未開放的店按下去看到的是
+  合理的提示訊息
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
