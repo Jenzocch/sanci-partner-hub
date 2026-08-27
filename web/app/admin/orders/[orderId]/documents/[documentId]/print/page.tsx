@@ -603,23 +603,33 @@ function InvoiceSheet({
 
 /**
  * Kop surat — sama untuk SO/DO/Invoice, tata letaknya meniru kop template
- * Excel asli (owner 2026-08-27): KIRI merek SANCI + nama PT, KANAN blok
- * alamat rata-kanan + kontak, ditutup garis navy. Nilainya dari
- * COMPANY_INFO.letterhead (lib/company-info.ts) — satu tempat edit, tanpa
- * UI admin (kebijakan sama dengan blok bank). Baris telepon hanya tercetak
- * bila nomornya sudah diisi di sana. Merek masih berupa teks bergaya —
- * diganti berkas logo PNG asli begitu owner mengunggahnya (ditunggu via
- * Google Drive).
+ * Excel asli (owner 2026-08-27): KIRI logo + nama PT, KANAN blok alamat
+ * rata-kanan + kontak, ditutup garis navy. Dipadatkan hari yang sama
+ * (owner: "地址太浪費空間, 字體縮小, 能夠少行數 就少行數") — alamat dari
+ * COMPANY_INFO.letterhead SUDAH dibungkus 2 baris di sumbernya, dan Telp/
+ * Email/Website digabung SATU baris di sini (bukan 2), teks aslinya tidak
+ * dipotong. Nilainya dari COMPANY_INFO.letterhead (lib/company-info.ts) —
+ * satu tempat edit, tanpa UI admin (kebijakan sama dengan blok bank). Baris
+ * telepon hanya tercetak bila nomornya sudah diisi di sana.
+ *
+ * Logo asli (public/brand/sanci-logo.png, 282×61) diunggah owner via Google
+ * Drive 2026-08-27 — dibuka dari `/brand/sanci-logo.png` (jalur publik
+ * Next.js, bukan Supabase Storage: aset statis punya build, tidak perlu
+ * versi cache-bust seperti foto produk). `<img>` biasa, BUKAN `next/image`:
+ * halaman cetak ini sudah menegaskan "BUKAN kloning piksel" tapi dokumen
+ * dagang tetap harus identik tiap render — next/image dapat memilih format/
+ * ukuran berbeda antar permintaan, sama sekali tidak diinginkan di sini.
  */
 function LetterheadBlock() {
   const lh = COMPANY_INFO.letterhead;
-  const contact = [lh.phone && `Telp: ${lh.phone}`, `Email: ${lh.email}`]
+  const contact = [lh.phone && `Telp: ${lh.phone}`, `Email: ${lh.email}`, `Website: ${lh.website}`]
     .filter(Boolean)
-    .join(" | ");
+    .join("  |  ");
   return (
     <div className="letterhead">
       <div className="lh-left">
-        <div className="lh-brand">{lh.brand}</div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- dokumen cetak statis, lihat catatan di atas */}
+        <img className="lh-logo" src="/brand/sanci-logo.png" alt={lh.brand} />
         <div className="lh-company">{lh.name}</div>
       </div>
       <div className="lh-right">
@@ -627,7 +637,6 @@ function LetterheadBlock() {
           <div key={line}>{line}</div>
         ))}
         <div>{contact}</div>
-        <div>Website: {lh.website}</div>
       </div>
     </div>
   );
@@ -707,10 +716,10 @@ const PRINT_CSS = `
     font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;
   }
   .print-sheet .doctitle{font-size:22px;font-weight:700;margin:0 0 16px;text-align:center;letter-spacing:.04em;text-transform:uppercase}
-  .print-sheet .letterhead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:4px solid #2a3f76;padding-bottom:10px;margin-bottom:16px}
-  .print-sheet .lh-brand{font-size:30px;font-weight:800;letter-spacing:.16em;color:#2a3f76;line-height:1.1}
-  .print-sheet .lh-company{font-size:13px;font-weight:700;letter-spacing:.06em;margin-top:4px;color:#2a3f76}
-  .print-sheet .lh-right{text-align:right;font-size:11px;color:#333333;line-height:1.5}
+  .print-sheet .letterhead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:3px solid #2a3f76;padding-bottom:6px;margin-bottom:12px}
+  .print-sheet .lh-logo{height:30px;width:auto;display:block}
+  .print-sheet .lh-company{font-size:11px;font-weight:700;letter-spacing:.05em;margin-top:4px;color:#2a3f76}
+  .print-sheet .lh-right{text-align:right;font-size:9px;color:#333333;line-height:1.35}
   .print-sheet .photocell{width:60px;text-align:center}
   .print-sheet .photocell img{width:52px;height:52px;object-fit:contain;display:block;margin:0 auto}
   .print-sheet table{width:100%;border-collapse:collapse;margin-bottom:16px}

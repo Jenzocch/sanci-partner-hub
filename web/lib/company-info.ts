@@ -19,20 +19,20 @@ export const COMPANY_INFO = {
   legalName: "PT WAHANA ERA INOVASI",
   /**
    * Kop surat (letterhead) kiri-atas SO/DO/Invoice — permintaan owner
-   * 2026-08-27. Disalin VERBATIM dari kop template asli di workbook
-   * "Form SO INV dan DO-SANCI" (tab Sales Order (SO) - Updated):
-   * baris alamat, email, dan website persis seperti di kertas lama.
-   * `phone` masih kosong karena kop template asli TIDAK mencantumkan
-   * nomor telepon — isi di sini (satu tempat) begitu owner memberikan
-   * nomornya; baris telepon otomatis ikut tercetak begitu terisi.
+   * 2026-08-27, dipadatkan hari yang sama (owner: "地址太浪費空間, 字體縮小,
+   * 能夠少行數 就少行數"). Isinya sama persis dengan kop template asli di
+   * workbook "Form SO INV dan DO-SANCI" (tab Sales Order (SO) - Updated) —
+   * hanya PEMBUNGKUSAN BARISNYA yang dipadatkan (3 baris alamat + 2 baris
+   * kontak → 2 + 1), teksnya sendiri tidak dipotong satu kata pun.
+   * `phone` boleh dikosongkan (kop template asli tidak mencantumkannya) —
+   * baris kontak otomatis menyusut ke email+website saja kalau kosong.
    */
   letterhead: {
     brand: "SANCI",
     name: "PT. WAHANA ERA INOVASI",
     addressLines: [
-      "Jalan Minangkabau Barat No. 8-8A, RT 01/RW 01,",
-      "Kelurahan Pasar Manggis, Kecamatan Setiabudi,",
-      "Jakarta Selatan, DKI Jakarta 12970 - Indonesia",
+      "Jl. Minangkabau Barat No. 8-8A, RT 01/RW 01, Kel. Pasar Manggis,",
+      "Kec. Setiabudi, Jakarta Selatan, DKI Jakarta 12970",
     ],
     phone: "0851-3318-5168",
     email: "wahana.elite@gmail.com",

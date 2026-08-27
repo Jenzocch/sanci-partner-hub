@@ -1474,6 +1474,20 @@ byte-for-byte 相同。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` 0 錯誤
   已下架產品仍列出但標示「已從目錄下架」 □ 型錄未開放的店按下去看到的是
   合理的提示訊息
 
+### 列印抬頭換真 logo＋壓縮行數（2026-08-27，owner 兩項要求）
+
+- **真 logo 上線**：owner 透過 Google Drive 提供 `Logo Sanci.png`（282×61），
+  存進 `web/public/brand/sanci-logo.png`（Next.js 公開靜態路徑，非 Supabase
+  Storage——build 自帶版本，不需要像產品照片那樣加 cache-bust 參數）。
+  SO/DO/Invoice 抬頭左上角的樣式文字換成真圖，`<img>` 而非 `next/image`
+  （列印文件要求逐次渲染完全一致，不要 next/image 依請求挑不同格式/尺寸）。
+- **抬頭壓縮**：owner「地址太浪費空間,字體縮小,能夠少行數 就少行數」——
+  `COMPANY_INFO.letterhead.addressLines` 從 3 行併成 2 行，Telp/Email/
+  Website 從兩行併成一行，文字本身一字未刪；字級同步縮小（地址區
+  11px→9px、公司名 13px→11px、抬頭底線 4px→3px、留白隨之收緊）。
+- 人工驗證（owner）：□ 列印 SO/DO/Invoice 左上角是真的 SANCI logo 圖 □
+  抬頭整體變矮、地址一眼看完不覺得占版面
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
