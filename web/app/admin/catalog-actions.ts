@@ -37,7 +37,7 @@ import {
   type CatalogPageOutcome,
   type CatalogProductRow,
 } from "@/lib/catalog-query";
-import { attachEffectivePrices, fetchEffectivePrices } from "@/lib/price-query";
+import { attachAdminBasePrices, attachEffectivePrices, fetchEffectivePrices } from "@/lib/price-query";
 
 /** Idiom verifikasi admin yang sama dengan actions-create-order.ts — untuk
  *  action baca-saja ini semua kegagalan cukup dipetakan ke "error". */
@@ -137,6 +137,14 @@ export type AdminProdukRow = {
   photo_url: string | null;
   stock_status: StockStatus;
   status: ProductStatus;
+  /**
+   * Harga Dasar SANCI untuk KARTU daftar (permintaan owner 2026-08-26:
+   * harga langsung terlihat di /admin/produk, bukan hanya di modal Ubah).
+   * Kontrak tiga keadaan ada di attachAdminBasePrices (lib/price-query.ts);
+   * modal Ubah tetap memuat nilainya sendiri saat dibuka (nilai segar) —
+   * kolom ini hanya untuk tampilan kartu.
+   */
+  base_price?: number | null;
 };
 
 export type AdminProdukPageInput = CatalogPageInput & { stock?: "ALL" | StockStatus };
@@ -175,5 +183,9 @@ export async function getProdukPageAdmin(input: AdminProdukPageInput): Promise<A
   }
 
   const page = finishCatalogPage((products ?? []) as AdminProdukRow[]);
-  return { status: "ok", ...page };
+  return {
+    status: "ok",
+    products: await attachAdminBasePrices(supabase, page.products),
+    hasMore: page.hasMore,
+  };
 }

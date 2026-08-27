@@ -22,6 +22,7 @@
  */
 
 import { useCallback, useRef, useState } from "react";
+import { formatIDR } from "@/lib/orders-shared";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
 import { useCatalogSearch, type CatalogFetchResult } from "@/lib/use-catalog-search";
 import { useAdminMessages } from "@/lib/i18n/provider";
@@ -158,6 +159,22 @@ export default function ProdukAdminClient({
                   <div style={{ fontWeight: 650, fontSize: "var(--fs-body)" }}>{p.name}</div>
                   <div style={{ marginTop: 4 }}>
                     {p.code ? <span className="code">{p.code}</span> : <span className="small muted">—</span>}
+                  </div>
+                  {/* Harga Dasar SANCI langsung di kartu (permintaan owner
+                      2026-08-26). Tiga keadaan dibedakan — kontrak
+                      attachAdminBasePrices (LESSONS #10): number = harga,
+                      null = pasti belum ada, undefined = query harga gagal
+                      (JANGAN tampil seolah "belum ada harga"). */}
+                  <div style={{ marginTop: 6 }}>
+                    {typeof p.base_price === "number" ? (
+                      <span style={{ fontWeight: 650, fontVariantNumeric: "tabular-nums" }}>
+                        {formatIDR(p.base_price)}
+                      </span>
+                    ) : p.base_price === null ? (
+                      <span className="small muted">{m.admin.produkCardPriceNone}</span>
+                    ) : (
+                      <span className="small muted">{m.admin.produkCardPriceLoadFailed}</span>
+                    )}
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8 }}>

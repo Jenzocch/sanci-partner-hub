@@ -1361,6 +1361,24 @@ GLOSSARY 加 Harga Normal/Harga Dasar 並明文區隔 Penawaran SANCI。owner �
 PRICE_BASE_NONADMIN_WRITE 0、STAMP_FN_EXEC_* 全 0、17 個 AUDIT_KEEP_* 全 1）。
 **0001–0021 全鏈已在 production 套用並驗證。**
 
+### /admin/produk 卡片直接顯示 Harga Dasar＋停用/庫存按鈕納入安全提交（2026-08-26，owner 回報「無法 Nonaktifkan」＋「產品頁直接顯示價格」）
+
+- **卡片價格**：`attachAdminBasePrices`（lib/price-query.ts）為 /admin/produk
+  首批（server page）與後續分批（getProdukPageAdmin）掛上 `base_price`，
+  三態誠實顯示（LESSONS #10）：有價＝金額（formatIDR）、`null`＝「Belum ada
+  harga」、`undefined`（價格查詢失敗／0021 未跑）＝「Harga gagal dimuat」，
+  絕不把查詢失敗顯示成「沒有價格」。列表查詢本身不因價格失敗而失敗。
+  修改價格仍在 Ubah 視窗（開啟時抓最新值，卡片欄位僅供顯示）。
+- **停用/庫存修復**：Nonaktifkan 按鈕與庫存下拉原本裸呼叫 Server Action——
+  網路失敗或舊分頁（Server Action 404）時 exception 未被接住，`setBusy(false)`
+  永不執行→按鈕永久卡死且無任何訊息（owner 2026-08-26 回報實況）。改包
+  `submitSafely`（與 onEdit 同機制）：任何失敗都恢復按鈕並 alert 原因，含
+  stale-deploy 偵測的「版本過期請重新整理」訊息；庫存下拉失敗時回復伺服器值。
+- 驗證：`tsc --noEmit` 0 錯誤、eslint 0 警告、`next build` 成功、/offline
+  維持 ○ 1.01 kB。
+- 人工驗證（owner）：□ Produk 卡片看得到 169 個價格 □ 沒價格的顯示
+  「Belum ada harga」 □ Nonaktifkan 按下去立即變 Aktifkan（重新整理後再按）
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

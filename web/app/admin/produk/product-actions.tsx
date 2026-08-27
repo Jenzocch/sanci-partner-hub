@@ -139,14 +139,32 @@ export default function ProductActions({ product }: { product: ProductActionRow 
     router.refresh();
   }
 
+  // Dua kendali kartu (stok & aktif/nonaktif) dibungkus submitSafely seperti
+  // form lain — SEBELUMNYA panggilan action-nya telanjang: kegagalan jaringan
+  // atau tab dengan versi deploy usang (Server Action 404) melempar exception
+  // yang tidak tertangkap, `setBusy(false)` di bawah `await` tidak pernah
+  // jalan → kendali mati permanen TANPA pesan apa pun (laporan owner
+  // 2026-08-26: "produk tidak bisa dinonaktifkan"). Sekarang kegagalan apa pun
+  // memulihkan tombol dan menjelaskan sebabnya — termasuk pesan "versi usang,
+  // muat ulang" dari deteksi stale deploy.
   async function onStockChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const value = e.target.value as StockStatus;
+    const select = e.target;
     setStockBusy(true);
-    const res = await setProductStockStatus(product.id, value);
+    const out = await submitSafely({
+      kind: "update",
+      run: () => setProductStockStatus(product.id, value),
+      messages: m,
+    });
     setStockBusy(false);
-    if ("error" in res) {
-      alert(res.error.message);
-      e.target.value = product.stock_status; // gagal — kembalikan tampilan ke nilai server
+    if (out.status !== "ok") {
+      alert(out.message);
+      select.value = product.stock_status; // gagal — kembalikan tampilan ke nilai server
+      return;
+    }
+    if ("error" in out.result) {
+      alert(out.result.error.message);
+      select.value = product.stock_status;
       return;
     }
     router.refresh();
@@ -155,10 +173,18 @@ export default function ProductActions({ product }: { product: ProductActionRow 
   async function onToggleStatus() {
     if (statusBusy) return;
     setStatusBusy(true);
-    const res = await setProductStatus(product.id, product.status === "ACTIVE" ? "INACTIVE" : "ACTIVE");
+    const out = await submitSafely({
+      kind: "update",
+      run: () => setProductStatus(product.id, product.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"),
+      messages: m,
+    });
     setStatusBusy(false);
-    if ("error" in res) {
-      alert(res.error.message);
+    if (out.status !== "ok") {
+      alert(out.message);
+      return;
+    }
+    if ("error" in out.result) {
+      alert(out.result.error.message);
       return;
     }
     router.refresh();

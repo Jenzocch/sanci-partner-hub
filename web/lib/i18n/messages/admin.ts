@@ -466,6 +466,8 @@ const id = {
   produkEmptyFiltered: 'Tidak ada produk yang cocok dengan "{q}".',
   produkEmptyFilteredCategory: "Tidak ada produk di kategori ini.",
   produkFootnote: "Produk nonaktif tidak terlihat oleh partner.",
+  produkCardPriceNone: "Belum ada harga",
+  produkCardPriceLoadFailed: "Harga gagal dimuat",
   productNoPhoto: "Tanpa foto",
   productStockFieldLabel: "Status stok",
 
@@ -1284,6 +1286,8 @@ const en = {
   produkEmptyFiltered: 'No products match "{q}".',
   produkEmptyFilteredCategory: "No products in this category.",
   produkFootnote: "Inactive products are not visible to partners.",
+  produkCardPriceNone: "No price yet",
+  produkCardPriceLoadFailed: "Price failed to load",
   productNoPhoto: "No photo",
   productStockFieldLabel: "Stock status",
 
@@ -2019,6 +2023,8 @@ const zh = {
   produkEmptyFiltered: "没有符合“{q}”的产品。",
   produkEmptyFilteredCategory: "这个分类下暂无产品。",
   produkFootnote: "已停用的产品对合作商不可见。",
+  produkCardPriceNone: "尚未设定价格",
+  produkCardPriceLoadFailed: "价格加载失败",
   productNoPhoto: "暂无照片",
   productStockFieldLabel: "库存状态",
 

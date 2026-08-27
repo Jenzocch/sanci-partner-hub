@@ -91,3 +91,27 @@ export function attachEffectivePrices<T extends { id: string }>(
     return eff ? { ...r, price: eff.price } : r;
   });
 }
+
+/**
+ * Harga Dasar SANCI untuk KARTU daftar /admin/produk (permintaan owner
+ * 2026-08-26). Beda kontrak dengan attachEffectivePrices di atas: layar
+ * kelola harus MEMBEDAKAN "belum ada harga" dari "harga gagal dimuat"
+ * (LESSONS #10 — kartu yang menampilkan "belum ada harga" padahal query-nya
+ * gagal akan menyuruh admin mengisi ulang harga yang sebenarnya sudah ada):
+ *   base_price: number    → harga dasar ada;
+ *   base_price: null      → DIPASTIKAN belum ada harga dasar;
+ *   base_price: undefined → query harga gagal / tabel 0021 belum ada.
+ * Kegagalan query harga tidak menggagalkan daftar produk.
+ */
+export async function attachAdminBasePrices<T extends { id: string }>(
+  supabase: SupabaseServerClient,
+  rows: T[]
+): Promise<(T & { base_price?: number | null })[]> {
+  const prices = await fetchEffectivePrices(
+    supabase,
+    rows.map((r) => r.id),
+    null
+  );
+  if (prices === null) return rows; // base_price tetap undefined = "gagal dimuat"
+  return rows.map((r) => ({ ...r, base_price: prices.get(r.id)?.price ?? null }));
+}
