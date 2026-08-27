@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCabangMessages } from "@/lib/i18n/provider";
 import {
   getPackageContentsBranch,
@@ -41,10 +41,14 @@ export default function PackageContents({ packageId }: { packageId: string }) {
   const m = useCabangMessages();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<LoadState>({ kind: "idle" });
+  /** Package yang SEDANG ditampilkan komponen ini — pembanding untuk jawaban
+   *  yang datang terlambat (lihat komentar di `load`). */
+  const shownRef = useRef(packageId);
 
   // Package yang dipilih bisa berganti (dropdown di form pesanan baru) —
   // isi lama HARUS dibuang, bukan tetap terpampang di bawah nama yang lain.
   useEffect(() => {
+    shownRef.current = packageId;
     setOpen(false);
     setState({ kind: "idle" });
   }, [packageId]);
@@ -56,9 +60,14 @@ export default function PackageContents({ packageId }: { packageId: string }) {
       res = await getPackageContentsBranch(packageId);
     } catch {
       // Jaringan putus / action tidak sampai — ini kegagalan, bukan "kosong".
-      setState({ kind: "error" });
+      if (shownRef.current === packageId) setState({ kind: "error" });
       return;
     }
+    // Jawaban yang datang SETELAH pengguna mengganti pilihan package harus
+    // dibuang, bukan disimpan: kalau tidak, ia mendarat sebagai state "ok"
+    // milik package yang lama, dan penekanan "Lihat isi" berikutnya akan
+    // memakai cache itu — isi package A tampil di bawah nama package B.
+    if (shownRef.current !== packageId) return;
     if (res.status === "ok") setState({ kind: "ok", items: res.items });
     else if (res.status === "not_opened") setState({ kind: "not_opened" });
     else if (res.status === "module_inactive") setState({ kind: "module_inactive" });
