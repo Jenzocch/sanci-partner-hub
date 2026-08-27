@@ -56,6 +56,9 @@ type OrderItemDetail = {
   color_code: string | null;
   unit_price: number | null;
   line_discount: number | null;
+  /** Untuk kolom Foto di cetak SO (owner 2026-08-27) — null pada baris
+   *  manual tanpa produk katalog. */
+  product_id: string | null;
 };
 
 type DocLine = { quantity: number; order_items: One<OrderItemDetail> };
@@ -105,7 +108,7 @@ export default async function DocumentPrintPage({
     supabase
       .from("order_document_items")
       .select(
-        "quantity, order_items:order_item_id(name_snapshot, code_snapshot, custom_size, note, color_code, unit_price, line_discount)"
+        "quantity, order_items:order_item_id(name_snapshot, code_snapshot, custom_size, note, color_code, unit_price, line_discount, product_id)"
       )
       .eq("document_id", documentId),
   ]);
@@ -151,7 +154,15 @@ export default async function DocumentPrintPage({
   //     terpisah yang toleran, dokumen tetap tercetak dan baris Purchase
   //     Order jatuh kembali ke nomor pesanan sistem (perilaku lama, fallback
   //     jujur — tidak pernah baris kosong).
-  const [salesRes, offerRes, customerPoRes] = await Promise.all([
+  //   - foto produk (owner 2026-08-27) — HANYA cetak SO yang memakainya
+  //     (kolom Foto, meniru template Excel; Invoice/DO sengaja tetap ringkas
+  //     — keputusan owner). Kegagalan query foto TIDAK menggagalkan cetak:
+  //     peta kosong = kolom Foto kosong.
+  const soProductIds =
+    docType === "SO"
+      ? [...new Set(lines.map((l) => one(l.order_items)?.product_id).filter((v): v is string => !!v))]
+      : [];
+  const [salesRes, offerRes, customerPoRes, photoRes] = await Promise.all([
     order.partner_sales_staff_id
       ? supabase
           .from("partner_staff")
@@ -169,7 +180,16 @@ export default async function DocumentPrintPage({
     docType === "INVOICE"
       ? supabase.from("partner_orders").select("customer_po").eq("id", orderId).maybeSingle()
       : Promise.resolve(null),
+    soProductIds.length > 0
+      ? supabase.from("sanci_products").select("id, photo_url").in("id", soProductIds)
+      : Promise.resolve(null),
   ]);
+  const photoByProduct = new Map<string, string>();
+  if (photoRes && !photoRes.error) {
+    for (const row of (photoRes.data ?? []) as { id: string; photo_url: string | null }[]) {
+      if (row.photo_url) photoByProduct.set(row.id, row.photo_url);
+    }
+  }
   const salesName: string | null = salesRes ? salesRes.data?.full_name ?? null : null;
   // error (termasuk 42703 saat 0020 belum jalan) => null => fallback nomor
   // pesanan sistem di InvoiceSheet — tidak pernah menggagalkan cetak.
@@ -200,7 +220,15 @@ export default async function DocumentPrintPage({
       <div className="print-sheet">
         <LetterheadBlock />
         {docType === "SO" && (
-          <SOSheet doc={doc} order={order} customer={customer} salesName={salesName} lines={lines} offer={offer} />
+          <SOSheet
+            doc={doc}
+            order={order}
+            customer={customer}
+            salesName={salesName}
+            lines={lines}
+            offer={offer}
+            photoByProduct={photoByProduct}
+          />
         )}
         {docType === "DO" && <DOSheet doc={doc} order={order} customer={customer} lines={lines} totalQty={totalQty} />}
         {docType === "INVOICE" && (
@@ -222,11 +250,15 @@ function SOSheet({
   salesName,
   lines,
   offer,
+  photoByProduct,
 }: {
   doc: { doc_number: string; doc_date: string; notes: string | null };
   order: { order_number: string; notes: string | null; created_at: string; shipping_address: string | null };
   customer: { full_name: string; phone_normalized: string; whatsapp: string | null } | null;
   salesName: string | null;
+  /** Foto produk per product_id — hanya SO (owner 2026-08-27); baris manual
+   *  atau foto gagal dimuat = sel Foto kosong, cetak tidak pernah gagal. */
+  photoByProduct: Map<string, string>;
   lines: DocLine[];
   offer: OfferInfo;
 }) {
@@ -281,6 +313,9 @@ function SOSheet({
           <tr>
             <th>No.</th>
             <th>Item</th>
+            {/* Foto persis di samping kolom Item (nama + kode) — owner
+                2026-08-27: "照片的旁邊要放床的名稱跟編號". */}
+            <th>Foto</th>
             <th>Ukuran</th>
             <th>Catatan</th>
             <th>Warna</th>
@@ -301,6 +336,12 @@ function SOSheet({
                 <td>
                   {it?.name_snapshot ?? "—"}
                   {it?.code_snapshot && <span className="itemcode"> ({it.code_snapshot})</span>}
+                </td>
+                <td className="photocell">
+                  {it?.product_id && photoByProduct.get(it.product_id) ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- dokumen cetak statis, tanpa optimasi next/image
+                    <img src={photoByProduct.get(it.product_id)} alt={it.name_snapshot} />
+                  ) : null}
                 </td>
                 <td>{it?.custom_size || "—"}</td>
                 <td>{it?.note || "—"}</td>
@@ -561,26 +602,32 @@ function InvoiceSheet({
  * ------------------------------------------------------------------ */
 
 /**
- * Kop surat kiri-atas — sama untuk SO/DO/Invoice (permintaan owner
- * 2026-08-27): nama perusahaan + alamat + kontak, meniru kop template Excel
- * asli. Nilainya dari COMPANY_INFO.letterhead (lib/company-info.ts) — satu
- * tempat edit, tanpa UI admin (kebijakan sama dengan blok bank). Baris
- * telepon hanya tercetak bila nomornya sudah diisi di sana.
+ * Kop surat — sama untuk SO/DO/Invoice, tata letaknya meniru kop template
+ * Excel asli (owner 2026-08-27): KIRI merek SANCI + nama PT, KANAN blok
+ * alamat rata-kanan + kontak, ditutup garis navy. Nilainya dari
+ * COMPANY_INFO.letterhead (lib/company-info.ts) — satu tempat edit, tanpa
+ * UI admin (kebijakan sama dengan blok bank). Baris telepon hanya tercetak
+ * bila nomornya sudah diisi di sana. Merek masih berupa teks bergaya —
+ * diganti berkas logo PNG asli begitu owner mengunggahnya (ditunggu via
+ * Google Drive).
  */
 function LetterheadBlock() {
   const lh = COMPANY_INFO.letterhead;
-  const contact = [lh.phone && `Telp: ${lh.phone}`, `Email: ${lh.email}`, `Website: ${lh.website}`]
+  const contact = [lh.phone && `Telp: ${lh.phone}`, `Email: ${lh.email}`]
     .filter(Boolean)
     .join(" | ");
   return (
     <div className="letterhead">
-      <div className="lh-brand">{lh.brand}</div>
-      <div className="lh-company">{lh.name}</div>
-      <div className="lh-lines">
+      <div className="lh-left">
+        <div className="lh-brand">{lh.brand}</div>
+        <div className="lh-company">{lh.name}</div>
+      </div>
+      <div className="lh-right">
         {lh.addressLines.map((line) => (
           <div key={line}>{line}</div>
         ))}
         <div>{contact}</div>
+        <div>Website: {lh.website}</div>
       </div>
     </div>
   );
@@ -660,10 +707,12 @@ const PRINT_CSS = `
     font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;
   }
   .print-sheet .doctitle{font-size:22px;font-weight:700;margin:0 0 16px;text-align:center;letter-spacing:.04em;text-transform:uppercase}
-  .print-sheet .letterhead{border-bottom:2px solid #111111;padding-bottom:10px;margin-bottom:16px}
-  .print-sheet .lh-brand{font-size:24px;font-weight:800;letter-spacing:.18em;color:#111111}
-  .print-sheet .lh-company{font-size:14px;font-weight:700;margin-top:2px}
-  .print-sheet .lh-lines{font-size:11px;color:#333333;margin-top:4px;line-height:1.45}
+  .print-sheet .letterhead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:4px solid #2a3f76;padding-bottom:10px;margin-bottom:16px}
+  .print-sheet .lh-brand{font-size:30px;font-weight:800;letter-spacing:.16em;color:#2a3f76;line-height:1.1}
+  .print-sheet .lh-company{font-size:13px;font-weight:700;letter-spacing:.06em;margin-top:4px;color:#2a3f76}
+  .print-sheet .lh-right{text-align:right;font-size:11px;color:#333333;line-height:1.5}
+  .print-sheet .photocell{width:60px;text-align:center}
+  .print-sheet .photocell img{width:52px;height:52px;object-fit:contain;display:block;margin:0 auto}
   .print-sheet table{width:100%;border-collapse:collapse;margin-bottom:16px}
   .print-sheet .headtable td{padding:3px 6px;vertical-align:top;border:none}
   .print-sheet .headtable .hlabel{width:22%;font-weight:600;color:#333333}
@@ -686,6 +735,14 @@ const PRINT_CSS = `
   .print-sheet .terms{margin-top:24px;font-size:11px;color:#222222}
   .print-sheet .termstitle{font-weight:700;margin-bottom:6px}
   .print-sheet .terms p{margin:0 0 4px}
+  /* Pesanan panjang menembus beberapa halaman (owner 2026-08-27: "產品多要
+     分頁,要清楚"): header tabel diulang tiap halaman, satu baris produk
+     (termasuk fotonya) tidak pernah terpotong di tengah, dan blok
+     total/bank/tanda tangan/syarat pindah utuh ke halaman berikutnya. */
+  .print-sheet .itemtable thead{display:table-header-group}
+  .print-sheet .itemtable tr{page-break-inside:avoid;break-inside:avoid}
+  .print-sheet .totaltable,.print-sheet .banktable,.print-sheet .sigtable,.print-sheet .terms{
+    page-break-inside:avoid;break-inside:avoid}
   @media print{
     .no-print{display:none !important}
     body *{visibility:hidden}

@@ -1390,6 +1390,20 @@ PRICE_BASE_NONADMIN_WRITE 0、STAMP_FN_EXEC_* 全 0、17 個 AUDIT_KEEP_* 全 1�
 - 人工驗證（owner）：□ 三種文件列印預覽左上角都有抬頭 □ 抬頭文字與舊
   Excel 模板一致
 
+### 列印 SO 改版：試算表式抬頭＋產品照片欄＋跨頁規則（2026-08-27，owner 逐項指定）
+
+- 抬頭改雙欄（左 SANCI 品牌字＋PT 名、右靠右地址/Telp/Email/Website、navy
+  底線），版式仿 Excel 模板。品牌仍是樣式文字——**等 owner 把 logo PNG 上傳
+  Google Drive 後換成真圖檔**（待辦）。
+- SO 品項表新增 Foto 欄，緊鄰 Item（名稱＋編號）欄；來源 order_items.
+  product_id → sanci_products.photo_url，第二波查詢、失敗只留空欄不擋列印；
+  手動無產品列留空。只放 SO——owner 定案 Invoice/Surat Jalan 保持精簡。
+- 跨頁規則：表頭每頁重印（table-header-group）、產品列含照片不拆頁、
+  總計/銀行/簽名/條款區塊整塊移頁。直式 A4 維持。
+- No. 欄本來就自動 1,2,3…（owner 確認他指的「自動編號」即此欄）。
+- 人工驗證（owner）：□ SO 列印有照片且清楚 □ 多產品訂單跨頁時每頁有表頭、
+  無半截列 □ 抬頭排版跟模板一致
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
