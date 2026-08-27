@@ -34,7 +34,7 @@ export const COMPANY_INFO = {
       "Kelurahan Pasar Manggis, Kecamatan Setiabudi,",
       "Jakarta Selatan, DKI Jakarta 12970 - Indonesia",
     ],
-    phone: "",
+    phone: "0851-3318-5168",
     email: "wahana.elite@gmail.com",
     website: "www.sanci.co.id",
   },
