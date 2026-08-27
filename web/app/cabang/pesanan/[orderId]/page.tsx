@@ -9,6 +9,7 @@ import {
   type FulfillmentPath,
 } from "@/lib/orders-shared";
 import { getCabangMessages } from "@/lib/i18n";
+import PackageContents from "../package-contents";
 import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
 import InvoiceSection from "./invoice-section";
@@ -425,6 +426,7 @@ export default async function PesananDetailPage({
     customerPoResult,
     itemsResult,
     offerData,
+    currentPackageId,
   ] = await Promise.all([
     fetchOrderExtras(supabase, order.id),
     // Staf untuk dropdown Sales/PIC diambil dari CABANG PESANAN (bisa beda dari
@@ -441,7 +443,6 @@ export default async function PesananDetailPage({
           // Package (migration 0008) — tabel belum ada (42P01) atau kosong dianggap
           // sama: turun ke input teks bebas, tanpa error (LESSONS #12).
           supabase.from("partner_packages").select("id, name").eq("partner_id", order.partner_id).eq("status", "ACTIVE").order("name"),
-          fetchOrderPackageId(supabase, order.id),
         ])
       : Promise.resolve(null),
     order.status === "CANCELLED"
@@ -451,6 +452,11 @@ export default async function PesananDetailPage({
     fetchCustomerPo(supabase, order.id),
     fetchOrderItems(supabase, order.id),
     offerFlags.canViewOffer ? fetchOrderOfferCabang(supabase, order.id) : Promise.resolve(null),
+    // Dulu ikut di dalam blok `canManage` (cuma dipakai dropdown Ubah
+    // Pesanan). Sekarang dibaca SELALU: tombol "Lihat isi" di bawah nama
+    // Package harus ada juga untuk pesanan yang sudah dibatalkan atau milik
+    // cabang lain — melihat isi package tidak mengubah apa pun.
+    fetchOrderPackageId(supabase, order.id),
   ]);
 
   const { extras, state: extrasState } = extrasResult;
@@ -461,16 +467,14 @@ export default async function PesananDetailPage({
 
   let staffOptions: StaffOption[] = [];
   let packages: PackageOption[] = [];
-  let currentPackageId: string | null = null;
   if (manageData) {
-    const [{ data: staffList }, { data: assignments }, { data: packageRows }, fetchedPackageId] = manageData;
+    const [{ data: staffList }, { data: assignments }, { data: packageRows }] = manageData;
     const roleByStaff = new Map<string, string>();
     (assignments ?? []).forEach((a: Assignment) => roleByStaff.set(a.staff_id, a.role));
     staffOptions = (staffList ?? [])
       .filter((s) => s.status === "ACTIVE" && roleByStaff.has(s.id))
       .map((s) => ({ id: s.id, fullName: s.full_name, role: roleByStaff.get(s.id)! }));
     packages = (packageRows ?? []).map((p) => ({ id: p.id, name: p.name }));
-    currentPackageId = fetchedPackageId;
   }
   const cancelInfo: CancelInfo | null = cancelResult.info;
   const cancelInfoUnavailable = cancelResult.unavailable;
@@ -533,7 +537,13 @@ export default async function PesananDetailPage({
             <dt>{m.common.whatsapp}</dt>
             <dd>{customer?.phone_normalized ? displayPhoneID(customer.phone_normalized) : "—"}</dd>
             <dt>{m.common.package}</dt>
-            <dd>{order.package_name}</dd>
+            <dd>
+              {order.package_name}
+              {/* Isi Package (0012) — hanya baca. `package_id` null untuk
+                  pesanan lama yang package-nya diketik manual: tidak ada isi
+                  yang bisa dilihat, jadi tombolnya memang tidak digambar. */}
+              {currentPackageId && <PackageContents packageId={currentPackageId} />}
+            </dd>
             {extrasAvailable && (
               <>
                 <dt>{m.common.fulfillment}</dt>

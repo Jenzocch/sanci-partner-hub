@@ -147,6 +147,18 @@ const id = {
   packageManualOption: "Lainnya (ketik manual)",
   packageNameFieldLabel: "Nama Package *",
   packageLoadErrorHint: "Daftar package gagal dimuat — ketik manual.",
+
+  // Isi Package (hanya baca, migrasi 0012) — tombol di bawah dropdown Package
+  // dan di samping nama Package pada detail pesanan.
+  packageContentsCta: "Lihat isi",
+  packageContentsHideCta: "Sembunyikan isi",
+  packageContentsTitle: "Isi Package",
+  packageContentsEmpty: "SANCI belum mengisi produk apa pun di package ini.",
+  packageContentsLoadError: "Isi package gagal dimuat.",
+  packageContentsCatalogClosed:
+    "Isi package belum bisa ditampilkan — SANCI belum membuka katalog produk untuk toko Anda.",
+  packageContentsProductGone: "Produk sudah ditarik dari katalog",
+
   salesFieldLabel: "Sales *",
   selectSalesPlaceholder: "— Pilih Sales —",
   noActiveStaffHint: "Belum ada staf aktif di cabang ini.",
@@ -483,6 +495,16 @@ const en = {
   packageManualOption: "Other (type manually)",
   packageNameFieldLabel: "Package name *",
   packageLoadErrorHint: "Couldn't load the package list — type it manually.",
+
+  packageContentsCta: "View contents",
+  packageContentsHideCta: "Hide contents",
+  packageContentsTitle: "Package contents",
+  packageContentsEmpty: "SANCI hasn't put any product in this package yet.",
+  packageContentsLoadError: "Couldn't load the package contents.",
+  packageContentsCatalogClosed:
+    "The package contents can't be shown yet — SANCI hasn't opened the product catalog for your store.",
+  packageContentsProductGone: "Product withdrawn from the catalog",
+
   salesFieldLabel: "Sales *",
   selectSalesPlaceholder: "— Choose sales staff —",
   noActiveStaffHint: "No active staff at this branch yet.",
@@ -787,6 +809,15 @@ const zh = {
   packageManualOption: "其他(手动输入)",
   packageNameFieldLabel: "套装名称 *",
   packageLoadErrorHint: "套装列表加载失败 —— 请手动输入。",
+
+  packageContentsCta: "查看内容",
+  packageContentsHideCta: "收起内容",
+  packageContentsTitle: "套装内容",
+  packageContentsEmpty: "SANCI 还没有为该套装添加任何产品。",
+  packageContentsLoadError: "套装内容加载失败。",
+  packageContentsCatalogClosed: "暂时无法显示套装内容 —— SANCI 还没有为贵店开放产品目录。",
+  packageContentsProductGone: "该产品已从目录下架",
+
   salesFieldLabel: "销售员 *",
   selectSalesPlaceholder: "—— 请选择销售员 ——",
   noActiveStaffHint: "本店暂时没有在职员工。",

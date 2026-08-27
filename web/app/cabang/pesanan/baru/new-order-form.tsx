@@ -33,6 +33,7 @@ import OrderItemsSection, {
   type PickerLoadResult,
 } from "@/lib/order-item-picker";
 import { INVOICE_ACCEPT, unggahInvoice } from "../invoice-upload";
+import PackageContents from "../package-contents";
 import StatusBadge from "../status-badge";
 import { useCabangMessages } from "@/lib/i18n/provider";
 
@@ -787,6 +788,12 @@ export default function NewOrderForm({
                 <option value={PACKAGE_MANUAL}>{m.cabang.packageManualOption}</option>
               </select>
               {errs.package_name && <div className="err-text">{errs.package_name}</div>}
+              {/* Isi Package (0012) — hanya baca, dimuat saat ditekan. Muncul
+                  cuma untuk package SUNGGUHAN: PACKAGE_MANUAL bukan id apa
+                  pun, dan "belum dipilih" tidak punya isi untuk dilihat. */}
+              {packageChoice && packageChoice !== PACKAGE_MANUAL && (
+                <PackageContents packageId={packageChoice} />
+              )}
             </div>
           ) : null}
           {(!hasPackages || packageChoice === PACKAGE_MANUAL) && (
