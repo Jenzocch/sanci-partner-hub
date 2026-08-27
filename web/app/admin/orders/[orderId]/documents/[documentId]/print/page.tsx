@@ -198,6 +198,7 @@ export default async function DocumentPrintPage({
       <PrintButton label="Cetak / Simpan PDF" />
       <style>{PRINT_CSS}</style>
       <div className="print-sheet">
+        <LetterheadBlock />
         {docType === "SO" && (
           <SOSheet doc={doc} order={order} customer={customer} salesName={salesName} lines={lines} offer={offer} />
         )}
@@ -559,6 +560,32 @@ function InvoiceSheet({
  * Blok bersama
  * ------------------------------------------------------------------ */
 
+/**
+ * Kop surat kiri-atas — sama untuk SO/DO/Invoice (permintaan owner
+ * 2026-08-27): nama perusahaan + alamat + kontak, meniru kop template Excel
+ * asli. Nilainya dari COMPANY_INFO.letterhead (lib/company-info.ts) — satu
+ * tempat edit, tanpa UI admin (kebijakan sama dengan blok bank). Baris
+ * telepon hanya tercetak bila nomornya sudah diisi di sana.
+ */
+function LetterheadBlock() {
+  const lh = COMPANY_INFO.letterhead;
+  const contact = [lh.phone && `Telp: ${lh.phone}`, `Email: ${lh.email}`, `Website: ${lh.website}`]
+    .filter(Boolean)
+    .join(" | ");
+  return (
+    <div className="letterhead">
+      <div className="lh-brand">{lh.brand}</div>
+      <div className="lh-company">{lh.name}</div>
+      <div className="lh-lines">
+        {lh.addressLines.map((line) => (
+          <div key={line}>{line}</div>
+        ))}
+        <div>{contact}</div>
+      </div>
+    </div>
+  );
+}
+
 function BankBlock() {
   return (
     <table className="banktable">
@@ -633,6 +660,10 @@ const PRINT_CSS = `
     font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;
   }
   .print-sheet .doctitle{font-size:22px;font-weight:700;margin:0 0 16px;text-align:center;letter-spacing:.04em;text-transform:uppercase}
+  .print-sheet .letterhead{border-bottom:2px solid #111111;padding-bottom:10px;margin-bottom:16px}
+  .print-sheet .lh-brand{font-size:24px;font-weight:800;letter-spacing:.18em;color:#111111}
+  .print-sheet .lh-company{font-size:14px;font-weight:700;margin-top:2px}
+  .print-sheet .lh-lines{font-size:11px;color:#333333;margin-top:4px;line-height:1.45}
   .print-sheet table{width:100%;border-collapse:collapse;margin-bottom:16px}
   .print-sheet .headtable td{padding:3px 6px;vertical-align:top;border:none}
   .print-sheet .headtable .hlabel{width:22%;font-weight:600;color:#333333}

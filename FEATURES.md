@@ -1379,6 +1379,17 @@ PRICE_BASE_NONADMIN_WRITE 0、STAMP_FN_EXEC_* 全 0、17 個 AUDIT_KEEP_* 全 1�
 - 人工驗證（owner）：□ Produk 卡片看得到 169 個價格 □ 沒價格的顯示
   「Belum ada harga」 □ Nonaktifkan 按下去立即變 Aktifkan（重新整理後再按）
 
+### 列印文件公司抬頭（2026-08-27，owner 要求「左上角要放 PT. Wahana 公司名稱地址電話」）
+
+- SO/DO/Invoice 三份列印文件左上角共用 `LetterheadBlock`：SANCI 品牌字 +
+  「PT. WAHANA ERA INOVASI」+ 地址三行 + Email/Website，內容照 workbook
+  模板抬頭逐字搬（`COMPANY_INFO.letterhead`，lib/company-info.ts——與銀行
+  區塊同政策：改程式碼這一處，不做後台編輯 UI）。
+- **電話號碼目前空白**：原 Excel 模板抬頭沒有電話。owner 提供號碼後填進
+  `letterhead.phone` 一處即可，電話列會自動出現（空值時整列不印）。
+- 人工驗證（owner）：□ 三種文件列印預覽左上角都有抬頭 □ 抬頭文字與舊
+  Excel 模板一致
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

@@ -17,6 +17,27 @@
 export const COMPANY_INFO = {
   /** Beneficiary's Name — Invoice template cell C35. */
   legalName: "PT WAHANA ERA INOVASI",
+  /**
+   * Kop surat (letterhead) kiri-atas SO/DO/Invoice — permintaan owner
+   * 2026-08-27. Disalin VERBATIM dari kop template asli di workbook
+   * "Form SO INV dan DO-SANCI" (tab Sales Order (SO) - Updated):
+   * baris alamat, email, dan website persis seperti di kertas lama.
+   * `phone` masih kosong karena kop template asli TIDAK mencantumkan
+   * nomor telepon — isi di sini (satu tempat) begitu owner memberikan
+   * nomornya; baris telepon otomatis ikut tercetak begitu terisi.
+   */
+  letterhead: {
+    brand: "SANCI",
+    name: "PT. WAHANA ERA INOVASI",
+    addressLines: [
+      "Jalan Minangkabau Barat No. 8-8A, RT 01/RW 01,",
+      "Kelurahan Pasar Manggis, Kecamatan Setiabudi,",
+      "Jakarta Selatan, DKI Jakarta 12970 - Indonesia",
+    ],
+    phone: "",
+    email: "wahana.elite@gmail.com",
+    website: "www.sanci.co.id",
+  },
   bank: {
     /** Bank — Invoice template cell C32. */
     name: "BCA",
