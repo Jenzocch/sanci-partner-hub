@@ -156,7 +156,13 @@ export default function ProdukAdminClient({
               <ProductPhoto url={p.photo_url} name={p.name} />
               <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
                 <div>
-                  <div style={{ fontWeight: 650, fontSize: "var(--fs-body)" }}>{p.name}</div>
+                  {/* Tinggi nama DIPAKUKAN dua baris (permintaan owner
+                      2026-08-26 "排版要相同"): nama satu baris vs dua baris
+                      tadinya menggeser harga/chip/tombol tiap kartu ke
+                      ketinggian berbeda — grid jadi sulit dipindai. Nama
+                      lebih panjang tetap tampil utuh (baris ketiga menambah
+                      tinggi, tidak dipotong — layar kelola butuh nama penuh). */}
+                  <div style={{ fontWeight: 650, fontSize: "var(--fs-body)", minHeight: "2.6em" }}>{p.name}</div>
                   <div style={{ marginTop: 4 }}>
                     {p.code ? <span className="code">{p.code}</span> : <span className="small muted">—</span>}
                   </div>
@@ -185,7 +191,12 @@ export default function ProdukAdminClient({
                     {p.status === "ACTIVE" ? m.common.statusActive : m.common.statusInactive}
                   </span>
                 </div>
-                <ProductActions product={p} />
+                {/* marginTop:auto menjepit blok kendali (Status stok + tombol)
+                    ke DASAR kartu — semua kartu sebaris menaruh kendalinya di
+                    garis yang sama, apa pun panjang isi di atasnya. */}
+                <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <ProductActions product={p} />
+                </div>
               </div>
             </div>
           ))}
