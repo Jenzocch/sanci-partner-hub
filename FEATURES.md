@@ -1404,6 +1404,56 @@ PRICE_BASE_NONADMIN_WRITE 0、STAMP_FN_EXEC_* 全 0、17 個 AUDIT_KEEP_* 全 1�
 - 人工驗證（owner）：□ SO 列印有照片且清楚 □ 多產品訂單跨頁時每頁有表頭、
   無半截列 □ 抬頭排版跟模板一致
 
+### 載入速度審計 #3 後半：檔案上傳點動態載入 supabase-js（2026-08-27）
+
+2026-08-22 審計 #3 只改了登出鈕（`sign-out-button.tsx`/`admin-nav.tsx`，見上方
+第一批）；同一批審計報告裡點名的「檔案上傳點」當時沒收尾，本輪補完。做法逐字
+沿用登出鈕已驗證過的模式：`createClient` 從檔頭靜態 import 改成互動當下（使用
+者真的選了檔案要上傳那刻）`await import("@/lib/supabase/client")`，只改「模組
+何時載入」，不改任何上傳/壓縮/`submitSafely` 弱網補償行為。
+
+**改動點（4 處，全部落在 `submitSafely` 的 `run()` callback 內）**：
+
+| 檔案 | 函式 | 用途 |
+|---|---|---|
+| `web/app/admin/orders/baru/invoice-upload-admin.ts` | `unggahInvoiceAdmin` | admin 代建訂單的 invoice 上傳 |
+| `web/app/cabang/pesanan/invoice-upload.ts` | `unggahInvoice` | 分店訂單 invoice 上傳（Pesanan Baru + 詳情頁換檔） |
+| `web/app/admin/produk/upload-product-photo.ts` | `unggahFotoProduk` | 產品照片上傳（`add-product-button.tsx`/`product-actions.tsx` 共用） |
+| `web/app/admin/partners/[id]/partner-actions.tsx` | `unggahLogo`（`onEdit` 內部） | Partner logo 上傳 |
+
+**為什麼動態 import 失敗是安全的**：四處都是 `submitSafely({ run: async () =>
+{...} })` 的寫法（`lib/safe-write.ts`）。`submitSafely` 本來就用
+`try { res = await raceTimeout(opts.run(), ...) } catch { thrown = err; res =
+TIMED_OUT }` 包住整個 `run()`——`import()` 的 rejection 跟原本任何一種網路層
+失敗（fetch 失敗、逾時）走的是同一條路徑,最終落在既有的 `unconfirmed`
+分支,顯示既有的「belum pasti tersimpan」訊息,不會是新的靜默失敗或未捕捉例外。
+四個改動點各自在 `run()` 內補了這段推理的簡短版註解。
+
+**刻意不動（連同理由）**：`web/app/login-form.tsx` 的 `createClient` 仍是靜態
+import——它不是檔案上傳點（登入/登出，`onSubmit`/`signOut`),且只被 `/`（根
+登入頁)這一條路由使用,不像被多條路由共用的登出鈕/上傳點那樣能透過拆成動態
+chunk 省下多條路由的 First Load JS。build 數字也證實這點：把它留著,`/` 的
+First Load JS 171 kB 完全沒變（Size 欄從 1.81→68.2 kB 只是 webpack 把原本被
+5 個路由共享、因而獨立成 vendor chunk 的 supabase-js,在其他 4 處都改掉之後
+只剩 `/` 一處引用,改記進這條路由自己的 chunk——bytes 總量不變,只是計帳位置
+變了)。
+
+**驗證（`rm -rf .next && npm run build` 前後對照,受影響路由）**：
+
+| Route | First Load JS 前 | 後 | Δ |
+|---|---|---|---|
+| `/admin/orders/baru` | 186 kB | 119 kB | −67 kB |
+| `/admin/partners/[id]` | 183 kB | 117 kB | −66 kB |
+| `/admin/produk` | 179 kB | 112 kB | −67 kB |
+| `/cabang/pesanan/[orderId]` | 183 kB | 117 kB | −66 kB |
+| `/cabang/pesanan/baru` | 187 kB | 120 kB | −67 kB |
+| `/`（未改,對照組） | 171 kB | 171 kB | 0 |
+| `/offline` | 1.01 kB／104 kB | 1.01 kB／104 kB | 0（規定不變） |
+
+其餘路由（`/admin`、`/admin/orders`、`/cabang` 系列等）逐行核對與改動前
+byte-for-byte 相同。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` 0 錯誤、
+`npx eslint .` 0 警告。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

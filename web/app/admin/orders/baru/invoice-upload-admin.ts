@@ -18,7 +18,6 @@
 
 import { compressImage, MAKS_UKURAN_BYTE, PRESET_INVOICE } from "@/lib/compress-image";
 import { submitSafely } from "@/lib/safe-write";
-import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import type { AdminMessages } from "@/lib/i18n";
 import { setOrderInvoicePathAdmin } from "../../actions-create-order";
 
@@ -63,6 +62,16 @@ export async function unggahInvoiceAdmin(m: AdminMessages, orderId: string, file
     messages: m,
     timeoutMs: 30_000,
     run: async () => {
+      // supabase-js diimpor DINAMIS di sini, bukan statis di atas berkas
+      // (audit kecepatan muat 2026-08-22 #3, lanjutan pola sign-out-button.tsx):
+      // impor statis menyeret ~65 kB gzip SDK ke first-load HALAMAN INI
+      // (/admin/orders/baru) padahal cuma dipakai kalau admin benar-benar
+      // melampirkan invoice. Aman: kalau `import()` gagal (jaringan lemah),
+      // rejection-nya keluar dari `run()` dan ditangkap oleh try/catch
+      // `submitSafely` (lib/safe-write.ts) yang SUDAH ADA untuk semua
+      // kegagalan jaringan lain di sini — jatuh ke cabang "unconfirmed" yang
+      // sama, pesan yang sama, TIDAK ada jalur gagal-diam baru.
+      const { createClient: createBrowserSupabase } = await import("@/lib/supabase/client");
       const supabase = createBrowserSupabase();
       const { error } = await supabase.storage.from("order-invoices").upload(path, siap.data.blob, {
         upsert: true,

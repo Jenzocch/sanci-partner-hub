@@ -2,7 +2,6 @@
 
 import { compressImage, PRESET_PRODUK } from "@/lib/compress-image";
 import { submitSafely } from "@/lib/safe-write";
-import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import type { AdminMessages } from "@/lib/i18n";
 import { setProductPhoto } from "../actions-products";
 
@@ -45,6 +44,17 @@ export async function unggahFotoProduk(productId: string, file: File, messages: 
     timeoutMs: 30_000,
     messages,
     run: async () => {
+      // supabase-js diimpor DINAMIS di sini, bukan statis di atas berkas
+      // (audit kecepatan muat 2026-08-22 #3, lanjutan pola sign-out-button.tsx):
+      // dipakai add-product-button.tsx DAN product-actions.tsx (dua titik
+      // masuk /admin/produk), impor statis menyeret ~65 kB gzip SDK ke
+      // first-load halaman itu padahal cuma dipakai kalau admin benar-benar
+      // ganti foto produk. Aman: kalau `import()` gagal (jaringan lemah),
+      // rejection-nya keluar dari `run()` dan ditangkap oleh try/catch
+      // `submitSafely` (lib/safe-write.ts) yang SUDAH ADA untuk semua
+      // kegagalan jaringan lain di sini — jatuh ke cabang "unconfirmed" yang
+      // sama, pesan yang sama, TIDAK ada jalur gagal-diam baru.
+      const { createClient: createBrowserSupabase } = await import("@/lib/supabase/client");
       const supabase = createBrowserSupabase();
       const { error } = await supabase.storage.from("product-photos").upload(path, kecil.blob, {
         upsert: true,
