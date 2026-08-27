@@ -15,9 +15,9 @@
  * Yang skrip ini TIDAK lakukan (disengaja, lihat README.md):
  *   - Tidak pernah menulis balik ke sistem. Suntingan di lembar TIDAK naik.
  *   - Tidak pernah menghapus baris. Pesanan batal hanya berubah statusnya.
- *   - Tidak pernah menyentuh kolom T dan seterusnya — itu milik catatan manual
- *     (batas ini bergeser dari L → O → T seiring migrasi 0014/0015 menambah
- *     kolom, lihat README.md §2 "⚠️ Perubahan cakupan kolom").
+ *   - Tidak pernah menyentuh kolom U dan seterusnya — itu milik catatan manual
+ *     (batas ini bergeser dari L → O → T → U seiring migrasi 0014/0015/0020
+ *     menambah kolom, lihat README.md §2 "⚠️ Perubahan cakupan kolom").
  */
 
 // ── Konfigurasi tetap ───────────────────────────────────────
@@ -28,15 +28,22 @@ var TRIGGER_HANDLER = 'syncNow';   // nama fungsi yang dipasang time-driven
 var TRIGGER_EVERY_MINUTES = 15;
 
 /**
- * Kolom A..S (migrasi 0015 — sebelumnya A..N sejak 0014, lihat README.md §2/§8
- * untuk penjelasan kenapa kontrak "hanya A..N" berubah lagi). Jangan mengubah
- * URUTAN tanpa mengubah buildRow_(). O..S adalah kolom BARU (Diskon/Markup/
- * Potongan Tunai/Harga Akhir/Sisa) — kolom SETELAHNYA (T dan seterusnya) tetap
- * milik catatan manual pengguna, tidak pernah disentuh skrip ini (lihat
- * COL_COUNT di bawah).
+ * Kolom A..T (migrasi 0020 — sebelumnya A..S sejak 0015, A..N sejak 0014,
+ * lihat README.md §2/§8 untuk penjelasan kenapa kontraknya terus berubah).
+ * Jangan mengubah URUTAN tanpa mengubah buildRow_(). B ("No. PO Pelanggan")
+ * adalah kolom BARU 0020, sengaja diletakkan TEPAT SETELAH Nomor Pesanan
+ * (bukan di ujung sebelum Dibuat/Diubah seperti 0014/0015) karena kedua nomor
+ * ini dibaca berdampingan; ini menggeser SEMUA kolom C dan seterusnya satu
+ * huruf ke kanan dibanding versi sebelumnya — README.md §"⚠️ Perubahan
+ * cakupan kolom" menjelaskan kenapa pergeseran ini tidak berbeda risikonya
+ * dari penambahan di ujung (headerMatches_ menolak SELURUH tab lama sama
+ * saja, apa pun posisi kolom barunya). Kolom SETELAH Diubah (U dan
+ * seterusnya) tetap milik catatan manual pengguna, tidak pernah disentuh
+ * skrip ini (lihat COL_COUNT di bawah).
  */
 var HEADERS = [
   'Nomor Pesanan',
+  'No. PO Pelanggan',
   'Cabang',
   'Pelanggan',
   'Telepon',
@@ -56,10 +63,10 @@ var HEADERS = [
   'Dibuat',
   'Diubah'
 ];
-var COL_COUNT = HEADERS.length;    // 19
+var COL_COUNT = HEADERS.length;    // 20
 var KEY_COL = 1;                   // Nomor Pesanan ada di kolom A
-/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3). */
-var HEADER_VERSION = 3;
+/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3, migrasi 0020: 3 → 4). */
+var HEADER_VERSION = 4;
 
 /** Nilai enum internal tetap Inggris di basis data; label mengikuti glosarium. */
 var STATUS_LABEL = {
@@ -246,8 +253,8 @@ function restHeaders_(cfg, token, extra) {
  * pasti, halaman kedua boleh saja mengembalikan baris yang sudah ikut di
  * halaman pertama — dan baris lain hilang tanpa ada yang tahu.
  */
-function ordersSelect_(includeShipping) {
-  return 'id,order_number,package_name,status,fulfillment_path,' +
+function ordersSelect_(includeShipping, includeCustomerPo) {
+  return 'id,order_number,' + (includeCustomerPo ? 'customer_po,' : '') + 'package_name,status,fulfillment_path,' +
     'partner_purchase_amount,' + (includeShipping ? 'shipping_address,' : '') + 'created_at,updated_at,' +
     'customers:customer_id(full_name,phone,phone_normalized),' +
     'partner_branches:branch_id(name),' +
@@ -255,40 +262,62 @@ function ordersSelect_(includeShipping) {
 }
 
 /**
- * shipping_address (migrasi 0014) diminta di SELECT yang SAMA dengan
- * pesanan itu sendiri — beda dari order_sanci_offers (tabel terpisah,
- * permintaan kedua): shipping_address adalah KOLOM di partner_orders, jadi
- * kalau 0014 belum dijalankan, PostgREST menolak SELURUH permintaan ini
- * (kolom tidak dikenal, HTTP 400 + kode 42703), bukan cuma kolom itu yang
- * kosong. Jadi halaman PERTAMA dicoba dulu DENGAN shipping_address; kalau
- * ditolak karena kolom itu, seluruh pengambilan diulang TANPA kolom itu —
- * supaya sepuluh kolom lain tetap tersinkron walau 0014 belum jalan
- * (LESSONS #12, pola yang sama dengan fetchOffersByOrderId_ di bawah).
+ * shipping_address (migrasi 0014) dan customer_po (migrasi 0020) diminta di
+ * SELECT yang SAMA dengan pesanan itu sendiri — beda dari order_sanci_offers
+ * (tabel terpisah, permintaan kedua): keduanya adalah KOLOM di partner_orders,
+ * jadi kalau migrasinya belum dijalankan, PostgREST menolak SELURUH
+ * permintaan ini (kolom tidak dikenal, HTTP 400 + kode 42703), bukan cuma
+ * kolom itu yang kosong. Jadi halaman PERTAMA dicoba dulu dengan KEDUANYA;
+ * kalau ditolak karena customer_po, diulang tanpa customer_po saja (0014
+ * sudah/duluan jalan, hanya 0020 yang belum — ini kasus paling mungkin karena
+ * 0020 §0 mensyaratkan 0014 sudah ada sebelum migrasinya sendiri boleh
+ * jalan); kalau MASIH ditolak karena shipping_address, diulang tanpa
+ * keduanya (0014 pun belum jalan, dan berdasarkan prasyarat 0020 di atas,
+ * customer_po pasti juga belum ada). Setiap tingkat degradasi independen dan
+ * tidak menggagalkan kolom lain (LESSONS #12, pola yang sama dengan
+ * fetchOffersByOrderId_ di bawah).
  */
 function fetchAllOrders_(cfg, token) {
   var includeShipping = true;
-  var probe = fetchOrdersPage_(cfg, token, ordersSelect_(true), 0, PAGE_SIZE);
-  if (probe.status === 'missing-column') {
+  var includeCustomerPo = true;
+  var select = ordersSelect_(includeShipping, includeCustomerPo);
+  var probe = fetchOrdersPage_(cfg, token, select, 0, PAGE_SIZE);
+
+  if (probe.status === 'missing-column' && probe.column === 'customer_po') {
+    includeCustomerPo = false;
+    Logger.log('customer_po belum ada di partner_orders (migrasi 0020 belum dijalankan) — ' +
+      'kolom No. PO Pelanggan dibiarkan kosong.');
+    select = ordersSelect_(includeShipping, includeCustomerPo);
+    probe = fetchOrdersPage_(cfg, token, select, 0, PAGE_SIZE);
+  }
+  if (probe.status === 'missing-column' && probe.column === 'shipping_address') {
     includeShipping = false;
+    includeCustomerPo = false;
     Logger.log('shipping_address belum ada di partner_orders (migrasi 0014 belum dijalankan) — ' +
-      'kolom Alamat Kirim dibiarkan kosong.');
-  } else if (probe.status === 'error') {
+      'kolom Alamat Kirim dan No. PO Pelanggan dibiarkan kosong.');
+    select = ordersSelect_(includeShipping, includeCustomerPo);
+    probe = fetchOrdersPage_(cfg, token, select, 0, PAGE_SIZE);
+  }
+  if (probe.status === 'missing-column') {
+    // Seharusnya tidak tercapai (hanya dua kolom opsional yang dikenal di
+    // atas) — kalau tetap terjadi, jangan diam-diam pura-pura sukses.
+    throw new Error('Gagal membaca pesanan: kolom "' + probe.column + '" tidak dikenal dan tidak ' +
+      'tercakup oleh degradasi yang ada. Periksa skema partner_orders.');
+  }
+  if (probe.status === 'error') {
     throw new Error('Gagal membaca pesanan (HTTP ' + probe.code + '): ' + probe.body);
   }
 
-  var select = ordersSelect_(includeShipping);
   var out = [];
   var from = 0;
   while (true) {
-    var page = includeShipping && from === 0
-      ? probe.rows
-      : fetchOrdersPage_(cfg, token, select, from, PAGE_SIZE).rows;
+    var page = from === 0 ? probe.rows : fetchOrdersPage_(cfg, token, select, from, PAGE_SIZE).rows;
     out = out.concat(page);
     if (page.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
     if (from > 200000) break;  // sabuk pengaman: jangan pernah berputar selamanya
   }
-  return { rows: out, hasShipping: includeShipping };
+  return { rows: out, hasShipping: includeShipping, hasCustomerPo: includeCustomerPo };
 }
 
 function fetchOrdersPage_(cfg, token, select, from, pageSize) {
@@ -306,8 +335,13 @@ function fetchOrdersPage_(cfg, token, select, from, pageSize) {
   });
   var code = res.getResponseCode();
   var text = res.getContentText();
-  if (code === 400 && text.indexOf('42703') >= 0 && text.indexOf('shipping_address') >= 0) {
-    return { status: 'missing-column' };
+  if (code === 400 && text.indexOf('42703') >= 0) {
+    // PostgREST hanya melaporkan kolom PERTAMA yang tidak dikenal dalam satu
+    // respons — customer_po dicek dulu karena select_() selalu meletakkannya
+    // sebelum shipping_address, jadi kalau keduanya hilang, ini yang muncul
+    // lebih dulu (lihat fetchAllOrders_ untuk urutan degradasinya).
+    if (text.indexOf('customer_po') >= 0) return { status: 'missing-column', column: 'customer_po' };
+    if (text.indexOf('shipping_address') >= 0) return { status: 'missing-column', column: 'shipping_address' };
   }
   // 200 = halaman terakhir (atau semuanya muat), 206 = masih ada sisanya.
   if (code !== 200 && code !== 206) {
@@ -484,7 +518,7 @@ function writePartnerTab_(ss, partnerName, orders, offers) {
       block.push(updates[next].values);
       next++;
     }
-    // HANYA kolom 1..COL_COUNT (A..S). Kolom T dan seterusnya — catatan manual
+    // HANYA kolom 1..COL_COUNT (A..T). Kolom U dan seterusnya — catatan manual
     // yang ditulis orang di lembar ini — tidak pernah ikut tersentuh.
     sheet.getRange(startRow, 1, block.length, COL_COUNT).setValues(block);
     g = next;
@@ -493,8 +527,8 @@ function writePartnerTab_(ss, partnerName, orders, offers) {
   // Ditambahkan tepat di bawah baris berkunci TERAKHIR, bukan di bawah
   // getLastRow(). Bedanya muncul kalau seseorang menulis catatan manual jauh di
   // bawah tabel: getLastRow() akan melompati lubang itu dan tabel pesanannya
-  // pecah menjadi dua bagian yang makin lama makin jauh. Kolom T dan seterusnya
-  // tetap tidak tersentuh — yang ditulis di sini hanya A..S.
+  // pecah menjadi dua bagian yang makin lama makin jauh. Kolom U dan seterusnya
+  // tetap tidak tersentuh — yang ditulis di sini hanya A..T.
   if (appends.length) {
     sheet.getRange(lastKeyRow + 1, 1, appends.length, COL_COUNT).setValues(appends);
   }
@@ -504,15 +538,20 @@ function writePartnerTab_(ss, partnerName, orders, offers) {
 
 /**
  * Deteksi format lama (migrasi 0014 menambah 3 kolom, A..K → A..N; migrasi
- * 0015 menambah 5 kolom lagi, A..N → A..S — README.md §2/§8 dulu menjanjikan
- * "hanya menulis A..K" lalu "hanya menulis A..N", kedua janji itu SENGAJA
- * dilanggar berturut-turut karena bentuk datanya sendiri berubah). Tab lama
- * yang header-nya masih A..K (11 kolom) ATAU A..N (14 kolom) TIDAK ditimpa
- * diam-diam — kalau begitu, kolom lama (catatan manual pengguna, dijamin
- * README "tidak pernah disentuh") akan tertimpa Diskon/Markup/dst tanpa
- * peringatan. Lebih baik REFUSE dengan pesan jelas daripada salah tulis
- * (LESSONS #16 turunan: gagal dengan jelas lebih baik daripada berhasil
- * dengan salah).
+ * 0015 menambah 5 kolom lagi, A..N → A..S; migrasi 0020 menyisipkan 1 kolom
+ * BARU di posisi B, A..S → A..T, menggeser SEMUA kolom C dst satu huruf ke
+ * kanan — README.md §2/§8 dulu menjanjikan "hanya menulis A..K" lalu
+ * "hanya menulis A..N", janji-janji itu SENGAJA dilanggar berturut-turut
+ * karena bentuk datanya sendiri berubah). Tab lama dengan header versi
+ * MANAPUN sebelum yang sekarang (11/14/19 kolom, atau 20 kolom tapi urutan
+ * lama) TIDAK ditimpa diam-diam — perbandingan HEADERS di bawah adalah
+ * kecocokan PERSIS posisi demi posisi, jadi pergeseran satu huruf gara-gara
+ * kolom baru disisipkan di tengah (bukan di ujung) tertangkap sama pastinya
+ * dengan penambahan di ujung. Kalau ditimpa diam-diam, kolom lama (catatan
+ * manual pengguna, dijamin README "tidak pernah disentuh") akan tertimpa
+ * data yang salah tanpa peringatan. Lebih baik REFUSE dengan pesan jelas
+ * daripada salah tulis (LESSONS #16 turunan: gagal dengan jelas lebih baik
+ * daripada berhasil dengan salah).
  */
 function headerMatches_(sheet) {
   if (sheet.getLastRow() === 0) return true;   // tab kosong — aman ditulis header baru
@@ -542,12 +581,12 @@ function ensureSheet_(ss, partnerName) {
   if (!headerMatches_(sheet)) {
     throw new Error(
       'Format lama terdeteksi di tab "' + name + '" (header tidak cocok dengan versi ' +
-      'terbaru — migrasi 0015 menambah kolom M "Diskon", N "Markup (%)", O "Potongan Tunai (IDR)", ' +
-      'P "Harga Akhir (IDR)", Q "Sisa (IDR)"; kolom Dibuat/Diubah bergeser ke R/S, dan kolom lama ' +
-      'setelah itu bergeser ke T dst.). Skrip ini TIDAK menimpa tab ini secara otomatis supaya ' +
-      'catatan manual Anda di kolom lama tidak salah tertulis. Ganti nama tab ini (mis. tambahkan ' +
-      '" (lama)") atau arsipkan ke lembar lain, lalu jalankan Sync sekarang lagi — tab baru dengan ' +
-      'format terbaru akan dibuat otomatis.'
+      'terbaru — migrasi 0020 menyisipkan kolom BARU B "No. PO Pelanggan" tepat setelah Nomor ' +
+      'Pesanan, yang menggeser SEMUA kolom lama (Cabang dst) satu huruf ke kanan: C..S versi lama ' +
+      'menjadi D..T versi baru; kolom setelah Diubah (dulu T dst) sekarang mulai dari U dst.). ' +
+      'Skrip ini TIDAK menimpa tab ini secara otomatis supaya catatan manual Anda di kolom lama ' +
+      'tidak salah tertulis. Ganti nama tab ini (mis. tambahkan " (lama)") atau arsipkan ke lembar ' +
+      'lain, lalu jalankan Sync sekarang lagi — tab baru dengan format terbaru akan dibuat otomatis.'
     );
   }
   return sheet;
@@ -586,6 +625,11 @@ function buildRow_(o, offers) {
 
   return [
     o.order_number || '',
+    // customer_po bisa `undefined` (migrasi 0020 belum jalan, lihat
+    // fetchAllOrders_) ATAU `null` (kolom ada tapi belum diisi pelanggan) —
+    // keduanya sama-sama harus jadi sel kosong, sama pola dengan
+    // shipping_address di bawah.
+    o.customer_po || '',
     (branch && branch.name) || '',
     (customer && customer.full_name) || '',
     customerPhone_(customer),
