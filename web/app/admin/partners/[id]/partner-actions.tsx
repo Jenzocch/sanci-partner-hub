@@ -7,7 +7,6 @@ import { submitSafely } from "@/lib/safe-write";
 import { useLocalDraft } from "@/lib/use-local-draft";
 import DraftBanner from "@/lib/draft-banner";
 import { compressImage, PRESET_LOGO } from "@/lib/compress-image";
-import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import type { AdminMessages } from "@/lib/i18n";
 import { updatePartner, setPartnerStatus, deleteDraftPartner, setPartnerLogo } from "../../actions";
@@ -80,6 +79,17 @@ export default function PartnerActions({
       timeoutMs: 30_000,
       messages: m,
       run: async () => {
+        // supabase-js diimpor DINAMIS di sini, bukan statis di atas berkas
+        // (audit kecepatan muat 2026-08-22 #3, lanjutan pola sign-out-button.tsx):
+        // impor statis menyeret ~65 kB gzip SDK ke first-load
+        // /admin/partners/[id] padahal cuma dipakai kalau admin benar-benar
+        // ganti logo lewat modal Edit. Aman: kalau `import()` gagal (jaringan
+        // lemah), rejection-nya keluar dari `run()` dan ditangkap oleh
+        // try/catch `submitSafely` (lib/safe-write.ts) yang SUDAH ADA untuk
+        // semua kegagalan jaringan lain di sini — jatuh ke cabang
+        // "unconfirmed" yang sama, pesan yang sama, TIDAK ada jalur
+        // gagal-diam baru.
+        const { createClient: createBrowserSupabase } = await import("@/lib/supabase/client");
         const supabase = createBrowserSupabase();
         // upsert: satu partner satu logo. Mengulang unggahan yang sama aman.
         const { error } = await supabase.storage.from("partner-logos").upload(path, kecil.blob, {
