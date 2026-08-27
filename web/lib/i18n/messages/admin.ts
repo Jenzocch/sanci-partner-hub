@@ -715,6 +715,8 @@ const id = {
   docDateRequired: "Tanggal dokumen wajib diisi.",
   docNotesFieldLabel: "Catatan (opsional)",
   docItemsSectionTitle: "Pilih Item",
+  docItemsEmptyOrder:
+    "Pesanan ini belum punya item produk. Isi item lewat bagian \"Item Pesanan\" di halaman pesanan dulu, baru dokumen bisa dibuat.",
   docItemColName: "Nama",
   docItemColOrderedQty: "Dipesan",
   docItemColCoveredQty: "Sudah Tercakup",
@@ -1515,6 +1517,8 @@ const en = {
   docDateRequired: "Document date is required.",
   docNotesFieldLabel: "Notes (optional)",
   docItemsSectionTitle: "Pick items",
+  docItemsEmptyOrder:
+    "This order has no product items yet. Add items in the order's \"Order items\" section first, then create the document.",
   docItemColName: "Name",
   docItemColOrderedQty: "Ordered",
   docItemColCoveredQty: "Already covered",
@@ -2239,6 +2243,7 @@ const zh = {
   docDateRequired: "文档日期为必填项。",
   docNotesFieldLabel: "备注（选填）",
   docItemsSectionTitle: "选择项目",
+  docItemsEmptyOrder: "这张订单还没有任何产品明细。请先在订单页的\"订单商品\"区加入产品,再来建立文件。",
   docItemColName: "名称",
   docItemColOrderedQty: "订购数量",
   docItemColCoveredQty: "已覆盖数量",

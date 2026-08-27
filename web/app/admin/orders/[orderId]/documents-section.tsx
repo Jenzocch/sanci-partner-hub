@@ -295,7 +295,14 @@ function DocumentModal({
           <h3 style={{ fontSize: 14, marginTop: 6, marginBottom: 8 }}>{m.admin.docItemsSectionTitle}</h3>
           {loadState === "loading" && <div className="skeleton" style={{ height: 80 }} />}
           {loadState === "error" && <div className="banner bad">{m.admin.docFeatureOff}</div>}
-          {loadState === "ok" && (
+          {/* Pesanan tanpa item: tabel kosong berkepala saja membuat admin
+              mengira modalnya rusak (laporan owner 2026-08-27, tangkapan
+              layar "Pilih Item" hampa) — jelaskan sebabnya dan ke mana harus
+              pergi. Keadaan ini BUKAN error (loadState tetap "ok"). */}
+          {loadState === "ok" && items.length === 0 && (
+            <div className="banner warn">{m.admin.docItemsEmptyOrder}</div>
+          )}
+          {loadState === "ok" && items.length > 0 && (
             <div className="tablewrap">
               <table>
                 <thead>
