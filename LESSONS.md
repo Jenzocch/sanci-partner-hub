@@ -239,6 +239,7 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
 - **UI 主語言 = Bahasa Indonesia**（2026-08-14 定案）。全 UI 印尼文；code 內 domain naming 維持英文（SPEC §87）；enum/status 內部值維持英文、顯示層轉印尼文。
 - **先 prototype 驗收、再真實作**（2026-08-14 流程確認）。UI/流程層面的改動先改 prototype 給 Jenzo 點，成本最低。
+- **金額以系統為準，不是 Excel SO 分頁**（2026-08-27 定案）。系統的計算機／`order_sanci_offers.final_amount`／SO 列印頁三處算法逐字相同（見 kalkulator-client.tsx 與 migration 0015 `fn_compute_order_offer_final`），保證一致；Excel 那份「Form SO INV dan DO-SANCI」的合計是自己另外用公式重算的，折扣鏈只有 3 格、沒有加成/現金折讓欄位，超出這個範圍時會跟系統對不起來——這是已知且接受的落差（Excel 可以手動改那一格），**兩邊不一致時一律以系統畫面的 Harga Akhir 為準**，不要再回頭比對或修正 Excel 的算法。
 
 ### 14. 推 main 前對 git 實況〔battle-tested〕
 `git fetch && git log origin/main..HEAD` 先看遠端有沒有跑在前面；遠端 session 容器可能被回收重建，本地被還原到舊 commit——type check 突然報「你明明加過的東西不存在」時，**先對 git 實況再修錯誤**，不要在舊樹上疊分歧版本。
