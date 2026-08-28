@@ -522,6 +522,13 @@ const id = {
   productGalleryDeleteAria: "Hapus foto ini",
   productGalleryDeleteFailed: "Foto gagal dihapus.",
   productGalleryUploadPartialFailed: "{n} dari {total} foto gagal diunggah — coba unggah ulang yang gagal.",
+  // Geser urutan foto (panah kiri/kanan per thumbnail — tanpa drag-drop,
+  // staf memakai ponsel). Urutan di layar baru berubah setelah server
+  // mengonfirmasi tersimpan (LESSONS #7).
+  productGalleryMoveLeftAria: "Geser foto ini ke kiri",
+  productGalleryMoveRightAria: "Geser foto ini ke kanan",
+  productGalleryMoving: "Menyimpan urutan foto…",
+  productGalleryMoveFailed: "Urutan foto gagal disimpan.",
 
   // ---- Pesanan Partner — daftar (orders/page.tsx) ----
   ordersFeatureOff: "Fitur pesanan belum aktif — migration database belum dijalankan.",
@@ -1369,6 +1376,10 @@ const en = {
   productGalleryDeleteAria: "Delete this photo",
   productGalleryDeleteFailed: "The photo failed to delete.",
   productGalleryUploadPartialFailed: "{n} of {total} photos failed to upload — try re-uploading the failed ones.",
+  productGalleryMoveLeftAria: "Move this photo left",
+  productGalleryMoveRightAria: "Move this photo right",
+  productGalleryMoving: "Saving photo order…",
+  productGalleryMoveFailed: "The photo order failed to save.",
 
   ordersFeatureOff: "The orders feature is not active yet — the database migration has not been run.",
   ordersSearchPlaceholder: "Search order number / customer / phone / PO no. / product / sales…",
@@ -2133,6 +2144,10 @@ const zh = {
   productGalleryDeleteAria: "删除这张照片",
   productGalleryDeleteFailed: "照片删除失败。",
   productGalleryUploadPartialFailed: "{total} 张照片中有 {n} 张上传失败 —— 请重新上传失败的照片。",
+  productGalleryMoveLeftAria: "把这张照片往左移",
+  productGalleryMoveRightAria: "把这张照片往右移",
+  productGalleryMoving: "正在保存照片顺序…",
+  productGalleryMoveFailed: "照片顺序保存失败。",
 
   ordersFeatureOff: "订单功能尚未启用 —— 数据库迁移脚本还没有执行。",
   ordersSearchPlaceholder: "搜索订单编号 / 客户 / 电话 / PO 号 / 产品 / 销售员…",

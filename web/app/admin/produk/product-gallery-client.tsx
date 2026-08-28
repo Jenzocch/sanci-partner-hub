@@ -2,10 +2,30 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAdminMessages } from "@/lib/i18n/provider";
-import { listProductPhotos, deleteProductPhoto } from "../actions-product-photos";
+import { listProductPhotos, deleteProductPhoto, moveProductPhoto } from "../actions-product-photos";
 import { unggahFotoGaleri, pathFotoGaleriDariUrl } from "./upload-gallery-photo";
 
 type GalleryPhoto = { id: string; photo_url: string; sort_order: number };
+
+/**
+ * Tombol bulat kecil yang menumpang di tepi thumbnail — gaya yang sama
+ * dengan tombol hapus (×) yang sudah ada; panah geser hanya beda warna
+ * (netral, bukan --bad) dan posisi (sudut bawah, bukan atas).
+ * TANPA drag-and-drop: staf memakai ponsel, dua tombol panah per foto
+ * jauh lebih bisa ditekan daripada seret-lepas di layar kecil.
+ */
+const THUMB_BTN_STYLE: React.CSSProperties = {
+  position: "absolute",
+  width: 24,
+  height: 24,
+  borderRadius: "var(--r-pill)",
+  border: "1px solid var(--line)",
+  background: "var(--surface)",
+  fontSize: 14,
+  lineHeight: 1,
+  cursor: "pointer",
+  boxShadow: "var(--shadow-xs)",
+};
 
 type GalleryState =
   | { status: "loading" }
@@ -36,6 +56,7 @@ export default function ProductGalleryClient({ productId }: { productId: string 
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setState({ status: "loading" });
@@ -82,6 +103,32 @@ export default function ProductGalleryClient({ productId }: { productId: string 
       );
     }
     await load();
+  }
+
+  async function onMove(photo: GalleryPhoto, direction: "left" | "right") {
+    if (movingId || deletingId) return;
+    setMovingId(photo.id);
+    setUploadMsg(null);
+    // TIDAK ada penyusunan ulang optimistis (LESSONS #7): urutan di layar
+    // baru berubah SETELAH server membalas urutan yang terbukti tersimpan.
+    try {
+      const res = await moveProductPhoto(productId, photo.id, direction);
+      if ("error" in res) {
+        setUploadMsg(res.error.message);
+        // Kegagalan bisa terjadi separuh jalan di server — muat ulang supaya
+        // yang tampil adalah keadaan DB sebenarnya, bukan urutan basi.
+        await load();
+        return;
+      }
+      setState({ status: "ready", photos: res.data });
+    } catch {
+      // Server Action bisa melempar saat jaringan putus total — perlakuannya
+      // sama: pesan error + muat ulang keadaan sebenarnya.
+      setUploadMsg(m.admin.productGalleryMoveFailed);
+      await load();
+    } finally {
+      setMovingId(null);
+    }
   }
 
   async function onDelete(photo: GalleryPhoto) {
@@ -137,7 +184,7 @@ export default function ProductGalleryClient({ productId }: { productId: string 
             <div className="hint">{m.admin.productGalleryEmpty}</div>
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8, marginBottom: 8 }}>
-              {state.photos.map((p) => (
+              {state.photos.map((p, i) => (
                 <div key={p.id} style={{ position: "relative", width: 72, height: 72, flex: "none" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- lihat catatan lib/catalog-shared.ts */}
                   <img
@@ -156,26 +203,40 @@ export default function ProductGalleryClient({ productId }: { productId: string 
                   <button
                     type="button"
                     onClick={() => onDelete(p)}
-                    disabled={deletingId === p.id}
+                    disabled={deletingId === p.id || movingId !== null}
                     aria-label={m.admin.productGalleryDeleteAria}
-                    style={{
-                      position: "absolute",
-                      top: -6,
-                      right: -6,
-                      width: 24,
-                      height: 24,
-                      borderRadius: "var(--r-pill)",
-                      border: "1px solid var(--line)",
-                      background: "var(--surface)",
-                      color: "var(--bad)",
-                      fontSize: 14,
-                      lineHeight: 1,
-                      cursor: "pointer",
-                      boxShadow: "var(--shadow-xs)",
-                    }}
+                    style={{ ...THUMB_BTN_STYLE, top: -6, right: -6, color: "var(--bad)" }}
                   >
                     ×
                   </button>
+                  {/* Panah di foto pertama/terakhir DIHILANGKAN, bukan di-
+                      disable: di thumbnail 72px, tombol abu-abu yang tidak
+                      pernah berfungsi hanya membingungkan. Satu foto = tanpa
+                      panah sama sekali. Selagi satu geseran berjalan, SEMUA
+                      panah dikunci — dua geseran beruntun pada daftar yang
+                      belum dikonfirmasi server bisa saling menimpa. */}
+                  {i > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onMove(p, "left")}
+                      disabled={movingId !== null || deletingId !== null}
+                      aria-label={m.admin.productGalleryMoveLeftAria}
+                      style={{ ...THUMB_BTN_STYLE, bottom: -6, left: -6 }}
+                    >
+                      ‹
+                    </button>
+                  )}
+                  {i < state.photos.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onMove(p, "right")}
+                      disabled={movingId !== null || deletingId !== null}
+                      aria-label={m.admin.productGalleryMoveRightAria}
+                      style={{ ...THUMB_BTN_STYLE, bottom: -6, right: -6 }}
+                    >
+                      ›
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -183,6 +244,7 @@ export default function ProductGalleryClient({ productId }: { productId: string 
 
           {uploadMsg && <div className="err-text">{uploadMsg}</div>}
           {uploading && <div className="hint">{m.admin.productGalleryUploading}</div>}
+          {movingId !== null && <div className="hint">{m.admin.productGalleryMoving}</div>}
 
           <input
             type="file"
