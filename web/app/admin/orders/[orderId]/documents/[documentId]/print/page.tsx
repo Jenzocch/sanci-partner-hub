@@ -325,7 +325,7 @@ function SOSheet({
       {/* Dua baris per barang (owner 2026-08-27: "分成兩列...上面是品名照片
           catatan規格顏色...第二段才是數量價格折扣") — baris atas keterangan
           barang (Foto/Item/Ukuran/Catatan/Warna), baris bawah SATU strip
-          ringkas Qty/Harga Satuan/Potongan/Jumlah rata kanan. Alasan: dengan
+          ringkas Qty/Harga Satuan/Potongan Baris/Jumlah rata kanan. Alasan: dengan
           kolom Foto, 10 kolom sejajar terlalu sempit di A4 (bukti screenshot
           cetak asli owner — "(KODE)" sampai terpotong tanggung). Sepasang
           baris per barang TIDAK BOLEH terpisah halaman — rowtop/rowbottom di
@@ -384,7 +384,7 @@ function SOSheet({
                         <span className="val">{formatIDR(price)}</span>
                       </span>
                       <span>
-                        <span className="lbl">Potongan</span>
+                        <span className="lbl">Potongan Baris</span>
                         <span className="val">{formatIDR(disc)}</span>
                       </span>
                       <span>
@@ -602,7 +602,7 @@ function InvoiceSheet({
             <th>Item</th>
             <th>Qty</th>
             <th>Harga Satuan</th>
-            <th>Potongan</th>
+            <th>Potongan Baris</th>
             <th>Jumlah</th>
           </tr>
         </thead>
@@ -797,7 +797,7 @@ const PRINT_CSS = `
   .print-sheet .itemtable th{background:#eeeeee;font-weight:700}
   .print-sheet .itemtable .num{text-align:right;white-space:nowrap}
   .print-sheet .itemcode{color:#666666;font-size:10.5px;margin-top:2px;font-family:"Courier New",Courier,monospace}
-  /* Baris bawah (Qty/Harga Satuan/Potongan/Jumlah) — hanya tabel SO yang punya
+  /* Baris bawah (Qty/Harga Satuan/Potongan Baris/Jumlah) — hanya tabel SO yang punya
      .rowtop/.rowbottom (DO tidak ada uang, Invoice tidak ada Foto/Ukuran/
      Catatan/Warna jadi tidak sesak). Garis antar dua baris satu barang
      dihilangkan supaya terlihat SATU blok, ditutup strip abu-abu. */
