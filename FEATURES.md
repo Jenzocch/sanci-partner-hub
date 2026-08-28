@@ -1794,6 +1794,11 @@ kB 不變**。CJK 掃描：本切片新增/修改檔案零命中 CJK 字元（�
   日期跟牆上時鐘一致 □ 設好 `FONNTE_TOKEN` 後測公司號發送
 
 
+**尺寸資料匯入狀態：`VERIFIED`(production)** — 2026-08-28 Jenzo 執行並回貼，
+5/5 相符（A_DAFTAR 105、B_COCOK 105、C_TERISI 105、D_SUDAH_ADA 0、
+E_KODE_TIDAK_ADA 無）。105 個既有產品皆已有尺寸；來源為 owner 上傳的
+Master Data CSV（編碼毀損已修復），**價格完全未觸碰**。
+
 **Migration 0024 狀態：`VERIFIED`(production)** — 2026-08-28 Jenzo 執行並回貼，8/8 項全部相符（含 SIZE_NO_CHECK 0、PRODUCT_NO_PRICE_COLUMN 0、PRODUCT_POLICIES 3、AUDIT_UNTOUCHED_0021/0022 皆 1）。
 
 ### 產品尺寸欄位（migration 0024，2026-08-28，owner：「把 Description 跟 size 放進去」）
