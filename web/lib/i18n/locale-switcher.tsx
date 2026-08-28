@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { setLocale } from "./actions";
 import { LOCALES, LOCALE_NAMES } from "./types";
 import { useCommonI18n } from "./provider";
+import styles from "./locale-switcher.module.css";
 
 /**
  * Pemilih bahasa. Nama tiap bahasa ditulis DALAM bahasanya sendiri
@@ -21,7 +22,7 @@ export default function LocaleSwitcher() {
 
   return (
     <label className="langswitch">
-      <span className="langswitch-label">{messages.language}</span>
+      <span className={styles.label}>{messages.language}</span>
       <select
         aria-label={messages.language}
         value={locale}
