@@ -1488,6 +1488,21 @@ byte-for-byte 相同。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` 0 錯誤
 - 人工驗證（owner）：□ 列印 SO/DO/Invoice 左上角是真的 SANCI logo 圖 □
   抬頭整體變矮、地址一眼看完不覺得占版面
 
+### SO 品項表改兩列一組（2026-08-27，owner：「分成兩列,上面品名照片catatan規格顏色,第二段數量價格折扣」）
+
+- 只改 **SO**（DO 沒有金額欄位、Invoice 沒有 Foto/Ukuran/Catatan/Warna，
+  兩者都沒有 10 欄擠壓的問題，維持單列不動）。
+- 每個品項拆成兩個 `<tr>`（同一個 React key 底下的 Fragment，仍是合法的單
+  一 `<tbody>`）：上排 No./Item(名稱+代碼)/Foto/Ukuran/Catatan/Warna，下排
+  一條淺灰底 `Qty · Harga · Disc · Setelah Disc` 摘要列，靠右對齊，
+  「Setelah Disc」加粗最醒目。上下兩排之間的框線拿掉，視覺上合成一個
+  品項區塊。
+- 分頁規則獨立加一條：這一對上下排**中間不准被分頁截斷**
+  （`break-after/before:avoid-page`），跟既有「單一 `<tr>` 不被從中間切開」
+  的規則（`break-inside:avoid`）是兩件事，都要顧到。
+- 人工驗證（owner）：□ SO 列印每個品項清楚分成「描述」跟「金額」兩排
+  □ 品項多時分頁不會把上下兩排拆到不同頁
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

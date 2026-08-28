@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatIDR, displayPhoneID } from "@/lib/orders-shared";
@@ -308,21 +309,24 @@ function SOSheet({
         </tbody>
       </table>
 
+      {/* Dua baris per barang (owner 2026-08-27: "分成兩列...上面是品名照片
+          catatan規格顏色...第二段才是數量價格折扣") — baris atas keterangan
+          barang (Foto/Item/Ukuran/Catatan/Warna), baris bawah SATU strip
+          ringkas Qty/Harga/Disc/Setelah Disc rata kanan. Alasan: dengan
+          kolom Foto, 10 kolom sejajar terlalu sempit di A4 (bukti screenshot
+          cetak asli owner — "(KODE)" sampai terpotong tanggung). Sepasang
+          baris per barang TIDAK BOLEH terpisah halaman — rowtop/rowbottom di
+          bawah punya aturan break-after/before sendiri (lihat PRINT_CSS),
+          terpisah dari aturan break-inside per <tr> yang sudah ada. */}
       <table className="itemtable">
         <thead>
           <tr>
             <th>No.</th>
             <th>Item</th>
-            {/* Foto persis di samping kolom Item (nama + kode) — owner
-                2026-08-27: "照片的旁邊要放床的名稱跟編號". */}
             <th>Foto</th>
             <th>Ukuran</th>
             <th>Catatan</th>
             <th>Warna</th>
-            <th>Qty</th>
-            <th>Harga</th>
-            <th>Disc</th>
-            <th>Setelah Disc</th>
           </tr>
         </thead>
         <tbody>
@@ -330,33 +334,54 @@ function SOSheet({
             const it = one(l.order_items);
             const price = it?.unit_price ?? 0;
             const disc = it?.line_discount ?? 0;
+            const afterDisc = Math.max(price - disc, 0) * l.quantity;
             return (
-              <tr key={i}>
-                <td>{i + 1}</td>
-                <td>
-                  {/* Nama + kode dipisah jadi dua BARIS (owner 2026-08-27:
-                      "品名段落再優化" — screenshot cetak asli menunjukkan
-                      "(KODE)" nempel di ujung nama lalu terpotong tanggung
-                      di tengah saat wrap, kolom sempit jadi terlihat kacau).
-                      Kode sekarang baris sendiri di bawah nama, konsisten
-                      di ketiga dokumen (SO/DO/Invoice). */}
-                  <div>{it?.name_snapshot ?? "—"}</div>
-                  {it?.code_snapshot && <div className="itemcode">{it.code_snapshot}</div>}
-                </td>
-                <td className="photocell">
-                  {it?.product_id && photoByProduct.get(it.product_id) ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- dokumen cetak statis, tanpa optimasi next/image
-                    <img src={photoByProduct.get(it.product_id)} alt={it.name_snapshot} />
-                  ) : null}
-                </td>
-                <td>{it?.custom_size || "—"}</td>
-                <td>{it?.note || "—"}</td>
-                <td>{it?.color_code || "—"}</td>
-                <td className="num">{l.quantity}</td>
-                <td className="num">{formatIDR(price)}</td>
-                <td className="num">{formatIDR(disc)}</td>
-                <td className="num">{formatIDR(Math.max(price - disc, 0) * l.quantity)}</td>
-              </tr>
+              <Fragment key={i}>
+                <tr className="rowtop">
+                  <td>{i + 1}</td>
+                  <td>
+                    {/* Nama + kode dipisah jadi dua BARIS (owner 2026-08-27:
+                        "品名段落再優化" — screenshot cetak asli menunjukkan
+                        "(KODE)" nempel di ujung nama lalu terpotong tanggung
+                        di tengah saat wrap, kolom sempit jadi terlihat kacau).
+                        Kode sekarang baris sendiri di bawah nama, konsisten
+                        di ketiga dokumen (SO/DO/Invoice). */}
+                    <div>{it?.name_snapshot ?? "—"}</div>
+                    {it?.code_snapshot && <div className="itemcode">{it.code_snapshot}</div>}
+                  </td>
+                  <td className="photocell">
+                    {it?.product_id && photoByProduct.get(it.product_id) ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- dokumen cetak statis, tanpa optimasi next/image
+                      <img src={photoByProduct.get(it.product_id)} alt={it.name_snapshot} />
+                    ) : null}
+                  </td>
+                  <td>{it?.custom_size || "—"}</td>
+                  <td>{it?.note || "—"}</td>
+                  <td>{it?.color_code || "—"}</td>
+                </tr>
+                <tr className="rowbottom">
+                  <td colSpan={6}>
+                    <div className="itemstrip">
+                      <span>
+                        <span className="lbl">Qty</span>
+                        <span className="val">{l.quantity}</span>
+                      </span>
+                      <span>
+                        <span className="lbl">Harga</span>
+                        <span className="val">{formatIDR(price)}</span>
+                      </span>
+                      <span>
+                        <span className="lbl">Disc</span>
+                        <span className="val">{formatIDR(disc)}</span>
+                      </span>
+                      <span>
+                        <span className="lbl">Setelah Disc</span>
+                        <span className="val strong">{formatIDR(afterDisc)}</span>
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              </Fragment>
             );
           })}
         </tbody>
@@ -748,6 +773,16 @@ const PRINT_CSS = `
   .print-sheet .itemtable th{background:#eeeeee;font-weight:700}
   .print-sheet .itemtable .num{text-align:right;white-space:nowrap}
   .print-sheet .itemcode{color:#666666;font-size:10.5px;margin-top:2px;font-family:"Courier New",Courier,monospace}
+  /* Baris bawah (Qty/Harga/Disc/Setelah Disc) — hanya tabel SO yang punya
+     .rowtop/.rowbottom (DO tidak ada uang, Invoice tidak ada Foto/Ukuran/
+     Catatan/Warna jadi tidak sesak). Garis antar dua baris satu barang
+     dihilangkan supaya terlihat SATU blok, ditutup strip abu-abu. */
+  .print-sheet .itemtable .rowtop td{border-bottom:none}
+  .print-sheet .itemtable .rowbottom td{border-top:none;background:#f6f7f9;padding:3px 7px 6px}
+  .print-sheet .itemstrip{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px 20px;font-size:11.5px}
+  .print-sheet .itemstrip .lbl{color:#666666;margin-right:4px}
+  .print-sheet .itemstrip .val{font-variant-numeric:tabular-nums;font-weight:600}
+  .print-sheet .itemstrip .val.strong{font-weight:800;color:#111111}
   .print-sheet .totaltable{max-width:380px;margin-left:auto}
   .print-sheet .totaltable td{padding:3px 6px;border:none}
   .print-sheet .totaltable .tlabel{color:#333333}
@@ -768,6 +803,12 @@ const PRINT_CSS = `
      total/bank/tanda tangan/syarat pindah utuh ke halaman berikutnya. */
   .print-sheet .itemtable thead{display:table-header-group}
   .print-sheet .itemtable tr{page-break-inside:avoid;break-inside:avoid}
+  /* Pasangan rowtop/rowbottom (satu barang, dua baris — owner 2026-08-27)
+     TIDAK BOLEH ada potongan halaman DI ANTARA keduanya, terpisah dari
+     aturan break-inside per <tr> di atas (itu mencegah SATU baris terpotong,
+     bukan mencegah potongan JATUH di antara dua baris pasangan). */
+  .print-sheet .itemtable .rowtop{page-break-after:avoid;break-after:avoid-page}
+  .print-sheet .itemtable .rowbottom{page-break-before:avoid;break-before:avoid-page}
   .print-sheet .totaltable,.print-sheet .banktable,.print-sheet .sigtable,.print-sheet .terms{
     page-break-inside:avoid;break-inside:avoid}
   @media print{
