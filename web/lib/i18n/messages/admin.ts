@@ -477,6 +477,10 @@ const id = {
   productNameFieldLabel: "Nama produk *",
   productCodeFieldLabel: "Kode",
   productCategoryFieldLabel: "Kategori",
+  // Ukuran (0024) — teks bebas, aturan yang sama dengan kolom DB-nya:
+  // "180*200*30", "(1200-1550)*1200", "60*36*9/7" semuanya sah.
+  productSizeFieldLabel: "Ukuran",
+  productSizeFieldHint: "Teks bebas, mis. 180*200*30 atau (1200-1550)*1200. Kosongkan kalau tidak ada.",
   productStockStatusFieldLabel: "Status Stok",
   // ── Harga Dasar SANCI (0021) — kolom di modal Tambah/Ubah Produk. ──
   // Grid /admin/produk TETAP bebas harga (keputusan rencana 0021 — layar
@@ -1330,6 +1334,8 @@ const en = {
   productNameFieldLabel: "Product name *",
   productCodeFieldLabel: "Code",
   productCategoryFieldLabel: "Category",
+  productSizeFieldLabel: "Size",
+  productSizeFieldHint: "Free text, e.g. 180*200*30 or (1200-1550)*1200. Leave blank if none.",
   productStockStatusFieldLabel: "Stock Status",
   productBasePriceFieldLabel: "SANCI base price (Rp)",
   productBasePriceHint:
@@ -2096,6 +2102,8 @@ const zh = {
   productNameFieldLabel: "产品名称 *",
   productCodeFieldLabel: "编号",
   productCategoryFieldLabel: "分类",
+  productSizeFieldLabel: "尺寸",
+  productSizeFieldHint: "自由文字,如 180*200*30 或 (1200-1550)*1200。没有可留空。",
   productStockStatusFieldLabel: "库存状态",
   productBasePriceFieldLabel: "SANCI 基准价(Rp)",
   productBasePriceHint: "选填。所有合作商的起始价 —— 每个合作商都可以用本店标准售价覆盖。清空后保存即删除。",

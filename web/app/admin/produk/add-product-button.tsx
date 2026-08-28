@@ -50,6 +50,7 @@ export default function AddProductButton() {
           name: String(fd.get("name") || ""),
           code: String(fd.get("code") || ""),
           category: String(fd.get("category") || ""),
+          size: String(fd.get("size") || ""),
           description: String(fd.get("description") || ""),
           stockStatus: String(fd.get("stock_status") || "AVAILABLE") as StockStatus,
           clientRequestId: rid,
@@ -131,6 +132,13 @@ export default function AddProductButton() {
           <div className="field">
             <label htmlFor="np_category">{m.admin.productCategoryFieldLabel}</label>
             <input id="np_category" name="category" type="text" autoComplete="off" />
+          </div>
+          {/* Ukuran (0024) — posisi setelah kategori, meniru urutan baris
+              spesifikasi di halaman detail produk (Ukuran di atas harga). */}
+          <div className="field">
+            <label htmlFor="np_size">{m.admin.productSizeFieldLabel}</label>
+            <input id="np_size" name="size" type="text" autoComplete="off" />
+            <div className="hint">{m.admin.productSizeFieldHint}</div>
           </div>
           <div className="field">
             <label htmlFor="np_desc">{m.common.description}</label>

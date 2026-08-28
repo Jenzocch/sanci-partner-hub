@@ -34,7 +34,7 @@ export default async function ProdukPage() {
   const [{ data: products, error }, categories] = await Promise.all([
     supabase
       .from("sanci_products")
-      .select("id, name, code, category, description, photo_url, stock_status, status")
+      .select("id, name, code, category, description, size, photo_url, stock_status, status")
       .order("name")
       .order("id")
       .range(0, CATALOG_PAGE_SIZE),

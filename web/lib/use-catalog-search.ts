@@ -78,11 +78,13 @@ export function useCatalogSearch<T extends { id: string }>({
   const qRef = useRef(q);
   const categoryRef = useRef(category);
   const productsRef = useRef(products);
+  const searchingRef = useRef(searching);
   const categoriesKnown = useRef((initialCategories ?? []).length > 0 || initial !== null);
   const startedRef = useRef(initial !== null);
   qRef.current = q;
   categoryRef.current = category;
   productsRef.current = products;
+  searchingRef.current = searching;
 
   // Timer debounce jangan hidup lebih lama dari komponennya.
   useEffect(() => {
@@ -90,6 +92,50 @@ export function useCatalogSearch<T extends { id: string }>({
       if (debTimer.current) clearTimeout(debTimer.current);
     };
   }, []);
+
+  // ── Adopsi batch awal SEGAR dari router.refresh() ──
+  // useState di atas hanya membaca `initial` SEKALI saat mount. Akibatnya
+  // (ditemukan review 2026-08-28, LESSONS #45): setiap router.refresh()
+  // sesudah simpan — buat produk, ubah produk, ganti stok, nonaktifkan —
+  // mengirim props baru yang DIABAIKAN: kartu tetap menampilkan data
+  // pra-simpan, produk baru tidak pernah muncul, dan prefill modal Ubah
+  // datang dari baris basi (dengan tulisan tanpa syarat seperti `size`,
+  // itu = data terhapus diam-diam saat simpan kedua). Efek ini mengenali
+  // batch segar lewat IDENTITAS array-nya (server component hanya mengirim
+  // array baru saat ia benar-benar dirender ulang; render ulang client
+  // memakai objek props yang sama) lalu:
+  //   1. SELALU memperbarui initialRef — pemulihan "filter dikosongkan"
+  //      tidak boleh menghidupkan kembali baris basi;
+  //   2. mengadopsinya ke state HANYA saat tampilan masih mewakili batch
+  //      awal (tanpa q/kategori/filter luar, belum tumbuh lewat "Muat Lebih
+  //      Banyak" — daftar yang sudah digulung dalam tidak boleh runtuh
+  //      kembali gara-gara satu simpanan; baris yang diedit di keadaan itu
+  //      tetap benar lewat patchProduct di bawah).
+  const lastInitialProducts = useRef<T[] | null>(initial ? initial.products : null);
+  useEffect(() => {
+    if (!initial || initial.products === lastInitialProducts.current) return;
+    lastInitialProducts.current = initial.products;
+    initialRef.current = initial;
+    const restorable = canRestoreInitial ? canRestoreInitial() : true;
+    if (
+      qRef.current.trim() === "" &&
+      categoryRef.current === null &&
+      restorable &&
+      productsRef.current.length <= initial.products.length
+    ) {
+      // seq dinaikkan supaya respons fetch yang masih terbang tidak menimpa
+      // data segar (pola persis jalur pemulihan di runSearch).
+      seq.current += 1;
+      setProducts(initial.products);
+      setHasMore(initial.hasMore);
+      // Respons yang barusan dibatalkan TIDAK sempat menjalankan
+      // setSearching(false) — guard seq di runSearch berada SEBELUM baris
+      // itu — jadi tanpa reset di sini spinner "Mencari…" macet selamanya.
+      setSearching(false);
+      setError(null);
+      setLoadedOnce(true);
+    }
+  }, [initial, canRestoreInitial]);
 
   const runSearch = useCallback(
     (nextQ: string, nextCategory: string | null, opts?: { forceFetch?: boolean }) => {
@@ -144,6 +190,42 @@ export function useCatalogSearch<T extends { id: string }>({
         });
     },
     [fetchPage, fallbackErrorMessage, canRestoreInitial]
+  );
+
+  /**
+   * Perbaiki SATU baris di tempat setelah server MEMASTIKAN tulisan sukses
+   * (safeWrite ok — LESSONS #7: hanya patch dengan nilai yang terbukti
+   * tersimpan). Menutup celah yang tidak dijangkau adopsi di atas: saat
+   * pencarian/filter/gulungan aktif, baris di state datang dari fetch lama —
+   * tanpa patch ini, membuka Ubah lagi mem-prefill nilai pra-simpan dan
+   * Simpan berikutnya menulis balik data lama (LESSONS #45). initialRef ikut
+   * dipatch supaya "kosongkan filter" tidak memulihkan baris pra-simpan.
+   *
+   * Race yang SENGAJA ditangani di sini (temuan verifikasi 2026-08-28):
+   * respons pencarian yang MASIH TERBANG saat patch terjadi dibaca server
+   * SEBELUM tulisan ini commit — kalau dibiarkan mendarat, setProducts-nya
+   * mengganti seluruh daftar dan mengembalikan baris ini ke nilai pra-simpan
+   * (dan celah hapus-diam-diam hidup lagi). Maka: bila ada pencarian yang
+   * sedang berjalan, jalankan ULANG query yang sama (forceFetch menaikkan
+   * seq → respons basi dibuang, respons baru dibaca sesudah commit).
+   * "Muat Lebih Banyak" TIDAK butuh perlakuan ini: append-nya dedupe per id
+   * dan baris yang SUDAH ada di state (yang barusan dipatch) selalu menang.
+   */
+  const patchProduct = useCallback(
+    (id: string, patch: Partial<T>) => {
+      setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+      const init = initialRef.current;
+      if (init) {
+        initialRef.current = {
+          ...init,
+          products: init.products.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+        };
+      }
+      if (searchingRef.current) {
+        runSearch(qRef.current, categoryRef.current, { forceFetch: true });
+      }
+    },
+    [runSearch]
   );
 
   /** Input pencarian — dipanggil onChange, fetch berangkat setelah debounce. */
@@ -236,5 +318,6 @@ export function useCatalogSearch<T extends { id: string }>({
     loadMore,
     reload,
     ensureLoaded,
+    patchProduct,
   };
 }

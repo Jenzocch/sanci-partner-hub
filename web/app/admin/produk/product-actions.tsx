@@ -40,7 +40,23 @@ type BasePriceState =
  */
 type ProductActionRow = Omit<SanciProductRow, "created_at" | "updated_at">;
 
-export default function ProductActions({ product }: { product: ProductActionRow }) {
+/**
+ * Dilaporkan ke daftar SETELAH server memastikan tulisan sukses, supaya baris
+ * di state client (use-catalog-search) ikut nilai baru. Tanpa ini baris tetap
+ * pra-simpan — router.refresh() TIDAK menembus useState (temuan review
+ * 2026-08-28, LESSONS #45) — dan prefill modal Ubah berikutnya menulis balik
+ * data lama (untuk `size` itu = terhapus diam-diam). base_price ikut di sini
+ * karena kartu daftar menampilkannya, walau bukan kolom sanci_products.
+ */
+export type ProductSavedPatch = Partial<ProductActionRow> & { base_price?: number | null };
+
+export default function ProductActions({
+  product,
+  onSaved,
+}: {
+  product: ProductActionRow;
+  onSaved: (patch: ProductSavedPatch) => void;
+}) {
   const router = useRouter();
   const m = useAdminMessages();
   const [modal, setModal] = useState<null | "edit">(null);
@@ -94,6 +110,16 @@ export default function ProductActions({ product }: { product: ProductActionRow 
     setErrs({});
     setNetMsg(null);
     const fd = new FormData(e.currentTarget);
+    // Normalisasi PERSIS seperti updateProduct di server (trim; kosong → null)
+    // — nilai inilah yang dilaporkan ke onSaved setelah server memastikan
+    // tersimpan, jadi baris di daftar tidak pernah menyimpang dari DB.
+    const disimpan = {
+      name: String(fd.get("name") || "").trim(),
+      code: String(fd.get("code") || "").trim() || null,
+      category: String(fd.get("category") || "").trim() || null,
+      description: String(fd.get("description") || "").trim() || null,
+      size: String(fd.get("size") || "").trim() || null,
+    };
     const out = await submitSafely({
       kind: "update",
       run: () =>
@@ -102,6 +128,7 @@ export default function ProductActions({ product }: { product: ProductActionRow 
           code: String(fd.get("code") || ""),
           category: String(fd.get("category") || ""),
           description: String(fd.get("description") || ""),
+          size: String(fd.get("size") || ""),
         }),
       messages: m,
     });
@@ -117,6 +144,7 @@ export default function ProductActions({ product }: { product: ProductActionRow 
       return;
     }
     draft.clear();
+    onSaved(disimpan); // server sudah memastikan tersimpan — baris daftar ikut sekarang
 
     // Harga Dasar SANCI (0021) — best-effort SETELAH data produk pasti
     // tersimpan (pola foto di bawah): kegagalannya cuma peringatan, tidak
@@ -127,13 +155,20 @@ export default function ProductActions({ product }: { product: ProductActionRow 
     if (basePrice.status === "ready" && basePrice.value !== basePrice.initial) {
       const priceRes = await setProductBasePrice(product.id, basePrice.value);
       if ("error" in priceRes) setPriceMsg(m.admin.productBasePriceSaveFailed);
+      else onSaved({ base_price: parseIDRInput(basePrice.value) }); // harga kartu ikut nilai tersimpan
     }
 
     // Foto diurus PALING AKHIR, sesudah data produk dipastikan tersimpan
     // (SPEC-style logo partner: kegagalan foto cuma peringatan).
     const berkas = fd.get("photo");
     if (berkas instanceof File && berkas.size > 0) {
-      setFotoMsg(await unggahFotoProduk(product.id, berkas, m));
+      const foto = await unggahFotoProduk(product.id, berkas, m);
+      setFotoMsg(foto.warning);
+      // URL baru ber-?v= dilaporkan juga — tanpa ini kartu di hasil pencarian
+      // menampilkan foto lama (URL lama immutable di cache) dan admin
+      // menyimpulkan unggahannya gagal, persis salah baca yang dicegah
+      // LESSONS #22.
+      if (foto.url) onSaved({ photo_url: foto.url });
     }
 
     setModal(null);
@@ -168,15 +203,17 @@ export default function ProductActions({ product }: { product: ProductActionRow 
       select.value = product.stock_status;
       return;
     }
+    onSaved({ stock_status: value }); // baris daftar ikut — chip stok kartu jujur seketika
     router.refresh();
   }
 
   async function onToggleStatus() {
     if (statusBusy) return;
+    const next: SanciProductRow["status"] = product.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     setStatusBusy(true);
     const out = await submitSafely({
       kind: "update",
-      run: () => setProductStatus(product.id, product.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"),
+      run: () => setProductStatus(product.id, next),
       messages: m,
     });
     setStatusBusy(false);
@@ -188,6 +225,7 @@ export default function ProductActions({ product }: { product: ProductActionRow 
       alert(out.result.error.message);
       return;
     }
+    onSaved({ status: next }); // label tombol + badge status berbalik seketika, bukan setelah reload
     router.refresh();
   }
 
@@ -252,6 +290,19 @@ export default function ProductActions({ product }: { product: ProductActionRow 
                   type="text"
                   defaultValue={product.category || ""}
                 />
+              </div>
+              {/* Ukuran (0024). Prefill dari baris daftar AMAN justru karena
+                  onSaved/patchProduct di atas — nilai basi di sini bukan cuma
+                  salah tampil, ia TERSIMPAN BALIK saat Simpan (LESSONS #45). */}
+              <div className="field">
+                <label htmlFor={`ep_size_${product.id}`}>{m.admin.productSizeFieldLabel}</label>
+                <input
+                  id={`ep_size_${product.id}`}
+                  name="size"
+                  type="text"
+                  defaultValue={product.size || ""}
+                />
+                <div className="hint">{m.admin.productSizeFieldHint}</div>
               </div>
               <div className="field">
                 <label htmlFor={`ep_desc_${product.id}`}>{m.common.description}</label>

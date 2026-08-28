@@ -249,12 +249,18 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **仍然要留的後路**：如果欄位在更早的失敗嘗試裡已經以「可空」形式存在，`add column if not exists` 就什麼都不做，rewrite 也不會發生。所以還是要留一段 `if exists (… is null)` 的補救 backfill，而那一段**必須**自己 `alter table … disable trigger user` 包起來（理由同上），並寫清楚為什麼。
 - **教訓**：**在舊表上加欄位前，先問「這張表現在有哪些 BEFORE 守衛，會不會拒絕我用來補值的那個 UPDATE？」**——守衛是為了擋人手動改資料而寫的，它分不出「這是 migration 在補欄位」。同族於 #37（後加的 BEFORE 觸發器會改變前面 CHECK 的行為）：兩條都在講「同一張表上先前累積的 trigger，會讓一個看起來人畜無害的寫入變成另一回事」。順帶一條驗證用的：**測試腳本裡 `set role anon` 之後，就別再用子查詢去撈 token/id 了**——那張表對 anon 本來就是 0 列（那正是隔壁那條測試在證明的事），子查詢會靜靜回傳 NULL，於是整組測試變成在測「NULL token」，結果是一片看不懂的 FAIL。先在 superuser 身分用 `\gset` 把值抓進 psql 變數，再切角色。
 
+### 45. 列表改成 client-state（useState 吃一次 props）之後，`router.refresh()` 對它就是空操作——「表單預填舊值＋無條件覆寫」把兩天前的顯示迴歸升級成靜默資料抹除〔本專案 2026-08-28，對抗性 review 抓到、親自對碼證實〕
+- **迴歸的誕生**：2026-08-26 把 /admin/produk 從「server 全量渲染」改成「client 搜尋 hook」（use-catalog-search）。hook 用 `useState(initial.products)` 吃**一次**首批資料；此後每個存檔動作結尾的 `router.refresh()` 雖然讓 server component 重跑、送來新 props，但 **App Router 的 refresh 保留 client state**——新 props 被無聲忽略。從那天起：新增的產品不出現、卡片欄位不更新、修改視窗預填舊值、停用按鈕的字樣不翻轉。**兩天沒人發現**，因為原生 `<select defaultValue>` 的 DOM 自己記住使用者選的值（庫存下拉「看起來」有反應），而其他欄位很少連改兩次。
+- **升級成資料抹除的那一步**：0024 的 size 欄要能在後台編輯，updateProduct 對 size 是**無條件寫入**（空 → null，這樣才能清掉錯字）。於是：存 size → refresh 無效 → 列表那列還是舊的 → 再開修改視窗（比如只想改個名字）→ size 預填空 → 按儲存 → **剛存的 size 被靜靜洗掉**。單看每一層都合理：無條件寫入是「能清空」的必要語意、useState 吃一次 props 是 React 慣例、refresh 是官方刷新手段——炸的是三者的組合。
+- **修法（兩層，缺一不可）**：①hook 加「領養」effect——以 `initial.products` 的**陣列身分**辨識 refresh 送來的新批（server 重渲染才會換身分，client 重渲染不會），永遠更新 `initialRef`（「清空篩選」的還原路徑不得復活舊列），僅在無篩選、未按過「載入更多」時採納進 state，照 runSearch 還原路徑的既有模式把 `seq` +1 讓飛行中的回應作廢——**並補 `setSearching(false)`**（被作廢的回應永遠走不到它自己的那行，spinner 會卡死）；②hook 加 `patchProduct(id, patch)`——**每個 server 確認成功的寫入**（safeWrite ok 之後，呼應 #7：只用證實存進去的值）把該列的 state **與 initialRef 同時**補丁，蓋住領養夠不到的情境（搜尋中、篩選中、已捲深）；patch 時若有搜尋正在飛行，同 query 強制重查一次（forceFetch）——飛行中的舊回應是在 commit 之前讀的，落地會把剛 patch 的列蓋回舊值。「載入更多」不必處理：它的 append 按 id 去重、**已在 state 的（剛 patch 的）列永遠贏**。base price 隔壁欄位早就用「每次開窗重新載入、載入失敗就停用欄位」防同一族問題——它的註解 "nilai segar tiap kali, bukan cache kartu" 就是這條 lesson 的先行者。
+- **教訓**：**把 server 渲染的列表改成 client-state 的那一刻，要當場盤點「這個畫面上所有以 `router.refresh()` 收尾的寫入動作」——它們全部剛剛失效了**，要嘛補領養、要嘛逐寫入補 patch，否則留下的是一個「看起來會動、其實凍結在首批資料」的畫面。而**任何「預填目前值＋儲存時無條件覆寫」的表單欄位，它的預填來源新鮮度就是資料安全問題**，不只是顯示問題——預填有多舊，儲存就能把資料倒退多遠。review 時抓這族 bug 的問句：「這個 defaultValue 的值，從 DB 到這裡經過幾層快取？每一層在存檔後會更新嗎？」
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
 - **UI 主語言 = Bahasa Indonesia**（2026-08-14 定案）。全 UI 印尼文；code 內 domain naming 維持英文（SPEC §87）；enum/status 內部值維持英文、顯示層轉印尼文。
 - **先 prototype 驗收、再真實作**（2026-08-14 流程確認）。UI/流程層面的改動先改 prototype 給 Jenzo 點，成本最低。
-- **產品主檔以系統為準，試算表是鏡子**（2026-08-28 定案）。owner：「以後可以反向建立在系統裡面，到 google sheet，這樣大家用同一個系統才會更正確」。新產品先建在系統、再同步出去；試算表不再是產品資料的來源。配套鐵則：**匯入試算表資料前必須先分辨欄位新舊**——2026-08-28 實測，owner 上傳的 Master Data CSV 其 `PRICE / UNIT` 欄與工作表的 `HARGA LAMA`（舊價）欄逐筆完全相同，照匯會讓全目錄降價 25–34%；只匯入尺寸與說明，價格一律以 owner 另行確認的清單為準。
+- **產品主檔以系統為準，試算表是鏡子**（2026-08-28 定案；同日 owner 再加碼：「以後所有的資料都在這邊改，google sheet 反而變成備份的」——所以尺寸、說明、價格等主檔欄位**都要能在後台 UI 直接編輯**，不能只靠貼 SQL；缺編輯入口的欄位視為缺功能）。owner：「以後可以反向建立在系統裡面，到 google sheet，這樣大家用同一個系統才會更正確」。新產品先建在系統、再同步出去；試算表不再是產品資料的來源。配套鐵則：**匯入試算表資料前必須先分辨欄位新舊**——2026-08-28 實測，owner 上傳的 Master Data CSV 其 `PRICE / UNIT` 欄與工作表的 `HARGA LAMA`（舊價）欄逐筆完全相同，照匯會讓全目錄降價 25–34%；只匯入尺寸與說明，價格一律以 owner 另行確認的清單為準。
 - **沒有現價的產品不建進系統**（2026-08-28 定案）。owner：「價格如果查不到 就先不要建立」。理由：無價產品在計算機/選貨窗會顯示 0 元，比不存在更危險。缺價的品項改用「列表給 owner 填價 → 拿到價格才建」的流程。
 - **金額以系統為準，不是 Excel SO 分頁**（2026-08-27 定案）。系統的計算機／`order_sanci_offers.final_amount`／SO 列印頁三處算法逐字相同（見 kalkulator-client.tsx 與 migration 0015 `fn_compute_order_offer_final`），保證一致；Excel 那份「Form SO INV dan DO-SANCI」的合計是自己另外用公式重算的，折扣鏈只有 3 格、沒有加成/現金折讓欄位，超出這個範圍時會跟系統對不起來——這是已知且接受的落差（Excel 可以手動改那一格），**兩邊不一致時一律以系統畫面的 Harga Akhir 為準**，不要再回頭比對或修正 Excel 的算法。
 

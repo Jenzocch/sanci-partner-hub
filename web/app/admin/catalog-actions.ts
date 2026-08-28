@@ -134,6 +134,8 @@ export type AdminProdukRow = {
   code: string | null;
   category: string | null;
   description: string | null;
+  /** Ukuran teks bebas (0024) — dirender modal Ubah (prefill) lewat ProductActions. */
+  size: string | null;
   photo_url: string | null;
   stock_status: StockStatus;
   status: ProductStatus;
@@ -166,7 +168,7 @@ export async function getProdukPageAdmin(input: AdminProdukPageInput): Promise<A
 
   let query = supabase
     .from("sanci_products")
-    .select("id, name, code, category, description, photo_url, stock_status, status");
+    .select("id, name, code, category, description, size, photo_url, stock_status, status");
   // Pencarian layar ini meniru memo lamanya: nama ATAU kode saja (placeholder
   // admin memang lebih sempit dari versi cabang — lihat catatan di common.ts).
   const orFilter = catalogIlikeOrFilter(norm.q, ["name", "code"]);

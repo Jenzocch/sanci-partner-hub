@@ -76,6 +76,8 @@ export interface SanciProductRow {
   code: string | null;
   category: string | null;
   description: string | null;
+  /** Ukuran teks bebas (0024), mis. "180*200*30" — dieditkan di modal Tambah/Ubah admin. */
+  size: string | null;
   photo_url: string | null;
   stock_status: StockStatus;
   status: ProductStatus;

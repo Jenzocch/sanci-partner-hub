@@ -195,7 +195,11 @@ export default function ProdukAdminClient({
                     ke DASAR kartu — semua kartu sebaris menaruh kendalinya di
                     garis yang sama, apa pun panjang isi di atasnya. */}
                 <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
-                  <ProductActions product={p} />
+                  {/* onSaved: baris state ikut nilai yang server konfirmasi —
+                      router.refresh() tidak menembus useState hook katalog
+                      (LESSONS #45); tanpa ini prefill modal Ubah berikutnya
+                      menulis balik data pra-simpan. */}
+                  <ProductActions product={p} onSaved={(patch) => katalog.patchProduct(p.id, patch)} />
                 </div>
               </div>
             </div>

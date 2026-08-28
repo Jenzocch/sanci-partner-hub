@@ -26,18 +26,30 @@ import { setProductPhoto } from "../actions-products";
  */
 
 /**
- * Mengembalikan null kalau berhasil, atau teks peringatan kalau gagal. Tidak
- * pernah melempar error — pemanggil TIDAK BOLEH ikut gagal karenanya, data
- * produk sudah dipastikan tersimpan lebih dulu (aturan sama dengan logo
+ * `warning` null kalau berhasil, atau teks peringatan kalau gagal; `url`
+ * adalah alamat ber-`?v=` yang BENAR-BENAR tercatat ke DB (null saat gagal)
+ * — pemanggil yang menampilkan foto dari state client (kartu /admin/produk)
+ * memakai `url` untuk mem-patch barisnya (LESSONS #22 + #45: URL lama
+ * immutable di cache, tanpa patch kartu terus menampilkan foto lama).
+ * Tidak pernah melempar error — pemanggil TIDAK BOLEH ikut gagal karenanya,
+ * data produk sudah dipastikan tersimpan lebih dulu (aturan sama dengan logo
  * partner: foto adalah langkah terakhir, kegagalannya cuma peringatan).
  */
-export async function unggahFotoProduk(productId: string, file: File, messages: AdminMessages): Promise<string | null> {
+export async function unggahFotoProduk(
+  productId: string,
+  file: File,
+  messages: AdminMessages
+): Promise<{ warning: string | null; url: string | null }> {
   // Foto produk: sisi 1280 px supaya tajam di grid katalog + foto besar detail, bukan 512 px logo.
   const kecil = await compressImage(file, PRESET_PRODUK, messages);
-  if (!kecil.ok) return `${messages.admin.photoUploadFailed} ${kecil.message}`;
+  if (!kecil.ok) return { warning: `${messages.admin.photoUploadFailed} ${kecil.message}`, url: null };
 
   const tipe = kecil.blob.type || "image/webp";
   const path = `${productId}/foto`;
+
+  // Diisi HANYA setelah setProductPhoto memastikan alamatnya tercatat — nilai
+  // ini bukti simpanan, bukan niat (LESSONS #7).
+  let urlTersimpan: string | null = null;
 
   const out = await submitSafely({
     kind: "update",
@@ -70,11 +82,16 @@ export async function unggahFotoProduk(productId: string, file: File, messages: 
       const { data } = supabase.storage.from("product-photos").getPublicUrl(path);
       if (!data?.publicUrl) return false;
 
-      const res = await setProductPhoto(productId, `${data.publicUrl}?v=${Date.now()}`);
-      return !("error" in res);
+      const url = `${data.publicUrl}?v=${Date.now()}`;
+      const res = await setProductPhoto(productId, url);
+      if ("error" in res) return false;
+      urlTersimpan = url;
+      return true;
     },
   });
 
-  if (out.status !== "ok" || out.result === false) return messages.admin.photoUploadFailed;
-  return null;
+  if (out.status !== "ok" || out.result === false) {
+    return { warning: messages.admin.photoUploadFailed, url: null };
+  }
+  return { warning: null, url: urlTersimpan };
 }

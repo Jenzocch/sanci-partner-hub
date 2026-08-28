@@ -35,6 +35,8 @@ export async function createProduct(input: {
   code?: string;
   category?: string;
   description?: string;
+  /** Ukuran teks bebas (0024) — normalisasi sama dengan kolom opsional lain: trim, kosong → null. */
+  size?: string;
   stockStatus: StockStatus;
   clientRequestId: string;
 }): Promise<ActionResult<{ id: string }>> {
@@ -71,6 +73,7 @@ export async function createProduct(input: {
         code: input.code?.trim() || null,
         category: input.category?.trim() || null,
         description: input.description?.trim() || null,
+        size: input.size?.trim() || null,
         stock_status: input.stockStatus,
         client_request_id: input.clientRequestId,
       })
@@ -126,7 +129,7 @@ export async function createProduct(input: {
 
 export async function updateProduct(
   id: string,
-  input: { name: string; code?: string; category?: string; description?: string }
+  input: { name: string; code?: string; category?: string; description?: string; size?: string }
 ): Promise<ActionResult<true>> {
   const m = await getAdminMessages();
   const PESAN = pesan(m);
@@ -142,6 +145,10 @@ export async function updateProduct(
         code: input.code?.trim() || null,
         category: input.category?.trim() || null,
         description: input.description?.trim() || null,
+        // SENGAJA tanpa syarat (kosong → null) supaya ukuran salah ketik BISA
+        // dihapus dari UI. Konsekuensinya: prefill form HARUS selalu segar —
+        // lihat patchProduct di lib/use-catalog-search.ts (LESSONS #45).
+        size: input.size?.trim() || null,
       })
       .eq("id", id)
       .select("id")
