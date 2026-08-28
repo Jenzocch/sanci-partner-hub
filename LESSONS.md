@@ -254,6 +254,8 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
 - **UI 主語言 = Bahasa Indonesia**（2026-08-14 定案）。全 UI 印尼文；code 內 domain naming 維持英文（SPEC §87）；enum/status 內部值維持英文、顯示層轉印尼文。
 - **先 prototype 驗收、再真實作**（2026-08-14 流程確認）。UI/流程層面的改動先改 prototype 給 Jenzo 點，成本最低。
+- **產品主檔以系統為準，試算表是鏡子**（2026-08-28 定案）。owner：「以後可以反向建立在系統裡面，到 google sheet，這樣大家用同一個系統才會更正確」。新產品先建在系統、再同步出去；試算表不再是產品資料的來源。配套鐵則：**匯入試算表資料前必須先分辨欄位新舊**——2026-08-28 實測，owner 上傳的 Master Data CSV 其 `PRICE / UNIT` 欄與工作表的 `HARGA LAMA`（舊價）欄逐筆完全相同，照匯會讓全目錄降價 25–34%；只匯入尺寸與說明，價格一律以 owner 另行確認的清單為準。
+- **沒有現價的產品不建進系統**（2026-08-28 定案）。owner：「價格如果查不到 就先不要建立」。理由：無價產品在計算機/選貨窗會顯示 0 元，比不存在更危險。缺價的品項改用「列表給 owner 填價 → 拿到價格才建」的流程。
 - **金額以系統為準，不是 Excel SO 分頁**（2026-08-27 定案）。系統的計算機／`order_sanci_offers.final_amount`／SO 列印頁三處算法逐字相同（見 kalkulator-client.tsx 與 migration 0015 `fn_compute_order_offer_final`），保證一致；Excel 那份「Form SO INV dan DO-SANCI」的合計是自己另外用公式重算的，折扣鏈只有 3 格、沒有加成/現金折讓欄位，超出這個範圍時會跟系統對不起來——這是已知且接受的落差（Excel 可以手動改那一格），**兩邊不一致時一律以系統畫面的 Harga Akhir 為準**，不要再回頭比對或修正 Excel 的算法。
 
 ### 14. 推 main 前對 git 實況〔battle-tested〕

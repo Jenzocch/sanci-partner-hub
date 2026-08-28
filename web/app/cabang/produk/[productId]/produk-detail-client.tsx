@@ -14,6 +14,7 @@ export type ProdukDetailItem = {
   code: string | null;
   category: string | null;
   description: string | null;
+  size: string | null;
   photoUrl: string | null;
   stockStatus: StockStatus;
   /** `null` = tanpa Harga Normal untuk toko ini — baris harga TIDAK
@@ -88,6 +89,15 @@ export default function ProdukDetailClient({
         <span className={STOCK_STATUS_CHIP[item.stockStatus]}>{stockStatusLabel(m, item.stockStatus)}</span>
       </div>
       {item.category && <div className="muted small">{item.category}</div>}
+
+      {/* Ukuran (0024) — spesifikasi, jadi di ATAS harga: staf menjawab
+          "muat tidak di kamarnya" sebelum menyebut angka rupiah. */}
+      {item.size && (
+        <div className="rowline" style={{ marginTop: 12 }}>
+          <span className="muted">{m.cabang.produkDetailSizeLabel}</span>
+          <span style={{ fontWeight: 650 }}>{item.size}</span>
+        </div>
+      )}
 
       {/* Harga Normal (0021) — hanya tampil kalau toko ini punya harga
           efektif (override sendiri atau Harga Dasar SANCI). Tanpa harga =

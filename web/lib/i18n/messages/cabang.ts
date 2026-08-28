@@ -269,6 +269,7 @@ const id = {
   // ---- Detail Produk (/cabang/produk/[productId], migration 0022) ----
   errProductDetailLoadFailed: "Gagal memuat detail produk.",
   produkDetailPriceLabel: "Harga Normal",
+  produkDetailSizeLabel: "Ukuran",
   produkDetailGalleryAria: "Lihat foto {n} dari {total}",
   produkDetailShareBtn: "Bagikan ke Pelanggan (WhatsApp)",
   // {name} nama produk, {url} alamat halaman publik /p/[productId] —
@@ -616,6 +617,7 @@ const en = {
   produkViewDetailAria: "View details for {name}",
   errProductDetailLoadFailed: "Could not load the product detail.",
   produkDetailPriceLabel: "Normal Price",
+  produkDetailSizeLabel: "Size",
   produkDetailGalleryAria: "View photo {n} of {total}",
   produkDetailShareBtn: "Share with Customer (WhatsApp)",
   produkDetailShareText: "Check out this product: {name}\n{url}",
@@ -925,6 +927,7 @@ const zh = {
   produkViewDetailAria: "查看{name}详情",
   errProductDetailLoadFailed: "产品详情加载失败。",
   produkDetailPriceLabel: "标准售价",
+  produkDetailSizeLabel: "尺寸",
   produkDetailGalleryAria: "查看第 {n} / {total} 张照片",
   produkDetailShareBtn: "分享给客户(WhatsApp)",
   produkDetailShareText: "看看这个产品:{name}\n{url}",

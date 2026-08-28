@@ -49,6 +49,8 @@ type PublicProductRow = {
   code: string | null;
   category: string | null;
   description: string | null;
+  /** Ukuran (0024) — spesifikasi publik; bukan data internal. */
+  size: string | null;
   photo_url: string | null;
 };
 
@@ -60,7 +62,7 @@ export default async function ProdukPublikPage({ params }: { params: Promise<{ p
   // stock_status/harga/kolom internal apa pun.
   const { data, error } = await supabase
     .from("sanci_products")
-    .select("id, name, code, category, description, photo_url")
+    .select("id, name, code, category, description, size, photo_url")
     .eq("id", productId)
     .eq("status", "ACTIVE")
     .maybeSingle();
@@ -112,6 +114,17 @@ export default async function ProdukPublikPage({ params }: { params: Promise<{ p
         {product.code && <span className="code">{product.code}</span>}
       </div>
       {product.category && <div className="muted small">{product.category}</div>}
+
+      {/* Ukuran (0024) — baris spesifikasi tersendiri, bukan lagi terkubur di
+          dalam kalimat deskripsi. Ini pertanyaan pertama pembeli kasur, jadi
+          ia berdiri di atas deskripsi. Teks bebas apa adanya dari katalog
+          (mis. "180*200*30", "(1200-1550)*1200"). */}
+      {product.size && (
+        <div className="rowline" style={{ marginTop: 12 }}>
+          <span className="muted">Ukuran</span>
+          <span style={{ fontWeight: 650 }}>{product.size}</span>
+        </div>
+      )}
 
       {product.description && (
         <p className="sub" style={{ whiteSpace: "pre-line", marginTop: 16 }}>
