@@ -50,6 +50,7 @@ export default function AddBranchButton({ partnerId }: { partnerId: string }) {
         }),
       lookup: () => lookupByRequestId("branch", rid),
       messages: m,
+      buttonLabel: m.admin.branchCreateBtn,
     });
     if (out.status === "confirmed") {
       draft.clear();

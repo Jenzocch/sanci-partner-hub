@@ -150,6 +150,7 @@ function ItemModal({
       const out = await submitSafely({
         kind: "update",
         messages: m,
+        buttonLabel: m.common.save,
         run: () => updateOrderItem(existing.id, input),
       });
       if (out.status !== "ok") {
@@ -169,6 +170,7 @@ function ItemModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.common.save,
       run: () => addOrderItem(orderId, { ...input, clientRequestId: crypto.randomUUID() }),
     });
     if (out.status !== "ok") {
@@ -194,6 +196,7 @@ function ItemModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.admin.orderItemDeleteBtn,
       run: () => deleteOrderItem(existing.id),
     });
     if (out.status !== "ok") {

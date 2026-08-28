@@ -52,6 +52,7 @@ export default function AddPartnerButton() {
         }),
       lookup: () => lookupByRequestId("partner", rid),
       messages: m,
+      buttonLabel: m.admin.partnerCreateBtn,
     });
     if (out.status === "confirmed") {
       // Respons hilang, tapi pengecekan ke server membuktikan datanya sudah masuk.

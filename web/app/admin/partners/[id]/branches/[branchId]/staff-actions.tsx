@@ -65,6 +65,7 @@ export default function StaffActions({
           code: String(fd.get("code") || ""),
         }),
       messages: m,
+      buttonLabel: m.common.save,
     });
     if (out.status !== "ok") {
       release();
@@ -102,6 +103,7 @@ export default function StaffActions({
       kind: "update",
       run: () => transferStaff(staff.id, String(fd.get("branch_id") || "")),
       messages: m,
+      buttonLabel: m.admin.staffTransferBtn,
     });
     if (out.status !== "ok") {
       release();

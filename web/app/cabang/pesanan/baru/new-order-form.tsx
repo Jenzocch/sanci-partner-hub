@@ -234,6 +234,7 @@ export default function NewOrderForm({
     const offerOut = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.cabang.createOrderCta,
       run: () =>
         setOrderOfferBranch(
           orderId,
@@ -276,6 +277,7 @@ export default function NewOrderForm({
     const itemsOut = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.cabang.createOrderCta,
       run: () =>
         copyCalcCartItemsToOrder(
           orderId,
@@ -435,6 +437,7 @@ export default function NewOrderForm({
     const salesStaffIdRaw = String(fd.get("sales_staff_id") || "");
     const out = await submitSafely({
       messages: m,
+      buttonLabel: m.cabang.saveCustomerOnlyCta,
       run: () =>
         createCustomerOnly({
           fullName: String(fd.get("full_name") || ""),
@@ -496,6 +499,7 @@ export default function NewOrderForm({
 
     const out = await submitSafely({
       messages: m,
+      buttonLabel: m.cabang.createOrderCta,
       run: () =>
         createCustomerAndOrder({
           customerId: selectedExisting && foundCustomer ? foundCustomer.id : undefined,

@@ -192,7 +192,11 @@ const id = {
   custLinkSentCompanyMsg: "Terkirim dari nomor perusahaan.",
   custLinkSendSelfCta: "Kirim dari WhatsApp saya",
   custLinkNoPhoneMsg: "Pelanggan ini belum punya nomor WhatsApp yang bisa dipakai.",
-  custLinkUnavailableMsg: "Link pelanggan belum tersedia — database belum diperbarui.",
+  // Dipakai HANYA di jalur kirim/salin link (sisi cabang & admin). Untuk
+  // tombol "Tandai sudah diterima pelanggan" ada kunci sendiri di bawah:
+  // di sana kalimat tentang "link" menyebut benda yang salah dan tidak
+  // menjawab pertanyaan pegawai ("jadi tertandai atau tidak?").
+  custLinkUnavailableMsg: "Link untuk pelanggan belum bisa dibuat — fiturnya belum aktif. Hubungi SANCI Admin.",
   waOpenChatAria: "Buka percakapan WhatsApp dengan {phone}",
 
   markDeliveredCta: "Tandai sudah diterima pelanggan",
@@ -203,6 +207,8 @@ const id = {
   markDeliveredWorkingCta: "Menandai…",
   markDeliveredDoneLabel: "Sudah diterima pelanggan",
   markDeliveredFailedMsg: "Penandaan belum tersimpan. Coba lagi sebentar lagi.",
+  markDeliveredUnavailableMsg:
+    "Pesanan ini BELUM ditandai sudah diterima pelanggan — fiturnya belum aktif. Hubungi SANCI Admin.",
   deliveredAt: "Diterima Pelanggan",
 
   // Kalimat Aktivitas (kode aksi audit → bahasa sehari-hari)
@@ -273,19 +279,28 @@ const id = {
 
   // Perlindungan jaringan lemah (lib/safe-write.ts). Selalu jelaskan APA yang
   // terjadi pada data yang sudah diketik — jangan cuma bilang "gagal".
+  //
+  // {tombol} = TULISAN PERSIS di tombol layar yang sedang dipakai, diisi
+  // pemanggil lewat `buttonLabel` pada submitSafely (default `common.save`).
+  // Dulu semua kalimat ini menyebut "Simpan" mati — padahal tombolnya sering
+  // "Buat Pesanan"/"Simpan Penawaran"/"Ya, sudah diterima", jadi pengguna
+  // disuruh menekan tombol yang tidak ada di layarnya (audit teks
+  // 2026-08-28). Jangan menambahkan kata "tombol" sebelum {tombol}: satu
+  // pemakainya adalah dropdown Stok di /admin/produk, bukan tombol.
   netOffline:
-    "Tidak ada koneksi internet. Data yang Anda ketik masih ada di layar ini — sambungkan internet lalu tekan Simpan lagi.",
+    "Tidak ada koneksi internet. Data yang Anda ketik masih ada di layar ini — sambungkan internet lalu tekan \"{tombol}\" lagi.",
   netNotSaved:
-    "Koneksi terputus dan data BELUM tersimpan di server. Data yang Anda ketik masih ada di layar ini — tekan Simpan lagi.",
+    "Koneksi terputus dan data BELUM tersimpan di server. Data yang Anda ketik masih ada di layar ini — tekan \"{tombol}\" lagi.",
   netUnsureCreate:
-    "Koneksi terputus sebelum server sempat menjawab, jadi belum bisa dipastikan tersimpan atau belum. Jangan isi ulang dari awal — cukup tekan Simpan lagi. Sistem memakai nomor permintaan yang sama, jadi data tidak akan tersimpan dua kali.",
+    "Koneksi terputus sebelum server sempat menjawab, jadi belum bisa dipastikan tersimpan atau belum. Jangan isi ulang dari awal — cukup tekan \"{tombol}\" lagi. Menekannya sekali lagi tidak akan menyimpan data yang sama dua kali.",
   netUnsureUpdate:
-    "Koneksi terputus sebelum server sempat menjawab, jadi perubahan belum bisa dipastikan tersimpan. Tekan Simpan lagi — menyimpan perubahan yang sama dua kali tidak membuat data ganda.",
+    "Koneksi terputus sebelum server sempat menjawab, jadi perubahan belum bisa dipastikan tersimpan. Tekan \"{tombol}\" lagi — menyimpan perubahan yang sama dua kali tidak membuat data ganda.",
   netServerBusy: "Tidak bisa menyimpan sekarang. Coba lagi sebentar lagi.",
   // Dua kunci "versi lama" (deteksi di submitSafely, lib/safe-write.ts):
   // halaman dari deployment lama men-submit ke server yang sudah deployment
-  // baru → Server Action-nya 404 dan TIDAK PERNAH dijalankan. "Tekan Simpan
-  // lagi" di sini nasihat yang salah — yang benar hanya muat ulang halaman.
+  // baru → Server Action-nya 404 dan TIDAK PERNAH dijalankan. "Tekan
+  // tombolnya lagi" di sini nasihat yang salah — yang benar hanya muat ulang
+  // halaman.
   //   - netStaleNotSaved: action-nya sendiri yang ditolak 404 → server
   //     terbukti tidak menjalankan apa pun, jadi BOLEH bilang "belum
   //     tersimpan" (bukti, bukan tebakan — LESSONS #7).
@@ -293,9 +308,9 @@ const id = {
   //     sendiri tidak terbukti (misal timeout biasa yang kebetulan bertepatan
   //     dengan deploy) → tetap jujur "belum bisa dipastikan".
   netStaleNotSaved:
-    "Aplikasi baru saja diperbarui, sedangkan halaman ini masih versi lama — data BELUM tersimpan, dan menekan Simpan lagi tidak akan berhasil. Muat ulang halaman ini dulu (tarik layar ke bawah atau tekan tombol reload), lalu isi dan simpan lagi.",
+    "Aplikasi baru saja diperbarui, sedangkan halaman ini masih versi lama — data BELUM tersimpan, dan menekan \"{tombol}\" lagi tidak akan berhasil. Muat ulang halaman ini dulu (tarik layar ke bawah atau tekan tombol reload), lalu isi dan simpan lagi.",
   netStaleUnsure:
-    "Aplikasi baru saja diperbarui, sedangkan halaman ini masih versi lama — belum bisa dipastikan datanya tersimpan atau belum, dan menekan Simpan lagi tidak akan berhasil. Muat ulang halaman ini dulu (tarik layar ke bawah atau tekan tombol reload), lalu periksa apakah datanya sudah masuk sebelum mengisi ulang.",
+    "Aplikasi baru saja diperbarui, sedangkan halaman ini masih versi lama — belum bisa dipastikan datanya tersimpan atau belum, dan menekan \"{tombol}\" lagi tidak akan berhasil. Muat ulang halaman ini dulu (tarik layar ke bawah atau tekan tombol reload), lalu periksa apakah datanya sudah masuk sebelum mengisi ulang.",
 
   // Pengecilan gambar sebelum unggah (lib/compress-image.ts). {label} diganti
   // salah satu compressLabel* di bawah, {maxMB}/{limitMB} diganti angka MB.
@@ -529,7 +544,7 @@ const en = {
   custLinkSentCompanyMsg: "Sent from the company number.",
   custLinkSendSelfCta: "Send from my WhatsApp",
   custLinkNoPhoneMsg: "This customer has no usable WhatsApp number.",
-  custLinkUnavailableMsg: "Customer link is not available yet — the database has not been updated.",
+  custLinkUnavailableMsg: "The customer link cannot be created yet — the feature is not active. Contact SANCI Admin.",
   waOpenChatAria: "Open a WhatsApp chat with {phone}",
 
   markDeliveredCta: "Mark as received by customer",
@@ -540,6 +555,8 @@ const en = {
   markDeliveredWorkingCta: "Marking…",
   markDeliveredDoneLabel: "Received by customer",
   markDeliveredFailedMsg: "The mark was not saved. Try again in a moment.",
+  markDeliveredUnavailableMsg:
+    "This order was NOT marked as received by the customer — the feature is not active. Contact SANCI Admin.",
   deliveredAt: "Received by customer",
 
   auditOrderCreated: "Order created",
@@ -605,18 +622,18 @@ const en = {
   auditPermissionChanged: "Access changed",
 
   netOffline:
-    "No internet connection. What you typed is still on this screen — get back online, then press Save again.",
+    "No internet connection. What you typed is still on this screen — get back online, then press \"{tombol}\" again.",
   netNotSaved:
-    "The connection dropped and nothing was saved on the server. What you typed is still on this screen — press Save again.",
+    "The connection dropped and nothing was saved on the server. What you typed is still on this screen — press \"{tombol}\" again.",
   netUnsureCreate:
-    "The connection dropped before the server could answer, so we cannot tell yet whether it was saved. Do not type everything again — just press Save again. The system reuses the same request number, so nothing gets saved twice.",
+    "The connection dropped before the server could answer, so we cannot tell yet whether it was saved. Do not type everything again — just press \"{tombol}\" again. Pressing it a second time will not save the same thing twice.",
   netUnsureUpdate:
-    "The connection dropped before the server could answer, so we cannot tell yet whether the change was saved. Press Save again — saving the same change twice does not create a second copy.",
+    "The connection dropped before the server could answer, so we cannot tell yet whether the change was saved. Press \"{tombol}\" again — saving the same change twice does not create a second copy.",
   netServerBusy: "Cannot save right now. Please try again in a moment.",
   netStaleNotSaved:
-    "The app was just updated, but this page is still the old version — the data was NOT saved, and pressing Save again will not work. Reload this page first (pull the screen down or press the reload button), then fill it in and save again.",
+    "The app was just updated, but this page is still the old version — the data was NOT saved, and pressing \"{tombol}\" again will not work. Reload this page first (pull the screen down or press the reload button), then fill it in and save again.",
   netStaleUnsure:
-    "The app was just updated, but this page is still the old version — we cannot tell whether the data was saved, and pressing Save again will not work. Reload this page first (pull the screen down or press the reload button), then check whether the data is already there before typing it again.",
+    "The app was just updated, but this page is still the old version — we cannot tell whether the data was saved, and pressing \"{tombol}\" again will not work. Reload this page first (pull the screen down or press the reload button), then check whether the data is already there before typing it again.",
 
   compressLabelLogo: "Logo",
   compressLabelInvoice: "Invoice photo",
@@ -821,7 +838,7 @@ const zh = {
   custLinkSentCompanyMsg: "已从公司号码发出。",
   custLinkSendSelfCta: "用我的 WhatsApp 发送",
   custLinkNoPhoneMsg: "该客户没有可用的 WhatsApp 号码。",
-  custLinkUnavailableMsg: "客户链接尚不可用——数据库还没有更新。",
+  custLinkUnavailableMsg: "客户查询链接暂时无法生成——这个功能还没有启用。请联系 SANCI 管理员。",
   waOpenChatAria: "打开与 {phone} 的 WhatsApp 对话",
 
   markDeliveredCta: "标记客户已收到",
@@ -832,6 +849,7 @@ const zh = {
   markDeliveredWorkingCta: "标记中…",
   markDeliveredDoneLabel: "客户已收到",
   markDeliveredFailedMsg: "标记尚未保存，请稍后重试。",
+  markDeliveredUnavailableMsg: "这笔订单没有被标记为“客户已收到”——这个功能还没有启用。请联系 SANCI 管理员。",
   deliveredAt: "客户已收到",
 
   auditOrderCreated: "订单已创建",
@@ -897,18 +915,18 @@ const zh = {
   auditPermissionChanged: "权限已修改",
 
   netOffline:
-    "当前没有网络。你填的内容还在这个页面上 —— 连上网络后再按一次“保存”。",
+    "当前没有网络。你填的内容还在这个页面上 —— 连上网络后再按一次“{tombol}”。",
   netNotSaved:
-    "网络中断，内容还没有保存到服务器。你填的内容还在这个页面上 —— 请再按一次“保存”。",
+    "网络中断，内容还没有保存到服务器。你填的内容还在这个页面上 —— 请再按一次“{tombol}”。",
   netUnsureCreate:
-    "网络在服务器回应之前就中断了，暂时无法确认有没有保存成功。不用重新填一遍 —— 直接再按一次“保存”。系统会用同一个请求编号，不会重复保存。",
+    "网络在服务器回应之前就中断了，暂时无法确认有没有保存成功。不用重新填一遍 —— 直接再按一次“{tombol}”。再按一次不会把同一条数据保存两次。",
   netUnsureUpdate:
-    "网络在服务器回应之前就中断了，暂时无法确认修改有没有保存成功。请再按一次“保存”—— 同样的修改保存两次不会产生重复数据。",
+    "网络在服务器回应之前就中断了，暂时无法确认修改有没有保存成功。请再按一次“{tombol}”—— 同样的修改保存两次不会产生重复数据。",
   netServerBusy: "现在无法保存，请稍后再试。",
   netStaleNotSaved:
-    "应用刚刚更新了，这个页面还是旧版本 —— 数据没有保存，再按“保存”也不会成功。请先刷新页面（下拉屏幕或点刷新按钮），然后重新填写并保存。",
+    "应用刚刚更新了，这个页面还是旧版本 —— 数据没有保存，再按“{tombol}”也不会成功。请先刷新页面（下拉屏幕或点刷新按钮），然后重新填写并保存。",
   netStaleUnsure:
-    "应用刚刚更新了，这个页面还是旧版本 —— 暂时无法确认数据有没有保存成功，再按“保存”也不会成功。请先刷新页面（下拉屏幕或点刷新按钮），先检查数据有没有进来，再决定要不要重新填写。",
+    "应用刚刚更新了，这个页面还是旧版本 —— 暂时无法确认数据有没有保存成功，再按“{tombol}”也不会成功。请先刷新页面（下拉屏幕或点刷新按钮），先检查数据有没有进来，再决定要不要重新填写。",
 
   compressLabelLogo: "Logo",
   compressLabelInvoice: "Invoice 照片",

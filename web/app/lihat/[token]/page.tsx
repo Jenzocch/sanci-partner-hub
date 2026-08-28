@@ -255,7 +255,11 @@ export default async function LihatPesananPage({
         <div className="card">
           <h2 className="sectiontitle">Pembayaran</h2>
           <dl className="kv">
-            <dt>Total</dt>
+            {/* Satu konsep = satu kata (GLOSSARY): angka ini adalah
+                `final_amount` yang sama dengan "Harga Akhir" di kalkulator,
+                kartu penawaran dan banner hand-off. Dulu "Total" di sini —
+                nama ketiga untuk angka yang sama (audit teks 2026-08-28). */}
+            <dt>Harga Akhir</dt>
             <dd className="num">{nf(amounts.final)}</dd>
             <dt>Sudah dibayar (DP)</dt>
             <dd className="num">{nf(amounts.dp)}</dd>

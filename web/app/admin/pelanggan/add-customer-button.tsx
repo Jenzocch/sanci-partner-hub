@@ -79,6 +79,7 @@ export default function AddCustomerButton({
         }),
       lookup: () => lookupByRequestId("customer", rid),
       messages: m,
+      buttonLabel: m.admin.customerCreateBtn,
     });
 
     let customerCode: string | null;

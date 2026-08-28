@@ -255,6 +255,13 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法（兩層，缺一不可）**：①hook 加「領養」effect——以 `initial.products` 的**陣列身分**辨識 refresh 送來的新批（server 重渲染才會換身分，client 重渲染不會），永遠更新 `initialRef`（「清空篩選」的還原路徑不得復活舊列），僅在無篩選、未按過「載入更多」時採納進 state，照 runSearch 還原路徑的既有模式把 `seq` +1 讓飛行中的回應作廢——**並補 `setSearching(false)`**（被作廢的回應永遠走不到它自己的那行，spinner 會卡死）；②hook 加 `patchProduct(id, patch)`——**每個 server 確認成功的寫入**（safeWrite ok 之後，呼應 #7：只用證實存進去的值）把該列的 state **與 initialRef 同時**補丁，蓋住領養夠不到的情境（搜尋中、篩選中、已捲深）；patch 時若有搜尋正在飛行，同 query 強制重查一次（forceFetch）——飛行中的舊回應是在 commit 之前讀的，落地會把剛 patch 的列蓋回舊值。「載入更多」不必處理：它的 append 按 id 去重、**已在 state 的（剛 patch 的）列永遠贏**。base price 隔壁欄位早就用「每次開窗重新載入、載入失敗就停用欄位」防同一族問題——它的註解 "nilai segar tiap kali, bukan cache kartu" 就是這條 lesson 的先行者。
 - **教訓**：**把 server 渲染的列表改成 client-state 的那一刻，要當場盤點「這個畫面上所有以 `router.refresh()` 收尾的寫入動作」——它們全部剛剛失效了**，要嘛補領養、要嘛逐寫入補 patch，否則留下的是一個「看起來會動、其實凍結在首批資料」的畫面。而**任何「預填目前值＋儲存時無條件覆寫」的表單欄位，它的預填來源新鮮度就是資料安全問題**，不只是顯示問題——預填有多舊，儲存就能把資料倒退多遠。review 時抓這族 bug 的問句：「這個 defaultValue 的值，從 DB 到這裡經過幾層快取？每一層在存檔後會更新嗎？」
 
+### 46. UI 文字自己就是一種「假成功」：兩個相鄰畫面的按鈕同名、錯誤訊息硬寫按鈕名，程式碼全對也會讓店員相信錯的事〔本專案 2026-08-28，owner 逐條實測後委派修正〕
+- **同名按鈕**：`/kalkulator` 的主要按鈕叫「Buat Pesanan」，但 `handleConvertToOrder()` 只做 `writeCalcHandoff` + `clearCalcDraft` + `router.push`，**一個字都沒寫進資料庫**；真正建單的是下一頁 `new-order-form.tsx` 裡**同樣叫「Buat Pesanan」**的按鈕（而且還要先按交接橫幅的「Gunakan angka ini」、填完客戶）。店員報完價、按下大按鈕、看到畫面換頁，合理地相信訂單已經存在——它不存在。更糟的是 `calcIntroNote` 白紙黑字寫「按下"Buat Pesanan"之前不會存到系統」，等於親口保證那顆按鈕會存。**修法是文案不是邏輯**：按鈕改成講「去哪裡」（`Lanjut ke Pesanan Baru` / `Continue to new order` / `前往新建订单页面`），兩段說明改成明講「這裡不存、這顆只是把數字帶過去、要按下一頁那顆才存」。
+- **硬寫按鈕名的復原訊息**：`net*`（弱網復原）六句全部結尾「tekan Simpan lagi」，但 `submitSafely` 的呼叫點裡按鈕是「Buat Pesanan」（全 app 流量最高的寫入）、「Simpan Penawaran」、「Ya, sudah diterima」，**真的只有一個畫面有 Simpan**。改成 `{tombol}` 佔位符，`pesan(m, tombol?)` 代入，`submitSafely` 加選填 `buttonLabel`，51 個呼叫點各自傳自己那顆按鈕**渲染時用的同一個字串**（不要另外手打，否則哪天按鈕改字兩邊就對不上）。順帶把「系統會用同一個請求編號」拿掉——那是 `client_request_id` 洩進店員文案。
+- **抓法**：這族缺陷 typecheck / eslint / build 全綠，**只能靠一個一個念出畫面上的句子、對照那一刻螢幕上真的有什麼**。三個固定問句：①這顆按鈕按下去到底寫了什麼進 DB？②這句話提到的按鈕／物件，現在螢幕上有嗎？③這句話講的是使用者剛做的那件事嗎（按「標記已收到」卻回「客戶連結尚不可用」＝答非所問）？
+- **同族的三個**：`markOrderDelivered` 失敗時回傳 `custLinkUnavailableMsg`（講的是另一個東西，而且沒說到底標記了沒）；客戶已存、訂單失敗時把訊息蓋成 `errOrderModuleInactive`（`partial` 明明帶著 customerId，店員卻不知道客戶保住了，於是重打一次）；同一個 `final_amount` 在三個畫面叫「Harga Akhir」「Total Akhir」「Total」。**共同根因都是「訊息由最靠近錯誤的那段程式挑，而不是由使用者剛做的那個動作挑」。**
+- **給非技術使用者的錯誤訊息不要出現「migrasi database」**：店員對遷移編號無能為力，那個詞只會讓他覺得系統壞了。留「什麼不能用 + Hubungi SANCI Admin」，以及**訊息原本帶的保證**（訂單真的已取消／客戶真的已存）——那才是有用的部分。admin.ts 的同款字串**刻意保留**遷移字眼：SANCI 辦公室同仁確實會把編號轉給工程端。**「同一個技術狀況，對不同讀者是不同的訊息」不是重複，是分工。**
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

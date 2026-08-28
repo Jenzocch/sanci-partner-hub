@@ -131,6 +131,7 @@ export default function ProductActions({
           size: String(fd.get("size") || ""),
         }),
       messages: m,
+      buttonLabel: m.common.save,
     });
     if (out.status !== "ok") {
       release();
@@ -191,6 +192,7 @@ export default function ProductActions({
       kind: "update",
       run: () => setProductStockStatus(product.id, value),
       messages: m,
+      buttonLabel: m.admin.productStockFieldLabel,
     });
     setStockBusy(false);
     if (out.status !== "ok") {
@@ -215,6 +217,7 @@ export default function ProductActions({
       kind: "update",
       run: () => setProductStatus(product.id, next),
       messages: m,
+      buttonLabel: product.status === "ACTIVE" ? m.common.deactivate : m.common.activate,
     });
     setStatusBusy(false);
     if (out.status !== "ok") {

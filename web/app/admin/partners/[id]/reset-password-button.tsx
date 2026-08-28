@@ -86,6 +86,7 @@ export default function ResetPasswordButton({
     const out = await submitSafely({
       run: () => resetPartnerUserPassword(userId, password),
       messages,
+      buttonLabel: messages.admin.resetPasswordSaveBtn,
       kind: "update",
     });
 

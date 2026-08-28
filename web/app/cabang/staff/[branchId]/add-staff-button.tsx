@@ -47,6 +47,7 @@ export default function AddStaffButton({
     const rid = requestId.current!;
     const out = await submitSafely({
       messages: m,
+      buttonLabel: m.cabang.addStaffModalTitle,
       run: () =>
         createStaff(branchId, {
           fullName: String(fd.get("full_name") || ""),

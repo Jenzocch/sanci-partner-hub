@@ -85,6 +85,7 @@ export default function OfferPermissionsForm({
           canDiscount: discountChecked,
         }),
       messages: m,
+      buttonLabel: m.admin.offerPermSaveBtn,
     });
     release();
     if (out.status !== "ok") {

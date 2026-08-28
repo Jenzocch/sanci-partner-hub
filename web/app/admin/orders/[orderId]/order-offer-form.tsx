@@ -154,6 +154,7 @@ export default function OrderOfferForm({
       kind: "update",
       run: () => setOrderOffer(orderId, raw, dpRaw, conditionRaw, liveDiscounts, markupRaw, cashRaw),
       messages: m,
+      buttonLabel: m.admin.orderOfferSaveBtn,
     });
     if (out.status !== "ok") {
       release();
@@ -182,6 +183,7 @@ export default function OrderOfferForm({
       kind: "update",
       run: () => clearOrderOffer(orderId),
       messages: m,
+      buttonLabel: m.admin.orderOfferClearBtn,
     });
     if (out.status !== "ok") {
       release();

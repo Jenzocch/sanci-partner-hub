@@ -66,6 +66,7 @@ export default function AddStaffButton({
         }),
       lookup: () => lookupByRequestId("staff", rid),
       messages: m,
+      buttonLabel: m.admin.staffCreateBtn,
     });
     if (out.status === "confirmed") {
       // Respons hilang, tapi pengecekan ke server membuktikan datanya sudah masuk.

@@ -86,6 +86,7 @@ export default function CustomerLinkCard({
       kind: "update",
       run: sendViaCompany,
       messages: { common: m },
+      buttonLabel: m.custLinkSendCompanyCta,
     });
     setSending(false);
     if (out.status !== "ok") {
@@ -107,6 +108,7 @@ export default function CustomerLinkCard({
       kind: "update",
       run: markDelivered,
       messages: { common: m },
+      buttonLabel: m.markDeliveredConfirmCta,
     });
     if (out.status !== "ok") {
       release();

@@ -28,18 +28,23 @@ const id = {
   // slice cabang): teks cabang menyebut izin/alur khas cabang yang tidak
   // berlaku untuk admin (admin tidak pernah digerbang izin penawaran — 0014/
   // 0015 melepas lewat fn_is_admin).
+  // Sama seperti sisi cabang: tombol kalkulator TIDAK BOLEH bernama sama
+  // dengan tombol simpan form pesanan (`orderCreateSubmitCta` = "Buat
+  // Pesanan"). Kalkulator tidak menulis apa pun ke database — cuma hand-off
+  // + router.push (handleConvertToOrder, lib/kalkulator-client.tsx).
   calcAdminIntroNote:
-    "Alat hitung penawaran yang sama dengan sisi cabang — untuk tim SANCI tanpa berganti akun. Tidak ada yang " +
-    "tersimpan ke sistem selagi dipakai; tekan \"Buat Pesanan\" di tab keranjang untuk membawa angka dan daftar " +
-    "produknya ke form pesanan admin.",
-  calcAdminConvertCta: "Buat Pesanan",
+    "Alat hitung penawaran yang sama dengan sisi cabang — untuk tim SANCI tanpa berganti akun. Di layar ini " +
+    "TIDAK ADA yang tersimpan ke sistem. Tombol \"Lanjut ke Form Pesanan\" di tab keranjang cuma membawa angka " +
+    "dan daftar produknya ke form pesanan admin — pesanannya baru benar-benar tersimpan setelah Anda " +
+    "melengkapi form itu lalu menekan \"Buat Pesanan\" di sana.",
+  calcAdminConvertCta: "Lanjut ke Form Pesanan",
   calcAdminConvertScopeNote:
-    "\"Buat Pesanan\" membawa subtotal, rantai diskon, dan daftar produk (nama, kode, jumlah, harga) ke form " +
-    "pesanan admin — pilih partner dan cabang di sana seperti biasa.",
+    "\"Lanjut ke Form Pesanan\" membawa subtotal, rantai diskon, dan daftar produk (nama, kode, jumlah, harga) " +
+    "ke form pesanan admin — belum menyimpan apa pun; pilih partner dan cabang di sana seperti biasa.",
 
   // Hand-off Kalkulator → /admin/orders/baru (lihat lib/calculator-shared.ts:
   // CalcHandoff, sekali pakai lewat localStorage, key area admin).
-  calcAdminHandoffBanner: "Dari Kalkulator Penawaran: {n} barang · Subtotal {subtotal} · Total Akhir {final}.",
+  calcAdminHandoffBanner: "Dari Kalkulator Penawaran: {n} barang · Subtotal {subtotal} · Harga Akhir {final}.",
   calcAdminHandoffApplyCta: "Gunakan angka ini",
   calcAdminHandoffDismissCta: "Abaikan",
   calcAdminHandoffScopeHint:
@@ -928,15 +933,17 @@ const en = {
   navCalculator: "Offer Calculator",
 
   calcAdminIntroNote:
-    "The same offer calculator branches have — for the SANCI team, without switching accounts. Nothing is " +
-    "saved to the system while you work; press \"Create order\" on the cart tab to carry the numbers and " +
-    "product list into the admin order form.",
-  calcAdminConvertCta: "Create order",
+    "The same offer calculator branches have — for the SANCI team, without switching accounts. NOTHING on this " +
+    "screen is saved to the system. The \"Continue to the order form\" button on the cart tab only carries the " +
+    "numbers and product list into the admin order form — the order is not saved until you complete that form " +
+    "and press \"Create order\" there.",
+  calcAdminConvertCta: "Continue to the order form",
   calcAdminConvertScopeNote:
-    "\"Create order\" carries the subtotal, discount chain, and product list (name, code, quantity, price) " +
-    "into the admin order form — pick the partner and branch there as usual.",
+    "\"Continue to the order form\" carries the subtotal, discount chain, and product list (name, code, " +
+    "quantity, price) into the admin order form — it does not save anything yet; pick the partner and branch " +
+    "there as usual.",
 
-  calcAdminHandoffBanner: "From the Offer Calculator: {n} items · Subtotal {subtotal} · Final total {final}.",
+  calcAdminHandoffBanner: "From the Offer Calculator: {n} items · Subtotal {subtotal} · Final price {final}.",
   calcAdminHandoffApplyCta: "Use these numbers",
   calcAdminHandoffDismissCta: "Dismiss",
   calcAdminHandoffScopeHint:
@@ -1755,12 +1762,13 @@ const zh = {
   navCalculator: "方案计算器",
 
   calcAdminIntroNote:
-    "跟分店端一样的方案计算器 —— SANCI 团队不用切换账号就能用。使用过程中任何内容都不会保存到系统;" +
-    "在购物车分页点\"创建订单\",就能把数字和产品清单带到管理端的创建订单页面。",
-  calcAdminConvertCta: "创建订单",
+    "跟分店端一样的方案计算器 —— SANCI 团队不用切换账号就能用。这个页面上的任何内容都不会保存到系统。" +
+    "购物车分页的\"前往创建订单页面\"按钮只是把数字和产品清单带到管理端的创建订单表单 —— 要在那个表单里" +
+    "填好内容,再按那里的\"创建订单\",订单才真正保存。",
+  calcAdminConvertCta: "前往创建订单页面",
   calcAdminConvertScopeNote:
-    "\"创建订单\"会把小计、折扣链和产品清单(名称、代码、数量、价格)带到管理端的创建订单页面 —— " +
-    "在那里照常选择合作商和分店。",
+    "\"前往创建订单页面\"会把小计、折扣链和产品清单(名称、代码、数量、价格)带到管理端的创建订单表单," +
+    "这一步还不会保存任何东西 —— 在那里照常选择合作商和分店。",
 
   calcAdminHandoffBanner: "来自方案计算器:{n}件 · 小计{subtotal} · 最终金额{final}。",
   calcAdminHandoffApplyCta: "使用这些数字",

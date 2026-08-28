@@ -59,6 +59,7 @@ export default function BranchActions({ branch }: { branch: Branch }) {
           contactPhone: String(fd.get("contact_phone") || ""),
         }),
       messages: m,
+      buttonLabel: m.common.save,
     });
     if (out.status !== "ok") {
       release();

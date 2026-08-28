@@ -36,6 +36,7 @@ export default function InternalNoteForm({ orderId }: { orderId: string }) {
       run: () => addInternalNote(orderId, note, requestId),
       lookup: () => lookupByRequestId("internalNote", requestId),
       messages: m,
+      buttonLabel: m.admin.internalNoteSaveBtn,
     });
     if (out.status === "confirmed") {
       setRequestId(crypto.randomUUID());

@@ -104,6 +104,7 @@ export default function AddUserButton({
     const out = await submitSafely({
       run: () => createPartnerUser(partnerId, { name, branchId, email, password }),
       messages,
+      buttonLabel: messages.admin.userCreateBtn,
     });
 
     if (out.status === "offline") {

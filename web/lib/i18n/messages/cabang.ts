@@ -40,11 +40,19 @@ const id = {
   errPartnerLoad: "Data partner Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa pengaturan akun.",
   errPartnerBranchLoad:
     "Data partner/cabang Anda tidak dapat dimuat. Hubungi SANCI Admin untuk memeriksa pengaturan akun dan izin cabang.",
-  errOrderModuleInactive: "Modul Pesanan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.",
-  errCustomerModuleInactive: "Modul Pelanggan belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.",
-  errCatalogModuleInactive: "Modul Katalog Produk belum aktif di database (migrasi belum dijalankan). Hubungi SANCI Admin.",
-  errFeatureInactive: "Fitur ini belum aktif — migrasi database belum dijalankan. Hubungi SANCI Admin.",
-  errNotAllowedMigration: "Belum diizinkan — migrasi database belum dijalankan atau Anda tidak punya akses.",
+  // Pesan "belum aktif" untuk PEGAWAI TOKO: sebut apa yang tidak bisa
+  // dipakai dan siapa yang dihubungi — JANGAN sebut "migrasi database".
+  // Pegawai toko tidak bisa berbuat apa pun dengan nomor migrasi, dan kata
+  // itu membuat kalimatnya terdengar seperti kerusakan besar. Padanan di
+  // admin.ts SENGAJA tetap menyebut migrasi: staf kantor SANCI memang
+  // meneruskan nomornya (audit teks 2026-08-28).
+  errOrderModuleInactive: "Modul Pesanan belum aktif. Hubungi SANCI Admin.",
+  errCustomerModuleInactive: "Modul Pelanggan belum aktif. Hubungi SANCI Admin.",
+  errCatalogModuleInactive: "Modul Katalog Produk belum aktif. Hubungi SANCI Admin.",
+  errFeatureInactive: "Fitur ini belum aktif. Hubungi SANCI Admin.",
+  errNotAllowedMigration:
+    "Perubahan tidak tersimpan — Anda belum punya izin mengubah data ini, atau fiturnya belum aktif. Hubungi " +
+    "SANCI Admin.",
   errFullNameRequired: "Nama lengkap wajib diisi.",
   errPhoneInvalid: "Nomor telepon tidak valid.",
   noPhoneNumber: "tanpa telepon",
@@ -98,7 +106,9 @@ const id = {
   notSetChip: "Belum ditentukan",
   salesDt: "Sales",
   orderCancelledHeading: "Pesanan dibatalkan",
-  cancelInfoUnavailableMsg: "Info pembatalan belum tersedia (migrasi database belum dijalankan).",
+  cancelInfoUnavailableMsg:
+    "Pesanan ini tetap dibatalkan; hanya alasan dan waktu pembatalannya yang belum bisa ditampilkan. Hubungi " +
+    "SANCI Admin.",
   cancelTimeLabel: "Waktu",
   orderCancelledReadonlyNote: "Pesanan yang sudah dibatalkan tidak bisa diubah lagi.",
   orderOtherBranchReadonlyNote:
@@ -224,6 +234,14 @@ const id = {
   errSalesInvalidStaff: "Sales harus dipilih dari daftar staf aktif cabang ini.",
   errPicInvalidStaff: "PIC harus dipilih dari daftar staf aktif cabang ini.",
   partialOrderFailed: "Pelanggan tersimpan. Pesanan gagal — ulangi dari daftar pelanggan.",
+  // Sama-sama "pelanggan selamat, pesanan tidak" seperti partialOrderFailed,
+  // tapi penyebabnya modul yang belum aktif — mengulang sekarang tidak akan
+  // menolong, jadi kalimatnya harus beda (audit teks 2026-08-28: dulu pesan
+  // errOrderModuleInactive yang dipakai, dan pegawai tidak pernah tahu
+  // pelanggannya sudah tersimpan).
+  partialOrderModuleOff:
+    "Pelanggan tersimpan. Pesanannya belum bisa dibuat karena Modul Pesanan belum aktif — mengulang sekarang " +
+    "tidak akan berhasil. Hubungi SANCI Admin, lalu buat pesanannya dari daftar pelanggan.",
   partialOrderUnknownStatus:
     "Pelanggan tersimpan. Status pesanan belum bisa dipastikan karena koneksi terputus — cek Daftar Pesanan sebelum mencoba lagi.",
   partialOrderSummaryUnavailable:
@@ -350,21 +368,27 @@ const id = {
   hargaSaveUnsure:
     "Jawaban server tidak sampai — harga mungkin sudah tersimpan. Muat ulang halaman untuk memastikan sebelum mencoba lagi.",
   hargaInvalidInput: "Isi angka rupiah yang benar.",
-  hargaModuleInactiveMsg:
-    "Fitur Harga Normal belum aktif di database (migrasi 0021 belum dijalankan). Hubungi SANCI Admin.",
+  hargaModuleInactiveMsg: "Fitur Harga Normal belum aktif, jadi harga belum bisa disimpan. Hubungi SANCI Admin.",
+  // Tombol kalkulator TIDAK BOLEH bernama sama dengan tombol simpan di form
+  // pesanan (`createOrderCta`): kalkulator tidak menulis apa pun ke database
+  // (lihat handleConvertToOrder di lib/kalkulator-client.tsx — cuma hand-off
+  // + router.push), sedangkan `createOrderCta` di new-order-form.tsx yang
+  // benar-benar membuat pesanan. Dua tombol berlabel sama = pegawai yakin
+  // pesanannya sudah jadi padahal belum (audit teks 2026-08-28).
   calcIntroNote:
-    "Alat hitung cepat untuk dipakai langsung di depan pelanggan. Tidak ada yang tersimpan ke sistem sampai Anda " +
-    "menekan \"Buat Pesanan\" — dan rantai diskon di sini bisa dipakai semua cabang, terlepas dari izin diskon pada " +
-    "pesanan sungguhan.",
-  calcConvertCta: "Buat Pesanan",
+    "Alat hitung cepat untuk dipakai langsung di depan pelanggan. Di layar ini TIDAK ADA yang tersimpan ke " +
+    "sistem. Tombol \"Lanjut ke Pesanan Baru\" cuma membawa angkanya ke form Pesanan Baru — pesanannya baru " +
+    "benar-benar tersimpan setelah Anda mengisi pelanggan di form itu lalu menekan \"Buat Pesanan\" di sana. " +
+    "Rantai diskon di sini bisa dipakai semua cabang, terlepas dari izin diskon pada pesanan sungguhan.",
+  calcConvertCta: "Lanjut ke Pesanan Baru",
   calcConvertScopeNote:
-    "\"Buat Pesanan\" membawa subtotal, rantai diskon, dan daftar produk (nama, kode, jumlah) ke pesanan baru. " +
-    "Harga per barang ikut kalau toko Anda punya izin \"Lihat & atur Penawaran SANCI\" — kalau belum, barangnya " +
-    "tetap dibuat tanpa harga.",
+    "\"Lanjut ke Pesanan Baru\" membawa subtotal, rantai diskon, dan daftar produk (nama, kode, jumlah) ke form " +
+    "Pesanan Baru — belum menyimpan apa pun. Harga per barang ikut kalau toko Anda punya izin \"Lihat & atur " +
+    "Penawaran SANCI\" — kalau belum, barangnya tetap dibuat tanpa harga.",
 
   // Hand-off Kalkulator → Pesanan Baru (lihat lib/calculator-shared.ts:
   // CalcHandoff, sekali pakai lewat localStorage).
-  calcHandoffBanner: "Dari Kalkulator Penawaran: {n} barang · Subtotal {subtotal} · Total Akhir {final}.",
+  calcHandoffBanner: "Dari Kalkulator Penawaran: {n} barang · Subtotal {subtotal} · Harga Akhir {final}.",
   calcHandoffApplyCta: "Gunakan angka ini",
   calcHandoffDismissCta: "Abaikan",
   calcHandoffScopeHint:
@@ -422,11 +446,13 @@ const en = {
   errPartnerLoad: "Could not load your partner data. Contact SANCI Admin to check your account settings.",
   errPartnerBranchLoad:
     "Could not load your partner/branch data. Contact SANCI Admin to check your account and branch access.",
-  errOrderModuleInactive: "The Orders module isn't active in the database yet (migration not run). Contact SANCI Admin.",
-  errCustomerModuleInactive: "The Customers module isn't active in the database yet (migration not run). Contact SANCI Admin.",
-  errCatalogModuleInactive: "The Product Catalog module isn't active in the database yet (migration not run). Contact SANCI Admin.",
-  errFeatureInactive: "This feature isn't active yet — database migration not run. Contact SANCI Admin.",
-  errNotAllowedMigration: "Not allowed yet — either the database migration hasn't run, or you don't have access.",
+  errOrderModuleInactive: "The Orders module isn't active yet. Contact SANCI Admin.",
+  errCustomerModuleInactive: "The Customers module isn't active yet. Contact SANCI Admin.",
+  errCatalogModuleInactive: "The Product Catalog module isn't active yet. Contact SANCI Admin.",
+  errFeatureInactive: "This feature isn't active yet. Contact SANCI Admin.",
+  errNotAllowedMigration:
+    "The change was not saved — you don't have permission to edit this yet, or the feature isn't active. " +
+    "Contact SANCI Admin.",
   errFullNameRequired: "Full name is required.",
   errPhoneInvalid: "This phone number isn't valid.",
   noPhoneNumber: "no phone",
@@ -472,7 +498,9 @@ const en = {
   notSetChip: "Not set",
   salesDt: "Sales",
   orderCancelledHeading: "Order cancelled",
-  cancelInfoUnavailableMsg: "Cancellation details aren't available yet (database migration not run).",
+  cancelInfoUnavailableMsg:
+    "This order is still cancelled; only the reason and time of cancellation can't be shown yet. Contact " +
+    "SANCI Admin.",
   cancelTimeLabel: "Time",
   orderCancelledReadonlyNote: "A cancelled order can no longer be changed.",
   orderOtherBranchReadonlyNote:
@@ -587,6 +615,9 @@ const en = {
   errSalesInvalidStaff: "Sales staff must be chosen from this branch's active staff list.",
   errPicInvalidStaff: "PIC must be chosen from this branch's active staff list.",
   partialOrderFailed: "Customer saved. Order failed — retry from the customer list.",
+  partialOrderModuleOff:
+    "Customer saved. The order could not be created because the Orders module isn't active yet — retrying now " +
+    "will not help. Contact SANCI Admin, then create the order from the customer list.",
   partialOrderUnknownStatus:
     "Customer saved. The order's status couldn't be confirmed because the connection dropped — check the order list before trying again.",
   partialOrderSummaryUnavailable:
@@ -685,20 +716,21 @@ const en = {
     "No reply from the server — the price may have been saved. Reload the page to check before trying again.",
   hargaInvalidInput: "Enter a valid rupiah amount.",
   hargaModuleInactiveMsg:
-    "The Normal price feature isn't active in the database yet (migration 0021 not run). Contact SANCI Admin.",
+    "The Normal price feature isn't active yet, so prices can't be saved. Contact SANCI Admin.",
   calcIntroNote:
-    "A quick calculator for use right in front of the customer. Nothing is saved to the system until you press " +
-    "\"Create Order\" — and the discount chain here can be used by every branch, regardless of discount " +
-    "permissions on real orders.",
-  calcConvertCta: "Create order",
+    "A quick calculator for use right in front of the customer. NOTHING on this screen is saved to the system. " +
+    "The \"Continue to new order\" button only carries the numbers over to the new order form — the order is " +
+    "not saved until you fill in the customer there and press \"Create order\" on that screen. The discount " +
+    "chain here can be used by every branch, regardless of discount permissions on real orders.",
+  calcConvertCta: "Continue to new order",
   calcConvertScopeNote:
-    "\"Create order\" carries the subtotal, discount chain, and product list (name, code, quantity) into a new " +
-    "order. Per-item prices come along too if your store has \"View & set SANCI Offer\" permission — if not, " +
-    "items are still created, just without a price.",
+    "\"Continue to new order\" carries the subtotal, discount chain, and product list (name, code, quantity) " +
+    "into the new order form — it does not save anything yet. Per-item prices come along too if your store has " +
+    "\"View & set SANCI Offer\" permission — if not, items are still created, just without a price.",
 
   // Calculator → New order hand-off (see lib/calculator-shared.ts:
   // CalcHandoff, one-shot via localStorage).
-  calcHandoffBanner: "From the Offer Calculator: {n} items · Subtotal {subtotal} · Final total {final}.",
+  calcHandoffBanner: "From the Offer Calculator: {n} items · Subtotal {subtotal} · Final price {final}.",
   calcHandoffApplyCta: "Use these numbers",
   calcHandoffDismissCta: "Dismiss",
   calcHandoffScopeHint:
@@ -747,11 +779,11 @@ const zh = {
   errSessionInvalid: "登录状态已失效,请刷新页面。",
   errPartnerLoad: "合作商信息加载失败,请联系 SANCI 管理员检查账号设置。",
   errPartnerBranchLoad: "合作商/分店信息加载失败,请联系 SANCI 管理员检查账号和分店权限。",
-  errOrderModuleInactive: "订单功能还没有启用(数据库迁移还没执行),请联系 SANCI 管理员。",
-  errCustomerModuleInactive: "客户功能还没有启用(数据库迁移还没执行),请联系 SANCI 管理员。",
-  errCatalogModuleInactive: "产品目录功能还没有启用(数据库迁移还没执行),请联系 SANCI 管理员。",
-  errFeatureInactive: "这个功能还没有启用 —— 数据库迁移还没执行,请联系 SANCI 管理员。",
-  errNotAllowedMigration: "暂时不能操作 —— 数据库迁移还没执行,或者您没有权限。",
+  errOrderModuleInactive: "订单功能还没有启用,请联系 SANCI 管理员。",
+  errCustomerModuleInactive: "客户功能还没有启用,请联系 SANCI 管理员。",
+  errCatalogModuleInactive: "产品目录功能还没有启用,请联系 SANCI 管理员。",
+  errFeatureInactive: "这个功能还没有启用,请联系 SANCI 管理员。",
+  errNotAllowedMigration: "修改没有保存 —— 您还没有修改这项数据的权限,或者这个功能还没有启用。请联系 SANCI 管理员。",
   errFullNameRequired: "请填写姓名。",
   errPhoneInvalid: "电话号码无效。",
   noPhoneNumber: "无电话",
@@ -796,7 +828,7 @@ const zh = {
   notSetChip: "未设置",
   salesDt: "销售员",
   orderCancelledHeading: "订单已取消",
-  cancelInfoUnavailableMsg: "取消信息暂时无法显示(数据库迁移还没执行)。",
+  cancelInfoUnavailableMsg: "这笔订单确实已经取消,只是取消原因和时间暂时无法显示。请联系 SANCI 管理员。",
   cancelTimeLabel: "时间",
   orderCancelledReadonlyNote: "已取消的订单不能再修改。",
   orderOtherBranchReadonlyNote: "在本店只能查看这个订单。修改或取消需要由订单所属的分店操作。",
@@ -908,6 +940,9 @@ const zh = {
   errSalesInvalidStaff: "销售员必须从本店在职员工名单中选择。",
   errPicInvalidStaff: "负责人必须从本店在职员工名单中选择。",
   partialOrderFailed: "客户已保存。订单失败 —— 请从客户列表重新操作。",
+  partialOrderModuleOff:
+    "客户已保存。订单功能还没有启用,所以订单没有创建 —— 现在重试也不会成功。请联系 SANCI 管理员," +
+    "之后再从客户列表创建订单。",
   partialOrderUnknownStatus: "客户已保存。因网络中断,订单状态暂时无法确认 —— 请先查看订单列表,再决定是否重试。",
   partialOrderSummaryUnavailable: "订单已保存,但详情暂时无法重新加载,请打开订单列表确认。",
   partialFulfillmentDropped: "订单已保存,但交付方式暂时无法保存(服务器功能还没启用)。请联系 SANCI 管理员。",
@@ -994,14 +1029,16 @@ const zh = {
   hargaSaveFailed: "价格保存失败,请重试。",
   hargaSaveUnsure: "没有收到服务器回复 —— 价格可能已保存。请先刷新页面确认,再决定要不要重试。",
   hargaInvalidInput: "请输入正确的 Rupiah 金额。",
-  hargaModuleInactiveMsg: "标准售价功能还没有启用(数据库迁移 0021 还没执行),请联系 SANCI 管理员。",
+  hargaModuleInactiveMsg: "标准售价功能还没有启用,所以价格暂时无法保存。请联系 SANCI 管理员。",
   calcIntroNote:
-    "快速计算工具,可以直接在客户面前使用。在您按下\"创建订单\"之前,这里的任何内容都不会保存到系统 —— " +
-    "而且这里的折扣链所有门店都能用,跟真实订单的折扣权限无关。",
-  calcConvertCta: "创建订单",
+    "快速计算工具,可以直接在客户面前使用。这个页面上的任何内容都不会保存到系统。\"前往新建订单页面\"这个按钮" +
+    "只是把数字带到新建订单表单 —— 要在那个表单里填好客户,再按那里的\"创建订单\",订单才真正保存。" +
+    "这里的折扣链所有门店都能用,跟真实订单的折扣权限无关。",
+  calcConvertCta: "前往新建订单页面",
   calcConvertScopeNote:
-    "\"创建订单\"会把小计、折扣链和产品清单(名称、代码、数量)带入新订单。如果您的门店有\"查看及设置 SANCI 方案\"" +
-    "权限,每件商品的单价也会一起带过去 —— 没有的话,商品仍会创建,只是不带价格。",
+    "\"前往新建订单页面\"会把小计、折扣链和产品清单(名称、代码、数量)带到新建订单表单,这一步还不会保存" +
+    "任何东西。如果您的门店有\"查看及设置 SANCI 方案\"权限,每件商品的单价也会一起带过去 —— 没有的话," +
+    "商品仍会创建,只是不带价格。",
 
   // 计算器 → 新建订单的交接(见 lib/calculator-shared.ts 的 CalcHandoff,
   // 一次性,透过 localStorage)。

@@ -861,8 +861,14 @@ export async function createCustomerAndOrder(input: {
     if (written.ok) {
       orderId = written.data.id;
     } else if (written.reason === "db" && isMissingTableError({ code: written.code })) {
+      // Pelanggannya SUDAH tersimpan — `partialResult.partial` membawa
+      // customerId/Name/Phone. Pesannya harus mengatakan itu, bukan cuma
+      // "Modul Pesanan belum aktif" seperti dulu (pegawai membaca itu sebagai
+      // "semuanya gagal" lalu mengetik ulang pelanggannya). Kunci partial
+      // sendiri, sejajar dengan cabang partialOrderFailed di bawah yang juga
+      // membuka dengan "Pelanggan tersimpan." (audit teks 2026-08-28).
       return {
-        partial: { ...partialResult.partial, message: m.cabang.errOrderModuleInactive },
+        partial: { ...partialResult.partial, message: m.cabang.partialOrderModuleOff },
       };
     } else if (written.reason === "unconfirmed" || isRequestIdConflict(written)) {
       const recheck = await confirmByRequestId(
@@ -1741,7 +1747,10 @@ export async function markOrderDelivered(
     .maybeSingle();
 
   if (fetchErr) {
-    if (isMissingColumnError(fetchErr)) return { error: { message: m.common.custLinkUnavailableMsg } };
+    // Yang ditekan pegawai adalah "Tandai sudah diterima pelanggan" — pesannya
+    // harus menjawab pertanyaan itu ("jadi tertandai atau tidak?"), bukan
+    // bicara soal link pelanggan seperti dulu (audit teks 2026-08-28).
+    if (isMissingColumnError(fetchErr)) return { error: { message: m.common.markDeliveredUnavailableMsg } };
     return { error: { message: PESAN.serverSibuk } };
   }
   if (!order) return { error: { message: m.cabang.errOrderDetailLoadFailed } };
@@ -1762,7 +1771,7 @@ export async function markOrderDelivered(
   if (!written.ok) {
     if (written.reason === "db") {
       if (isMissingColumnError({ code: written.code })) {
-        return { error: { message: m.common.custLinkUnavailableMsg } };
+        return { error: { message: m.common.markDeliveredUnavailableMsg } };
       }
       // Mungkin tab lain menandai duluan di antara cek dan tulis — tanya
       // ulang sebelum melapor gagal (LESSONS #7).

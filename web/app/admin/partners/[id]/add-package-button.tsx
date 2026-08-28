@@ -51,6 +51,7 @@ export default function AddPackageButton({ partnerId }: { partnerId: string }) {
         }),
       lookup: () => lookupByRequestId("package", rid),
       messages: m,
+      buttonLabel: m.admin.packageCreateBtn,
     });
     if (out.status === "confirmed") {
       draft.clear();

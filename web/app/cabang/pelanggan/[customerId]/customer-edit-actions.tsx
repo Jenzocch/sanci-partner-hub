@@ -87,6 +87,7 @@ function EditCustomerModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.common.save,
       run: () =>
         updateCustomer({
           customerId: customer.id,

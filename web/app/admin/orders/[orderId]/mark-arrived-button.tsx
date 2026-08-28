@@ -47,6 +47,7 @@ export default function MarkArrivedButton({
       kind: "update",
       run: () => markCustomerArrived(orderId),
       messages: m,
+      buttonLabel: m.admin.markArrivedConfirmBtn,
     });
     if (out.status !== "ok") {
       release();

@@ -226,6 +226,7 @@ function EditOrderModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.common.save,
       run: () =>
         updateOrder({
           orderId,
@@ -442,6 +443,7 @@ function CancelOrderModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.cabang.cancelOrderCta,
       run: () => cancelOrder({ orderId, reason: finalReason }),
     });
 

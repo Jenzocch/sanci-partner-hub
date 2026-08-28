@@ -39,6 +39,7 @@ export default function CatalogAccessForm({
       kind: "update",
       run: () => setCatalogAccess(partnerId, fd.get("catalog") === "OPEN"),
       messages: m,
+      buttonLabel: m.common.save,
     });
     release();
     if (out.status !== "ok") {

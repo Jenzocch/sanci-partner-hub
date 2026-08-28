@@ -123,6 +123,7 @@ function EditItemModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.common.save,
       run: () =>
         updateOrderItemFields({
           itemId: item.id,
@@ -154,6 +155,7 @@ function EditItemModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.cabang.orderItemDeleteCta,
       run: () => deleteOrderItemCabang(item.id, orderId),
     });
     if (out.status !== "ok") {

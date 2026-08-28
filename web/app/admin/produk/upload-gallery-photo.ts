@@ -30,6 +30,11 @@ export async function unggahFotoGaleri(productId: string, file: File, messages: 
 
   const out = await submitSafely({
     kind: "update",
+    // Tanpa `buttonLabel`: hasil `out.message` TIDAK PERNAH ditampilkan di
+    // sini — setiap kegagalan dilaporkan lewat teks unggahan sendiri di
+    // bawah, jadi tidak ada `{tombol}` yang perlu diisi. Kalau suatu saat
+    // `out.message` mulai ditampilkan, isi `buttonLabel` dengan tulisan
+    // tombol pemanggilnya (audit teks 2026-08-28).
     timeoutMs: 30_000,
     messages,
     run: async () => {

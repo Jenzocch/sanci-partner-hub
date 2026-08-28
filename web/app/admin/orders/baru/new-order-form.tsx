@@ -321,6 +321,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     const offerOut = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.admin.orderCreateSubmitCta,
       run: () =>
         setOrderOffer(
           orderId,
@@ -363,6 +364,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     const itemsOut = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.admin.orderCreateSubmitCta,
       run: () =>
         copyCalcCartItemsToOrder(
           orderId,
@@ -527,6 +529,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
 
     const out = await submitSafely({
       messages: m,
+      buttonLabel: m.admin.orderCreateSubmitCta,
       run: () =>
         createOrderForBranch({
           partnerId,

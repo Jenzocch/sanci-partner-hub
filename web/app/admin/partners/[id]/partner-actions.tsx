@@ -78,6 +78,7 @@ export default function PartnerActions({
       kind: "update",
       timeoutMs: 30_000,
       messages: m,
+      buttonLabel: m.common.save,
       run: async () => {
         // supabase-js diimpor DINAMIS di sini, bukan statis di atas berkas
         // (audit kecepatan muat 2026-08-22 #3, lanjutan pola sign-out-button.tsx):
@@ -133,6 +134,7 @@ export default function PartnerActions({
           contactPhone: String(fd.get("contact_phone") || ""),
         }),
       messages: m,
+      buttonLabel: m.common.save,
     });
     if (out.status !== "ok") {
       // Jawaban server tidak sampai — perubahan TIDAK boleh disebut tersimpan.

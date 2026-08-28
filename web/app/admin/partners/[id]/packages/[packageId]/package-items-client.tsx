@@ -181,6 +181,7 @@ export default function PackageItemsClient({
       run: () => addPackageItem(packageId, productId, Number(qty), rid),
       lookup: () => lookupByRequestId("packageItem", rid),
       messages: m,
+      buttonLabel: m.common.add,
     });
 
     if (out.status === "confirmed") {
@@ -230,6 +231,7 @@ export default function PackageItemsClient({
       kind: "update",
       run: () => updatePackageItemQuantity(item.id, next),
       messages: m,
+      buttonLabel: m.common.save,
     });
     release();
     if (out.status !== "ok") {
@@ -257,6 +259,7 @@ export default function PackageItemsClient({
       kind: "update",
       run: () => removePackageItem(item.id),
       messages: m,
+      buttonLabel: m.admin.packageItemRemove,
     });
     release();
     if (out.status !== "ok") {

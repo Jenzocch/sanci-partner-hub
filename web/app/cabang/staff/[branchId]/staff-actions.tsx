@@ -43,6 +43,7 @@ export default function StaffActions({ staff }: { staff: Staff }) {
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.common.save,
       run: () =>
         updateStaff(staff.id, {
           fullName: String(fd.get("full_name") || ""),

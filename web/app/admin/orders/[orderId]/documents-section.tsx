@@ -204,6 +204,7 @@ function DocumentModal({
       const out = await submitSafely({
         kind: "update",
         messages: m,
+        buttonLabel: m.admin.docSaveBtn,
         run: () =>
           createOrderDocument(orderId, modal.docType, docDate, itemsInput, notes, crypto.randomUUID()),
       });
@@ -225,6 +226,7 @@ function DocumentModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.admin.docSaveBtn,
       run: () => updateOrderDocument(modal.doc.id, orderId, modal.doc.doc_type, docDate, itemsInput, notes),
     });
     if (out.status !== "ok") {
@@ -250,6 +252,7 @@ function DocumentModal({
     const out = await submitSafely({
       kind: "update",
       messages: m,
+      buttonLabel: m.admin.docDeleteBtn,
       run: () => deleteOrderDocument(modal.doc.id),
     });
     if (out.status !== "ok") {

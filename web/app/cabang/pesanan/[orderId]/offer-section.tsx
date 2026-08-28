@@ -129,6 +129,7 @@ export default function OfferSection({
       kind: "update",
       run: () => setOrderOfferBranch(orderId, raw, dpRaw, conditionRaw, liveDiscounts, markupRaw, cashRaw),
       messages: m,
+      buttonLabel: m.cabang.cabangOfferSaveBtn,
     });
     if (out.status !== "ok") {
       release();

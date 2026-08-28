@@ -825,7 +825,11 @@ export async function markOrderDeliveredAdmin(
     .maybeSingle();
 
   if (fetchErr) {
-    if (isMissingColumnError(fetchErr.code)) return { error: { message: m.common.custLinkUnavailableMsg } };
+    // Kunci markDelivered*, bukan custLink*: tombol yang ditekan adalah
+    // "Tandai sudah diterima pelanggan" dan kartu ini dipakai bersama sisi
+    // cabang (lib/customer-link-card.tsx) — sama seperti markOrderDelivered
+    // di app/cabang/pesanan/actions.ts (audit teks 2026-08-28).
+    if (isMissingColumnError(fetchErr.code)) return { error: { message: m.common.markDeliveredUnavailableMsg } };
     return { error: { message: PESAN.serverSibuk } };
   }
   if (!order) return { error: { message: m.admin.orderNotFound } };
@@ -845,7 +849,7 @@ export async function markOrderDeliveredAdmin(
 
   if (!written.ok) {
     if (written.reason === "db") {
-      if (isMissingColumnError(written.code)) return { error: { message: m.common.custLinkUnavailableMsg } };
+      if (isMissingColumnError(written.code)) return { error: { message: m.common.markDeliveredUnavailableMsg } };
       const { data: recheck } = await supabase
         .from("partner_orders")
         .select("delivered_at")

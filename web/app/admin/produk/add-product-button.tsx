@@ -57,6 +57,7 @@ export default function AddProductButton() {
         }),
       lookup: () => lookupByRequestId("product", rid),
       messages: m,
+      buttonLabel: m.admin.productCreateBtn,
     });
 
     let newId: string;

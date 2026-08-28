@@ -52,6 +52,7 @@ export default function CorrectAttributionButton({
           String(fd.get("reason") || "")
         ),
       messages: m,
+      buttonLabel: m.admin.correctAttributionSaveBtn,
     });
     if (out.status !== "ok") {
       release();

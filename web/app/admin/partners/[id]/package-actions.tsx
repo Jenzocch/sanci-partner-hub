@@ -47,6 +47,7 @@ export default function PackageActions({ pkg }: { pkg: Pkg }) {
           description: String(fd.get("description") || ""),
         }),
       messages: m,
+      buttonLabel: m.common.save,
     });
     if (out.status !== "ok") {
       release();

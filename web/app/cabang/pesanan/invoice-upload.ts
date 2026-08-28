@@ -65,6 +65,11 @@ export async function unggahInvoice(m: CabangMessages, orderId: string, file: Fi
   const path = `${orderId}/invoice.${siap.data.ext}`;
   const out = await submitSafely({
     kind: "update",
+    // Tanpa `buttonLabel`: hasil `out.message` TIDAK PERNAH ditampilkan di
+    // sini — setiap kegagalan dilaporkan lewat teks unggahan sendiri di
+    // bawah, jadi tidak ada `{tombol}` yang perlu diisi. Kalau suatu saat
+    // `out.message` mulai ditampilkan, isi `buttonLabel` dengan tulisan
+    // tombol pemanggilnya (audit teks 2026-08-28).
     messages: m,
     timeoutMs: 30_000,
     run: async () => {

@@ -43,6 +43,7 @@ export default function PermissionsForm({
           editScope: String(fd.get("edit") || "OWN_BRANCH"),
         }),
       messages: m,
+      buttonLabel: m.admin.permSaveBtn,
     });
     release();
     if (out.status !== "ok") {

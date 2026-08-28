@@ -50,16 +50,29 @@ export const LOOKUP_TIMEOUT_MS = 10_000;
  * Action mengembalikan `{ error: { message } }` yang langsung ditampilkan
  * komponen. Kalau yang dikirim kunci, SETIAP komponen harus tahu cara
  * menerjemahkannya — satu yang lupa = kode mentah di layar pengguna.
+ *
+ * `tombol` = TULISAN PERSIS di tombol yang barusan ditekan pengguna; mengisi
+ * `{tombol}` di kunci `net*`. Kalimat-kalimat itu dulu menyebut "Simpan"
+ * mati-matian, padahal tombolnya sering "Buat Pesanan" / "Simpan Penawaran" /
+ * "Ya, sudah diterima" — pengguna disuruh menekan tombol yang tidak ada di
+ * layarnya (audit teks 2026-08-28). Default `common.save` menjaga kalimat
+ * lama untuk pemanggil sisi server yang memang berakhir di layar bertombol
+ * Simpan; komponen client menyodorkan labelnya sendiri lewat `buttonLabel`
+ * pada submitSafely.
  */
-export function pesan(m: HasCommon) {
+export function pesan(m: HasCommon, tombol?: string) {
+  const label = tombol ?? m.common.save;
+  const isi = (teks: string) => teks.replace("{tombol}", label);
   return {
-    offline: m.common.netOffline,
-    belumTersimpan: m.common.netNotSaved,
-    belumPastiBaru: m.common.netUnsureCreate,
-    belumPastiUbah: m.common.netUnsureUpdate,
+    offline: isi(m.common.netOffline),
+    belumTersimpan: isi(m.common.netNotSaved),
+    belumPastiBaru: isi(m.common.netUnsureCreate),
+    belumPastiUbah: isi(m.common.netUnsureUpdate),
+    // Tidak menyebut tombol apa pun ("Coba lagi sebentar lagi") — sengaja
+    // tidak ikut disulih.
     serverSibuk: m.common.netServerBusy,
-    staleBelumTersimpan: m.common.netStaleNotSaved,
-    staleBelumPasti: m.common.netStaleUnsure,
+    staleBelumTersimpan: isi(m.common.netStaleNotSaved),
+    staleBelumPasti: isi(m.common.netStaleUnsure),
   } as const;
 }
 
@@ -269,6 +282,7 @@ export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup: () => Promise<LookupResult>;
   messages: HasCommon;
+  buttonLabel?: string;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmit<R>>;
@@ -276,6 +290,7 @@ export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup?: undefined;
   messages: HasCommon;
+  buttonLabel?: string;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmitNoLookup<R>>;
@@ -283,13 +298,22 @@ export async function submitSafely<R>(opts: {
   run: () => Promise<R>;
   lookup?: () => Promise<LookupResult>;
   messages: HasCommon;
+  /**
+   * Tulisan PERSIS di tombol yang memicu penulisan ini (mis.
+   * `m.cabang.createOrderCta`), untuk `{tombol}` di pesan jaringan. Jangan
+   * mengarang kalimat sendiri — ambil string yang sama dengan yang dirender
+   * tombolnya, supaya kutipannya selalu cocok dengan layar. Dibiarkan kosong
+   * = "Simpan" (`common.save`), yang HANYA benar kalau tombolnya memang
+   * Simpan.
+   */
+  buttonLabel?: string;
   kind?: "create" | "update";
   timeoutMs?: number;
 }): Promise<SafeSubmit<R>> {
   // `messages` WAJIB (bukan opsional dengan cadangan Bahasa Indonesia):
   // pemanggil yang lupa harus ketahuan saat build, bukan muncul sebagai
   // kalimat Indonesia di tengah layar berbahasa Mandarin (LESSONS #13).
-  const PESAN = pesan(opts.messages);
+  const PESAN = pesan(opts.messages, opts.buttonLabel);
   const kind = opts.kind ?? (opts.lookup ? "create" : "update");
   const belumPasti = kind === "create" ? PESAN.belumPastiBaru : PESAN.belumPastiUbah;
 
