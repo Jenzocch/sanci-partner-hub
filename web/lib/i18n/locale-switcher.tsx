@@ -21,7 +21,7 @@ export default function LocaleSwitcher() {
 
   return (
     <label className="langswitch">
-      <span className="sr-only">{messages.language}</span>
+      <span className="langswitch-label">{messages.language}</span>
       <select
         aria-label={messages.language}
         value={locale}
