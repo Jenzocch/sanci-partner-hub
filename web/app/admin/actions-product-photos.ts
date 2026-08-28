@@ -144,29 +144,53 @@ export async function moveProductPhoto(
   const target = photos.slice();
   [target[from], target[to]] = [target[to], target[from]];
 
-  for (let i = 0; i < target.length; i++) {
-    if (target[i].sort_order === i) continue;
-    // `.eq("product_id", …)` ikut dipasang supaya id foto dari browser tidak
-    // pernah bisa menyentuh baris produk lain. 0 baris ter-update (foto
-    // dihapus penulis lain di tengah jalan) = error dari safeWrite ("no row
-    // returned"), bukan sukses diam-diam.
-    const saved = await safeWrite(
-      supabase
-        .from("product_photos")
-        .update({ sort_order: i })
-        .eq("id", target[i].id)
-        .eq("product_id", productId)
-        .select("id")
-        .single()
-    );
-    if (!saved.ok) {
-      if (saved.reason === "db" && isMissingTable(saved.code)) {
-        return { error: { message: m.admin.catalogMigrationMsg } };
-      }
-      return {
-        error: { message: saved.reason === "db" ? PESAN.serverSibuk : PESAN.belumPastiUbah },
-      };
+  // SATU pernyataan untuk SELURUH urutan baru — bukan perulangan UPDATE.
+  //
+  // Versi pertama berkas ini (2026-08-28) menulis satu UPDATE per baris di
+  // dalam loop tanpa transaksi. Itu punya dua cacat nyata:
+  //
+  //   1. GAGAL DI TENGAH JALAN. Semua baris lama lahir dengan sort_order = 0
+  //      (default 0022) dan tidak ada unique index pada (product_id,
+  //      sort_order), jadi keadaan "semua nol" adalah yang paling umum DAN
+  //      yang paling buruk ditangani loop. Contoh: urutan kanonis A,B,C,D
+  //      semuanya 0; admin menggeser C ke kiri; i=1 menulis C=1 lalu i=2
+  //      untuk B gagal. Hasilnya A=0,B=0,C=1,D=0 → urutan terbaca A,B,D,C:
+  //      foto yang digeser ke KIRI justru melompat ke URUTAN TERAKHIR, di
+  //      layar admin, halaman cabang, DAN halaman publik. Klaim di kepala
+  //      versi lama ("geser berikutnya menormalkan ulang") hanya benar untuk
+  //      ANGKA sort_order-nya; URUTANNYA tetap salah selamanya karena
+  //      normalisasi berikutnya berangkat dari urutan yang sudah rusak.
+  //   2. DUA ADMIN BERSAMAAN. Tanpa penguncian, dua loop bisa berselang-
+  //      seling menjadi sort_order ganda (mis. dua baris bernilai 2) dan
+  //      KEDUANYA melaporkan sukses.
+  //
+  // Satu upsert = satu pernyataan = atomik: seluruh urutan tersimpan atau
+  // tidak ada satu pun. Dua penulis bersamaan menjadi "yang terakhir menang
+  // untuk SELURUH urutan" — hasil yang masih masuk akal, bukan campuran
+  // rusak. `product_id` ikut dikirim di setiap baris (dan RLS ph_admin_all
+  // tetap penjaga sesungguhnya) supaya id foto dari browser tidak pernah
+  // bisa menyentuh baris produk lain.
+  const written = await safeWrite(
+    supabase
+      .from("product_photos")
+      .upsert(
+        target.map((p, i) => ({
+          id: p.id,
+          product_id: productId,
+          photo_url: p.photo_url,
+          sort_order: i,
+        })),
+        { onConflict: "id" }
+      )
+      .select("id")
+  );
+  if (!written.ok) {
+    if (written.reason === "db" && isMissingTable(written.code)) {
+      return { error: { message: m.admin.catalogMigrationMsg } };
     }
+    return {
+      error: { message: written.reason === "db" ? PESAN.serverSibuk : PESAN.belumPastiUbah },
+    };
   }
 
   // Baca ulang sebagai bukti (LESSONS #7) — inilah urutan yang benar-benar
@@ -183,8 +207,20 @@ export async function moveProductPhoto(
     return { error: { message: m.admin.productGalleryMoveFailed } };
   }
 
+  // Bukti itu DIPERIKSA, bukan cuma dikembalikan. Kalau urutan tersimpan
+  // tidak sama dengan yang diminta — penulis lain menyelinap di antara baca
+  // dan tulis, atau sebuah foto dihapus di sela itu — ini BUKAN sukses:
+  // memulangkan daftar apa adanya akan menampilkan urutan orang lain seolah
+  // hasil klik admin ini (LESSONS #7/#10). Klien menampilkan pesan gagal dan
+  // memuat ulang, lalu admin bisa menggeser lagi di atas keadaan yang benar.
+  const tersimpan = (after ?? []) as GalleryPhoto[];
+  const samaUrutannya =
+    tersimpan.length === target.length &&
+    tersimpan.every((p, i) => p.id === target[i].id);
+  if (!samaUrutannya) return { error: { message: m.admin.productGalleryMoveFailed } };
+
   revalidatePath("/admin/produk");
-  return { data: (after ?? []) as GalleryPhoto[] };
+  return { data: tersimpan };
 }
 
 /**
