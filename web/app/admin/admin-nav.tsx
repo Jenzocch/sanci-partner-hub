@@ -35,7 +35,7 @@ export default function AdminNav() {
     <nav className="side">
       <div className="brand">
         <span className="serif word">SANCI</span>
-        <span className="sub">Partner Hub</span>
+        <span className="sub">Partner System</span>
       </div>
       {/* Urutan mengikuti ALUR KERJA HARIAN (arahan owner 2026-08-24 —
           "pakai logika pengguna"): ① pantau/buat pesanan; ①.5 Analisis —

@@ -4,12 +4,12 @@ import SwRegister from "./sw-register";
 import { getLocale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "SANCI Partner Hub",
+  title: "SANCI Partner System",
   description: "Kolaborasi SANCI dengan toko furnitur mitra",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "SANCI Partner Hub",
+    title: "SANCI Partner System",
   },
   icons: {
     apple: "/icons/apple-touch-icon.png",

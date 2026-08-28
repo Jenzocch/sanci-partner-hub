@@ -34,7 +34,7 @@ const id = {
   // sejak pencarian/paging dieksekusi server, tidak ada lagi batas 200 yang
   // memotong diam-diam, jadi kuncinya dihapus bersama stopgap-nya.
   loadMoreCta: "Muat Lebih Banyak",
-  appName: "SANCI Partner Hub",
+  appName: "SANCI Partner System",
   // Tombol & aksi
   save: "Simpan",
   cancel: "Batal",
@@ -322,7 +322,7 @@ const id = {
   draftDiscard: "Buang",
 
   // Halaman masuk (app/page.tsx, app/login-form.tsx)
-  loginTitle: "Partner Hub",
+  loginTitle: "Partner System",
   loginSubtitle: "Masuk dengan akun yang dibuat oleh SANCI Admin.",
   loginEmail: "Email",
   loginPassword: "Kata sandi",
@@ -410,7 +410,7 @@ type Shape = Record<keyof typeof id, string>;
 const en = {
   ...offline.en,
   loadMoreCta: "Load more",
-  appName: "SANCI Partner Hub",
+  appName: "SANCI Partner System",
   save: "Save",
   cancel: "Cancel",
   edit: "Edit",
@@ -638,7 +638,7 @@ const en = {
   draftContinue: "Carry on",
   draftDiscard: "Throw away",
 
-  loginTitle: "Partner Hub",
+  loginTitle: "Partner System",
   loginSubtitle: "Sign in with the account SANCI Admin made for you.",
   loginEmail: "Email",
   loginPassword: "Password",
@@ -703,7 +703,7 @@ const en = {
 const zh = {
   ...offline.zh,
   loadMoreCta: "加载更多",
-  appName: "SANCI 合作商平台",
+  appName: "SANCI 合作商系统",
   save: "保存",
   cancel: "取消",
   edit: "修改",
@@ -929,7 +929,7 @@ const zh = {
   draftContinue: "接着填",
   draftDiscard: "丢掉",
 
-  loginTitle: "合作商平台",
+  loginTitle: "合作商系统",
   loginSubtitle: "请用 SANCI 管理员给你开的账号登录。",
   loginEmail: "邮箱",
   loginPassword: "密码",

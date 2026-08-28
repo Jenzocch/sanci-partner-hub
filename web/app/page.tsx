@@ -40,7 +40,14 @@ export default async function Home() {
     <CommonI18nProvider locale={locale} messages={m}>
       <main className="authwrap">
         <div className="authcard">
-          <div className="wordmark serif">SANCI</div>
+          {/* Wordmark ASLI dari owner (public/brand/sanci-logo.png), bukan
+              teks bergaya seperti sebelumnya — bersama judul di bawahnya
+              terbaca "SANCI Partner System". `<img>` biasa, BUKAN next/image:
+              berkasnya 3 KB satu warna, optimasi tidak memberi apa pun dan
+              pola ini sudah dipakai di halaman cetak. Warnanya dibalik jadi
+              putih di tema gelap — lihat .brandlogo di globals.css. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- lihat catatan di atas */}
+          <img className="brandlogo" src="/brand/sanci-logo.png" alt="SANCI" width={282} height={61} />
           {user ? (
             <>
               {/* Login berhasil tapi belum terdaftar di sistem — bukan error DB. */}

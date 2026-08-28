@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "SANCI Partner Hub",
+    name: "SANCI Partner System",
     short_name: "SANCI",
     description: "Kolaborasi SANCI dengan toko furnitur mitra",
     start_url: "/",
