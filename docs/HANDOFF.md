@@ -37,7 +37,7 @@ rm -rf .next && npm run build                     # 必須成功；/offline 必�
 - `/lihat/[token]`（客戶訂單頁，0023）：電話、完整地址（驗證前）、取消原因、任何內部欄位**永不外洩**；地址只在電話驗證通過後由 SECURITY DEFINER RPC 回傳。
 - anon 讀取一律靠 RLS 的 `auth.uid() is null` 條件，middleware 排除清單只是省成本，不是安全邊界。
 
-## 目前的未完成項（2026-08-28 快照）
+## 目前的未完成項（2026-08-28 更新）
 
 | 事項 | 等誰 | 備註 |
 |---|---|---|
@@ -45,11 +45,17 @@ rm -rf .next && npm run build                     # 必須成功；/offline 必�
 | 49 個新產品建檔 | owner 填價格 | `produk-baru-isi-harga.csv` 格式；填回後逐筆建檔（名稱已依代碼修正） |
 | Fonnte 接通 | owner | 註冊 fonnte.com → 綁公司 WA 號 → `FONNTE_TOKEN` 進 Vercel → redeploy |
 | `partner.sanci.co.id` | Dimas（外部 DNS 管理者） | 還缺 `_vercel` TXT 驗證記錄 |
-| 相簿排序 UI | 可派 agent | `product_photos.sort_order` 已存在，缺拖曳/排序介面 |
-| `/admin/pelanggan` 分頁 | 可派 agent | 比照 use-catalog-search 的「搜尋＋載入更多」合約 |
 | sheets-orders Code.gs 的 customer_po 欄 | 可派 agent | `integrations/` 內；純 Apps Script |
 | PBF-01/02/03 說明是垃圾值 | owner 給正確文案 | 現值只有 Silver/Gold/Taupe |
 | ML03-R200 價格合理性 | owner 確認 | 7,743,860 對比 R120 的 17,420,000 疑似偏低 |
+
+**已完成（2026-08-28）**：產品尺寸可在 Tambah/Ubah Produk 編輯（`48f9f4b`，連帶修了 #45 那個資料抹除迴歸）；相簿照片排序 UI（`c0186f4`，箭頭移動，`product_photos.sort_order`）；`/admin/pelanggan` 改成搜尋＋載入更多（`1c62b31`）。
+
+## Agent worktree 隔離：不要照單全收
+
+2026-08-28 派兩個 agent（`isolation: "worktree"`）平行跑，事後發現兩者其實共用同一份工作目錄（`git worktree list` 只看得到主檢出，沒有各自的隔離副本）——A agent 回報「在我的 worktree 裡看到 B agent 未 commit 的檔案」證實了這件事。兩個 agent 都守規矩、只 commit 自己動過的檔案（用 `git show --stat <commit>` 逐一核對過，乾淨），但**不能假設下次也一樣乾淨**。
+
+**merge 前的作法**：對每個 agent 的 commit，用 `git worktree add --detach <臨時路徑> <commit-sha>` 開一個真正獨立的 worktree（`ln -s .../web/node_modules` 進去省重裝，前提是該 commit 沒動 `package.json`/`package-lock.json`——先 `git diff` 確認），在裡面單獨跑 tsc/eslint/build，通過才 push；驗證完 `git worktree remove --force` 清掉。不要直接在共用主檢出裡跑驗證——那會混進其他還在跑的 agent 的未完成修改，結果不可信。
 
 ## 給 agent 的提示模板要點
 
