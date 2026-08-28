@@ -266,6 +266,16 @@ const id = {
   // noPhotoPlaceholder pindah ke common.ts (2026-08-22, dipakai kalkulator
   // dua area — produk-list-client.tsx ikut membacanya dari sana).
   produkViewDetailAria: "Lihat detail {name}",
+  // Harga Normal di KARTU daftar (keputusan owner 2026-08-28). DUA kalimat
+  // pengganti yang berbeda, jangan disatukan: "belum ada harga" adalah
+  // FAKTA yang dipastikan server, "gagal dimuat" berarti kita tidak tahu —
+  // manajer yang menyebut harga ke pelanggan harus bisa membedakannya
+  // (LESSONS #10).
+  produkCardPriceNone: "Belum ada harga",
+  produkCardPriceLoadFailed: "Harga gagal dimuat",
+  // Diumumkan lewat aria-live sesudah "Muat Lebih Banyak" berhasil — {n}
+  // produk baru muncul JAUH di bawah layar, tombolnya saja tidak cukup.
+  produkLoadedMoreAnnounce: "{n} produk lagi ditambahkan ke daftar.",
   // ---- Detail Produk (/cabang/produk/[productId], migration 0022) ----
   errProductDetailLoadFailed: "Gagal memuat detail produk.",
   produkDetailPriceLabel: "Harga Normal",
@@ -615,6 +625,9 @@ const en = {
   catalogNotOpenedMsg: "The catalog hasn't been opened for your store yet — contact SANCI.",
   errProductListLoadFailed: "Could not load the product list.",
   produkViewDetailAria: "View details for {name}",
+  produkCardPriceNone: "No price yet",
+  produkCardPriceLoadFailed: "Price failed to load",
+  produkLoadedMoreAnnounce: "{n} more products added to the list.",
   errProductDetailLoadFailed: "Could not load the product detail.",
   produkDetailPriceLabel: "Normal Price",
   produkDetailSizeLabel: "Size",
@@ -925,6 +938,9 @@ const zh = {
   catalogNotOpenedMsg: "您的门店产品目录还没有开通 —— 请联系 SANCI。",
   errProductListLoadFailed: "产品列表加载失败。",
   produkViewDetailAria: "查看{name}详情",
+  produkCardPriceNone: "尚未设定价格",
+  produkCardPriceLoadFailed: "价格加载失败",
+  produkLoadedMoreAnnounce: "已加入 {n} 个产品到列表。",
   errProductDetailLoadFailed: "产品详情加载失败。",
   produkDetailPriceLabel: "标准售价",
   produkDetailSizeLabel: "尺寸",

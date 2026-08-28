@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
 import { useCabangMessages } from "@/lib/i18n/provider";
 import { formatIDR } from "@/lib/orders-shared";
+import ProductImg from "@/lib/product-img";
 import styles from "../produk.module.css";
 
 export type GalleryPhoto = { id: string; photo_url: string };
@@ -40,25 +41,51 @@ export default function ProdukDetailClient({
   gallery: GalleryPhoto[];
 }) {
   const m = useCabangMessages();
-  const photos = [item.photoUrl, ...gallery.map((g) => g.photo_url)].filter((u): u is string => !!u);
+  // DEDUPE per URL: sampul dan salah satu baris galeri boleh menunjuk berkas
+  // yang sama (tidak ada yang melarangnya di DB) — tanpa ini dua thumbnail
+  // pertama tampil identik dan pengguna mengira galerinya rusak.
+  const photos = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const u of [item.photoUrl, ...gallery.map((g) => g.photo_url)]) {
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      out.push(u);
+    }
+    return out;
+  }, [item.photoUrl, gallery]);
   const [active, setActive] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  // Foto yang alamatnya TIDAK bisa dibuka. Diangkat ke sini (bukan hanya di
+  // dalam ProductImg) karena pembungkus foto besar adalah <button> pembuka
+  // lightbox: kotak tinggi yang bisa ditekan tapi isinya rusak lebih buruk
+  // daripada kotak yang jelas-jelas cuma placeholder.
+  const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
+  const tandaiRusak = useCallback((url: string) => {
+    setBroken((prev) => (prev.has(url) ? prev : new Set(prev).add(url)));
+  }, []);
   const activeUrl = photos[active] ?? null;
+  const activeUsable = !!activeUrl && !broken.has(activeUrl);
 
   const shareText = m.cabang.produkDetailShareText.replace("{name}", item.name).replace("{url}", item.publicUrl);
   const waHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
   return (
     <>
-      {activeUrl ? (
+      {activeUsable ? (
         <button
           type="button"
           className={styles.detailphoto}
           onClick={() => setLightboxOpen(true)}
           aria-label={item.name}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal), lihat catatan di lib/catalog-shared.ts */}
-          <img src={activeUrl} alt={item.name} />
+          <ProductImg
+            src={activeUrl}
+            alt={item.name}
+            loading="eager"
+            onFail={tandaiRusak}
+            placeholder={<div className={styles.placeholder}>{m.common.noPhotoPlaceholder}</div>}
+          />
         </button>
       ) : (
         <div className={styles.detailphoto}>
@@ -76,14 +103,18 @@ export default function ProdukDetailClient({
               onClick={() => setActive(i)}
               aria-label={m.cabang.produkDetailGalleryAria.replace("{n}", String(i + 1)).replace("{total}", String(photos.length))}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- lihat catatan di atas */}
-              <img src={url} alt="" loading="lazy" />
+              <ProductImg
+                src={url}
+                alt=""
+                onFail={tandaiRusak}
+                placeholder={<span className={styles.placeholder}>{m.common.noPhotoPlaceholder}</span>}
+              />
             </button>
           ))}
         </div>
       )}
 
-      <h2>{item.name}</h2>
+      <h2 className={styles.detailname}>{item.name}</h2>
       <div className="row" style={{ marginTop: 8, marginBottom: 4 }}>
         {item.code && <span className="code">{item.code}</span>}
         <span className={STOCK_STATUS_CHIP[item.stockStatus]}>{stockStatusLabel(m, item.stockStatus)}</span>
@@ -93,9 +124,12 @@ export default function ProdukDetailClient({
       {/* Ukuran (0024) — spesifikasi, jadi di ATAS harga: staf menjawab
           "muat tidak di kamarnya" sebelum menyebut angka rupiah. */}
       {item.size && (
-        <div className="rowline" style={{ marginTop: 12 }}>
+        <div className={`rowline ${styles.specline}`} style={{ marginTop: 12 }}>
           <span className="muted">{m.cabang.produkDetailSizeLabel}</span>
-          <span style={{ fontWeight: 650 }}>{item.size}</span>
+          {/* .speclineValue: ukuran panjang seperti
+              "(1200-1550)*1200/(1600-1800)*2000" harus PATAH, bukan
+              terpotong diam-diam oleh body{overflow-x:hidden}. */}
+          <span className={styles.speclineValue}>{item.size}</span>
         </div>
       )}
 
@@ -104,9 +138,11 @@ export default function ProdukDetailClient({
           baris ini TIDAK ADA sama sekali, bukan "Rp 0" (0 adalah harga
           promo yang sah, beda makna dari "belum ada harga"). */}
       {item.price !== null && (
-        <div className="rowline">
+        <div className={`rowline ${styles.specline}`}>
           <span className="muted">{m.cabang.produkDetailPriceLabel}</span>
-          <span style={{ fontWeight: 650, fontVariantNumeric: "tabular-nums" }}>{formatIDR(item.price)}</span>
+          <span className={styles.speclineValue} style={{ fontVariantNumeric: "tabular-nums" }}>
+            {formatIDR(item.price)}
+          </span>
         </div>
       )}
 
@@ -122,13 +158,15 @@ export default function ProdukDetailClient({
         </a>
       </div>
 
-      {lightboxOpen && activeUrl && (
+      {lightboxOpen && activeUsable && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setLightboxOpen(false)}>
           <div className="modal" role="dialog" aria-modal="true" aria-label={item.name}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- lihat catatan di atas */}
-            <img
+            <ProductImg
               src={activeUrl}
               alt={item.name}
+              loading="eager"
+              onFail={tandaiRusak}
+              placeholder={<div className={styles.placeholder}>{m.common.noPhotoPlaceholder}</div>}
               style={{ width: "100%", height: "auto", borderRadius: "var(--r-md)", marginBottom: 12, display: "block" }}
             />
             <button type="button" className="btn" onClick={() => setLightboxOpen(false)}>

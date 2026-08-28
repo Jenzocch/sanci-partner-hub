@@ -93,25 +93,46 @@ export function attachEffectivePrices<T extends { id: string }>(
 }
 
 /**
- * Harga Dasar SANCI untuk KARTU daftar /admin/produk (permintaan owner
- * 2026-08-26). Beda kontrak dengan attachEffectivePrices di atas: layar
- * kelola harus MEMBEDAKAN "belum ada harga" dari "harga gagal dimuat"
- * (LESSONS #10 — kartu yang menampilkan "belum ada harga" padahal query-nya
- * gagal akan menyuruh admin mengisi ulang harga yang sebenarnya sudah ada):
- *   base_price: number    → harga dasar ada;
- *   base_price: null      → DIPASTIKAN belum ada harga dasar;
- *   base_price: undefined → query harga gagal / tabel 0021 belum ada.
- * Kegagalan query harga tidak menggagalkan daftar produk.
+ * Harga untuk KARTU daftar (bukan prefill) — kontrak TIGA KEADAAN.
+ *
+ * Dipakai grid /admin/produk (permintaan owner 2026-08-26, `partnerId=null`
+ * → Harga Dasar SANCI) DAN grid jelajah /cabang/produk (keputusan owner
+ * 2026-08-28, `partnerId=<partner sendiri>` → harga efektif: override
+ * partner menang atas harga dasar).
+ *
+ * Beda kontrak dengan attachEffectivePrices di atas: layar yang MENAMPILKAN
+ * angka harus MEMBEDAKAN "belum ada harga" dari "harga gagal dimuat"
+ * (LESSONS #10 — kartu yang menulis "belum ada harga" padahal query-nya
+ * gagal menyuruh manajer menyebut harga yang salah ke pelanggan, atau
+ * menyuruh admin mengisi ulang harga yang sebenarnya sudah ada):
+ *   display_price: number    → harga ada;
+ *   display_price: null      → DIPASTIKAN belum ada harga;
+ *   display_price: undefined → query harga gagal / tabel 0021 belum ada.
+ * Kegagalan query harga TIDAK menggagalkan daftar produk.
+ *
+ * Nama fieldnya SENGAJA beda dari `price` milik attachEffectivePrices:
+ * `price` tetap bermakna "prefill nilai ini" (kalkulator & picker Isi
+ * Pesanan bergantung padanya, dan di sana "tanpa field" memang harus
+ * mendegradasi diam-diam). Dua makna, dua nama — jangan disatukan.
  */
-export async function attachAdminBasePrices<T extends { id: string }>(
+export function applyDisplayPrices<T extends { id: string }>(
+  rows: T[],
+  prices: Map<string, EffectivePrice> | null
+): (T & { display_price?: number | null })[] {
+  if (prices === null) return rows; // display_price tetap undefined = "gagal dimuat"
+  return rows.map((r) => ({ ...r, display_price: prices.get(r.id)?.price ?? null }));
+}
+
+/** Versi yang mengambil sendiri harganya — lihat applyDisplayPrices. */
+export async function attachDisplayPrices<T extends { id: string }>(
   supabase: SupabaseServerClient,
-  rows: T[]
-): Promise<(T & { base_price?: number | null })[]> {
+  rows: T[],
+  partnerId: string | null
+): Promise<(T & { display_price?: number | null })[]> {
   const prices = await fetchEffectivePrices(
     supabase,
     rows.map((r) => r.id),
-    null
+    partnerId
   );
-  if (prices === null) return rows; // base_price tetap undefined = "gagal dimuat"
-  return rows.map((r) => ({ ...r, base_price: prices.get(r.id)?.price ?? null }));
+  return applyDisplayPrices(rows, prices);
 }

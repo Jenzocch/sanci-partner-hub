@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/lib/catalog-query";
-import { attachAdminBasePrices } from "@/lib/price-query";
+import { attachDisplayPrices } from "@/lib/price-query";
 import { getAdminMessages } from "@/lib/i18n";
 import type { AdminProdukRow } from "../catalog-actions";
 import ProdukAdminClient from "./produk-admin-client";
@@ -69,8 +69,9 @@ export default async function ProdukPage() {
 
   const page = finishCatalogPage((products ?? []) as AdminProdukRow[]);
   // Harga Dasar SANCI untuk kartu (permintaan owner 2026-08-26) — kontrak
-  // tiga keadaan di attachAdminBasePrices; gagal ≠ "belum ada harga".
-  const withPrices = await attachAdminBasePrices(supabase, page.products);
+  // tiga keadaan di attachDisplayPrices; gagal ≠ "belum ada harga".
+  // partnerId null = layar admin (tanpa konteks partner) → harga dasar.
+  const withPrices = await attachDisplayPrices(supabase, page.products, null);
 
   return (
     <ProdukAdminClient

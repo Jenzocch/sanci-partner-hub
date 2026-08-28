@@ -39,7 +39,7 @@ import {
   type CatalogPageOutcome,
   type CatalogProductRow,
 } from "@/lib/catalog-query";
-import { attachEffectivePrices, fetchEffectivePrices } from "@/lib/price-query";
+import { applyDisplayPrices, attachEffectivePrices, fetchEffectivePrices } from "@/lib/price-query";
 
 export async function getCatalogPageBranch(input: CatalogPageInput): Promise<CatalogPageOutcome> {
   const supabase = await createClient();
@@ -81,19 +81,38 @@ export async function getCatalogPageBranch(input: CatalogPageInput): Promise<Cat
   const page = finishCatalogPage((products ?? []) as CatalogProductRow[]);
 
   // Harga efektif (0021: override partner sendiri → Harga Dasar SANCI) —
-  // hanya kalau pemanggil memintanya (kalkulator/picker; layar jelajah
-  // TIDAK). partner_id dari lookup partner_users di atas (LESSONS #6),
-  // dan RLS pp_partner_read tetap penegak sesungguhnya. Gagal/tabel belum
-  // ada (LESSONS #12) = tanpa field price — prefill mendegradasi diam-diam
-  // ke perilaku lama (ketik manual), lihat lib/price-query.ts.
+  // hanya kalau pemanggil memintanya. partner_id dari lookup partner_users
+  // di atas (LESSONS #6), dan RLS pp_partner_read tetap penegak
+  // sesungguhnya. DUA kontrak berbeda dari SATU query harga:
+  //
+  //   withPrices        → `price`, kontrak PREFILL (kalkulator, picker Isi
+  //     Pesanan). Gagal/tabel belum ada (LESSONS #12) = TANPA field price,
+  //     pemanggil mendegradasi diam-diam ke perilaku lama (ketik manual).
+  //   withDisplayPrices → `display_price`, kontrak TIGA KEADAAN untuk kartu
+  //     yang MENAMPILKAN angka (grid jelajah /cabang/produk). number =
+  //     harga, null = dipastikan belum ada, TANPA field = query gagal —
+  //     karena manajer yang menyebut harga ke pelanggan tidak boleh melihat
+  //     "belum ada harga" padahal yang terjadi adalah query gagal
+  //     (LESSONS #10).
+  //
+  // Catatan 2026-08-26 di sini dulu berbunyi "layar jelajah TIDAK meminta
+  // harga". OWNER MEMBALIK KEPUTUSAN ITU 2026-08-28: mitra boleh melihat
+  // Harga Normal-nya sendiri langsung di grid jelajah, bukan cuma di
+  // halaman detail. Yang TIDAK berubah: halaman PUBLIK /p/[productId] tetap
+  // bebas harga sepenuhnya (aturan 0010) — file itu bahkan tidak mengimpor
+  // lib/price-query.ts.
   let rows = page.products;
-  if (norm.withPrices) {
+  if (norm.withPrices || norm.withDisplayPrices) {
     const prices = await fetchEffectivePrices(
       supabase,
       rows.map((p) => p.id),
       pu.partner_id
     );
-    rows = attachEffectivePrices(rows, prices);
+    // Satu query, dua tempelan — urutan tidak penting, keduanya menempel di
+    // field yang berbeda. Pemakai `withPrices` yang ada tidak berubah
+    // sedikit pun (mereka tidak pernah menyetel withDisplayPrices).
+    if (norm.withPrices) rows = attachEffectivePrices(rows, prices);
+    if (norm.withDisplayPrices) rows = applyDisplayPrices(rows, prices);
   }
 
   let categories: string[] | undefined;

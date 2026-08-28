@@ -168,17 +168,17 @@ export default function ProdukAdminClient({
                   </div>
                   {/* Harga Dasar SANCI langsung di kartu (permintaan owner
                       2026-08-26). Tiga keadaan dibedakan — kontrak
-                      attachAdminBasePrices (LESSONS #10): number = harga,
+                      attachDisplayPrices (LESSONS #10): number = harga,
                       null = pasti belum ada, undefined = query harga gagal
                       (JANGAN tampil seolah "belum ada harga"). */}
                   <div style={{ marginTop: 6 }}>
-                    {typeof p.base_price === "number" ? (
+                    {typeof p.display_price === "number" ? (
                       /* Merah (token --bad, ikut tema terang/gelap) — permintaan
                          owner 2026-08-26: harga harus mencolok sekilas. */
                       <span style={{ fontWeight: 650, fontVariantNumeric: "tabular-nums", color: "var(--bad)" }}>
-                        {formatIDR(p.base_price)}
+                        {formatIDR(p.display_price)}
                       </span>
-                    ) : p.base_price === null ? (
+                    ) : p.display_price === null ? (
                       <span className="small muted">{m.admin.produkCardPriceNone}</span>
                     ) : (
                       <span className="small muted">{m.admin.produkCardPriceLoadFailed}</span>

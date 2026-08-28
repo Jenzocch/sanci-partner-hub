@@ -77,6 +77,18 @@ export type CatalogPageInput = {
    * ini murni soal tampilan/berat respons.
    */
   withPrices?: boolean;
+  /**
+   * Minta harga untuk DITAMPILKAN di kartu (`display_price`, kontrak TIGA
+   * keadaan applyDisplayPrices — number / null "pasti belum ada" /
+   * undefined "gagal dimuat"). Terpisah dari `withPrices` dengan sengaja:
+   * `withPrices` berarti "prefill nilai ini" dan boleh mendegradasi diam-
+   * diam, sedangkan layar yang MENAMPILKAN angka wajib bisa membedakan
+   * "belum ada harga" dari "gagal dimuat" (LESSONS #10). Disetel grid
+   * jelajah /cabang/produk sejak keputusan owner 2026-08-28. Sama seperti
+   * `withPrices`, ini bukan lubang keamanan kalau client iseng
+   * menyetelnya: baris harga yang bisa terbaca dibatasi RLS 0021.
+   */
+  withDisplayPrices?: boolean;
 };
 
 /** Baris produk seperti keluar dari PostgREST (snake_case). `description`
@@ -93,6 +105,11 @@ export type CatalogProductRow = {
   photo_url: string | null;
   stock_status: StockStatus;
   price?: number | null;
+  /** Harga untuk DITAMPILKAN di kartu (hanya kalau pemanggil meminta
+   *  `withDisplayPrices`). TIGA keadaan, jangan disamakan dengan `price`:
+   *  number = harga; null = dipastikan belum ada harga; TANPA field =
+   *  query harga gagal / tabel 0021 belum ada (lib/price-query.ts). */
+  display_price?: number | null;
 };
 
 /**
@@ -112,6 +129,7 @@ export function normalizeCatalogPageInput(input: CatalogPageInput): {
   offset: number;
   withCategories: boolean;
   withPrices: boolean;
+  withDisplayPrices: boolean;
 } {
   const rawOffset = input.offset;
   const offset =
@@ -127,6 +145,7 @@ export function normalizeCatalogPageInput(input: CatalogPageInput): {
     offset,
     withCategories: input.withCategories === true,
     withPrices: input.withPrices === true,
+    withDisplayPrices: input.withDisplayPrices === true,
   };
 }
 

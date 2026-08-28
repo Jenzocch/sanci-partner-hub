@@ -20,6 +20,10 @@
  *   - Kembali ke keadaan tanpa filter memulihkan batch pertama hasil render
  *     server (tanpa fetch ulang) — kecuali pemakai bilang tidak boleh lewat
  *     `canRestoreInitial` (mis. /admin/produk saat filter stok aktif).
+ *   - OPSIONAL `persist` (2026-08-28): simpan/pulihkan keadaan jelajah lewat
+ *     sessionStorage. MATI kecuali pemakai mengisinya — saat ini hanya
+ *     /cabang/produk, karena hanya di sana ada tombol kembali yang me-mount
+ *     ulang daftarnya. Lihat catatan panjang di opsi `persist` di bawah.
  *
  * `fetchPage` TIDAK boleh reject — pemakai membungkus Server Action-nya dan
  * memetakan semua outcome ke `{ ok:false, message }` (pola PickerLoadResult
@@ -42,12 +46,61 @@ export type CatalogFetchResult<T> =
 
 export const CATALOG_SEARCH_DEBOUNCE_MS = 300;
 
+/**
+ * Berapa halaman maksimum yang dipulihkan `persist` (lihat di bawah). Batas
+ * ini ada supaya pemulihan tidak pernah berubah jadi puluhan round-trip
+ * server saat seseorang menekan "Muat Lebih Banyak" berkali-kali; lebih dari
+ * ini, daftar dipulihkan sebagian dan tombolnya tetap ada.
+ */
+const PERSIST_MAX_RESTORE_PAGES = 8;
+
+type PersistedCatalogState = { q: string; category: string | null; count: number; scrollY: number };
+
+function readPersisted(key: string): PersistedCatalogState | null {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const o = parsed as Record<string, unknown>;
+    // Nilai dari storage TIDAK dipercaya begitu saja (bisa tinggalan versi
+    // lama / diubah tangan): apa pun yang bentuknya tidak cocok dibuang dan
+    // layar kembali ke perilaku tanpa pemulihan.
+    return {
+      q: typeof o.q === "string" ? o.q : "",
+      category: typeof o.category === "string" ? o.category : null,
+      count: typeof o.count === "number" && Number.isFinite(o.count) && o.count > 0 ? Math.floor(o.count) : 0,
+      scrollY: typeof o.scrollY === "number" && Number.isFinite(o.scrollY) && o.scrollY > 0 ? o.scrollY : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Kembalikan posisi gulir setelah daftar dirender. Dicoba beberapa frame:
+ * tinggi halaman baru mencapai `y` setelah kartu-kartunya terpasang (foto
+ * memakai aspect-ratio, jadi tingginya sudah dipesan tanpa menunggu unduhan).
+ * Berhenti begitu posisinya tercapai — tidak pernah melawan gulir pengguna
+ * lebih dari beberapa frame.
+ */
+function restoreScrollTo(y: number) {
+  if (y <= 0 || typeof window === "undefined") return;
+  let tries = 0;
+  const tick = () => {
+    window.scrollTo(0, y);
+    if (Math.abs(window.scrollY - y) > 2 && tries++ < 10) window.requestAnimationFrame(tick);
+  };
+  window.requestAnimationFrame(tick);
+}
+
 export function useCatalogSearch<T extends { id: string }>({
   fetchPage,
   initial,
   initialCategories,
   fallbackErrorMessage,
   canRestoreInitial,
+  persist,
 }: {
   fetchPage: (input: CatalogFetchInput) => Promise<CatalogFetchResult<T>>;
   /** Batch pertama hasil render server; `null` = pemuatan malas (panggil ensureLoaded). */
@@ -60,6 +113,25 @@ export function useCatalogSearch<T extends { id: string }>({
   /** Default true. Kembalikan false kalau ada filter di luar hook (mis. stok)
    *  yang membuat batch awal tidak mewakili keadaan "tanpa filter". */
   canRestoreInitial?: () => boolean;
+  /**
+   * OPT-IN, MATI TOTAL kalau tidak diisi (lima permukaan lain tidak berubah
+   * sedikit pun — tiap efek di bawah keluar lebih dulu saat `persist`
+   * undefined). Diisi = simpan keadaan jelajah (kata kunci, kategori, berapa
+   * halaman sudah dimuat, posisi gulir) ke sessionStorage dengan kunci ini
+   * dan pulihkan saat komponen dipasang lagi.
+   *
+   * Kenapa perlu (audit 2026-08-28): tombol kembali di /cabang/produk/[id]
+   * adalah `<Link>` push ke /cabang/produk, jadi daftarnya di-mount ULANG
+   * dan seluruh state hook ini (yang semuanya useState) lahir kosong.
+   * Manajer yang membandingkan tiga produk untuk satu pelanggan kehilangan
+   * pencariannya tiga kali.
+   *
+   * `sessionStorage`, bukan localStorage: keadaan jelajah adalah milik satu
+   * sesi tab, tidak boleh muncul lagi minggu depan. Storage yang diblokir
+   * (mode privat) tidak boleh mematahkan halaman — semua akses dibungkus
+   * try/catch dan kegagalannya berarti "tidak ada pemulihan", bukan error.
+   */
+  persist?: { key: string };
 }) {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -192,6 +264,153 @@ export function useCatalogSearch<T extends { id: string }>({
     [fetchPage, fallbackErrorMessage, canRestoreInitial]
   );
 
+  // ── Simpan & pulihkan keadaan jelajah (OPT-IN lewat `persist`) ──
+  // Semua efek di blok ini berhenti di baris pertama kalau `persist` tidak
+  // diisi, jadi lima permukaan katalog lainnya tidak berubah perilakunya.
+  const persistKey = persist?.key ?? null;
+  /** true selama pemulihan multi-halaman berjalan (pemakai boleh menunda
+   *  gulir-ke-atas/animasinya sendiri sampai daftar utuh). */
+  const [restoring, setRestoring] = useState(false);
+  const scrollYRef = useRef(0);
+  const snapshotRef = useRef<{ q: string; category: string | null; count: number }>({
+    q,
+    category,
+    count: products.length,
+  });
+  snapshotRef.current = { q, category, count: products.length };
+  /** Menulis ke storage baru boleh SESUDAH pemulihan selesai — kalau tidak,
+   *  keadaan transisi (daftar masih 1 halaman) menimpa yang tersimpan. */
+  const persistReady = useRef(false);
+  const restoreStarted = useRef(false);
+
+  const writePersist = useCallback(() => {
+    if (!persistKey || !persistReady.current) return;
+    try {
+      window.sessionStorage.setItem(
+        persistKey,
+        JSON.stringify({ ...snapshotRef.current, scrollY: scrollYRef.current })
+      );
+    } catch {
+      // Storage diblokir/penuh (mode privat): pemulihan hilang, halaman
+      // tetap jalan. Ini kenyamanan, bukan data yang pengguna ketik.
+    }
+  }, [persistKey]);
+
+  useEffect(() => {
+    if (!persistKey || restoreStarted.current) return;
+    restoreStarted.current = true;
+    const saved = readPersisted(persistKey);
+    const initialProducts = initialRef.current?.products ?? [];
+    if (!saved) {
+      persistReady.current = true;
+      return;
+    }
+    const hasFilter = saved.q.trim() !== "" || saved.category !== null;
+    if (!hasFilter && saved.count <= initialProducts.length) {
+      // Batch server sudah persis mewakili keadaan tersimpan — tidak ada
+      // yang perlu diambil ulang, cukup kembalikan posisi gulirnya.
+      persistReady.current = true;
+      restoreScrollTo(saved.scrollY);
+      return;
+    }
+    setQ(saved.q);
+    setCategory(saved.category);
+    const mySeq = ++seq.current;
+    setSearching(true);
+    setRestoring(true);
+    const finish = () => {
+      persistReady.current = true;
+      setRestoring(false);
+    };
+    void (async () => {
+      // Halaman-halaman diminta BERURUTAN dengan offset = jumlah baris yang
+      // sudah terkumpul — sama persis dengan cara loadMore menghitungnya,
+      // jadi hook ini tidak perlu tahu ukuran halaman server.
+      const acc: T[] = hasFilter ? [] : [...initialProducts];
+      const seen = new Set(acc.map((p) => p.id));
+      let more = initialRef.current?.hasMore ?? false;
+      for (let i = 0; i < PERSIST_MAX_RESTORE_PAGES; i++) {
+        let res: CatalogFetchResult<T>;
+        try {
+          res = await fetchPage({
+            q: saved.q.trim(),
+            category: saved.category,
+            offset: acc.length,
+            withCategories: i === 0 && !categoriesKnown.current,
+          });
+        } catch {
+          res = { ok: false, message: fallbackErrorMessage };
+        }
+        // Pengguna sudah mengetik/menekan chip duluan: pencarian yang lebih
+        // baru menang, pemulihan ini dibuang diam-diam (pola seq runSearch).
+        if (seq.current !== mySeq) return finish();
+        if (!res.ok) {
+          // Daftar yang sudah tampil SENGAJA dibiarkan (LESSONS #10) —
+          // banner error + tombol "Muat Lebih Banyak" tetap jadi jalan
+          // keluarnya; pemulihan tidak boleh mengosongkan layar.
+          setSearching(false);
+          setError(res.message);
+          return finish();
+        }
+        if (res.categories) {
+          setCategories(res.categories);
+          categoriesKnown.current = true;
+        }
+        for (const p of res.products) {
+          if (!seen.has(p.id)) {
+            seen.add(p.id);
+            acc.push(p);
+          }
+        }
+        more = res.hasMore;
+        if (!more || acc.length >= saved.count) break;
+      }
+      if (seq.current !== mySeq) return finish();
+      setProducts(acc);
+      setHasMore(more);
+      setSearching(false);
+      setError(null);
+      setLoadedOnce(true);
+      finish();
+      restoreScrollTo(saved.scrollY);
+    })();
+    // Sengaja hanya bergantung pada kunci: ini pemulihan SEKALI saat mount
+    // (dijaga restoreStarted), bukan efek yang boleh berjalan ulang.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistKey]);
+
+  // Simpan tiap kali keadaan yang dipulihkan berubah.
+  useEffect(() => {
+    if (!persistKey) return;
+    writePersist();
+  }, [persistKey, writePersist, q, category, products.length]);
+
+  // Posisi gulir: listener pasif hanya MENCATAT ke ref (murah), penulisan ke
+  // storage di-throttle. Nilai yang disimpan sengaja diambil dari ref, bukan
+  // window.scrollY saat unmount — saat navigasi push, browser/Next sudah
+  // sempat menggulir ke atas sebelum komponen ini dilepas.
+  useEffect(() => {
+    if (!persistKey) return;
+    scrollYRef.current = window.scrollY;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      scrollYRef.current = window.scrollY;
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        writePersist();
+      }, 300);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pagehide", writePersist);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pagehide", writePersist);
+      if (timer) clearTimeout(timer);
+      writePersist();
+    };
+  }, [persistKey, writePersist]);
+
   /**
    * Perbaiki SATU baris di tempat setelah server MEMASTIKAN tulisan sukses
    * (safeWrite ok — LESSONS #7: hanya patch dengan nilai yang terbukti
@@ -312,6 +531,8 @@ export function useCatalogSearch<T extends { id: string }>({
     categories,
     searching,
     loadingMore,
+    /** true selama pemulihan `persist` berjalan; selalu false tanpa `persist`. */
+    restoring,
     error,
     loadedOnce,
     isFiltered,

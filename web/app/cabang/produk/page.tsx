@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
 import type { StockStatus } from "@/lib/catalog-shared";
 import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/lib/catalog-query";
+import { attachDisplayPrices } from "@/lib/price-query";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 import ProdukListClient, { type ProdukItem } from "./produk-list-client";
 
@@ -149,7 +150,17 @@ export default async function ProdukPage() {
   }
 
   const page = finishCatalogPage((products ?? []) as ProductQueryRow[]);
-  const items: ProdukItem[] = page.products.map((p) => ({
+
+  // Harga Normal toko ini langsung di kartu — KEPUTUSAN OWNER 2026-08-28
+  // yang membalik aturan sebelumnya ("layar jelajah bebas harga"): manajer
+  // toko boleh menyebut harga standarnya sendiri tanpa membuka detail satu
+  // per satu. Kontrak TIGA keadaan (attachDisplayPrices): angka / null
+  // "dipastikan belum ada" / TANPA field "query gagal" — kegagalan harga
+  // TIDAK menggagalkan daftar produk, tapi juga tidak boleh menyamar jadi
+  // "belum ada harga" (LESSONS #10).
+  // Halaman PUBLIK /p/[productId] TIDAK ikut berubah — tetap bebas harga.
+  const priced = await attachDisplayPrices(supabase, page.products, pu.partner_id);
+  const items: ProdukItem[] = priced.map((p) => ({
     id: p.id,
     name: p.name,
     code: p.code,
@@ -157,6 +168,7 @@ export default async function ProdukPage() {
     description: p.description,
     photoUrl: p.photo_url,
     stockStatus: p.stock_status,
+    displayPrice: "display_price" in p ? p.display_price : undefined,
   }));
 
   return (

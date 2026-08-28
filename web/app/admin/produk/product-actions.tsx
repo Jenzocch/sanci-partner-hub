@@ -45,10 +45,10 @@ type ProductActionRow = Omit<SanciProductRow, "created_at" | "updated_at">;
  * di state client (use-catalog-search) ikut nilai baru. Tanpa ini baris tetap
  * pra-simpan — router.refresh() TIDAK menembus useState (temuan review
  * 2026-08-28, LESSONS #45) — dan prefill modal Ubah berikutnya menulis balik
- * data lama (untuk `size` itu = terhapus diam-diam). base_price ikut di sini
- * karena kartu daftar menampilkannya, walau bukan kolom sanci_products.
+ * data lama (untuk `size` itu = terhapus diam-diam). display_price ikut di
+ * sini karena kartu daftar menampilkannya, walau bukan kolom sanci_products.
  */
-export type ProductSavedPatch = Partial<ProductActionRow> & { base_price?: number | null };
+export type ProductSavedPatch = Partial<ProductActionRow> & { display_price?: number | null };
 
 export default function ProductActions({
   product,
@@ -155,7 +155,7 @@ export default function ProductActions({
     if (basePrice.status === "ready" && basePrice.value !== basePrice.initial) {
       const priceRes = await setProductBasePrice(product.id, basePrice.value);
       if ("error" in priceRes) setPriceMsg(m.admin.productBasePriceSaveFailed);
-      else onSaved({ base_price: parseIDRInput(basePrice.value) }); // harga kartu ikut nilai tersimpan
+      else onSaved({ display_price: parseIDRInput(basePrice.value) }); // harga kartu ikut nilai tersimpan
     }
 
     // Foto diurus PALING AKHIR, sesudah data produk dipastikan tersimpan

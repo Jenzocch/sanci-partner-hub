@@ -91,12 +91,34 @@
   color: var(--ink);
   overflow-wrap: anywhere;
 }
-.cat { font-size: var(--fs-caption); color: var(--ink2); }
+/* overflow-wrap: nama kategori panjang tanpa spasi (kode/ukuran yang ikut
+   masuk kolom kategori) harus PATAH, bukan melebarkan kartu — body memakai
+   overflow-x:hidden, jadi kelebihannya terpotong tanpa jejak. */
+.cat { font-size: var(--fs-caption); color: var(--ink2); overflow-wrap: anywhere; }
 
 /* Chip filter kategori — dinamis dari data, jadi bukan .segmented (yang
    dirancang untuk set filter tetap kecil). Nada visual tetap konsisten
-   dengan .chip lewat token --off-bg/--accent-soft yang sama. */
-.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+   dengan .chip lewat token --off-bg/--accent-soft yang sama.
+
+   SATU BARIS yang bisa digulir mendatar (audit 2026-08-28), bukan flex-wrap:
+   dengan 8–12 kategori barisan chip 44px membungkus jadi ±4 baris (±208 px).
+   Saat papan ketik ponsel terbuka untuk mencari, sisa ruang hasil di bawah
+   ±140 px — kurang dari satu foto produk. Polanya sama persis dengan
+   .gallerystrip di berkas ini. `min-width:0` + `max-width:100%` menjaga
+   strip ini tidak pernah melebarkan halaman (body{overflow-x:hidden} akan
+   memotongnya diam-diam, bukan menampilkannya). */
+.filters {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-bottom: 18px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.filters > * { flex: none; }
 .filterchip {
   min-height: 36px;
   padding: 7px 14px;
@@ -117,6 +139,33 @@
 @media (max-width: 767px) {
   .filterchip { min-height: var(--tap); }
 }
+
+/* Harga Normal di KARTU jelajah (keputusan owner 2026-08-28: mitra boleh
+   melihat harganya sendiri tanpa membuka detail). Merah var(--bad) +
+   tabular-nums, sama persis dengan kartu /admin/produk supaya angka harga
+   terbaca sama di kedua sisi. Dua kalimat pengganti yang BERBEDA (belum ada
+   harga vs gagal dimuat) hidup di i18n, lihat produk-list-client.tsx. */
+.price {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--bad);
+  overflow-wrap: anywhere;
+}
+
+/* Baris spesifikasi halaman detail (Ukuran / Harga Normal). `.rowline`
+   global adalah flex TANPA wrap dan tanpa min-width:0, jadi ukuran panjang
+   seperti "(1200-1550)*1200/(1600-1800)*2000" terpotong DIAM-DIAM di ponsel
+   (body memakai overflow-x:hidden). Kelas ini melengkapi .rowline global —
+   dipakai bersama, bukan menggantikan — supaya layar lain yang memakai
+   .rowline tidak ikut berubah. */
+.specline { flex-wrap: wrap; }
+.speclineValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+  font-weight: 650;
+}
+.detailname { overflow-wrap: anywhere; }
 
 .detailphoto {
   width: 100%;
