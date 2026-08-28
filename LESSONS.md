@@ -242,6 +242,13 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **另一類，不可混用**：純日期欄位（Postgres `date`，如 `order_documents.doc_date`）**不是時間點**，不能套 WIB——「8月28日」就是 8月28日。用 `formatCalendarDate()` 兩端都錨定 UTC（`T00:00:00Z` + `timeZone:"UTC"`），任何時區下都不會跳成前/後一天。
 - **教訓**：**「時間顯示錯了」的第一嫌疑犯永遠是「誰在格式化」，不是「值存錯了」。**在 SSR 專案裡，任何 `toLocaleString`/`toLocaleDateString` 沒有明寫 `timeZone` 都是一顆定時炸彈——本機開發時開發者的電腦剛好是當地時區，看起來完全正常，一部署到 UTC 伺服器就集體偏移。同一份程式在兩個地方跑出不同結果，正是 LESSONS #7 那句「成功訊息不是證據」的變體：畫面有數字，不代表數字對。
 
+### 44. 在「有 BEFORE 守衛會拒絕部分列」的舊表上補欄位，`UPDATE` 式 backfill 必炸——`ADD COLUMN … NOT NULL DEFAULT <volatile>` 走的是 table rewrite：每列各自求值、且一個 row trigger 都不觸發〔本專案 2026-08-28，0023 施工當下實測〕
+- **情境**：0023 要在 `partner_orders` 加一個每列都必須有值的 `customer_view_token`。直覺寫法是「加可空欄位 → `update … where token is null` → `set not null`」。
+- **為什麼那個直覺會炸**：`partner_orders` 上有 `fn_guard_order_status_flow`（0005 §3，行 135–138）——非 admin 對**任何** `status='CANCELLED'` 的列做 UPDATE 都被 `raise exception` 擋下。SQL Editor 裡 `auth.uid()` 是空的，`fn_is_admin()` 回 false，所以只要資料庫裡有**一張已取消的訂單**，backfill 就在半路整份失敗。另外每一列還會多產生一筆毫無意義的 `ORDER_UPDATED` 稽核。
+- **實測到的正解**：`alter table … add column … not null default (<volatile 運算式>)`。兩件事都當場量過（PG16 本機），不是查文件推論的：①5 列 → 5 個**不同**的 token（volatile default 會逐列求值，不是算一次複製）；②同一張表掛上 AFTER INSERT/UPDATE/DELETE trigger 後再跑一次 → **trigger 觸發次數 0**（table rewrite 不走 row trigger）。於是稽核不受污染、守衛碰不到、舊列全部拿到值，一個語句解決。
+- **仍然要留的後路**：如果欄位在更早的失敗嘗試裡已經以「可空」形式存在，`add column if not exists` 就什麼都不做，rewrite 也不會發生。所以還是要留一段 `if exists (… is null)` 的補救 backfill，而那一段**必須**自己 `alter table … disable trigger user` 包起來（理由同上），並寫清楚為什麼。
+- **教訓**：**在舊表上加欄位前，先問「這張表現在有哪些 BEFORE 守衛，會不會拒絕我用來補值的那個 UPDATE？」**——守衛是為了擋人手動改資料而寫的，它分不出「這是 migration 在補欄位」。同族於 #37（後加的 BEFORE 觸發器會改變前面 CHECK 的行為）：兩條都在講「同一張表上先前累積的 trigger，會讓一個看起來人畜無害的寫入變成另一回事」。順帶一條驗證用的：**測試腳本裡 `set role anon` 之後，就別再用子查詢去撈 token/id 了**——那張表對 anon 本來就是 0 列（那正是隔壁那條測試在證明的事），子查詢會靜靜回傳 NULL，於是整組測試變成在測「NULL token」，結果是一片看不懂的 FAIL。先在 superuser 身分用 `\gset` 把值抓進 psql 變數，再切角色。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

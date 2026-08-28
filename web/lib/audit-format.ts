@@ -1,5 +1,5 @@
 import type { AdminMessages } from "./i18n/messages";
-import { formatIDR } from "./orders-shared";
+import { formatIDR, formatDateTimeWIB } from "./orders-shared";
 
 /**
  * Layar Aktivitas dalam tiga bahasa.
@@ -108,6 +108,12 @@ function fieldLabel(m: AdminMessages, key: string): string | undefined {
     // bermakna ditampilkan lewat kode/nama yang sudah terbaca di layar
     // lain, bukan sebagai diff mentah di Aktivitas).
     label: c.label,
+    // 0023 — partner_orders.delivered_at. SATU-SATUNYA jejak di layar
+    // Aktivitas bahwa seseorang menandai pesanan "sudah diterima pelanggan"
+    // (0023 sengaja tidak mendefinisikan ulang fn_audit_row, jadi aksinya
+    // ORDER_UPDATED generik — lihat catatan panjang di SKIP di bawah).
+    // Nilainya dirender sebagai waktu WIB lewat cabang khusus di asLabel().
+    delivered_at: c.deliveredAt,
   };
   return map[key];
 }
@@ -176,6 +182,14 @@ function asLabel(m: AdminMessages, key: string, v: unknown): string {
   // langsung, tidak lewat formatIDR (beda perlakuan dari amount/cash_discount
   // di bawah yang memang uang).
   if (key === "markup_pct" && typeof v === "number") return `${v}%`;
+  // 0023 — delivered_at adalah timestamptz; `to_jsonb()` menghasilkan STRING
+  // ISO UTC. Tanpa cabang ini ia akan tampil mentah ("2026-08-28T13:36:…Z"):
+  // tidak terbaca, DAN tujuh jam meleset dari jam dinding staf (LESSONS #43).
+  // Ini satu-satunya kolom waktu yang sampai ke diff — cancelled_at dan
+  // customer_arrived_at ada di SKIP.
+  if (key === "delivered_at" && typeof v === "string") {
+    return formatDateTimeWIB(v, m.common.dateLocale);
+  }
   // Uang tetap harus lewat formatIDR — angka mentah ("1500000") tidak
   // terbaca sebagai Rupiah oleh staf non-teknis (item H audit round 2).
   // Rupiah tetap format id-ID di ketiga bahasa: itu mata uang nyatanya.
@@ -284,6 +298,24 @@ const SKIP = new Set([
   // (actor_user_id/actor_role), UUID mentahnya tidak boleh bocor ke diff).
   // product_id/partner_id/updated_at sudah lama ada di daftar ini.
   "updated_by",
+  // Ditambahkan migrasi 0023 (pemeriksaan LESSONS #28 untuk kolom baru):
+  //   * customer_view_token — KUNCI tautan pelanggan. Ia bukan sekadar
+  //     "tidak bermakna bagi pembaca", ia RAHASIA: setiap baris ORDER_CREATED
+  //     akan memuatnya di `after`. Layar Aktivitas bukan tempatnya.
+  //   * delivered_by — UUID aktor, kelas yang sama persis dengan
+  //     created_by / cancelled_by / customer_arrived_by di atas (pelakunya
+  //     sudah terbaca dari actor_user_id/actor_role baris audit itu sendiri).
+  // `delivered_at` SENGAJA **TIDAK** masuk daftar ini — beda perlakuan dari
+  // cancelled_at/customer_arrived_at, dan itu keputusan sadar: keduanya boleh
+  // dilewati karena ada AKSI khusus (ORDER_CANCELLED / ORDER_CUSTOMER_ARRIVED)
+  // yang sudah menyampaikan kejadiannya. Penandaan "diterima pelanggan"
+  // TIDAK punya aksi khusus — 0023 sengaja tidak mendefinisikan ulang
+  // fn_audit_row, jadi ia muncul sebagai ORDER_UPDATED generik. Kalau
+  // delivered_at ikut dilewati, baris Aktivitasnya jadi "Pesanan diubah"
+  // TANPA satu pun perubahan yang terlihat. Ia diberi label + format WIB
+  // (fieldLabel/asLabel di atas) supaya barisnya terbaca manusia.
+  "customer_view_token",
+  "delivered_by",
 ]);
 
 // Kode aksi audit → KUNCI kalimat di common.ts (dipakai halaman Activity).

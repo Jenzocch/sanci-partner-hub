@@ -63,7 +63,13 @@ export const config = {
   // hanya benar saat auth.uid() IS NULL), bukan middleware; dan pengguna yang
   // SEDANG login tetap membawa cookie sesinya seperti biasa saat membuka
   // /p/... (yang dilewati di sini cuma penyegaran token, bukan pembacaannya).
+  //
+  // `lihat/` (halaman pesanan untuk PELANGGAN, 0023) dikecualikan dengan
+  // alasan yang persis sama: pengunjungnya pelanggan tanpa akun, tautannya
+  // disebar lewat WhatsApp, dan seluruh datanya datang dari RPC SECURITY
+  // DEFINER yang digerbang tokennya sendiri — bukan dari sesi. Penjaganya
+  // token 244-bit + daftar putih kolom di RPC, bukan middleware.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|offline|version|p/|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|offline|version|p/|lihat/|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$).*)",
   ],
 };

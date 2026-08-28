@@ -18,9 +18,17 @@ import InternalNoteForm from "./internal-note-form";
 import OrderOfferForm from "./order-offer-form";
 import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
 import DocumentsSection, { type OrderDocumentListRow } from "./documents-section";
-import { getInvoiceSignedUrl } from "../../actions-orders";
+import {
+  getInvoiceSignedUrl,
+  markOrderDeliveredAdmin,
+  sendCustomerLinkViaCompanyAdmin,
+} from "../../actions-orders";
 import type { DocType } from "@/lib/documents-shared";
 import { getAdminMessages } from "@/lib/i18n";
+import { customerLinkMessage, customerLinkUrl, waMeUrl } from "@/lib/customer-link";
+import CustomerLinkCard from "@/lib/customer-link-card";
+import { requestOrigin } from "@/lib/request-origin";
+import { isFonnteConfigured } from "@/lib/whatsapp-send";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +86,29 @@ async function fetchCancelInfo(
     .maybeSingle();
   if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
   return { status: "ok", data: (data as CancelInfo | null) ?? null };
+}
+
+/**
+ * customer_view_token / delivered_at (migrasi 0023) — dibaca terpisah dengan
+ * alasan yang sama seperti fetchCancelInfo di atas: kolomnya lahir di migrasi
+ * lain, jadi 42703 padanya tidak boleh ikut menjatuhkan bagian halaman yang
+ * lain (LESSONS #12). Selama 0023 belum jalan, kartu "Link untuk Pelanggan"
+ * tidak digambar sama sekali.
+ */
+type CustomerLinkInfo = { token: string; deliveredAt: string | null };
+async function fetchCustomerLink(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<ColumnFetch<CustomerLinkInfo | null>> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("customer_view_token, delivered_at")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  const row = data as { customer_view_token: string | null; delivered_at: string | null } | null;
+  if (!row?.customer_view_token) return { status: "ok", data: null };
+  return { status: "ok", data: { token: row.customer_view_token, deliveredAt: row.delivered_at } };
 }
 
 /**
@@ -428,6 +459,7 @@ export default async function AdminOrderDetailPage({
     documentsResult,
     partnerBranchesResult,
     auditResult,
+    customerLinkResult,
   ] = await Promise.all([
     order.status === "CANCELLED"
       ? fetchCancelInfo(supabase, order.id)
@@ -460,6 +492,7 @@ export default async function AdminOrderDetailPage({
       .eq("entity_id", order.id)
       .order("created_at", { ascending: false })
       .limit(100),
+    fetchCustomerLink(supabase, order.id),
   ]);
 
   // packageDetail dan invoiceUrl BENAR-BENAR bergantung pada hasil di atas
@@ -480,6 +513,14 @@ export default async function AdminOrderDetailPage({
     .map((b) => ({ id: b.id, name: b.name }));
 
   const audit = (auditResult.data ?? []) as AuditRow[];
+
+  // Alamat dasar tautan pelanggan SELALU dari header permintaan — tidak
+  // pernah dipaku di kode dan tidak pernah dari client (lihat
+  // lib/request-origin.ts). `isFonnteConfigured()` hanya mengembalikan
+  // boolean; nilai tokennya tidak pernah meninggalkan server (LESSONS #19).
+  const origin = await requestOrigin();
+  const fonnteReady = isFonnteConfigured();
+  const customerLink = customerLinkResult.status === "ok" ? customerLinkResult.data : null;
 
   return (
     <div>
@@ -516,10 +557,60 @@ export default async function AdminOrderDetailPage({
             <dt>{m.common.name}</dt>
             <dd>{customer?.full_name ?? m.admin.customerUnknown}</dd>
             <dt>{m.common.phone}</dt>
-            <dd>{customer?.phone_normalized ? displayPhoneID(customer.phone_normalized) : "—"}</dd>
+            {/* Nomor pelanggan = tautan langsung ke percakapan WhatsApp
+                (keputusan owner 2026-08-28). TEKS yang tampil tidak berubah
+                sedikit pun — tetap displayPhoneID — hanya dibungkus <a>;
+                kalau nomornya tidak berbentuk kanonik "62…", waMeUrl()
+                mengembalikan null dan nomornya tampil sebagai teks biasa.
+                Tanpa teks prefill: ini tombol "hubungi", bukan "kirim link". */}
+            <dd>
+              {customer?.phone_normalized ? (
+                waMeUrl(customer.phone_normalized) ? (
+                  <a
+                    href={waMeUrl(customer.phone_normalized)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={m.common.waOpenChatAria.replace(
+                      "{phone}",
+                      displayPhoneID(customer.phone_normalized)
+                    )}
+                  >
+                    {displayPhoneID(customer.phone_normalized)}
+                  </a>
+                ) : (
+                  displayPhoneID(customer.phone_normalized)
+                )
+              ) : (
+                "—"
+              )}
+            </dd>
             <dt>{m.common.whatsapp}</dt>
             <dd>{customer?.whatsapp || "—"}</dd>
           </dl>
+
+          {/* Kartu "Link untuk Pelanggan" — hanya untuk pesanan yang MASIH
+              berjalan: halaman pelanggan untuk pesanan yang dibatalkan cuma
+              menampilkan "hubungi toko", jadi mengirim tautannya tidak
+              menolong siapa pun. */}
+          {order.status !== "CANCELLED" && customerLink && (
+            <CustomerLinkCard
+              link={customerLinkUrl(origin, customerLink.token)}
+              waMessage={customerLinkMessage({
+                firstName: customer?.full_name?.trim().split(/\s+/)[0] ?? null,
+                orderNumber: order.order_number,
+                url: customerLinkUrl(origin, customerLink.token),
+                storeName: partner?.name ?? null,
+              })}
+              customerPhone={customer?.phone_normalized ?? null}
+              orderNumber={order.order_number}
+              customerName={customer?.full_name ?? m.admin.customerUnknown}
+              fonnteConfigured={fonnteReady}
+              deliveredAt={customerLink.deliveredAt}
+              canMarkDelivered
+              sendViaCompany={sendCustomerLinkViaCompanyAdmin.bind(null, order.id)}
+              markDelivered={markOrderDeliveredAdmin.bind(null, order.id)}
+            />
+          )}
         </div>
 
         <div className="card">

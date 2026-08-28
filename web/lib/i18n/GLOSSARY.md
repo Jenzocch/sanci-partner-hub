@@ -227,3 +227,27 @@ Sales/PIC 员工加一个可选的短代码**：`partner_staff` 从 0004 起就�
   sehari-hari), tapi di 中文 diterjemahkan jadi **负责人**: singkatan Inggris
   tiga huruf tidak langsung dimengerti pembaca Tiongkok, sedangkan "负责人"
   justru lebih cepat dipahami — kebalikan dari kasus Invoice.
+
+## 0023 — Tautan Pesanan untuk Pelanggan（客户查询链接）
+
+**"Link untuk Pelanggan" / "Customer link" / "客户查询链接"**（owner 拍板
+2026-08-28）：指发给客户本人、免登录打开的那一条订单查询网址（`/lihat/<token>`）。
+印尼语沿用 **"link"** 而不是 "tautan"——店员日常口语就说 "link"，这一条属于
+"翻了反而对不上号" 的那一类（跟 Invoice/SO/DO 同一条原则）。简体中文用
+"链接"（不用"連結"）。
+
+**"Tandai sudah diterima pelanggan"（标记客户已收到）**：`delivered_at` 那个
+按钮。印尼语刻意用 **"diterima pelanggan"**（客户收到了）而不是 "terkirim"
+（送出了）——两者不是同一件事：货送到了门口不等于客户点头收下，而店员按这个
+按钮的时机是后者。同理简体中文用"客户已收到"，不用"已送达"。
+
+**"Terkirim" ≠ "sampai"（已发出 ≠ 已送达）**：Fonnte 公司号发送成功后显示的是
+**"Terkirim dari nomor perusahaan"**（已从公司号码发出），不是"已送达客户"。
+我们唯一知道的事实是 WhatsApp 服务接受了这条消息（LESSONS #7：队列不是送达的
+证据）。**不要把这句改成语气更强的词。**
+
+**"Sedang dikirim" / "Sudah diterima" / "Silakan ambil di toko" / "Selesai"**：
+客户页面上的三步时间轴用语，两条路线各一套（送货 / 到店自取）。这些字符串
+**硬编码在客户页面里，不走 i18n**——理由跟 SO/DO/Invoice 纸本完全一样：读者是
+客户，不是店员；店员把界面切成英文或中文，客户收到的页面仍然必须是印尼文。
+写在 `web/app/lihat/[token]/page.tsx` 的文件头注释里。
