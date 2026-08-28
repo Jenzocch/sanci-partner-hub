@@ -51,7 +51,19 @@ export const config = {
   // `version` dikecualikan seperti `offline`: GET /version hanya menjawab id
   // build (lihat app/version/route.ts) dan dipanggil justru saat submit
   // gagal — tidak boleh ikut membayar auth.getUser() per panggilan.
+  //
+  // `p/` (halaman produk PUBLIK, 0022) ikut dikecualikan dengan alasan yang
+  // sama tapi motif berbeda: halaman itu memang dirancang untuk DISEBAR ke
+  // banyak calon pembeli lewat WhatsApp, dan pengunjungnya anonim — tidak ada
+  // sesi yang perlu disegarkan, jadi auth.getUser() per kunjungan murni biaya
+  // (satu perjalanan ke Supabase untuk setiap orang yang membuka tautan).
+  // Polanya SENGAJA "p/" berikut garis miring, bukan "p" telanjang: tanpa
+  // garis miring ia juga akan mencocokkan rute lain yang kebetulan diawali
+  // huruf p. Ini TIDAK melonggarkan keamanan — penjaganya RLS (sp_anon_read
+  // hanya benar saat auth.uid() IS NULL), bukan middleware; dan pengguna yang
+  // SEDANG login tetap membawa cookie sesinya seperti biasa saat membuka
+  // /p/... (yang dilewati di sini cuma penyegaran token, bukan pembacaannya).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|offline|version|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|offline|version|p/|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$).*)",
   ],
 };
