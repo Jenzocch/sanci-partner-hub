@@ -4,7 +4,7 @@
  * Server Actions untuk Pelanggan (Phase 2 slice 13 — customer_code otomatis,
  * migrasi 0018) — dikelola SANCI Admin saja.
  *
- * Tiga kelompok fungsi:
+ * Empat kelompok fungsi:
  *   1. createCustomerAdmin — Admin menambah pelanggan SANCI-direct langsung
  *      dari layar /admin/pelanggan (created_via_partner_id/branch_id selalu
  *      NULL — bukan cabang mana pun; sama pola dengan skrip impor 0017).
@@ -13,6 +13,10 @@
  *   3. createSalesStaff / updateSalesStaff / setSalesStaffStatus — master
  *      "Kode Sales" SANCI internal (sanci_sales_staff) — BUKAN partner_staff
  *      (lihat kepala migrasi 0018 untuk disambiguasi lengkap).
+ *   4. getPelangganPageAdmin — halaman daftar pelanggan (server-side search
+ *      + "Muat Lebih Banyak", kontrak lib/catalog-query.ts) untuk
+ *      pelanggan-list-client.tsx; bentuknya meniru getProdukPageAdmin
+ *      (catalog-actions.ts).
  *
  * Pola idempotency + safeWrite ditiru dari actions-packages.ts/
  * actions-products.ts (LESSONS #21): cek client_request_id dulu, baru
@@ -27,6 +31,14 @@ import { createClient } from "@/lib/supabase/server";
 import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
 import { normalizePhoneID } from "@/lib/orders-shared";
 import { getAdminMessages } from "@/lib/i18n";
+import type { SupabaseServerClient } from "@/lib/order-create-shared";
+import {
+  catalogIlikeOrFilter,
+  catalogPageRange,
+  finishCatalogPage,
+  normalizeCatalogPageInput,
+  type CatalogPageInput,
+} from "@/lib/catalog-query";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -413,4 +425,111 @@ export async function setSalesStaffStatus(
 
   revalidatePath("/admin/pelanggan");
   return { data: true };
+}
+
+// ============================================================
+// 4. Halaman daftar pelanggan (server-side search + muat lebih banyak)
+// ============================================================
+
+/** Idiom verifikasi admin yang sama dengan catalog-actions.ts /
+ *  actions-create-order.ts — untuk action baca-saja ini semua kegagalan
+ *  cukup dipetakan ke "error" (LESSONS #10: error DB ≠ "bukan admin"
+ *  ditangani dengan tidak menyimpulkan apa pun dari kegagalan). Penegak
+ *  sesungguhnya tetap RLS (customers hanya terbaca sesi yang berhak). */
+async function isAdminSession(supabase: SupabaseServerClient): Promise<boolean> {
+  const { data: sesi, error: sesiErr } = await supabase.auth.getUser();
+  if (sesiErr || !sesi?.user) return false;
+  const { data: adminRow, error: adminErr } = await supabase
+    .from("platform_admins")
+    .select("auth_user_id")
+    .eq("auth_user_id", sesi.user.id)
+    .maybeSingle();
+  if (adminErr || !adminRow) return false;
+  return true;
+}
+
+/** Baris pelanggan layar /admin/pelanggan — persis kolom yang dirender
+ *  tabelnya. address/email SENGAJA tidak ikut: halaman itu tidak
+ *  menampilkannya (catatan lama page.tsx — jangan membayar kolom yang
+ *  tidak dipakai untuk setiap baris). */
+export type AdminCustomerRow = {
+  id: string;
+  full_name: string;
+  phone: string;
+  customer_code: string | null;
+  source_id: string | null;
+  sales_staff_id: string | null;
+  created_via_partner_id: string | null;
+  created_via_branch_id: string | null;
+  created_at: string;
+};
+
+export type AdminPelangganPageOutcome =
+  | { status: "ok"; customers: AdminCustomerRow[]; hasMore: boolean }
+  | { status: "error" };
+
+/**
+ * Satu halaman daftar pelanggan — bentuk kontrak lib/catalog-query.ts
+ * (search dieksekusi DATABASE, halaman 60, hasMore lewat baris sentinel),
+ * meniru getProdukPageAdmin. Field `category`/`withCategories`/`withPrices`
+ * pada input bersama TIDAK berarti di sini (pelanggan tidak punya dimensi
+ * itu) dan diabaikan.
+ *
+ * Beda sengaja dari kontrak katalog: urutannya created_at TERBARU dulu
+ * (semantik lama layar ini — pelanggan baru langsung terlihat di atas),
+ * dengan tiebreak `id` supaya offset-paging deterministik (prinsip #2
+ * kontrak; created_at kembar tidak boleh membuat baris melompat/menduakan
+ * di perbatasan halaman).
+ *
+ * source_id/sales_staff_id (migrasi 0018) BISA belum ada sebagai kolom
+ * (LESSONS #12) — coba SELECT lebar dulu, turun ke SELECT sempit kalau
+ * 42703, sama seperti batch pertama di page.tsx.
+ */
+export async function getPelangganPageAdmin(input: CatalogPageInput): Promise<AdminPelangganPageOutcome> {
+  const supabase = await createClient();
+  if (!(await isAdminSession(supabase))) return { status: "error" };
+
+  const norm = normalizeCatalogPageInput(input);
+  // Semantik pencarian lama dipertahankan: nama ATAU telepon ATAU kode
+  // (dulu includes() huruf kecil di memori; ilike = substring tanpa peduli
+  // kapital, karakter LIKE di-escape harfiah — lib/catalog-query.ts).
+  const orFilter = catalogIlikeOrFilter(norm.q, ["full_name", "phone", "customer_code"]);
+  const range = catalogPageRange(norm.offset);
+
+  let wide = supabase
+    .from("customers")
+    .select(
+      "id, full_name, phone, customer_code, source_id, sales_staff_id, created_via_partner_id, created_via_branch_id, created_at"
+    );
+  if (orFilter) wide = wide.or(orFilter);
+  const { data: rows, error } = await wide
+    .order("created_at", { ascending: false })
+    .order("id")
+    .range(range.from, range.to);
+
+  if (!error) {
+    const page = finishCatalogPage((rows ?? []) as AdminCustomerRow[]);
+    return { status: "ok", customers: page.products, hasMore: page.hasMore };
+  }
+  if (error.code !== "42703") return { status: "error" };
+
+  // 0018 belum dijalankan (kolom tak dikenal) — daftar dasar tetap jalan.
+  let narrow = supabase
+    .from("customers")
+    .select("id, full_name, phone, customer_code, created_via_partner_id, created_via_branch_id, created_at");
+  if (orFilter) narrow = narrow.or(orFilter);
+  const { data: narrowRows, error: narrowErr } = await narrow
+    .order("created_at", { ascending: false })
+    .order("id")
+    .range(range.from, range.to);
+  if (narrowErr) return { status: "error" };
+
+  const page = finishCatalogPage(
+    ((narrowRows ?? []) as Omit<AdminCustomerRow, "source_id" | "sales_staff_id">[]).map((c) => ({
+      ...c,
+      source_id: null,
+      sales_staff_id: null,
+    }))
+  );
+  return { status: "ok", customers: page.products, hasMore: page.hasMore };
 }

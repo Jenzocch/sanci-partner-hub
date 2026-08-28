@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { CATALOG_PAGE_SIZE, finishCatalogPage } from "@/lib/catalog-query";
+import type { AdminCustomerRow } from "../actions-customers";
 import AddCustomerButton from "./add-customer-button";
 import MasterDataSection from "./master-data-section";
+import PelangganListClient from "./pelanggan-list-client";
 import { getAdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -15,33 +18,24 @@ function isMissingColumnErr(err: QueryErr): boolean {
   return !!err && err.code === "42703";
 }
 
-// Sengaja TIDAK memuat address/email: halaman ini tidak menampilkan
-// keduanya, dan daftar ini belum dibatasi jumlahnya — mengambil kolom yang
-// tidak dipakai berarti membayar untuk setiap baris pelanggan, selamanya.
-type CustomerRow = {
-  id: string;
-  full_name: string;
-  phone: string;
-  customer_code: string | null;
-  source_id: string | null;
-  sales_staff_id: string | null;
-  created_via_partner_id: string | null;
-  created_via_branch_id: string | null;
-  created_at: string;
-};
+// Sengaja TIDAK memuat address/email: halaman ini tidak menampilkan keduanya
+// (kolom yang tidak dipakai = biaya per baris). Bentuk barisnya sekarang milik
+// getPelangganPageAdmin (actions-customers.ts) — sejak 2026-08-28 halaman ini
+// hanya merender BATCH PERTAMA (60) dan pelanggan-list-client.tsx mencari/
+// memuat lanjutan lewat action itu (kontrak lib/catalog-query.ts),
+// menggantikan pola lama "SELECT semua baris + saring di memori + form GET".
 type SourceRow = { id: string; code: string; label: string; status: string };
 type SalesRow = { id: string; code: string; name: string; status: string };
 type PartnerRow = { id: string; name: string };
-type BranchRow = { id: string; name: string; partner_id: string };
+type BranchRow = { id: string; name: string };
 
 export default async function PelangganPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tab?: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const m = await getAdminMessages();
   const sp = await searchParams;
-  const q = (sp.q || "").trim().toLowerCase();
   const tab = sp.tab === "sumber" || sp.tab === "sales" ? sp.tab : "list";
 
   const supabase = await createClient();
@@ -50,9 +44,11 @@ export default async function PelangganPage({
   // kalau kodenya sudah naik lebih dulu (LESSONS #12) — coba SELECT lebar
   // dulu, turun ke SELECT sempit kalau 42703 (kolom tak dikenal), supaya
   // daftar pelanggan dasar (nama/telepon/kode lama) tetap tampil walau fitur
-  // baru ini belum aktif.
-  let customers: CustomerRow[] = [];
+  // baru ini belum aktif. Urutan + range HARUS identik dengan
+  // getPelangganPageAdmin — batch ini adalah halaman-0 kontrak yang sama.
+  let customers: AdminCustomerRow[] = [];
   let customersErr: QueryErr = null;
+  let customersHasMore = false;
   let codeFeatureOn = true;
 
   // Kelima pembacaan ini saling bebas, jadi berangkat bersama — dulu daftar
@@ -64,11 +60,15 @@ export default async function PelangganPage({
         .select(
           "id, full_name, phone, customer_code, source_id, sales_staff_id, created_via_partner_id, created_via_branch_id, created_at"
         )
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(0, CATALOG_PAGE_SIZE),
       supabase.from("customer_sources").select("id, code, label, status").order("code"),
       supabase.from("sanci_sales_staff").select("id, code, name, status").order("code"),
       supabase.from("partners").select("id, name"),
-      supabase.from("partner_branches").select("id, name, partner_id"),
+      // partner_id tidak lagi diambil: label "Dibuat via" hanya butuh nama
+      // cabangnya (kolom yang tidak dipakai = biaya per baris).
+      supabase.from("partner_branches").select("id, name"),
     ]);
 
   // Percobaan ulang yang sempit hanya terjadi kalau 0018 belum dijalankan
@@ -78,43 +78,30 @@ export default async function PelangganPage({
     const narrow = await supabase
       .from("customers")
       .select("id, full_name, phone, customer_code, created_via_partner_id, created_via_branch_id, created_at")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(0, CATALOG_PAGE_SIZE);
     customersErr = narrow.error;
-    customers = ((narrow.data ?? []) as Omit<CustomerRow, "source_id" | "sales_staff_id">[]).map((c) => ({
-      ...c,
-      source_id: null,
-      sales_staff_id: null,
-    }));
+    const page = finishCatalogPage(
+      ((narrow.data ?? []) as Omit<AdminCustomerRow, "source_id" | "sales_staff_id">[]).map((c) => ({
+        ...c,
+        source_id: null,
+        sales_staff_id: null,
+      }))
+    );
+    customers = page.products;
+    customersHasMore = page.hasMore;
   } else {
     customersErr = wide.error;
-    customers = (wide.data ?? []) as CustomerRow[];
+    const page = finishCatalogPage((wide.data ?? []) as AdminCustomerRow[]);
+    customers = page.products;
+    customersHasMore = page.hasMore;
   }
 
   const migrationMissing = isMissingTableErr(sourcesErr) || isMissingTableErr(salesErr) || !codeFeatureOn;
 
-  const sourceById = new Map(((sources ?? []) as SourceRow[]).map((s) => [s.id, s]));
-  const salesById = new Map(((sales ?? []) as SalesRow[]).map((s) => [s.id, s]));
-  const partnerById = new Map(((partners ?? []) as PartnerRow[]).map((p) => [p.id, p]));
-  const branchById = new Map(((branches ?? []) as BranchRow[]).map((b) => [b.id, b]));
   const activeSources = ((sources ?? []) as SourceRow[]).filter((s) => s.status === "ACTIVE");
   const activeSales = ((sales ?? []) as SalesRow[]).filter((s) => s.status === "ACTIVE");
-
-  function createdViaLabel(c: CustomerRow): string {
-    if (!c.created_via_partner_id) return m.admin.customerCreatedViaSanci;
-    const partner = partnerById.get(c.created_via_partner_id);
-    const branch = c.created_via_branch_id ? branchById.get(c.created_via_branch_id) : undefined;
-    const partnerName = partner?.name || m.admin.customerCreatedViaUnknownPartner;
-    return branch ? `${partnerName} · ${branch.name}` : partnerName;
-  }
-
-  const rows = customers.filter((c) => {
-    if (!q) return true;
-    return (
-      c.full_name.toLowerCase().includes(q) ||
-      c.phone.toLowerCase().includes(q) ||
-      (c.customer_code || "").toLowerCase().includes(q)
-    );
-  });
 
   const tabs = [
     { key: "list", label: m.admin.customerTabList },
@@ -144,78 +131,21 @@ export default async function PelangganPage({
         ))}
       </div>
 
-      {tab === "list" && (
-        <div>
-          <form className="searchrow wide" action="/admin/pelanggan" method="GET">
-            <input type="hidden" name="tab" value="list" />
-            <input
-              type="search"
-              name="q"
-              placeholder={m.admin.customerSearchPlaceholder}
-              defaultValue={sp.q || ""}
-              className="search-input"
-            />
-            <button className="btn" type="submit">
-              {m.common.search}
-            </button>
-          </form>
-
-          {customersErr ? (
-            <div className="card" style={{ margin: 0 }}>
-              <div className="err">{m.common.errorLoad}</div>
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="card emptybox">
-              {customers.length === 0
-                ? m.admin.customerEmpty
-                : m.admin.customerEmptyFiltered.replace("{q}", sp.q || "")}
-            </div>
-          ) : (
-            <div className="tablewrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{m.common.name}</th>
-                    <th>{m.common.phone}</th>
-                    <th>{m.admin.customerColCode}</th>
-                    <th>{m.admin.customerColSourceSales}</th>
-                    <th>{m.admin.customerColCreatedVia}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((c) => {
-                    const source = c.source_id ? sourceById.get(c.source_id) : undefined;
-                    const salesStaff = c.sales_staff_id ? salesById.get(c.sales_staff_id) : undefined;
-                    return (
-                      <tr key={c.id}>
-                        <td style={{ fontWeight: 650 }}>{c.full_name}</td>
-                        <td>{c.phone}</td>
-                        <td>
-                          {c.customer_code ? (
-                            <span className="code">{c.customer_code}</span>
-                          ) : (
-                            <span className="small muted">—</span>
-                          )}
-                        </td>
-                        <td>
-                          {source || salesStaff ? (
-                            <span className="small">
-                              {source?.label || "—"} · {salesStaff?.name || "—"}
-                            </span>
-                          ) : (
-                            <span className="small muted">—</span>
-                          )}
-                        </td>
-                        <td className="small muted">{createdViaLabel(c)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+      {tab === "list" &&
+        (customersErr ? (
+          <div className="card" style={{ margin: 0 }}>
+            <div className="err">{m.common.errorLoad}</div>
+          </div>
+        ) : (
+          <PelangganListClient
+            initialCustomers={customers}
+            initialHasMore={customersHasMore}
+            sources={((sources ?? []) as SourceRow[]).map((s) => ({ id: s.id, label: s.label }))}
+            sales={((sales ?? []) as SalesRow[]).map((s) => ({ id: s.id, name: s.name }))}
+            partners={((partners ?? []) as PartnerRow[]).map((p) => ({ id: p.id, name: p.name }))}
+            branches={((branches ?? []) as BranchRow[]).map((b) => ({ id: b.id, name: b.name }))}
+          />
+        ))}
 
       {tab === "sumber" && (
         <MasterDataSection
