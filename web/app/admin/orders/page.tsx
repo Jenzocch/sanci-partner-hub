@@ -10,14 +10,28 @@ import {
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
+import { likeEscape, catalogIlikeOrFilter } from "@/lib/catalog-query";
 import { getAdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 const LIST_LIMIT = 50;
 
+/** Batas baris `order_items` yang dipindai saat mencari nama/kode produk —
+ *  dipisah dari LIST_LIMIT supaya satu kata kunci populer (mis. "Sofa")
+ *  tidak memindai seluruh tabel item; diurutkan created_at terbaru dulu
+ *  supaya kalau kepotong, yang hilang adalah item LAMA bukan yang baru. */
+const ORDER_ITEMS_SCAN_LIMIT = 200;
+
+/** Batas baris `partner_staff` yang dipindai saat mencari nama sales —
+ *  jumlah staf jauh lebih kecil dari produk/item, tapi tetap dibatasi
+ *  supaya tidak ada query tanpa batas atas (LESSONS #6, input tak dipercaya). */
+const STAFF_MATCH_SCAN_LIMIT = 200;
+
 const ORDER_COLS =
   "id, order_number, customer_id, partner_id, branch_id, partner_sales_staff_id, package_name, status, created_at";
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 type OrderListRow = {
   id: string;
@@ -36,7 +50,7 @@ type QueryErr = { code?: string; message?: string } | null;
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; jalur?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; jalur?: string; dateFrom?: string; dateTo?: string }>;
 }) {
   const m = await getAdminMessages();
   const STATUS_OPTIONS: { value: "ALL" | OrderStatus; label: string }[] = [
@@ -55,6 +69,22 @@ export default async function AdminOrdersPage({
     sp.status === "REGISTERED" || sp.status === "CANCELLED" ? sp.status : "ALL";
   const jalurFilter: "ALL" | FulfillmentPath =
     sp.jalur === "DIRECT_DELIVERY" || sp.jalur === "SHOWROOM_VISIT" ? sp.jalur : "ALL";
+  // Input mentah dari <input type="date"> — divalidasi formatnya (bukan
+  // dipercaya begitu saja, LESSONS #6) sebelum dipakai membangun filter.
+  const dateFrom = sp.dateFrom && DATE_RE.test(sp.dateFrom) ? sp.dateFrom : "";
+  const dateTo = sp.dateTo && DATE_RE.test(sp.dateTo) ? sp.dateTo : "";
+  // Rentang tanggal dibandingkan APA ADANYA terhadap created_at (timestamptz
+  // UTC, diisi server `now()` — LESSONS #11), TANPA konversi zona waktu
+  // pengguna: "Dari tanggal" = 00:00:00.000 UTC hari itu, "Sampai tanggal" =
+  // 23:59:59.999 UTC hari itu. Trade-off yang disengaja: untuk staf di
+  // WIB/WITA/WIT, hari kalender LOKAL mereka bisa meleset beberapa jam dari
+  // rentang UTC ini (pesanan jam 00:30 WIB tanggal 5 punya created_at UTC di
+  // tanggal 4). Diterima karena SPEC tidak minta presisi jam, dan menghindari
+  // kerumitan zona waktu di server component (server tidak tahu zona waktu
+  // browser staf) — kalau nanti perlu presisi ini, itu keputusan migrasi
+  // tersendiri (kolom zona waktu partner/branch), bukan tebakan di sini.
+  const gteIso = dateFrom ? `${dateFrom}T00:00:00.000Z` : "";
+  const lteIso = dateTo ? `${dateTo}T23:59:59.999Z` : "";
 
   const supabase = await createClient();
 
@@ -70,7 +100,7 @@ export default async function AdminOrdersPage({
     const custQuery = supabase.from("customers").select("id");
     const { data: custRows, error: custErr } = normalizedPhone
       ? await custQuery.eq("phone_normalized", normalizedPhone).limit(LIST_LIMIT)
-      : await custQuery.ilike("full_name", `%${q}%`).limit(LIST_LIMIT);
+      : await custQuery.ilike("full_name", `%${likeEscape(q)}%`).limit(LIST_LIMIT);
     if (custErr) {
       queryErr = custErr;
     } else {
@@ -78,10 +108,26 @@ export default async function AdminOrdersPage({
     }
   }
 
-  // ── 2. Ambil partner_orders — difilter status di server, dan (kalau ada
-  //      kata kunci) digabung dari dua pencarian: order_number cocok, atau
-  //      customer_id ada di hasil langkah 1.
+  // ── 2. Ambil partner_orders — difilter status+tanggal di server, dan
+  //      (kalau ada kata kunci) digabung dari LIMA jalur pencarian yang
+  //      hasilnya digabung-dedupe di memori berdasar id (bukan `.or()`
+  //      lintas tabel — masing-masing jalur query vertikal sendiri,
+  //      LESSONS #40):
+  //        1) order_number cocok (ilike)
+  //        2) customer_id ada di hasil langkah 1 (nama/telepon)
+  //        3) customer_po cocok (ilike) — kolom 0020, TOLERAN error apa pun
+  //           (termasuk 42703 kalau migration belum jalan di suatu env):
+  //           jalur ini gagal sendirian, tidak menggagalkan seluruh
+  //           pencarian (LESSONS #12).
+  //        4) order_items.name_snapshot/code_snapshot cocok → order_id
+  //        5) partner_staff.full_name cocok → partner_sales_staff_id
+  //      Jalur 3/4/5 adalah PERLUASAN cakupan pencarian di atas jalur 1/2
+  //      yang sudah ada — kegagalan salah satunya (RLS, tabel belum siap,
+  //      dst.) TIDAK menggagalkan seluruh pencarian, hanya jalur itu yang
+  //      diam-diam tidak menyumbang baris. Jalur 1/2 tetap mempertahankan
+  //      perilaku lama: gagal = seluruh pencarian gagal (queryErr).
   let orderRows: OrderListRow[] = [];
+  let productMatchCapped = false;
 
   if (!queryErr) {
     if (!q) {
@@ -90,18 +136,26 @@ export default async function AdminOrdersPage({
         .select(ORDER_COLS)
         .order("created_at", { ascending: false });
       if (statusFilter !== "ALL") query = query.eq("status", statusFilter);
+      if (gteIso) query = query.gte("created_at", gteIso);
+      if (lteIso) query = query.lte("created_at", lteIso);
       const { data, error } = await query.limit(LIST_LIMIT);
       if (error) queryErr = error;
       else orderRows = (data ?? []) as OrderListRow[];
     } else {
+      const likePattern = `%${likeEscape(q)}%`;
+
+      // Jalur 1: order_number
       let orderNumberQuery = supabase
         .from("partner_orders")
         .select(ORDER_COLS)
-        .ilike("order_number", `%${q}%`)
+        .ilike("order_number", likePattern)
         .order("created_at", { ascending: false });
       if (statusFilter !== "ALL") orderNumberQuery = orderNumberQuery.eq("status", statusFilter);
-      const jobs = [orderNumberQuery.limit(LIST_LIMIT)];
+      if (gteIso) orderNumberQuery = orderNumberQuery.gte("created_at", gteIso);
+      if (lteIso) orderNumberQuery = orderNumberQuery.lte("created_at", lteIso);
+      const coreJobs = [orderNumberQuery.limit(LIST_LIMIT)];
 
+      // Jalur 2: customer (nama/telepon) — dari langkah 1
       if (matchedCustomerIds.length > 0) {
         let byCustomerQuery = supabase
           .from("partner_orders")
@@ -109,15 +163,101 @@ export default async function AdminOrdersPage({
           .in("customer_id", matchedCustomerIds)
           .order("created_at", { ascending: false });
         if (statusFilter !== "ALL") byCustomerQuery = byCustomerQuery.eq("status", statusFilter);
-        jobs.push(byCustomerQuery.limit(LIST_LIMIT));
+        if (gteIso) byCustomerQuery = byCustomerQuery.gte("created_at", gteIso);
+        if (lteIso) byCustomerQuery = byCustomerQuery.lte("created_at", lteIso);
+        coreJobs.push(byCustomerQuery.limit(LIST_LIMIT));
       }
-      const results = await Promise.all(jobs);
-      const firstError = results.find((r) => r.error)?.error;
+
+      const coreResults = await Promise.all(coreJobs);
+      const firstError = coreResults.find((r) => r.error)?.error;
       if (firstError) {
         queryErr = firstError;
       } else {
         const byId = new Map<string, OrderListRow>();
-        results.forEach((r) => (r.data ?? []).forEach((row: OrderListRow) => byId.set(row.id, row)));
+        coreResults.forEach((r) => (r.data ?? []).forEach((row: OrderListRow) => byId.set(row.id, row)));
+
+        // Jalur 3: customer_po — query langsung ke partner_orders (kolom
+        // sudah tersedia sejak 0020), tapi errornya TIDAK pernah dinaikkan
+        // ke queryErr (lihat catatan toleransi di atas).
+        let customerPoQuery = supabase
+          .from("partner_orders")
+          .select(ORDER_COLS)
+          .ilike("customer_po", likePattern)
+          .order("created_at", { ascending: false });
+        if (statusFilter !== "ALL") customerPoQuery = customerPoQuery.eq("status", statusFilter);
+        if (gteIso) customerPoQuery = customerPoQuery.gte("created_at", gteIso);
+        if (lteIso) customerPoQuery = customerPoQuery.lte("created_at", lteIso);
+
+        // Jalur 4, langkah A: order_items.name_snapshot/code_snapshot —
+        // DUA kolom tabel yang sama, jadi pakai catalogIlikeOrFilter (sudah
+        // menangani escape + PostgREST-quote untuk `.or()`, LESSONS #40)
+        // alih-alih dua query terpisah.
+        const itemsOrFilter = catalogIlikeOrFilter(q, ["name_snapshot", "code_snapshot"]);
+        let itemsQuery = supabase
+          .from("order_items")
+          .select("order_id")
+          .order("created_at", { ascending: false })
+          .limit(ORDER_ITEMS_SCAN_LIMIT);
+        if (itemsOrFilter) itemsQuery = itemsQuery.or(itemsOrFilter);
+
+        // Jalur 5, langkah A: partner_staff.full_name → id staf.
+        const staffQuery = supabase
+          .from("partner_staff")
+          .select("id")
+          .ilike("full_name", likePattern)
+          .limit(STAFF_MATCH_SCAN_LIMIT);
+
+        const [poRes, itemsRes, staffRes] = await Promise.all([
+          customerPoQuery.limit(LIST_LIMIT),
+          itemsQuery,
+          staffQuery,
+        ]);
+
+        // Gabung jalur 3 (toleran — error diabaikan, tidak menyumbang baris).
+        if (!poRes.error) {
+          (poRes.data ?? []).forEach((row: OrderListRow) => byId.set(row.id, row));
+        }
+
+        // Jalur 4, langkah B: order_id hasil → partner_orders (toleran).
+        if (!itemsRes.error) {
+          const itemRows = (itemsRes.data ?? []) as { order_id: string }[];
+          productMatchCapped = itemRows.length >= ORDER_ITEMS_SCAN_LIMIT;
+          const orderIdsFromItems = Array.from(new Set(itemRows.map((r) => r.order_id)));
+          if (orderIdsFromItems.length > 0) {
+            let byItemsQuery = supabase
+              .from("partner_orders")
+              .select(ORDER_COLS)
+              .in("id", orderIdsFromItems)
+              .order("created_at", { ascending: false });
+            if (statusFilter !== "ALL") byItemsQuery = byItemsQuery.eq("status", statusFilter);
+            if (gteIso) byItemsQuery = byItemsQuery.gte("created_at", gteIso);
+            if (lteIso) byItemsQuery = byItemsQuery.lte("created_at", lteIso);
+            const { data: itemOrderRows, error: itemOrderErr } = await byItemsQuery.limit(LIST_LIMIT);
+            if (!itemOrderErr) {
+              (itemOrderRows ?? []).forEach((row: OrderListRow) => byId.set(row.id, row));
+            }
+          }
+        }
+
+        // Jalur 5, langkah B: staff id hasil → partner_orders (toleran).
+        if (!staffRes.error) {
+          const staffIdsMatched = (staffRes.data ?? []).map((r: { id: string }) => r.id);
+          if (staffIdsMatched.length > 0) {
+            let byStaffQuery = supabase
+              .from("partner_orders")
+              .select(ORDER_COLS)
+              .in("partner_sales_staff_id", staffIdsMatched)
+              .order("created_at", { ascending: false });
+            if (statusFilter !== "ALL") byStaffQuery = byStaffQuery.eq("status", statusFilter);
+            if (gteIso) byStaffQuery = byStaffQuery.gte("created_at", gteIso);
+            if (lteIso) byStaffQuery = byStaffQuery.lte("created_at", lteIso);
+            const { data: staffOrderRows, error: staffOrderErr } = await byStaffQuery.limit(LIST_LIMIT);
+            if (!staffOrderErr) {
+              (staffOrderRows ?? []).forEach((row: OrderListRow) => byId.set(row.id, row));
+            }
+          }
+        }
+
         orderRows = Array.from(byId.values())
           .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
           .slice(0, LIST_LIMIT);
@@ -259,6 +399,14 @@ export default async function AdminOrdersPage({
             ))}
           </select>
         )}
+        <label className="small muted">
+          {m.admin.ordersDateFromLabel + " "}
+          <input type="date" name="dateFrom" defaultValue={dateFrom} className="filter-select" />
+        </label>
+        <label className="small muted">
+          {m.admin.ordersDateToLabel + " "}
+          <input type="date" name="dateTo" defaultValue={dateTo} className="filter-select" />
+        </label>
         <button className="btn" type="submit">
           {m.common.search}
         </button>
@@ -348,6 +496,7 @@ export default async function AdminOrdersPage({
               .replace("{n}", String(orderRows.length))
               .replace("{cap}", orderRows.length === LIST_LIMIT ? m.admin.ordersShowingCap : "")}
           </div>
+          {q && productMatchCapped && <div className="footnote">{m.admin.ordersProductMatchCapped}</div>}
         </div>
       )}
     </div>

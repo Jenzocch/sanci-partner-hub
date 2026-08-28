@@ -508,7 +508,7 @@ const id = {
 
   // ---- Pesanan Partner — daftar (orders/page.tsx) ----
   ordersFeatureOff: "Fitur pesanan belum aktif — migration database belum dijalankan.",
-  ordersSearchPlaceholder: "Cari nomor pesanan / nama customer / telepon…",
+  ordersSearchPlaceholder: "Cari nomor pesanan / customer / telepon / no. PO / produk / sales…",
   filterFulfillmentAll: "Jalur: semua",
   ordersEmpty: "Belum ada pesanan.",
   ordersEmptyFiltered: 'Tidak ada pesanan yang cocok dengan "{q}".',
@@ -519,6 +519,10 @@ const id = {
   picLabel: "PIC",
   ordersShowingCount: "Menampilkan {n} terbaru{cap}.",
   ordersShowingCap: " (maks. 50)",
+  ordersDateFromLabel: "Dari tanggal",
+  ordersDateToLabel: "Sampai tanggal",
+  ordersProductMatchCapped:
+    "Pencarian nama/kode produk hanya memindai 200 item pesanan terbaru — sebagian pesanan lama yang cocok mungkin tidak ikut muncul.",
 
   // ---- Detail Pesanan (orders/[orderId]/page.tsx) ----
   orderFeatureOff: "Modul Pesanan belum aktif di database (migrasi belum dijalankan).",
@@ -1324,7 +1328,7 @@ const en = {
   catalogSettingInvalid: "Cannot save the catalog setting right now.",
 
   ordersFeatureOff: "The orders feature is not active yet — the database migration has not been run.",
-  ordersSearchPlaceholder: "Search order number / customer name / phone…",
+  ordersSearchPlaceholder: "Search order number / customer / phone / PO no. / product / sales…",
   filterFulfillmentAll: "Fulfillment: all",
   ordersEmpty: "No orders yet.",
   ordersEmptyFiltered: 'No orders match "{q}".',
@@ -1334,6 +1338,10 @@ const en = {
   picLabel: "PIC",
   ordersShowingCount: "Showing the {n} most recent{cap}.",
   ordersShowingCap: " (max. 50)",
+  ordersDateFromLabel: "From date",
+  ordersDateToLabel: "To date",
+  ordersProductMatchCapped:
+    "The product name/code search only scans the 200 most recent order items — some matching older orders may not appear.",
 
   orderFeatureOff: "The Orders module is not active in the database yet (the migration has not been run).",
   orderDetailLoadFailed: "Failed to load the order detail.",
@@ -2059,7 +2067,7 @@ const zh = {
   catalogSettingInvalid: "现在无法保存产品目录设置。",
 
   ordersFeatureOff: "订单功能尚未启用 —— 数据库迁移脚本还没有执行。",
-  ordersSearchPlaceholder: "搜索订单编号 / 客户姓名 / 电话…",
+  ordersSearchPlaceholder: "搜索订单编号 / 客户 / 电话 / PO 号 / 产品 / 销售员…",
   filterFulfillmentAll: "交付方式：全部",
   ordersEmpty: "暂无订单。",
   ordersEmptyFiltered: "没有符合“{q}”的订单。",
@@ -2069,6 +2077,9 @@ const zh = {
   picLabel: "负责人",
   ordersShowingCount: "显示最新 {n} 条{cap}。",
   ordersShowingCap: "（最多 50 条）",
+  ordersDateFromLabel: "起始日期",
+  ordersDateToLabel: "结束日期",
+  ordersProductMatchCapped: "产品名称/代码搜索只扫描最新 200 条订单项 —— 部分较旧的匹配订单可能不会显示。",
 
   orderFeatureOff: "订单模块在数据库中尚未启用（迁移脚本还没有执行）。",
   orderDetailLoadFailed: "订单详情加载失败。",

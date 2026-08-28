@@ -154,10 +154,24 @@ export function normalizeCatalogPageInput(input: CatalogPageInput): {
  */
 export function catalogIlikeOrFilter(qNormalized: string, fields: readonly string[]): string | null {
   if (!qNormalized) return null;
-  const likeEscaped = qNormalized.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-  const pattern = `%${likeEscaped}%`;
+  const pattern = `%${likeEscape(qNormalized)}%`;
   const quoted = `"${pattern.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
   return fields.map((f) => `${f}.ilike.${quoted}`).join(",");
+}
+
+/**
+ * LIKE-escape mentah: `\`→`\\`, `%`→`\%`, `_`→`\_` — supaya sebuah string
+ * dicocokkan ilike/like HARFIAH (semantik "mengandung", bukan pola). Dipakai
+ * SENDIRI (tanpa lapis PostgREST-quote di atas) untuk filter vertikal
+ * tunggal — `.ilike("kolom", `%${likeEscape(q)}%`)` di luar `.or()` — yang
+ * tidak melewati parser pohon-logika PostgREST sehingga tidak butuh
+ * pembungkus kutip ganda (LESSONS #40: koma/kurung aman di `.ilike()`
+ * berdiri sendiri, tapi `%`/`_` pengguna tetap wildcard kalau tidak
+ * di-escape). Batas yang sama seperti `catalogIlikeOrFilter` berlaku di sini:
+ * `*` tetap sinonim `%` di mata PostgREST dan tidak coba dilawan.
+ */
+export function likeEscape(raw: string): string {
+  return raw.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
 
 /** Range inklusif untuk `.range(from, to)` — meminta PAGE_SIZE+1 baris. */
