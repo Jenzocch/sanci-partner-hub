@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { formatIDR, displayPhoneID } from "@/lib/orders-shared";
+import { formatIDR, displayPhoneID, formatCalendarDate } from "@/lib/orders-shared";
 import { COMPANY_INFO } from "@/lib/company-info";
 import PrintButton from "./print-button";
 
@@ -43,10 +43,13 @@ function one<T>(v: One<T>): T | null {
 }
 
 function formatDateID(iso: string): string {
-  // doc_date adalah kolom `date` (bukan timestamptz) — tambahkan waktu netral
-  // supaya parsing tidak tergeser sehari oleh timezone browser/server.
-  const d = iso.length <= 10 ? new Date(`${iso}T00:00:00`) : new Date(iso);
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  // doc_date adalah kolom `date` (bukan timestamptz): dirender lewat helper
+  // bersama yang menjangkarkannya ke UTC di kedua sisi, jadi tanggalnya tidak
+  // pernah bergeser sehari oleh zona server maupun pembaca. Locale-nya tetap
+  // "id-ID" DIPAKU di sini (bukan m.common.dateLocale) — alasan sama dengan
+  // catatan bahasa di kepala berkas: isi dokumen yang ditandatangani
+  // pelanggan tidak ikut bahasa layar admin.
+  return formatCalendarDate(iso, "id-ID");
 }
 
 type OrderItemDetail = {

@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { orderStatusLabel, displayPhoneID, type OrderStatus } from "@/lib/orders-shared";
+import {
+  orderStatusLabel,
+  displayPhoneID,
+  formatDateShortWIB,
+  type OrderStatus,
+} from "@/lib/orders-shared";
 import { useCabangMessages } from "@/lib/i18n/provider";
 import type { CabangMessages } from "@/lib/i18n";
 import StatusBadge from "./status-badge";
@@ -32,7 +37,10 @@ export type OrderListItem = {
 
 function formatDate(iso: string, dateLocale: string): string {
   try {
-    return new Date(iso).toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" });
+    // WIB, bukan zona perangkat: daftar ini dirender ulang di server juga
+    // (hasil awal) — satu zona tetap membuat tanggalnya SELALU sama dengan
+    // yang tampil di halaman detail (lihat formatDateShortWIB).
+    return formatDateShortWIB(iso, dateLocale);
   } catch {
     return iso;
   }

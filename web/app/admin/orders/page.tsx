@@ -7,6 +7,8 @@ import {
   displayPhoneID,
   isMissingTableError,
   normalizePhoneID,
+  formatDateTimeWIB,
+  wibDayBoundsToIso,
   type FulfillmentPath,
   type OrderStatus,
 } from "@/lib/orders-shared";
@@ -83,8 +85,8 @@ export default async function AdminOrdersPage({
   // kerumitan zona waktu di server component (server tidak tahu zona waktu
   // browser staf) — kalau nanti perlu presisi ini, itu keputusan migrasi
   // tersendiri (kolom zona waktu partner/branch), bukan tebakan di sini.
-  const gteIso = dateFrom ? `${dateFrom}T00:00:00.000Z` : "";
-  const lteIso = dateTo ? `${dateTo}T23:59:59.999Z` : "";
+  const gteIso = dateFrom ? wibDayBoundsToIso(dateFrom, "start") : "";
+  const lteIso = dateTo ? wibDayBoundsToIso(dateTo, "end") : "";
 
   const supabase = await createClient();
 
@@ -478,7 +480,7 @@ export default async function AdminOrdersPage({
                         </td>
                       )}
                       <td className="small muted">
-                        {new Date(r.created_at).toLocaleString("id-ID")}
+                        {formatDateTimeWIB(r.created_at, m.common.dateLocale)}
                       </td>
                       <td className="ta-right">
                         <Link href={`/admin/orders/${r.id}`} className="linkbtn" prefetch={false}>

@@ -75,6 +75,104 @@ export function formatIDR(amount: number): string {
   }).format(amount);
 }
 
+/* ------------------------------------------------------------------ *
+ * Waktu tampil — SELALU WIB (Asia/Jakarta)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Zona waktu operasional SANCI. SEMUA jam yang ditampilkan ke pengguna
+ * memakai ini, TITIK.
+ *
+ * KENAPA DIPAKU, bukan "zona waktu pembaca": halaman-halaman ini dirender
+ * di SERVER (Vercel), dan server berjalan di UTC — `toLocaleString("id-ID")`
+ * tanpa opsi `timeZone` memformat memakai zona SERVER, bukan zona staf.
+ * Akibatnya pesanan yang dibuat 20:36 WIB tampil sebagai 13:36 (laporan
+ * owner 2026-08-28: "剛剛做order 時間出來是不對的"). Menambahkan keterangan
+ * "· waktu server" TIDAK menyelesaikan ini — staf gudang tidak diminta
+ * menghitung selisih tujuh jam di kepala; angka di layar harus langsung
+ * cocok dengan jam dinding mereka.
+ *
+ * Kenapa BUKAN dirender di browser (yang tahu zona pembaca): jam yang
+ * dirender client bikin hydration mismatch (server dan browser menghasilkan
+ * teks berbeda untuk markup yang sama) dan memaksa halaman-halaman ini —
+ * yang sekarang murni server component, 0 KB JS klien — menyeret JavaScript
+ * hanya demi format tanggal.
+ *
+ * Kenapa WIB dan bukan zona pengguna masing-masing: SANCI berkantor di
+ * Jakarta, dokumennya dokumen Indonesia, dan pesanannya dicatat menurut hari
+ * kerja Jakarta. Satu zona tetap = dua orang di kota berbeda menyebut
+ * pesanan yang sama dengan jam yang sama. Nilai yang TERSIMPAN tidak
+ * tersentuh (tetap timestamptz UTC dari `now()` server — LESSONS #11); ini
+ * murni lapisan tampilan.
+ */
+export const DISPLAY_TIME_ZONE = "Asia/Jakarta";
+
+/** Tanggal saja, WIB: "28 Agustus 2026". */
+export function formatDateWIB(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
+    timeZone: DISPLAY_TIME_ZONE,
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** Tanggal ringkas, WIB: "28 Agu 2026" — untuk daftar yang padat. */
+export function formatDateShortWIB(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
+    timeZone: DISPLAY_TIME_ZONE,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/** Tanggal + jam, WIB: "28 Agustus 2026 20.36". */
+export function formatDateTimeWIB(iso: string, locale: string): string {
+  return new Date(iso).toLocaleString(locale, {
+    timeZone: DISPLAY_TIME_ZONE,
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * Kolom tanggal MURNI (`date` di Postgres, mis. `order_documents.doc_date`)
+ * — BUKAN sebuah titik waktu, jadi TIDAK boleh diperlakukan seperti
+ * created_at. "28 Agustus" pada dokumen berarti 28 Agustus, titik; ia tidak
+ * punya jam yang bisa digeser zona waktu. Dirender dengan jangkar UTC di
+ * kedua sisi (string `T00:00:00Z` + `timeZone: "UTC"`) supaya angkanya
+ * mustahil bergeser sehari ke belakang/depan, apa pun zona server maupun
+ * pembaca.
+ */
+export function formatCalendarDate(day: string, locale: string): string {
+  const iso = day.length <= 10 ? `${day}T00:00:00Z` : day;
+  return new Date(iso).toLocaleDateString(locale, {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/**
+ * Batas hari kalender WIB dalam ISO UTC — untuk filter rentang tanggal.
+ * `dari` = 00:00:00.000 WIB hari itu, `sampai` = 23:59:59.999 WIB hari itu.
+ * Dipakai supaya "1 Agustus" di filter berarti 1 Agustus MENURUT JAM
+ * DINDING STAF, konsisten dengan jam yang ditampilkan di kolom sebelahnya —
+ * bukan 1 Agustus UTC (yang di WIB mulai jam 07:00 pagi).
+ */
+export function wibDayBoundsToIso(day: string, edge: "start" | "end"): string {
+  // +07:00 adalah offset WIB yang TETAP (Indonesia tidak memakai DST), jadi
+  // menuliskannya langsung di string ISO sudah tepat — tidak perlu library
+  // zona waktu untuk kasus ini.
+  const local = edge === "start" ? `${day}T00:00:00.000+07:00` : `${day}T23:59:59.999+07:00`;
+  return new Date(local).toISOString();
+}
+
 /** Parse input uang bebas format ("1.500.000", "Rp 1500000") → angka atau null. */
 export function parseIDRInput(raw: string): number | null {
   const digits = raw.replace(/[^0-9]/g, "");

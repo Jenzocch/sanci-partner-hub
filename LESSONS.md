@@ -234,6 +234,14 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **為什麼沒釀災**：①SQL 是交給 owner 貼進 SQL Editor 的，values 清單人眼可讀，owner 有機會在執行前看到實際數字；②add-only 設計（on conflict do nothing）讓「跑了錯的再跑對的」也救得回來（先 delete 錯的 base rows 即可）。若當時做成「AI 直接寫入」或「覆蓋式」，錯價就直接上線給全部分店看了。
 - **教訓**：**營運文件（試算表尤其）裡同名資料幾乎必有多份，「標題最像正式版」不等於「現行版」。產出任何要寫入生產資料的東西之前，把解析出來的樣本（前幾筆＋筆數＋極值）亮給 owner，明確問「這是現行的對嗎」，等他核對過才執行。**這與 #39 同族：#39 是「寫入前查有沒有比你新的手動修改」，本條是「來源本身可能就不是現行版」。順帶：匯入 SQL 一律 add-only ＋ 執行後回報六類計數（總數/對到/新寫/跳過/找不到/歧義），這次正是靠回報表的 E 列抓到 8 個系統裡還沒建的產品。
 
+### 43. Server component 的 `toLocaleString` 用的是**伺服器**時區（Vercel = UTC），不是讀者的——所有時間顯示必須明寫 `timeZone`〔本專案 2026-08-28，owner 實測回報〕
+- **症狀**：owner 在雅加達 20:36 下單，訂單頁顯示 13:36（差 7 小時）。程式碼看起來完全正常：`new Date(order.created_at).toLocaleString("id-ID")`，locale 也對。
+- **根因**：這些頁是 **server component**，格式化發生在 Vercel 的 Node 行程裡；`toLocaleString` 沒給 `timeZone` 就用**執行環境**的時區，而 Vercel 跑 UTC。locale（`id-ID`）只決定「怎麼寫」（月份名稱、分隔符），完全不決定「哪個時區」——兩件事很容易被混為一談。實測證據：`Intl.DateTimeFormat().resolvedOptions().timeZone` 在 build 環境回傳 `UTC`。
+- **修法**：`lib/orders-shared.ts` 出一組共用函式（`formatDateWIB`／`formatDateShortWIB`／`formatDateTimeWIB`），全部明寫 `timeZone: "Asia/Jakarta"`；**不改資料庫存的值**（照舊 timestamptz UTC，LESSONS #11），純顯示層。不走「在瀏覽器渲染時間」那條路：會產生 hydration mismatch，還逼這些 0 KB client JS 的頁面為了格式化日期而載入 JS。
+- **順帶抓到的第二個 bug**：日期範圍篩選原本用 `T00:00:00.000Z`～`T23:59:59.999Z` 當一天的邊界。以雅加達的牆上時鐘看，**當天凌晨 00:00–07:00 建立的訂單會從「當天」的篩選結果中消失**（它們的 UTC 時戳落在前一天）。改用 `wibDayBoundsToIso()`（`+07:00` 偏移，印尼無日光節約時間所以固定）。實測反證：`00:30 WIB` 的訂單在舊邊界 `false`、新邊界 `true`。
+- **另一類，不可混用**：純日期欄位（Postgres `date`，如 `order_documents.doc_date`）**不是時間點**，不能套 WIB——「8月28日」就是 8月28日。用 `formatCalendarDate()` 兩端都錨定 UTC（`T00:00:00Z` + `timeZone:"UTC"`），任何時區下都不會跳成前/後一天。
+- **教訓**：**「時間顯示錯了」的第一嫌疑犯永遠是「誰在格式化」，不是「值存錯了」。**在 SSR 專案裡，任何 `toLocaleString`/`toLocaleDateString` 沒有明寫 `timeZone` 都是一顆定時炸彈——本機開發時開發者的電腦剛好是當地時區，看起來完全正常，一部署到 UTC 伺服器就集體偏移。同一份程式在兩個地方跑出不同結果，正是 LESSONS #7 那句「成功訊息不是證據」的變體：畫面有數字，不代表數字對。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。

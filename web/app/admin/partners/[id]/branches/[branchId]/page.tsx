@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { formatDateTimeWIB } from "@/lib/orders-shared";
 import AddStaffButton from "./add-staff-button";
 import StaffActions from "./staff-actions";
 import BranchActions from "./branch-actions";
@@ -186,7 +187,7 @@ export default async function BranchDetailPage({
                   <span className="act">{formatAuditAction(m, a.action)}</span>{" "}
                   <span className="muted">· {formatActorRole(m, a.actor_role)}</span>
                   <span className="ts">
-                    {new Date(a.created_at).toLocaleString("id-ID")}
+                    {formatDateTimeWIB(a.created_at, m.common.dateLocale)}
                     {m.admin.createdAtServerTimeSuffix}
                   </span>
                   {diffLines.length > 0 && (

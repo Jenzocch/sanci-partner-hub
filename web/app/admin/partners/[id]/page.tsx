@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { formatDateTimeWIB } from "@/lib/orders-shared";
 import PartnerActions from "./partner-actions";
 import AddBranchButton from "./add-branch-button";
 import AddPackageButton from "./add-package-button";
@@ -581,7 +582,7 @@ export default async function PartnerDetailPage({
                   <span className="act">{formatAuditAction(m, a.action)}</span>{" "}
                   <span className="muted">· {formatActorRole(m, a.actor_role)}</span>
                   <span className="ts">
-                    {new Date(a.created_at).toLocaleString("id-ID")}
+                    {formatDateTimeWIB(a.created_at, m.common.dateLocale)}
                     {m.admin.createdAtServerTimeSuffix}
                   </span>
                   {diffLines.length > 0 && (

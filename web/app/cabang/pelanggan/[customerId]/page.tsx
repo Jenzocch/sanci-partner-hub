@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { displayPhoneID, isMissingTableError, type OrderStatus } from "@/lib/orders-shared";
+import {
+  displayPhoneID,
+  formatDateWIB,
+  isMissingTableError,
+  type OrderStatus,
+} from "@/lib/orders-shared";
 import { getCabangMessages } from "@/lib/i18n";
 import StatusBadge from "../../pesanan/status-badge";
 import CustomerEditActions from "./customer-edit-actions";
@@ -41,7 +46,9 @@ type OrderHistoryRow = {
 
 function formatDate(iso: string, dateLocale: string): string {
   try {
-    return new Date(iso).toLocaleDateString(dateLocale, { day: "numeric", month: "long", year: "numeric" });
+    // created_at pesanan = timestamptz UTC → ditampilkan WIB, sama seperti
+    // di daftar & detail pesanan (lihat formatDateWIB).
+    return formatDateWIB(iso, dateLocale);
   } catch {
     return iso;
   }

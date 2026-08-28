@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { formatIDR, isMissingTableError } from "@/lib/orders-shared";
+import { formatIDR, isMissingTableError, wibDayBoundsToIso } from "@/lib/orders-shared";
 import { getAdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -68,8 +68,8 @@ export default async function AdminAnalyticsPage({
   // SPEC tidak minta presisi jam.
   const dateFrom = sp.dateFrom && DATE_RE.test(sp.dateFrom) ? sp.dateFrom : "";
   const dateTo = sp.dateTo && DATE_RE.test(sp.dateTo) ? sp.dateTo : "";
-  const gteIso = dateFrom ? `${dateFrom}T00:00:00.000Z` : "";
-  const lteIso = dateTo ? `${dateTo}T23:59:59.999Z` : "";
+  const gteIso = dateFrom ? wibDayBoundsToIso(dateFrom, "start") : "";
+  const lteIso = dateTo ? wibDayBoundsToIso(dateTo, "end") : "";
 
   const supabase = await createClient();
 

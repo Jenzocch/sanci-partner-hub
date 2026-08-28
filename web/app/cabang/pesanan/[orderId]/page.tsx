@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   displayPhoneID,
   formatIDR,
+  formatDateTimeWIB,
   isMissingTableError,
   fulfillmentLabel,
   type FulfillmentPath,
@@ -521,13 +522,7 @@ export default async function PesananDetailPage({
           {extrasAvailable && extras.customerArrivedAt && (
             <div className="banner ok">
               {m.cabang.customerArrivedPrefix}{" "}
-              {new Date(extras.customerArrivedAt).toLocaleString(m.common.dateLocale, {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatDateTimeWIB(extras.customerArrivedAt, m.common.dateLocale)}
             </div>
           )}
 
@@ -584,13 +579,7 @@ export default async function PesananDetailPage({
             )}
             <dt>{m.common.createdAt}</dt>
             <dd>
-              {new Date(order.created_at).toLocaleString(m.common.dateLocale, {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatDateTimeWIB(order.created_at, m.common.dateLocale)}
             </dd>
           </dl>
         </div>
@@ -628,13 +617,7 @@ export default async function PesananDetailPage({
                 <div>
                   {m.cabang.cancelTimeLabel}:{" "}
                   {cancelInfo?.cancelled_at
-                    ? new Date(cancelInfo.cancelled_at).toLocaleString(m.common.dateLocale, {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
+                    ? formatDateTimeWIB(cancelInfo.cancelled_at, m.common.dateLocale)
                     : "—"}
                 </div>
               </>

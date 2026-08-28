@@ -6,6 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import { DOC_TYPE_CHIP, docTypeLabel, type DocType } from "@/lib/documents-shared";
+import { formatCalendarDate } from "@/lib/orders-shared";
 import {
   createOrderDocument,
   updateOrderDocument,
@@ -74,11 +75,7 @@ export default function DocumentsSection({
                     <span className="code">{d.doc_number}</span>
                   </td>
                   <td>
-                    {new Date(`${d.doc_date}T00:00:00`).toLocaleDateString(m.common.dateLocale, {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                    {formatCalendarDate(d.doc_date, m.common.dateLocale)}
                   </td>
                   <td>{m.admin.docLinesCount.replace("{n}", String(Object.keys(d.items).length))}</td>
                   <td className="ta-right">

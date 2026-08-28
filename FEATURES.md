@@ -1622,6 +1622,26 @@ grid 版面（rank/name/value 一行、bar 佔滿第二行）在手機和桌機�
   `code_snapshot` 的手動行會被合併成一列（用第一筆遇到的 code），這是
   委派描述明文指定的聚合規則,不是 bug；資料量小、手動行本來就少見。
 
+### 時間顯示改鎖雅加達時間 WIB（2026-08-28，owner：「剛剛做order 時間出來是不對的」）
+
+- **根因**：頁面在伺服器（Vercel＝UTC）格式化時間，`toLocaleString` 沒指定
+  時區就用伺服器的 → 雅加達 20:36 下的單顯示 13:36。詳見 LESSONS #43。
+- **修法**：`lib/orders-shared.ts` 新增共用函式，全部明寫
+  `timeZone: "Asia/Jakarta"`——`formatDateWIB`／`formatDateShortWIB`／
+  `formatDateTimeWIB`；套用到全部 11 個顯示點（admin 訂單列表/詳情/稽核、
+  分店訂單列表/詳情、客戶詳情、合作商與分店稽核）。**資料庫存的值一個字
+  沒動**（照舊 UTC timestamptz），純顯示層。
+- **順帶修好的第二個 bug**：日期範圍篩選原本用 UTC 當日界線，**凌晨
+  00:00–07:00（WIB）建立的訂單會從當天的篩選中消失**；改用
+  `wibDayBoundsToIso()` 以雅加達的日界計算（已用實際時戳反證過）。
+  admin 訂單查詢與銷售分析兩處都套用。
+- **純日期欄位另計**：`doc_date`（SO/DO/Invoice 的文件日期）是日曆日期不是
+  時間點，用 `formatCalendarDate()` 兩端錨定 UTC，永遠不會跳成前/後一天。
+- `createdAtServerTimeSuffix` 從「· waktu server／server time／服务器时间」
+  改成「 WIB」——原本那句在時區修正後就不再誠實了。
+- 人工驗證（owner）：□ 新下一張單，訂單詳情的建立時間跟手機時鐘一致
+  □ 分店訂單列表日期正確 □ 用日期篩選查得到當天（含半夜）建立的訂單
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

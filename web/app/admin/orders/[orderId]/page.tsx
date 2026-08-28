@@ -7,6 +7,7 @@ import {
   orderStatusLabel,
   displayPhoneID,
   formatIDR,
+  formatDateTimeWIB,
   isMissingTableError,
   type FulfillmentPath,
 } from "@/lib/orders-shared";
@@ -611,13 +612,7 @@ export default async function AdminOrderDetailPage({
             )}
             <dt>{m.common.createdAt}</dt>
             <dd>
-              {new Date(order.created_at).toLocaleString("id-ID", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatDateTimeWIB(order.created_at, m.common.dateLocale)}
               {m.admin.createdAtServerTimeSuffix}
             </dd>
           </dl>
@@ -628,13 +623,7 @@ export default async function AdminOrderDetailPage({
             fulfillment.customer_arrived_at ? (
               <div className="banner ok" style={{ marginTop: 14 }}>
                 <strong>{m.admin.customerArrivedLabel}</strong>{" "}
-                {new Date(fulfillment.customer_arrived_at).toLocaleString("id-ID", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatDateTimeWIB(fulfillment.customer_arrived_at, m.common.dateLocale)}
                 {m.admin.createdAtServerTimeSuffix}
               </div>
             ) : (
@@ -666,13 +655,7 @@ export default async function AdminOrderDetailPage({
                   <div>
                     {m.admin.cancelTimePrefix}
                     {cancelResult.data?.cancelled_at
-                      ? new Date(cancelResult.data.cancelled_at).toLocaleString("id-ID", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
+                      ? formatDateTimeWIB(cancelResult.data.cancelled_at, m.common.dateLocale)
                       : "—"}
                   </div>
                 </>
@@ -814,13 +797,7 @@ export default async function AdminOrderDetailPage({
                 {notesResult.notes.map((n) => (
                   <li key={n.id}>
                     <span className="ts">
-                      {new Date(n.created_at).toLocaleString("id-ID", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatDateTimeWIB(n.created_at, m.common.dateLocale)}
                       {m.admin.createdAtServerTimeSuffix}
                     </span>
                     <div>{n.note}</div>
@@ -859,7 +836,7 @@ export default async function AdminOrderDetailPage({
                   <span className="act">{formatAuditAction(m, a.action)}</span>{" "}
                   <span className="muted">· {formatActorRole(m, a.actor_role)}</span>
                   <span className="ts">
-                    {new Date(a.created_at).toLocaleString("id-ID")}
+                    {formatDateTimeWIB(a.created_at, m.common.dateLocale)}
                     {m.admin.createdAtServerTimeSuffix}
                   </span>
                   {a.reason && <div className="diff">{m.admin.reasonDiffPrefix}{a.reason}</div>}
