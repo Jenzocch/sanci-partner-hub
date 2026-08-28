@@ -1794,6 +1794,8 @@ kB 不變**。CJK 掃描：本切片新增/修改檔案零命中 CJK 字元（�
   日期跟牆上時鐘一致 □ 設好 `FONNTE_TOKEN` 後測公司號發送
 
 
+**Migration 0024 狀態：`VERIFIED`(production)** — 2026-08-28 Jenzo 執行並回貼，8/8 項全部相符（含 SIZE_NO_CHECK 0、PRODUCT_NO_PRICE_COLUMN 0、PRODUCT_POLICIES 3、AUDIT_UNTOUCHED_0021/0022 皆 1）。
+
 ### 產品尺寸欄位（migration 0024，2026-08-28，owner：「把 Description 跟 size 放進去」）
 
 - `sanci_products.size` — 單一 text 欄位、可為空、**無 CHECK**：實際資料含
@@ -1809,6 +1811,22 @@ kB 不變**。CJK 掃描：本切片新增/修改檔案零命中 CJK 字元（�
   且只補空值不覆蓋（LESSONS #39）。
 - 人工驗證（owner）：□ 跑 0024 後 8 項驗證數字相符 □ 跑尺寸 SQL 後
   A/B/C 數字相符 □ 產品詳情頁看得到 Ukuran 列 □ 公開頁也看得到
+
+### Migration 0022 / 0023 生產驗證結果（2026-08-28，Jenzo 回貼）
+
+- **0022（產品多照片＋公開頁）Bagian B — 7/7 相符**。最關鍵的
+  `ANON_PRICES_ZERO = 0` 通過：以真實 `SET ROLE anon` 實測，公開產品頁的
+  匿名訪客對 `product_prices` 讀到零筆。`ANON_ORDERS_ZERO`、
+  `ANON_CATALOG_ACCESS_ZERO` 同樣為 0，`ANON_PRODUCT_INACTIVE_ZERO` 為 0
+  （下架產品匿名不可見）。`ANON_PRODUCT_ACTIVE_READ = 173` 與當時的上架
+  產品數一致。**Bagian A（39 項結構檢查）尚未回貼。**
+- **0023（客人訂單連結）— 35/35 全部相符**。要點：`ANON_ORDERS_ROWS 0`、
+  `ATTEMPTS_POLICIES 0`（防猜表 RLS 開啟且零 policy，僅 definer RPC 可碰）、
+  `VIEW_RPC_NO_SELECT_STAR 1`（白名單逐欄，未來欄位不會意外外洩）、
+  `AUDIT_ROW_UNTOUCHED 1`、`TOKEN_MIN_LENGTH 64`、
+  `RPC_REVEAL_FAKE_TOKEN = not_found`。
+- 順帶查明：當時 4 個 NICE DREAM 枕頭處於 INACTIVE（owner 測試停用按鈕所
+  致），已提供復原 SQL。
 
 ## 已知刻意保留的「怪東西」
 
