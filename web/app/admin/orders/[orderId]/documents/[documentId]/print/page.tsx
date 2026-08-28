@@ -334,8 +334,14 @@ function SOSheet({
               <tr key={i}>
                 <td>{i + 1}</td>
                 <td>
-                  {it?.name_snapshot ?? "—"}
-                  {it?.code_snapshot && <span className="itemcode"> ({it.code_snapshot})</span>}
+                  {/* Nama + kode dipisah jadi dua BARIS (owner 2026-08-27:
+                      "品名段落再優化" — screenshot cetak asli menunjukkan
+                      "(KODE)" nempel di ujung nama lalu terpotong tanggung
+                      di tengah saat wrap, kolom sempit jadi terlihat kacau).
+                      Kode sekarang baris sendiri di bawah nama, konsisten
+                      di ketiga dokumen (SO/DO/Invoice). */}
+                  <div>{it?.name_snapshot ?? "—"}</div>
+                  {it?.code_snapshot && <div className="itemcode">{it.code_snapshot}</div>}
                 </td>
                 <td className="photocell">
                   {it?.product_id && photoByProduct.get(it.product_id) ? (
@@ -461,8 +467,14 @@ function DOSheet({
               <tr key={i}>
                 <td>{i + 1}</td>
                 <td>
-                  {it?.name_snapshot ?? "—"}
-                  {it?.code_snapshot && <span className="itemcode"> ({it.code_snapshot})</span>}
+                  {/* Nama + kode dipisah jadi dua BARIS (owner 2026-08-27:
+                      "品名段落再優化" — screenshot cetak asli menunjukkan
+                      "(KODE)" nempel di ujung nama lalu terpotong tanggung
+                      di tengah saat wrap, kolom sempit jadi terlihat kacau).
+                      Kode sekarang baris sendiri di bawah nama, konsisten
+                      di ketiga dokumen (SO/DO/Invoice). */}
+                  <div>{it?.name_snapshot ?? "—"}</div>
+                  {it?.code_snapshot && <div className="itemcode">{it.code_snapshot}</div>}
                 </td>
                 <td>{it?.note || "—"}</td>
                 <td className="num">{l.quantity}</td>
@@ -561,8 +573,14 @@ function InvoiceSheet({
               <tr key={i}>
                 <td>{i + 1}</td>
                 <td>
-                  {it?.name_snapshot ?? "—"}
-                  {it?.code_snapshot && <span className="itemcode"> ({it.code_snapshot})</span>}
+                  {/* Nama + kode dipisah jadi dua BARIS (owner 2026-08-27:
+                      "品名段落再優化" — screenshot cetak asli menunjukkan
+                      "(KODE)" nempel di ujung nama lalu terpotong tanggung
+                      di tengah saat wrap, kolom sempit jadi terlihat kacau).
+                      Kode sekarang baris sendiri di bawah nama, konsisten
+                      di ketiga dokumen (SO/DO/Invoice). */}
+                  <div>{it?.name_snapshot ?? "—"}</div>
+                  {it?.code_snapshot && <div className="itemcode">{it.code_snapshot}</div>}
                 </td>
                 <td className="num">{l.quantity}</td>
                 <td className="num">{formatIDR(price)}</td>
@@ -729,7 +747,7 @@ const PRINT_CSS = `
   .print-sheet .itemtable th,.print-sheet .itemtable td{border:1px solid #999999;padding:5px 7px;text-align:left}
   .print-sheet .itemtable th{background:#eeeeee;font-weight:700}
   .print-sheet .itemtable .num{text-align:right;white-space:nowrap}
-  .print-sheet .itemcode{color:#555555;font-size:11px}
+  .print-sheet .itemcode{color:#666666;font-size:10.5px;margin-top:2px;font-family:"Courier New",Courier,monospace}
   .print-sheet .totaltable{max-width:380px;margin-left:auto}
   .print-sheet .totaltable td{padding:3px 6px;border:none}
   .print-sheet .totaltable .tlabel{color:#333333}
