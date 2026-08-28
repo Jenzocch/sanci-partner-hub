@@ -1642,6 +1642,110 @@ grid 版面（rank/name/value 一行、bar 佔滿第二行）在手機和桌機�
 - 人工驗證（owner）：□ 新下一張單，訂單詳情的建立時間跟手機時鐘一致
   □ 分店訂單列表日期正確 □ 用日期篩選查得到當天（含半夜）建立的訂單
 
+### P2-78 產品多照片＋分店詳情頁＋公開產品頁（migration 0022，2026-08-28，owner 定案全部範圍）
+
+**Migration `0022_product_photos.sql` 狀態**：`UNVERIFIED`（本機 Postgres 16
+完整重放 `0001→…→0021→0022` 驗證過，尚待 Jenzo 在 Supabase Studio 執行）。
+新表 `product_photos`（DI LUAR `sanci_products.photo_url` 封面照，0010 那個
+機制一字未動）：`product_id` FK **ON DELETE RESTRICT**（LESSONS #4 家族慣例，
+刻意跟 0021 `product_prices` 的 CASCADE 不同）、`photo_url` 帶 `?v=`、
+`sort_order` 排序（同產品排序：`sort_order, created_at, id`）。Storage 沿用
+0010 既有公開 bucket `product-photos`，新路徑 `<product_id>/gallery/<隨機
+id>.webp`，bucket 本身/storage RLS **零改動**。
+
+**RLS 決策**（migration 0022 §3–4 有完整逐行理由）：
+- `ph_admin_all`：admin 全權。
+- `ph_partner_read`：跟 `sp_partner_read`（0010）同閘——產品 ACTIVE 且
+  `fn_catalog_enabled()`。
+- **`sp_anon_read`/`ph_anon_read`（全新）**：給公開頁 `/p/[productId]` 用，
+  條件 `auth.uid() is null and status = 'ACTIVE'`。刻意不用 `TO anon`
+  （PG role 限制）而用 `auth.uid() is null`——跟這個 codebase 既有的
+  `fn_pu_partner()`/`fn_is_admin()` 判斷身分的方式一致，也是唯一能被
+  `supabase/test-harness/00_shim.sql` 的 `app_test_user`（同時持有
+  `anon`＋`authenticated` 兩個 grant）真正測到的寫法。**已登入的
+  partner/admin 一律 `auth.uid()` 非空**，所以這條新 policy 對他們永遠是
+  false——不會鬆動既有的目錄開通閘門（T4/T4b 行為測試證實：katalog 未開通
+  的已登入 partner 讀到的仍是 0 行）。
+- `sanci_products` 因此對匿名者公開的欄位（migration 0022 §4 逐欄列出
+  理由）：`id/name/code/category/description/photo_url/stock_status/status`
+  ——沒有一欄是價格（0010 的 `PRODUCT_NO_PRICE_COLUMN=0` 這刀又驗一次）；
+  `client_request_id`/`created_by`/`created_at`/`updated_at` 雖然 RLS
+  層面可讀，但公開頁 Server Component 用**明列欄位**的 `select`（不是
+  `select *`），實際送到瀏覽器的只有上面那七欄再扣掉 `stock_status`（公開
+  頁刻意不顯示庫存狀態，跟分店詳情頁不同）。
+
+**驗證區塊**：Bagian A 結構性斷言 39 條（本機重放全數相符）；Bagian B
+**genuinely `SET ROLE anon`**（不是只讀 policy 文字）驗證
+`ANON_PRODUCT_ACTIVE_READ`/`ANON_PRODUCT_INACTIVE_ZERO`/
+`ANON_PHOTOS_OF_ACTIVE_READ`/`ANON_PHOTOS_OF_INACTIVE_ZERO`/
+**`ANON_PRICES_ZERO`**（最重要一條，即使 `product_prices` 表非空仍為 0）/
+`ANON_ORDERS_ZERO`/`ANON_CATALOG_ACCESS_ZERO` 七項，本機測試資料下全數
+符合期望（1/0/2/0/0/0/0）。行為測試新檔
+`supabase/test-harness/100_behavior_0022.sql`：**17/17 PASS**，含 T4/T4b
+「已登入但katalog未開通的 partner 仍讀 0 行」這條最關鍵的非回歸證明。舊
+suite `20–90_behavior_*.sql` 與新檔一起重放：**160 PASS，0 FAIL**，零回歸。
+冪等 3× `pg_dump -s`（濾除 `\restrict`，LESSONS #33）零漂移。
+
+**B. Admin 端多照片管理**：`app/admin/produk/product-actions.tsx` 的 Ubah
+Produk 彈窗新增「Foto tambahan」區（`product-gallery-client.tsx`）——開彈窗
+時懶載入該產品的 gallery，三態誠實（loading/error 可重試/空，LESSONS
+#10）；可一次選多張（`<input multiple>`，逐張呼叫
+`unggahFotoGaleri`，沿用 `compressImage` PRESET_PRODUK ＋
+`await import("@/lib/supabase/client")` 懶載入慣例，一張失敗不擋其他張）；
+每張可刪——**先刪 DB 列（`deleteProductPhoto`，權威）、storage 檔案
+best-effort 刪（失敗只顯示警告，不復原 DB 刪除）**，孤兒檔案可接受（沒有
+任何一行資料還指向它，只是佔用看不到的 storage 空間）。新 Server Action
+檔 `app/admin/actions-product-photos.ts`（`listProductPhotos`/
+`addProductPhoto`/`deleteProductPhoto`），模式完全鏡射
+`actions-products.ts`（42P01 降級訊息、URL 前綴驗證不信任 client）。
+
+**C. 分店詳情頁 `/cabang/produk/[productId]`**：列表卡片從「按鈕開彈窗」改
+成 `<Link>` 進詳情頁（`produk-list-client.tsx`，卡片樣式/chips 一字未動，
+只補 `text-decoration:none` 因為 `<button>`→`<a>`）；閘門與 `/cabang/produk`
+逐字相同（帳號查詢→katalog 開關→RLS 撈產品），產品不存在/INACTIVE →
+`notFound()`。內容：封面＋galeri 橫向縮圖＋點圖放大（借
+`lib/kalkulator-client.tsx` 的 photoView 燈箱模式）、名稱/代碼/分類/庫存
+chip、**該店有效價**（`fetchEffectivePrices`，`partnerId` 從
+`partner_users` 查——LESSONS #6，沒價就整行不顯示，不顯示 Rp 0，因為 0 是
+「促銷價」不是「沒有價格」）、description 用 `white-space:pre-line` 保留換
+行。「Bagikan ke Pelanggan (WhatsApp)」按鈕：`wa.me/?text=` 帶產品名＋公開
+頁網址，網址從 `headers()` 的 `host`/`x-forwarded-proto` 動態組（不寫死網
+域，vercel.app 跟正式網域都對）。
+
+**D. 公開頁 `/p/[productId]`**：根層 route（`app/p/[productId]/`，不在
+`/cabang`／`/admin` layout 底下）、`force-dynamic`、不用登入。內容：SANCI
+品牌抬頭（`/brand/sanci-logo.png`）、照片群（封面＋galeri，同款燈箱）、
+名稱/代碼/分類、description。**絕對沒有價格、沒有庫存狀態、沒有任何內部
+資訊**——原始碼證明：`grep -rn "price-query\|product_prices" app/p/` 只命中
+註解說明「刻意不 import」，零真正 import；`fetchEffectivePrices`/
+`stock_status` 全檔零出現。文案 hardcode Bahasa Indonesia（比照列印文件頁
+先例，`app/admin/orders/[orderId]/documents/[documentId]/print/page.tsx`，
+不走 i18n——受眾是終端客人）。三態誠實：不存在/已下架顯示「Produk tidak
+tersedia」；查詢失敗顯示誠實錯誤訊息（用字不同，不偽裝成「不存在」）。
+
+**驗證**：`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓、
+`npx eslint .` ✓、`rm -rf .next && npm run build` ✓——`/cabang/produk/
+[productId]`（2.42 kB／First Load 108 kB）與 `/p/[productId]`（880
+B／First Load 104 kB，比共用基準 103 kB 只多 1 kB，證明公開頁沒背上
+i18n/計算器等用不到的 bundle）都出現在路由表；**`/offline` 仍 `○` 1.01
+kB 不變**。CJK 掃描：本切片新增/修改檔案零命中 CJK 字元（含所有註解，
+遵循本專案 SQL/comment 慣例）；`id`/`en` 三語系 `satisfies Shape` 互鎖
+（tsc 0 錯已含此檢查）。
+
+**已知範圍決策**（拿不準先寫下來，非遺漏）：
+- 詳情頁「該店有效價」查詢失敗時**整行不顯示**（跟「沒有價格」同一種畫
+  面），沒有做成第三種「載入失敗」狀態——因為這是展示性資訊不是待編輯的
+  管理畫面（不同於 `/cabang/harga` 那種必須誠實區分錯誤/空的場景，
+  `lib/price-query.ts` 文件註解本身也把這歸類為「prefill 式」用途）。
+- `migrations/README.md` 的 ATURAN BESI 表格只更新了「新增 0022 那一
+  列」＋「0021 那一列補注」＋新的驗證章節，**沒有**逐一改寫 0001–0020 那
+  19 列裡「pemulih fn_audit_row 現在是 0021」的舊敘述（機械上該全部改成
+  0022，但 21 列的歷史交叉引用文字量太大，逐一驗證每句話仍成立的風險高
+  於價值）——README 裡已經留一句明確的「⚠️ 這些舊列已經過期」提示＋單一
+  判準（永遠看重跑最後一個重新定義該函式的檔案）取代逐列改寫。
+- Galeri 排序目前沒有拖曳重排 UI——`sort_order` 欄位留著給以後用，這次全
+  部寫 0（用 `created_at, id` 當自然排序）。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
@@ -1664,3 +1768,6 @@ grid 版面（rank/name/value 一行、bar 佔滿第二行）在手機和桌機�
 - [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0017_customer_code_email.sql`**（阻塞 P2-59 標為 VERIFIED；回貼 24 項驗證結果核對，見該檔頭部）
 - [ ] **Jenzo 在自己電腦跑 `web/scripts/import-customers/run.mjs`**（阻塞 P2-60 標為 VERIFIED；需先完成上一步；照 README.md 兩種憑證方式擇一，回貼結尾摘要——期望新建 33／已完整 1／跳過無電話 2）
 - [ ] Jenzo 用 admin 帳號打開 `/admin/analisis`（P2-77）：側欄看得到「Analisis Penjualan」、切換 Jumlah/Nominal 排序＋日期範圍後橫條圖數字正確、手機寬度下橫條在名稱下方一行仍好讀（本環境無法連 supabase.co，只在代碼層讀證過 RLS/聚合邏輯）
+- [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0022_product_photos.sql`**（阻塞 P2-78 標為 VERIFIED；Bagian A 結構性斷言＋Bagian B 的 `SET ROLE anon` 驗證區塊兩段都要跑，回貼全部結果核對，見該檔頭部；本機 Postgres 16 完整重放與 17/17 行為測試已過，僅待正式資料庫執行）
+- [ ] Jenzo 在 Ubah Produk 彈窗實際上傳多張 galeri 照片＋刪除測試（P2-78 admin 端 UNVERIFIED 的另一半——loading/error/空 三態、多張同時選、刪除後畫面即時更新，本環境無法連 supabase.co 實測 storage 上傳）
+- [ ] Jenzo 實機開 `/cabang/produk/[id]` 與 `/p/[id]`（P2-78）：分店詳情頁的「Bagikan ke Pelanggan (WhatsApp)」按鈕實際點開 WhatsApp 且訊息帶對網址；公開頁在手機瀏覽器（無痕/未登入）打開能看到照片與說明，**看不到任何價格或庫存字樣**

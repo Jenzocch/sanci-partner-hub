@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import Link from "next/link";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
 import { useCatalogSearch, type CatalogFetchResult } from "@/lib/use-catalog-search";
 import { useCabangMessages } from "@/lib/i18n/provider";
@@ -38,7 +39,6 @@ export default function ProdukListClient({
   categories: string[];
 }) {
   const m = useCabangMessages();
-  const [selected, setSelected] = useState<ProdukItem | null>(null);
 
   const fetchForHook = useCallback(
     async (input: { q: string; category: string | null; offset: number; withCategories?: boolean }): Promise<
@@ -135,11 +135,10 @@ export default function ProdukListClient({
           {products.map((it) => {
             const isOut = it.stockStatus === "OUT_OF_STOCK";
             return (
-              <button
+              <Link
                 key={it.id}
-                type="button"
+                href={`/cabang/produk/${it.id}`}
                 className={`${styles.card}${isOut ? ` ${styles.outofstock}` : ""}`}
-                onClick={() => setSelected(it)}
                 aria-label={m.cabang.produkViewDetailAria.replace("{name}", it.name)}
               >
                 <div className={styles.photo}>
@@ -155,7 +154,7 @@ export default function ProdukListClient({
                   {it.category && <div className={styles.cat}>{it.category}</div>}
                   <span className={STOCK_STATUS_CHIP[it.stockStatus]}>{stockStatusLabel(m, it.stockStatus)}</span>
                 </div>
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -171,38 +170,6 @@ export default function ProdukListClient({
           >
             {loadingMore ? m.common.loading : m.common.loadMoreCta}
           </button>
-        </div>
-      )}
-
-      {selected && (
-        <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSelected(null)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label={m.cabang.produkDetailAria.replace("{name}", selected.name)}>
-            <div className={styles.detailphoto}>
-              {selected.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal), lihat catatan di lib/catalog-shared.ts
-                <img src={selected.photoUrl} alt={selected.name} />
-              ) : (
-                <div className={styles.placeholder}>{m.common.noPhotoPlaceholder}</div>
-              )}
-            </div>
-            <h2>{selected.name}</h2>
-            <div className="stack" style={{ marginTop: 12 }}>
-              <div className="row">
-                {selected.code && <span className="code">{selected.code}</span>}
-                <span className={STOCK_STATUS_CHIP[selected.stockStatus]}>
-                  {stockStatusLabel(m, selected.stockStatus)}
-                </span>
-              </div>
-              {selected.category && <div className="muted small">{selected.category}</div>}
-              {/* Tanpa harga sama sekali (SPEC slice 5) — penawaran disampaikan SANCI secara manual. */}
-              {selected.description && <p className="sub">{selected.description}</p>}
-            </div>
-            <div className="btnrow">
-              <button type="button" className="btn" onClick={() => setSelected(null)}>
-                {m.common.close}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </>

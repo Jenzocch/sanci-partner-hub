@@ -17,6 +17,7 @@ import {
   updateProduct,
 } from "../actions-products";
 import { unggahFotoProduk } from "./upload-product-photo";
+import ProductGalleryClient from "./product-gallery-client";
 
 /**
  * Kolom Harga Dasar SANCI (0021) di modal Ubah. Nilainya dimuat MALAS saat
@@ -295,6 +296,12 @@ export default function ProductActions({ product }: { product: ProductActionRow 
                 />
                 <div className="hint">{m.admin.productPhotoHintKeep}</div>
               </div>
+              {/* Foto tambahan (migration 0022, galeri DI LUAR foto sampul di
+                  atas) — dimuat malas oleh komponen ini sendiri saat modal ini
+                  ter-mount (`modal === "edit"` di bawah), bukan di openEdit()
+                  seperti Harga Dasar SANCI: galeri punya alur tambah/hapusnya
+                  sendiri yang independen dari submit form Ubah Produk ini. */}
+              <ProductGalleryClient productId={product.id} />
               <div className="btnrow">
                 <button type="button" className="btn" onClick={closeModal}>
                   {m.common.cancel}

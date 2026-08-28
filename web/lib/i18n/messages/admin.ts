@@ -506,6 +506,19 @@ const id = {
   photoUrlUnrecognized: "Alamat foto tidak dikenali.",
   catalogSettingInvalid: "Tidak bisa menyimpan pengaturan katalog sekarang.",
 
+  // ---- Galeri Foto Produk (migration 0022, product-gallery-client.tsx) ----
+  // DI LUAR foto sampul (field "Foto" di atas) — galeri foto TAMBAHAN, tampil
+  // sebagai strip thumbnail di detail cabang/publik. Tiga keadaan (LESSONS
+  // #10): loading / error-bisa-dicoba-lagi / kosong sungguhan.
+  productGalleryTitle: "Foto tambahan",
+  productGalleryHint: "Bisa pilih beberapa foto sekaligus. PNG, JPG, atau WebP, maksimal 5 MB per foto.",
+  productGalleryLoadFailed: "Galeri foto gagal dimuat.",
+  productGalleryEmpty: "Belum ada foto tambahan.",
+  productGalleryUploading: "Mengunggah foto…",
+  productGalleryDeleteAria: "Hapus foto ini",
+  productGalleryDeleteFailed: "Foto gagal dihapus.",
+  productGalleryUploadPartialFailed: "{n} dari {total} foto gagal diunggah — coba unggah ulang yang gagal.",
+
   // ---- Pesanan Partner — daftar (orders/page.tsx) ----
   ordersFeatureOff: "Fitur pesanan belum aktif — migration database belum dijalankan.",
   ordersSearchPlaceholder: "Cari nomor pesanan / customer / telepon / no. PO / produk / sales…",
@@ -1342,6 +1355,15 @@ const en = {
   photoUrlUnrecognized: "Photo address not recognized.",
   catalogSettingInvalid: "Cannot save the catalog setting right now.",
 
+  productGalleryTitle: "Additional photos",
+  productGalleryHint: "You can pick several photos at once. PNG, JPG, or WebP, max 5 MB per photo.",
+  productGalleryLoadFailed: "The photo gallery failed to load.",
+  productGalleryEmpty: "No additional photos yet.",
+  productGalleryUploading: "Uploading photo…",
+  productGalleryDeleteAria: "Delete this photo",
+  productGalleryDeleteFailed: "The photo failed to delete.",
+  productGalleryUploadPartialFailed: "{n} of {total} photos failed to upload — try re-uploading the failed ones.",
+
   ordersFeatureOff: "The orders feature is not active yet — the database migration has not been run.",
   ordersSearchPlaceholder: "Search order number / customer / phone / PO no. / product / sales…",
   filterFulfillmentAll: "Fulfillment: all",
@@ -2094,6 +2116,15 @@ const zh = {
   photoUploadFailed: "照片上传失败 —— 产品信息已保存。",
   photoUrlUnrecognized: "无法识别照片地址。",
   catalogSettingInvalid: "现在无法保存产品目录设置。",
+
+  productGalleryTitle: "附加照片",
+  productGalleryHint: "可以一次选择多张照片。PNG、JPG 或 WebP 格式,每张最大 5 MB。",
+  productGalleryLoadFailed: "照片相册加载失败。",
+  productGalleryEmpty: "还没有附加照片。",
+  productGalleryUploading: "正在上传照片…",
+  productGalleryDeleteAria: "删除这张照片",
+  productGalleryDeleteFailed: "照片删除失败。",
+  productGalleryUploadPartialFailed: "{total} 张照片中有 {n} 张上传失败 —— 请重新上传失败的照片。",
 
   ordersFeatureOff: "订单功能尚未启用 —— 数据库迁移脚本还没有执行。",
   ordersSearchPlaceholder: "搜索订单编号 / 客户 / 电话 / PO 号 / 产品 / 销售员…",

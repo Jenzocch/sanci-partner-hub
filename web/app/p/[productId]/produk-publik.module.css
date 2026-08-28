@@ -1,0 +1,72 @@
+/* Halaman publik produk (/p/[productId], migration 0022) — CSS Module
+   TERSENDIRI (bukan meng-import app/cabang/produk/produk.module.css):
+   halaman ini root-level, tanpa login, dilihat PELANGGAN lewat WhatsApp —
+   sengaja dijaga independen dari struktur /cabang supaya perubahan di
+   satu sisi tidak pernah tanpa sadar menggeser tampilan sisi lain. Token
+   warna/radius/shadow tetap dari STYLE CONTRACT global (var(--surface) dkk),
+   hanya nama kelasnya yang dilokalkan lewat CSS Module. */
+
+.wrap {
+  max-width: var(--read-max);
+  margin: 0 auto;
+  padding: 20px 16px calc(28px + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .wrap { max-width: 680px; padding: 36px 24px 48px; }
+}
+
+.brandrow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.brandlogo { height: 30px; width: auto; display: block; }
+
+.detailphoto {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface2);
+  margin-bottom: 16px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+}
+.detailphoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.gallerystrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 18px;
+  -webkit-overflow-scrolling: touch;
+}
+.gallerythumb {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface2);
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.gallerythumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallerythumbOn { border-color: var(--accent); }
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--faint);
+  font-size: var(--fs-caption);
+  text-align: center;
+  line-height: var(--lh-tight);
+  padding: 8px;
+}

@@ -20,6 +20,11 @@
   .grid { grid-template-columns: repeat(5, 1fr); }
 }
 
+/* Sejak migration 0022 kartu ini adalah <Link> (bukan <button>) yang
+   membawa ke /cabang/produk/[productId] — `color:inherit`/`text-decoration:
+   none` di sini menjaga kartu tetap terlihat SAMA seperti sebelumnya (bukan
+   underline biru khas tautan, STYLE CONTRACT §10 `.reccard`/`.staffcard`
+   memakai pola yang sama untuk kartu yang jadi tautan). */
 .card {
   display: flex;
   flex-direction: column;
@@ -32,6 +37,8 @@
   overflow: hidden;
   padding: 0;
   cursor: pointer;
+  color: inherit;
+  text-decoration: none;
   transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 .card:hover { background: var(--surface2); box-shadow: var(--shadow); }
@@ -118,5 +125,35 @@
   overflow: hidden;
   background: var(--surface2);
   margin-bottom: 16px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: block;
 }
 .detailphoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* Strip thumbnail galeri — halaman detail cabang (/cabang/produk/[productId])
+   dan halaman publik (/p/[productId], migration 0022). Baris horizontal yang
+   bisa di-scroll (bukan grid) supaya jumlah foto berapa pun tetap satu baris
+   rapi di layar ponsel sempit. */
+.gallerystrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 18px;
+  -webkit-overflow-scrolling: touch;
+}
+.gallerythumb {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface2);
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.gallerythumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallerythumbOn { border-color: var(--accent); }

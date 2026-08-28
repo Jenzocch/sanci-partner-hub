@@ -31,6 +31,7 @@ const id = {
   navBackHome: "← Beranda",
   navBackCustomers: "← Pelanggan",
   navBackOrders: "← Daftar Pesanan",
+  navBackProducts: "← Daftar Produk",
 
   // Error umum lintas halaman (dipakai berulang — satu kalimat, satu kunci)
   errAccountLoad: "Data akun gagal dimuat. Muat ulang halaman untuk mencoba lagi.",
@@ -265,7 +266,15 @@ const id = {
   // noPhotoPlaceholder pindah ke common.ts (2026-08-22, dipakai kalkulator
   // dua area — produk-list-client.tsx ikut membacanya dari sana).
   produkViewDetailAria: "Lihat detail {name}",
-  produkDetailAria: "Detail {name}",
+  // ---- Detail Produk (/cabang/produk/[productId], migration 0022) ----
+  errProductDetailLoadFailed: "Gagal memuat detail produk.",
+  produkDetailPriceLabel: "Harga Normal",
+  produkDetailGalleryAria: "Lihat foto {n} dari {total}",
+  produkDetailShareBtn: "Bagikan ke Pelanggan (WhatsApp)",
+  // {name} nama produk, {url} alamat halaman publik /p/[productId] —
+  // disusun server (headers() untuk host, LESSONS: jangan tulis domain
+  // statis supaya vercel.app maupun domain resmi sama-sama benar).
+  produkDetailShareText: "Lihat produk ini: {name}\n{url}",
 
   // Penawaran SANCI (0014 izin can_view_offer/can_edit_offer, 0015 rantai
   // diskon can_discount) — hanya terlihat/terisi kalau admin membuka izinnya
@@ -394,6 +403,7 @@ const en = {
   navBackHome: "← Home",
   navBackCustomers: "← Customers",
   navBackOrders: "← Orders",
+  navBackProducts: "← Product List",
 
   errAccountLoad: "Could not load account data. Reload the page to try again.",
   errAccountLoadRetry: "Could not load account data — try again.",
@@ -604,7 +614,11 @@ const en = {
   catalogNotOpenedMsg: "The catalog hasn't been opened for your store yet — contact SANCI.",
   errProductListLoadFailed: "Could not load the product list.",
   produkViewDetailAria: "View details for {name}",
-  produkDetailAria: "{name} details",
+  errProductDetailLoadFailed: "Could not load the product detail.",
+  produkDetailPriceLabel: "Normal Price",
+  produkDetailGalleryAria: "View photo {n} of {total}",
+  produkDetailShareBtn: "Share with Customer (WhatsApp)",
+  produkDetailShareText: "Check out this product: {name}\n{url}",
 
   cabangOfferCardTitle: "SANCI offer",
   cabangOfferEmpty: "No SANCI offer for this order yet.",
@@ -711,6 +725,7 @@ const zh = {
   navBackHome: "← 首页",
   navBackCustomers: "← 客户",
   navBackOrders: "← 订单列表",
+  navBackProducts: "← 产品列表",
 
   errAccountLoad: "账号信息加载失败,请刷新页面重试。",
   errAccountLoadRetry: "账号信息加载失败 —— 请重试。",
@@ -908,7 +923,11 @@ const zh = {
   catalogNotOpenedMsg: "您的门店产品目录还没有开通 —— 请联系 SANCI。",
   errProductListLoadFailed: "产品列表加载失败。",
   produkViewDetailAria: "查看{name}详情",
-  produkDetailAria: "{name}详情",
+  errProductDetailLoadFailed: "产品详情加载失败。",
+  produkDetailPriceLabel: "标准售价",
+  produkDetailGalleryAria: "查看第 {n} / {total} 张照片",
+  produkDetailShareBtn: "分享给客户(WhatsApp)",
+  produkDetailShareText: "看看这个产品:{name}\n{url}",
 
   cabangOfferCardTitle: "SANCI 方案金额",
   cabangOfferEmpty: "这笔订单还没有 SANCI 方案金额。",
