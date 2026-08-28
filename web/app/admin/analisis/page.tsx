@@ -235,7 +235,10 @@ export default async function AdminAnalyticsPage({
                     {r.manual && <span className="chip neutral">{m.admin.analyticsManualBadge}</span>}
                   </div>
                   <div className="rankbar-value num">
-                    {sort === "qty" ? r.qty.toLocaleString("id-ID") : formatIDR(r.amount)}
+                    {/* "en-US" agar pemisah ribuannya sama dengan formatIDR
+                        (koma) — dua angka bersebelahan di kolom yang sama
+                        tidak boleh memakai konvensi yang berbeda. */}
+                    {sort === "qty" ? r.qty.toLocaleString("en-US") : formatIDR(r.amount)}
                   </div>
                   <div className="rankbar-track">
                     <div className="rankbar-fill" style={{ width: `${pct}%` }} />

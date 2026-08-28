@@ -66,12 +66,39 @@ export function fulfillmentDesc(m: HasCommon, p: FulfillmentPath): string {
     : m.common.fulfillmentShowroomDesc;
 }
 
-/** Format Rupiah tanpa sen: 1500000 → "Rp 1.500.000". */
+/**
+ * Format Rupiah tanpa sen: 1500000 → "Rp 1,500,000".
+ *
+ * Pemisah ribuan KOMA dan desimal TITIK (gaya en-US), keputusan owner
+ * 2026-08-28: "數字的用美國樣式好了,比較清楚" — angka besar seperti
+ * Rp 40,200,000 lebih cepat dibaca daripada 40.200.000 saat harga
+ * dibacakan ke pelanggan.
+ *
+ * SATU format untuk SEMUA bahasa dan SEMUA permukaan — layar, dokumen
+ * cetak (SO/DO/Invoice), dan log audit (lib/audit-format.ts memanggil
+ * fungsi ini). Sengaja TIDAK mengikuti `m.common.dateLocale`: kalau
+ * formatnya ikut bahasa penampil, dua staf yang mencetak invoice yang
+ * SAMA akan menghasilkan dua dokumen yang terlihat berbeda — untuk
+ * berkas komersial itu lebih buruk daripada memakai satu konvensi.
+ *
+ * Sisi INPUT tidak terpengaruh: parseIDRInput() membuang semua karakter
+ * non-digit, jadi "40.200.000" maupun "40,200,000" sama-sama terbaca
+ * 40200000 — tidak ada data lama yang perlu dikonversi.
+ *
+ * `currencyDisplay:"narrowSymbol"` WAJIB ada: tanpa itu locale en-US
+ * menulis "IDR 40,200,000". Simbol yang dikenal staf toko dan pelanggan
+ * Indonesia adalah "Rp" — "IDR" adalah kode bank internasional. Dengan
+ * opsi ini kita mendapat KEDUANYA: pemisah gaya AS DAN simbol "Rp",
+ * lengkap dengan U+00A0 (non-breaking space) yang sama persis seperti
+ * format id-ID sebelumnya, sehingga tata letak dokumen cetak tidak
+ * bergeser satu karakter pun.
+ */
 export function formatIDR(amount: number): string {
-  return new Intl.NumberFormat("id-ID", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
+    currencyDisplay: "narrowSymbol",
   }).format(amount);
 }
 
