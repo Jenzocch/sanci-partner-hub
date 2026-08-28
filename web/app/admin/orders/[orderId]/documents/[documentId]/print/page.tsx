@@ -21,6 +21,16 @@ export const dynamic = "force-dynamic";
  * sekitar halaman ini (sidebar admin, nav) tetap ikut bahasa yang dipilih —
  * hanya ISI DOKUMEN yang dibekukan ke Bahasa Indonesia.
  *
+ * "Dibekukan" BUKAN berarti "bebas mengarang kata": teksnya ditulis di sini,
+ * tapi ISTILAHNYA tetap istilah yang sama dengan layar aplikasi versi Bahasa
+ * Indonesia (`lib/i18n/messages/common.ts` + GLOSSARY.md) — Subtotal, Diskon,
+ * Harga Akhir, Harga Satuan, Uang Muka (DP), Potongan Tunai, Sisa Bayar.
+ * Pegawai membaca angka yang sama di HP-nya lalu menyerahkan kertas ini ke
+ * pelanggan; kalau kertasnya memakai nama lain untuk angka yang sama
+ * ("Harga Akhir" di layar vs "Total Setelah Disc" di kertas), yang bingung
+ * adalah orang di depan meja. Kalau nama sebuah angka berubah di common.ts,
+ * ubah juga di sini.
+ *
  * AUTH: server component ini TIDAK menambah pemeriksaan admin sendiri —
  * route ini bersarang di bawah `app/admin/layout.tsx`, yang SUDAH menolak
  * pengguna bukan-admin (redirect ke "/") sebelum halaman ini pernah
@@ -315,7 +325,7 @@ function SOSheet({
       {/* Dua baris per barang (owner 2026-08-27: "分成兩列...上面是品名照片
           catatan規格顏色...第二段才是數量價格折扣") — baris atas keterangan
           barang (Foto/Item/Ukuran/Catatan/Warna), baris bawah SATU strip
-          ringkas Qty/Harga/Disc/Setelah Disc rata kanan. Alasan: dengan
+          ringkas Qty/Harga Satuan/Potongan/Jumlah rata kanan. Alasan: dengan
           kolom Foto, 10 kolom sejajar terlalu sempit di A4 (bukti screenshot
           cetak asli owner — "(KODE)" sampai terpotong tanggung). Sepasang
           baris per barang TIDAK BOLEH terpisah halaman — rowtop/rowbottom di
@@ -370,15 +380,15 @@ function SOSheet({
                         <span className="val">{l.quantity}</span>
                       </span>
                       <span>
-                        <span className="lbl">Harga</span>
+                        <span className="lbl">Harga Satuan</span>
                         <span className="val">{formatIDR(price)}</span>
                       </span>
                       <span>
-                        <span className="lbl">Disc</span>
+                        <span className="lbl">Potongan</span>
                         <span className="val">{formatIDR(disc)}</span>
                       </span>
                       <span>
-                        <span className="lbl">Setelah Disc</span>
+                        <span className="lbl">Jumlah</span>
                         <span className="val strong">{formatIDR(afterDisc)}</span>
                       </span>
                     </div>
@@ -393,12 +403,12 @@ function SOSheet({
       <table className="totaltable">
         <tbody>
           <tr>
-            <td className="tlabel">SubTotal</td>
+            <td className="tlabel">Subtotal</td>
             <td className="tval">{formatIDR(subtotal)}</td>
           </tr>
           {offer?.discountPcts.map((p, i) => (
             <tr key={i}>
-              <td className="tlabel">Discount {i + 1}</td>
+              <td className="tlabel">Diskon {i + 1}</td>
               <td className="tval">{p}%</td>
             </tr>
           ))}
@@ -414,8 +424,12 @@ function SOSheet({
               <td className="tval">{formatIDR(offer.cashDiscount)}</td>
             </tr>
           )}
+          {/* `final_amount` (0015) — di layar aplikasi angka ini bernama
+              "Harga Akhir" (common.ts `finalAmount`), jadi kertasnya memakai
+              nama yang sama. Tanpa baris penawaran, jatuh ke subtotal baris:
+              tetap "harga akhir" yang ditagih, hanya belum ada diskon. */}
           <tr>
-            <td className="tlabel strong">Total Setelah Disc</td>
+            <td className="tlabel strong">Harga Akhir</td>
             <td className="tval strong">{formatIDR(offer?.finalAmount ?? subtotal)}</td>
           </tr>
           <tr>
@@ -587,9 +601,9 @@ function InvoiceSheet({
             <th>No.</th>
             <th>Item</th>
             <th>Qty</th>
-            <th>Harga</th>
-            <th>Disc</th>
-            <th>Setelah Disc</th>
+            <th>Harga Satuan</th>
+            <th>Potongan</th>
+            <th>Jumlah</th>
           </tr>
         </thead>
         <tbody>
@@ -622,8 +636,15 @@ function InvoiceSheet({
 
       <table className="totaltable">
         <tbody>
+          {/* BUKAN subtotal, walaupun dulu tertulis begitu: angkanya
+              `final_amount` — ekspresi yang PERSIS SAMA dengan baris "Harga
+              Akhir" di SO, dan Sisa Bayar di bawah dihitung darinya. Invoice
+              memang tidak pernah mencetak subtotal sebelum diskon (rincian
+              per baris sudah ada di tabel di atas), jadi namanya diluruskan
+              ke "Harga Akhir" — sama dengan layar aplikasi dan sama dengan
+              SO, supaya satu angka tidak punya dua nama di dua kertas. */}
           <tr>
-            <td className="tlabel strong">SubTotal</td>
+            <td className="tlabel strong">Harga Akhir</td>
             <td className="tval strong">{formatIDR(offer?.finalAmount ?? subtotal)}</td>
           </tr>
           <tr>
@@ -776,7 +797,7 @@ const PRINT_CSS = `
   .print-sheet .itemtable th{background:#eeeeee;font-weight:700}
   .print-sheet .itemtable .num{text-align:right;white-space:nowrap}
   .print-sheet .itemcode{color:#666666;font-size:10.5px;margin-top:2px;font-family:"Courier New",Courier,monospace}
-  /* Baris bawah (Qty/Harga/Disc/Setelah Disc) — hanya tabel SO yang punya
+  /* Baris bawah (Qty/Harga Satuan/Potongan/Jumlah) — hanya tabel SO yang punya
      .rowtop/.rowbottom (DO tidak ada uang, Invoice tidak ada Foto/Ukuran/
      Catatan/Warna jadi tidak sesak). Garis antar dua baris satu barang
      dihilangkan supaya terlihat SATU blok, ditutup strip abu-abu. */
