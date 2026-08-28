@@ -1524,6 +1524,97 @@ byte-for-byte 相同。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` 0 錯誤
   □ 打 PO 號找得到 □ 打業務員名字找得到 □ 日期範圍縮小結果
   □ 打含 % 或 _ 的字不會亂匹配
 
+### P2-77 Admin 銷售分析：熱銷產品排行（2026-08-28，owner 定案「只有 admin 看得到；分析面向先做熱銷排行」）
+
+新頁 `/admin/analisis`（server component，`force-dynamic`），零 migration/RPC/view
+——聚合完全在 server component 記憶體做（委派任務的紅線）。`admin-nav.tsx`
+新增「Analisis Penjualan」入口，排在 Pesanan 之後、Kalkulator 之前（見
+`admin-nav.tsx` 註解：這是回顧「已經進來的」訂單，跟 Kalkulator 那種面向
+「還沒成交」的工具方向相反，放在 Pesanan 旁邊比擠進舊的五項尾端更貼近
+「pakai logika pengguna」的既有排序慣例）。
+
+**RLS 判定（讀原文，非猜測）**：`supabase/migrations/0014_permissions_items_shipping.sql`
+第 561–563 行——`oi_admin_all`：`create policy oi_admin_all on public.order_items
+for all using (public.fn_is_admin()) with check (public.fn_is_admin());`，
+admin 讀取**全部** order_items 無所有權限制（跟分店端 `oi_partner_read`，
+第 571–579 行，被 `fn_can_view_branch` 限制在自己分店的訂單不同）。`partner_orders`
+的 admin 全讀 policy 在 `0004_orders_customers.sql` 第 369–370 行
+（`o_admin_all ... using fn_is_admin()`）。頁面本身沒有另外查
+`platform_admins`——`AdminLayout`（`app/admin/layout.tsx`）已經在渲染前擋掉
+非 admin（LESSONS #5：UI 門禁只是體驗，真正邊界是這兩條 RLS policy）。
+
+**聚合實作與 round-trip 數（2 次，不是 3）**：①`partner_orders` 只選
+`id`，`eq("status","REGISTERED")` + 日期範圍（沿用 `/admin/orders` 剛上線
+的同款 `DATE_RE` 驗證 + UTC 原樣比對取捨，註解逐字抄過去）；②`order_items`
+`.in("order_id", 那批 id)`，`created_at` 新→舊，`.limit(5000)`。**沒有第
+三次查 `sanci_products`**——`name_snapshot`/`code_snapshot` 已經是 0014
+凍結的欄位，聚合直接讀它們，不用回頭 join 目錄。**排除 CANCELLED 的做
+法**：先查 REGISTERED 的訂單 id（表小、有 status/日期可以直接篩），再
+`.in()` 過濾 order_items——選這個方向而不是「先抓 items 再反查」，因為
+order_items 本身沒有 status 欄位可篩，先抓 items 會把 5000 筆掃描上限的
+額度浪費在本來就要丟掉的 CANCELLED／範圍外舊資料上（見 page.tsx 註解）；
+`orderIds.length === 0` 時直接跳過第二次查詢（不是把空陣列丟進
+`.in()` 再等一次確定回空的 round-trip）。
+
+**聚合鍵**：`product_id`（有值用它），null 的手動行改用
+`` `manual:${name_snapshot}` `` 當鍵並標「Item manual」badge。營收
+`(unit_price - line_discount) × quantity`，`unit_price` 為 null 當 0，
+footnote（`analyticsUnpricedNote`）只在**真的有**未填價格的行時才出現，
+且帶行數——比委派描述的「一律顯示」更誠實（不是每次都提醒使用者一件沒
+發生的事）。排序：GET 參數 `sort=qty|amount`，預設 `amount`（金額），各取
+前 20 名，`.select` 一次抓完在記憶體排序（資料量小，不值得為排序另開一
+條走 DB `order by` 的查詢路徑）。
+
+**掃描上限**：`ORDER_ITEMS_SCAN_LIMIT=5000`（比 `/admin/orders` 搜尋用的
+200 寬鬆得多——這裡是分析全量,不是即時搜尋自動完成）。命中上限時
+footnote `analyticsScanCapNote` 誠實列出上限數字，不靜默截斷
+（LESSONS #10）。`ORDER_ID_SCAN_LIMIT=20000` 是給訂單 id 查詢的防禦性上
+限（LESSONS #6：不留無上限查詢），目前資料量（幾十筆訂單）離這個數字
+非常遠，沒有另外做 footnote——真的撞到代表資料量已經跟現在的系統規模
+完全不成比例，屆時 item 上限的 footnote 仍然會誠實反映「只算了部分」。
+
+**三態誠實**：`isMissingTableError` → `analyticsFeatureOff`（遷移還沒
+跑，不是「沒有資料」）；`queryErr` → `m.common.errorLoad`（DB 錯誤，不
+是「零筆」）；`ranked.length===0` → `analyticsEmpty`（範圍內真的零筆）
+——三條分支互斥，不共用同一個 loading/empty 判斷（LESSONS #10）。
+
+**圖表**：純 CSS 橫條圖（`globals.css` §18，`.rankbar-*`），寬度 =
+`該列值/當頁最大值 × 100%`，背景 `var(--accent-soft)`、填充
+`var(--accent)`——沒有引入任何圖表函式庫（LESSONS #38：這是純 server
+component，零額外 client JS，`next build` 證實 `/admin/analisis` 是
+179 B／First Load 103 kB，等於全站共用基準，沒有多背一絲一毫）。單一
+grid 版面（rank/name/value 一行、bar 佔滿第二行）在手機和桌機都成立，
+不需要另外的 mobile-only 變體。
+
+**i18n（三語 id/en/zh，全部走 `admin` slice，`satisfies Shape` 鎖住 key
+集合）**：`navAnalytics`、`analyticsCardTitle`、`analyticsSortLabel`、
+`analyticsSortAmount`、`analyticsSortQty`、`analyticsManualBadge`、
+`analyticsFeatureOff`、`analyticsEmpty`、`analyticsShowingCount`、
+`analyticsScanCapNote`、`analyticsUnpricedNote`（11 個新 key）；日期
+範圍標籤直接重用既有 `ordersDateFromLabel`/`ordersDateToLabel`、搜尋鈕
+重用 `common.search`、錯誤重用 `common.errorLoad`——沒有新造重複譯文
+（GLOSSARY「一個概念一個詞」）。zh 區塊已核對 GLOSSARY 15 個繁體禁用詞
+零命中；id/en 兩區塊 CJK 殘留掃描零命中。
+
+**驗證**：`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` ✓ 0 錯誤、
+`npx eslint .` ✓ 0 警告、`rm -rf .next && npm run build` ✓（整棵樹一起
+跑，LESSONS #31）——`/admin/analisis` **179 B／First Load 103 kB**（等於
+全站共用基準 103 kB，純 server render 沒有額外 client bundle）；
+`/offline` 仍 `○` 靜態、**1.01 kB 不變**（這一刀完全沒碰 `common`/
+`offline` slice，LESSONS #38 的風險不適用）。JSX 硬編碼可見文字掃描
+（人工逐行核對 `page.tsx`/`loading.tsx` 的 return 區塊）零命中——每個文字
+節點都來自 `m.admin.*`/`m.common.*`。**沒有新 migration**——完全複用
+0014 既有的 `oi_admin_all`／`o_admin_all` policy，符合委派任務的紅線。
+
+**本切片刻意不做／範圍縮減（已知邊界，非遺漏）**：
+- **只有熱銷排行一種分析面向**——委派任務明講「分析面向先做熱銷排行」，
+  其他面向（業務員排行、partner/cabang 排行、趨勢圖）留給後續切片。
+- **沒有分店/partner 維度的篩選**——目前只有日期範圍 + 排序切換兩個
+  GET 參數；要加「只看某 partner」之類篩選是下一刀的事,不是這刀漏做。
+- **手動項目（product_id null）用 name_snapshot 聚合**——同名但不同
+  `code_snapshot` 的手動行會被合併成一列（用第一筆遇到的 code），這是
+  委派描述明文指定的聚合規則,不是 bug；資料量小、手動行本來就少見。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
@@ -1545,3 +1636,4 @@ byte-for-byte 相同。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` 0 錯誤
 - [ ] 之後依 SPEC §90 順序實作（Tests → Security test → Offline test → Self audit → Final verification）
 - [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0017_customer_code_email.sql`**（阻塞 P2-59 標為 VERIFIED；回貼 24 項驗證結果核對，見該檔頭部）
 - [ ] **Jenzo 在自己電腦跑 `web/scripts/import-customers/run.mjs`**（阻塞 P2-60 標為 VERIFIED；需先完成上一步；照 README.md 兩種憑證方式擇一，回貼結尾摘要——期望新建 33／已完整 1／跳過無電話 2）
+- [ ] Jenzo 用 admin 帳號打開 `/admin/analisis`（P2-77）：側欄看得到「Analisis Penjualan」、切換 Jumlah/Nominal 排序＋日期範圍後橫條圖數字正確、手機寬度下橫條在名稱下方一行仍好讀（本環境無法連 supabase.co，只在代碼層讀證過 RLS/聚合邏輯）

@@ -524,6 +524,21 @@ const id = {
   ordersProductMatchCapped:
     "Pencarian nama/kode produk hanya memindai 200 item pesanan terbaru — sebagian pesanan lama yang cocok mungkin tidak ikut muncul.",
 
+  // ---- Analisis Penjualan — Produk Terlaris (analisis/page.tsx) ----
+  navAnalytics: "Analisis Penjualan",
+  analyticsCardTitle: "Produk Terlaris",
+  analyticsSortLabel: "Urutkan berdasarkan",
+  analyticsSortAmount: "Nominal",
+  analyticsSortQty: "Jumlah",
+  analyticsManualBadge: "Item manual",
+  analyticsFeatureOff: "Fitur analisis belum aktif — migration database belum dijalankan.",
+  analyticsEmpty: "Belum ada penjualan pada rentang tanggal ini.",
+  analyticsShowingCount: "Menampilkan {n} produk teratas.",
+  analyticsScanCapNote:
+    "Data melebihi batas pemindaian — hanya {n} baris item pesanan terbaru yang dihitung. Produk lama di luar batas ini mungkin tidak ikut terhitung.",
+  analyticsUnpricedNote:
+    "{n} baris item tidak punya harga terisi — dihitung sebagai Rp 0 dalam total nominal.",
+
   // ---- Detail Pesanan (orders/[orderId]/page.tsx) ----
   orderFeatureOff: "Modul Pesanan belum aktif di database (migrasi belum dijalankan).",
   orderDetailLoadFailed: "Gagal memuat detail pesanan.",
@@ -1343,6 +1358,20 @@ const en = {
   ordersProductMatchCapped:
     "The product name/code search only scans the 200 most recent order items — some matching older orders may not appear.",
 
+  navAnalytics: "Sales Analytics",
+  analyticsCardTitle: "Best-Selling Products",
+  analyticsSortLabel: "Sort by",
+  analyticsSortAmount: "Revenue",
+  analyticsSortQty: "Quantity",
+  analyticsManualBadge: "Manual item",
+  analyticsFeatureOff: "The analytics feature is not active yet — the database migration has not been run.",
+  analyticsEmpty: "No sales in this date range yet.",
+  analyticsShowingCount: "Showing the top {n} products.",
+  analyticsScanCapNote:
+    "Data exceeds the scan limit — only the {n} most recent order item rows were counted. Older products beyond this limit may be missing.",
+  analyticsUnpricedNote:
+    "{n} item row(s) have no price filled in — counted as Rp 0 in the revenue total.",
+
   orderFeatureOff: "The Orders module is not active in the database yet (the migration has not been run).",
   orderDetailLoadFailed: "Failed to load the order detail.",
   orderOverline: "PARTNER ORDER",
@@ -2080,6 +2109,18 @@ const zh = {
   ordersDateFromLabel: "起始日期",
   ordersDateToLabel: "结束日期",
   ordersProductMatchCapped: "产品名称/代码搜索只扫描最新 200 条订单项 —— 部分较旧的匹配订单可能不会显示。",
+
+  navAnalytics: "销售分析",
+  analyticsCardTitle: "热销产品",
+  analyticsSortLabel: "排序依据",
+  analyticsSortAmount: "金额",
+  analyticsSortQty: "数量",
+  analyticsManualBadge: "手动项目",
+  analyticsFeatureOff: "分析功能尚未启用 —— 数据库迁移脚本还没有执行。",
+  analyticsEmpty: "这个日期范围内还没有销售记录。",
+  analyticsShowingCount: "显示前 {n} 项产品。",
+  analyticsScanCapNote: "数据量超过扫描上限 —— 仅统计最新 {n} 条订单品项。超出范围的旧产品可能没有被计入。",
+  analyticsUnpricedNote: "{n} 条品项没有填写价格 —— 在金额合计中以 0 元计算。",
 
   orderFeatureOff: "订单模块在数据库中尚未启用（迁移脚本还没有执行）。",
   orderDetailLoadFailed: "订单详情加载失败。",

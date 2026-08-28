@@ -26,6 +26,7 @@ export default function AdminNav() {
 
   const isPartners = pathname === "/admin" || pathname.startsWith("/admin/partners");
   const isOrders = pathname.startsWith("/admin/orders");
+  const isAnalytics = pathname.startsWith("/admin/analisis");
   const isProducts = pathname.startsWith("/admin/produk");
   const isCalculator = pathname.startsWith("/admin/kalkulator");
   const isCustomers = pathname.startsWith("/admin/pelanggan");
@@ -37,13 +38,21 @@ export default function AdminNav() {
         <span className="sub">Partner Hub</span>
       </div>
       {/* Urutan mengikuti ALUR KERJA HARIAN (arahan owner 2026-08-24 —
-          "pakai logika pengguna"): ① pantau/buat pesanan; ② Kalkulator —
-          menghitung penawaran untuk pelanggan adalah langkah SEBELUM pesanan
-          jadi, jadi bersebelahan dengan Pesanan, bukan terselip di belakang;
-          ③ katalog produk (rujukan); ④ pelanggan; ⑤ pengaturan partner
-          paling belakang (jarang disentuh setelah toko berjalan). */}
+          "pakai logika pengguna"): ① pantau/buat pesanan; ①.5 Analisis —
+          meninjau pesanan yang SUDAH masuk (produk terlaris), jadi tepat
+          setelah Pesanan, sebelum berpindah ke alat yang menghadap ke
+          depan; ② Kalkulator — menghitung penawaran untuk pelanggan adalah
+          langkah SEBELUM pesanan jadi, jadi bersebelahan dengan Pesanan,
+          bukan terselip di belakang; ③ katalog produk (rujukan);
+          ④ pelanggan; ⑤ pengaturan partner paling belakang (jarang
+          disentuh setelah toko berjalan). Admin-only (SPEC delegasi
+          "hanya admin yang lihat") — halaman itu sendiri sudah digerbang
+          `AdminLayout`, jadi tautan ini tidak perlu cek izin tambahan. */}
       <Link href="/admin/orders" className={`navlink${isOrders ? " on" : ""}`}>
         {m.admin.navOrders}
+      </Link>
+      <Link href="/admin/analisis" className={`navlink${isAnalytics ? " on" : ""}`}>
+        {m.admin.navAnalytics}
       </Link>
       <Link href="/admin/kalkulator" className={`navlink${isCalculator ? " on" : ""}`}>
         {m.admin.navCalculator}
