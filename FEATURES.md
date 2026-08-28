@@ -1503,6 +1503,27 @@ byte-for-byte 相同。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` 0 錯誤
 - 人工驗證（owner）：□ SO 列印每個品項清楚分成「描述」跟「金額」兩排
   □ 品項多時分頁不會把上下兩排拆到不同頁
 
+### Admin 訂單靈活查詢（2026-08-27，owner：「能夠關鍵字,客戶,之類查詢」→四種都要）
+
+- `/admin/orders` 同一個搜尋框擴成**五路合併**（各路獨立查詢、記憶體以訂單
+  id 去重、created_at 新→舊、維持 50 筆上限）：①訂單編號 ②客戶姓名/電話
+  （電話走 normalizePhoneID 精確比對）③客戶 PO（0020 欄）④產品名稱/代碼
+  （order_items 快照欄，掃最新 200 列，截斷時 footnote 誠實說明）⑤業務員
+  姓名。③④⑤是「加寬」路——單路失敗（含 42703）只放棄該路不毀整體；
+  ①②維持原本 fail-fast。
+- **日期範圍**：Dari/Sampai tanggal 兩個選填日期，套 created_at
+  （UTC 原樣比對，不做時區換算——註解記載取捨），與關鍵字/狀態/jalur
+  全部可組合；GET form，網址可分享。
+- LIKE-escape 抽成 `likeEscape()`（lib/catalog-query.ts）——**所有**進
+  ilike 的使用者輸入都跳脫（LESSONS #40），含原本兩路漏掉的（`%`/`_`
+  現在是字面值）；order_items 雙欄走 catalogIlikeOrFilter（含
+  PostgREST 引號層）。
+- i18n 三語：ordersSearchPlaceholder 更新、ordersDateFromLabel/
+  ordersDateToLabel/ordersProductMatchCapped 新增。
+- 人工驗證（owner）：□ 打產品代碼（如 WM601-R180）找得到含該產品的訂單
+  □ 打 PO 號找得到 □ 打業務員名字找得到 □ 日期範圍縮小結果
+  □ 打含 % 或 _ 的字不會亂匹配
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
