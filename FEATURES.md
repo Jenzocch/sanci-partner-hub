@@ -1454,6 +1454,13 @@ First Load JS 171 kB 完全沒變（Size 欄從 1.81→68.2 kB 只是 webpack �
 byte-for-byte 相同。`rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` 0 錯誤、
 `npx eslint .` 0 警告。
 
+#### 分析頁已知邊界（主線補記 2026-08-28）
+
+- `/admin/analisis` 第二段查詢用 `.in("order_id", <全部符合的訂單id>)`——
+  訂單數以千計時這個 URL 會超長（PostgREST 可能拒收）。失敗模式是誠實的
+  錯誤卡（不是錯資料），目前資料量距離這個邊界極遠；真到那天，正解是
+  DB 端聚合（RPC/view 的 migration，走 owner 驗證流程），不是加大上限。
+
 ### 分店端「Lihat isi」——唯讀查看 Package 內容（2026-08-27，migration 0012 早已開放的 RLS 路徑補上畫面）
 
 - 新頁面元件 `web/app/cabang/pesanan/package-contents.tsx` + server action
