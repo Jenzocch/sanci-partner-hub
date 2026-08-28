@@ -1,0 +1,11 @@
+.label{
+  display:block;
+  margin-bottom:6px;
+  padding:0 2px;
+  color:var(--ink2);
+  font-size:var(--fs-caption);
+  font-weight:650;
+  line-height:var(--lh-tight);
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
