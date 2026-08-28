@@ -18,6 +18,11 @@ import { createClient } from "@/lib/supabase/server";
 import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
 import { parseIDRInput } from "@/lib/orders-shared";
 import { getAdminMessages } from "@/lib/i18n";
+// Tautan pesanan untuk pelanggan (migrasi 0023). `whatsapp-send` HANYA boleh
+// diimpor dari berkas server seperti ini — ia memegang FONNTE_TOKEN.
+import { customerLinkMessage, customerLinkUrl } from "@/lib/customer-link";
+import { requestOrigin } from "@/lib/request-origin";
+import { sendWhatsappViaFonnte } from "@/lib/whatsapp-send";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -758,4 +763,162 @@ export async function getInvoiceSignedUrl(path: string): Promise<{ url: string }
   } catch {
     return { error: true };
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Tautan pesanan untuk pelanggan (migrasi 0023) — sisi admin
+ * ------------------------------------------------------------------ */
+
+type AdminGateOutcome =
+  | { status: "ok"; userId: string }
+  | { status: "not-admin" }
+  | { status: "load-error" };
+
+/**
+ * Idiom PERSIS `requireAdmin` di app/admin/actions-create-order.ts: dicek
+ * dengan sesi pengguna sendiri SEBELUM apa pun, dan error database TIDAK
+ * disamarkan jadi "bukan admin" (LESSONS #10). RLS tetap penegak sesungguhnya.
+ */
+async function requireAdminHere(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<AdminGateOutcome> {
+  const { data: sesi, error: sesiErr } = await supabase.auth.getUser();
+  if (sesiErr || !sesi?.user) return { status: "not-admin" };
+
+  const { data: adminRow, error: adminErr } = await supabase
+    .from("platform_admins")
+    .select("auth_user_id")
+    .eq("auth_user_id", sesi.user.id)
+    .maybeSingle();
+  if (adminErr) return { status: "load-error" };
+  if (!adminRow) return { status: "not-admin" };
+  return { status: "ok", userId: sesi.user.id };
+}
+
+/**
+ * Menandai "pesanan sudah diterima pelanggan" dari sisi admin.
+ *
+ * Waktunya TIDAK datang dari sini meskipun terlihat begitu: trigger
+ * `trg_order_customer_link` (0023 §3) menimpanya dengan `now()` server dan
+ * `auth.uid()` — pola persis `markCustomerArrived` di atas (LESSONS #11/#6).
+ */
+export async function markOrderDeliveredAdmin(
+  orderId: string
+): Promise<ActionResult<{ deliveredAt: string }>> {
+  const m = await getAdminMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  const gate = await requireAdminHere(supabase);
+  if (gate.status !== "ok") {
+    return {
+      error: {
+        message: gate.status === "load-error" ? m.admin.userPermCheckFailed : m.admin.userNotAuthorized,
+      },
+    };
+  }
+
+  const { data: order, error: fetchErr } = await supabase
+    .from("partner_orders")
+    .select("delivered_at")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (fetchErr) {
+    if (isMissingColumnError(fetchErr.code)) return { error: { message: m.common.custLinkUnavailableMsg } };
+    return { error: { message: PESAN.serverSibuk } };
+  }
+  if (!order) return { error: { message: m.admin.orderNotFound } };
+  if (order.delivered_at) {
+    // Sudah ditandai (tab lain / staf cabang) — idempotent, bukan error.
+    return { data: { deliveredAt: order.delivered_at } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("partner_orders")
+      .update({ delivered_at: new Date().toISOString() })
+      .eq("id", orderId)
+      .select("delivered_at")
+      .single()
+  );
+
+  if (!written.ok) {
+    if (written.reason === "db") {
+      if (isMissingColumnError(written.code)) return { error: { message: m.common.custLinkUnavailableMsg } };
+      const { data: recheck } = await supabase
+        .from("partner_orders")
+        .select("delivered_at")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (recheck?.delivered_at) return { data: { deliveredAt: recheck.delivered_at } };
+      return { error: { message: m.common.markDeliveredFailedMsg } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  return { data: { deliveredAt: written.data.delivered_at as string } };
+}
+
+/**
+ * Mengirim tautan pelanggan lewat NOMOR PERUSAHAAN (Fonnte) — sisi admin.
+ *
+ * Alamat dasar tautannya dibaca dari header permintaan lewat
+ * `requestOrigin()`, SENGAJA bukan parameter: kalau pemanggil boleh
+ * menyodorkan domain sendiri, tautan phishing bisa dikirim ATAS NAMA TOKO ke
+ * nomor pelanggannya.
+ */
+export async function sendCustomerLinkViaCompanyAdmin(
+  orderId: string
+): Promise<ActionResult<{ detail: string | null }>> {
+  const m = await getAdminMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  const gate = await requireAdminHere(supabase);
+  if (gate.status !== "ok") {
+    return {
+      error: {
+        message: gate.status === "load-error" ? m.admin.userPermCheckFailed : m.admin.userNotAuthorized,
+      },
+    };
+  }
+
+  const origin = await requestOrigin();
+
+  const { data: order, error } = await supabase
+    .from("partner_orders")
+    .select("order_number, customer_view_token, customers:customer_id(full_name, phone_normalized)")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingColumnError(error.code)) return { error: { message: m.common.custLinkUnavailableMsg } };
+    return { error: { message: PESAN.serverSibuk } };
+  }
+  if (!order) return { error: { message: m.admin.orderNotFound } };
+
+  const row = order as unknown as {
+    order_number: string;
+    customer_view_token: string;
+    customers:
+      | { full_name: string; phone_normalized: string }
+      | { full_name: string; phone_normalized: string }[]
+      | null;
+  };
+  const customer = Array.isArray(row.customers) ? row.customers[0] ?? null : row.customers;
+
+  const result = await sendWhatsappViaFonnte({
+    rawPhone: customer?.phone_normalized ?? null,
+    message: customerLinkMessage({
+      firstName: customer?.full_name?.trim().split(/\s+/)[0] ?? null,
+      orderNumber: row.order_number,
+      url: customerLinkUrl(origin, row.customer_view_token),
+    }),
+    actorUserId: gate.userId,
+  });
+
+  if (!result.ok) return { error: { message: result.error } };
+  return { data: { detail: result.detail } };
 }

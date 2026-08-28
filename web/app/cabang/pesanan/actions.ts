@@ -41,6 +41,15 @@ import {
 // nama cabang" dibuat, TANPA perubahan perilaku (lihat kepala berkas itu).
 import { copyPackageItemsToOrder, verifyActiveStaffInBranch } from "@/lib/order-create-shared";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
+// Tautan pesanan untuk pelanggan (migrasi 0023). `whatsapp-send` HANYA boleh
+// diimpor dari berkas server seperti ini — ia memegang FONNTE_TOKEN.
+import {
+  customerLinkMessage,
+  customerLinkUrl,
+  type CustomerLinkActionResult,
+} from "@/lib/customer-link";
+import { requestOrigin } from "@/lib/request-origin";
+import { sendWhatsappViaFonnte } from "@/lib/whatsapp-send";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -1688,3 +1697,148 @@ export async function setOrderOfferBranch(
  * (pencarian/kategori di database + halaman 60, kontrak lib/catalog-query.ts).
  * Gerbangnya tidak berubah: partner_users → sanci_catalog_access → RLS
  * sp_partner_read, dengan pemetaan status LESSONS #10 yang sama. */
+
+/* ------------------------------------------------------------------ *
+ * Tautan pesanan untuk pelanggan (migrasi 0023)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Menandai "pesanan sudah diterima pelanggan".
+ *
+ * SIAPA YANG BOLEH: pengguna cabang yang boleh MENGUBAH pesanan itu. Yang
+ * menegakkannya adalah policy `o_partner_update` (migrasi
+ * 0005_order_edit_cancel.sql baris 221–224:
+ * `for update using (public.fn_can_edit_branch(branch_id))
+ *  with check (public.fn_can_edit_branch(branch_id))`), dan `delivered_at`
+ * SENGAJA tidak dimasukkan ke daftar beku `fn_guard_order_immutable_cols`
+ * (0005 baris 92–100 — daftarnya hanya id/partner_id/branch_id/customer_id/
+ * order_number/created_by/client_request_id/created_at). Jadi cabang MEMANG
+ * bisa menulisnya, dan tombolnya boleh muncul di kedua sisi (asersi
+ * DELIVERED_NOT_FROZEN=0 di blok verifikasi 0023, dan bukti perilaku T7 di
+ * test-harness/95_behavior_0023.sql yang dijalankan sebagai app_test_user).
+ *
+ * NILAI WAKTUNYA TIDAK DIKIRIM DARI SINI meskipun terlihat begitu: trigger
+ * `trg_order_customer_link` (0023 §3) MENIMPA apa pun yang dikirim dengan
+ * `now()` server dan `auth.uid()` (LESSONS #11/#6). Nilai di bawah cuma
+ * penanda "isi kolom ini" — pola persis `markCustomerArrived` sisi admin.
+ */
+export async function markOrderDelivered(
+  orderId: string
+): Promise<CustomerLinkActionResult<{ deliveredAt: string }>> {
+  const m = await getCabangMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  const identity = await getIdentity(supabase);
+  if (identity.status !== "ok") {
+    return { error: { message: identityErrorMessage(m, identity) } };
+  }
+
+  const { data: order, error: fetchErr } = await supabase
+    .from("partner_orders")
+    .select("status, delivered_at")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (fetchErr) {
+    if (isMissingColumnError(fetchErr)) return { error: { message: m.common.custLinkUnavailableMsg } };
+    return { error: { message: PESAN.serverSibuk } };
+  }
+  if (!order) return { error: { message: m.cabang.errOrderDetailLoadFailed } };
+  if (order.delivered_at) {
+    // Sudah ditandai (tab lain / dua staf) — idempotent, bukan error.
+    return { data: { deliveredAt: order.delivered_at } };
+  }
+
+  const written = await safeWrite(
+    supabase
+      .from("partner_orders")
+      .update({ delivered_at: new Date().toISOString() })
+      .eq("id", orderId)
+      .select("delivered_at")
+      .single()
+  );
+
+  if (!written.ok) {
+    if (written.reason === "db") {
+      if (isMissingColumnError({ code: written.code })) {
+        return { error: { message: m.common.custLinkUnavailableMsg } };
+      }
+      // Mungkin tab lain menandai duluan di antara cek dan tulis — tanya
+      // ulang sebelum melapor gagal (LESSONS #7).
+      const { data: recheck } = await supabase
+        .from("partner_orders")
+        .select("delivered_at")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (recheck?.delivered_at) return { data: { deliveredAt: recheck.delivered_at } };
+      return { error: { message: m.common.markDeliveredFailedMsg } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+
+  revalidatePath(`/cabang/pesanan/${orderId}`);
+  return { data: { deliveredAt: written.data.delivered_at as string } };
+}
+
+/**
+ * Mengirim tautan pelanggan lewat NOMOR PERUSAHAAN (Fonnte).
+ *
+ * Alamat dasar tautannya dibaca DI SINI dari header permintaan lewat
+ * `requestOrigin()` — SENGAJA bukan parameter. Server Action bisa dipanggil
+ * langsung oleh siapa pun yang punya sesi; kalau alamat dasarnya boleh
+ * dikirim pemanggil, tautan phishing bisa dikirim ATAS NAMA TOKO ke nomor
+ * pelanggannya (lubang yang sudah pernah ditambal di proyek lain).
+ * Parameter yang tidak ada tidak bisa disuntik.
+ */
+export async function sendCustomerLinkViaCompany(
+  orderId: string
+): Promise<CustomerLinkActionResult<{ detail: string | null }>> {
+  const m = await getCabangMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  const identity = await getIdentity(supabase);
+  if (identity.status !== "ok") {
+    return { error: { message: identityErrorMessage(m, identity) } };
+  }
+
+  const origin = await requestOrigin();
+
+  // RLS partner_orders yang memutuskan pesanan mana yang terbaca — bukan
+  // pemeriksaan di sini (LESSONS #5).
+  const { data: order, error } = await supabase
+    .from("partner_orders")
+    .select("order_number, customer_view_token, customers:customer_id(full_name, phone_normalized)")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingColumnError(error)) return { error: { message: m.common.custLinkUnavailableMsg } };
+    return { error: { message: PESAN.serverSibuk } };
+  }
+  if (!order) return { error: { message: m.cabang.errOrderDetailLoadFailed } };
+
+  const row = order as unknown as {
+    order_number: string;
+    customer_view_token: string;
+    customers: { full_name: string; phone_normalized: string } | { full_name: string; phone_normalized: string }[] | null;
+  };
+  const customer = Array.isArray(row.customers) ? row.customers[0] ?? null : row.customers;
+
+  const result = await sendWhatsappViaFonnte({
+    rawPhone: customer?.phone_normalized ?? null,
+    message: customerLinkMessage({
+      firstName: customer?.full_name?.trim().split(/\s+/)[0] ?? null,
+      orderNumber: row.order_number,
+      url: customerLinkUrl(origin, row.customer_view_token),
+    }),
+    actorUserId: identity.identity.userId,
+  });
+
+  // Pesan galat dari pengirim SUDAH berbahasa Indonesia dan sudah layak
+  // tampil apa adanya — halaman yang memutuskan untuk menonjolkan tombol
+  // cadangan wa.me sesudahnya.
+  if (!result.ok) return { error: { message: result.error } };
+  return { data: { detail: result.detail } };
+}

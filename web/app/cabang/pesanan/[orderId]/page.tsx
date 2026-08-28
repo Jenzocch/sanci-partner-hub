@@ -10,6 +10,11 @@ import {
   type FulfillmentPath,
 } from "@/lib/orders-shared";
 import { getCabangMessages } from "@/lib/i18n";
+import { customerLinkMessage, customerLinkUrl, waMeUrl } from "@/lib/customer-link";
+import CustomerLinkCard from "@/lib/customer-link-card";
+import { requestOrigin } from "@/lib/request-origin";
+import { isFonnteConfigured } from "@/lib/whatsapp-send";
+import { markOrderDelivered, sendCustomerLinkViaCompany } from "../actions";
 import PackageContents from "../package-contents";
 import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
@@ -176,6 +181,33 @@ async function fetchCustomerPo(
     .maybeSingle();
   if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
   return { status: "ok", data: (data as { customer_po: string | null } | null)?.customer_po ?? null };
+}
+
+/**
+ * customer_view_token / delivered_at (migrasi 0023) dibaca TERPISAH — pola
+ * persis fetchShippingAddress/fetchCustomerPo di atas: kolomnya lahir di
+ * migrasi yang berbeda, jadi 42703 pada kolom ini tidak boleh ikut
+ * menjatuhkan bagian halaman yang lain (LESSONS #12). Kode boleh naik
+ * duluan; selama 0023 belum dijalankan, kartu "Link untuk Pelanggan"
+ * tidak digambar sama sekali.
+ */
+async function fetchCustomerLink(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<
+  | { status: "ok"; token: string; deliveredAt: string | null }
+  | { status: "missing-column" }
+  | { status: "error" }
+> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("customer_view_token, delivered_at")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  const row = data as { customer_view_token: string | null; delivered_at: string | null } | null;
+  if (!row?.customer_view_token) return { status: "missing-column" };
+  return { status: "ok", token: row.customer_view_token, deliveredAt: row.delivered_at };
 }
 
 /**
@@ -428,6 +460,7 @@ export default async function PesananDetailPage({
     itemsResult,
     offerData,
     currentPackageId,
+    customerLinkResult,
   ] = await Promise.all([
     fetchOrderExtras(supabase, order.id),
     // Staf untuk dropdown Sales/PIC diambil dari CABANG PESANAN (bisa beda dari
@@ -458,6 +491,7 @@ export default async function PesananDetailPage({
     // Package harus ada juga untuk pesanan yang sudah dibatalkan atau milik
     // cabang lain — melihat isi package tidak mengubah apa pun.
     fetchOrderPackageId(supabase, order.id),
+    fetchCustomerLink(supabase, order.id),
   ]);
 
   const { extras, state: extrasState } = extrasResult;
@@ -479,6 +513,13 @@ export default async function PesananDetailPage({
   }
   const cancelInfo: CancelInfo | null = cancelResult.info;
   const cancelInfoUnavailable = cancelResult.unavailable;
+
+  // Alamat dasar tautan pelanggan SELALU dari header permintaan — tidak
+  // pernah dipaku di kode dan tidak pernah dari client (lihat
+  // lib/request-origin.ts). `isFonnteConfigured()` hanya mengembalikan
+  // boolean; nilai tokennya tidak pernah meninggalkan server (LESSONS #19).
+  const origin = await requestOrigin();
+  const fonnteReady = isFonnteConfigured();
 
   return (
     <main className="pwrap">
@@ -530,7 +571,35 @@ export default async function PesananDetailPage({
             <dt>{m.common.customer}</dt>
             <dd>{customer?.full_name ?? m.cabang.orderUnknownCustomer}</dd>
             <dt>{m.common.whatsapp}</dt>
-            <dd>{customer?.phone_normalized ? displayPhoneID(customer.phone_normalized) : "—"}</dd>
+            {/* Nomor pelanggan = tautan langsung ke percakapan WhatsApp
+                (keputusan owner 2026-08-28). TEKS yang tampil tidak berubah
+                sedikit pun — tetap displayPhoneID — hanya dibungkus <a>;
+                kalau nomornya tidak berbentuk kanonik "62…", waMeUrl()
+                mengembalikan null dan nomornya tampil sebagai teks biasa
+                (tautan yang membuka percakapan ke nomor salah lebih buruk
+                daripada tidak ada tautan). Tanpa teks prefill: ini tombol
+                "hubungi", bukan tombol "kirim link". */}
+            <dd>
+              {customer?.phone_normalized ? (
+                waMeUrl(customer.phone_normalized) ? (
+                  <a
+                    href={waMeUrl(customer.phone_normalized)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={m.common.waOpenChatAria.replace(
+                      "{phone}",
+                      displayPhoneID(customer.phone_normalized)
+                    )}
+                  >
+                    {displayPhoneID(customer.phone_normalized)}
+                  </a>
+                ) : (
+                  displayPhoneID(customer.phone_normalized)
+                )
+              ) : (
+                "—"
+              )}
+            </dd>
             <dt>{m.common.package}</dt>
             <dd>
               {order.package_name}
@@ -603,6 +672,32 @@ export default async function PesananDetailPage({
             canEditOffer={canEditBranch && offerFlags.canEditOffer}
             canDiscount={canEditBranch && offerFlags.canDiscount}
             offer={offerData}
+          />
+        )}
+
+        {/* Kartu "Link untuk Pelanggan" — hanya untuk pesanan yang MASIH
+            berjalan: halaman pelanggan untuk pesanan yang dibatalkan memang
+            cuma menampilkan "hubungi toko", jadi mengirimkan tautannya tidak
+            menolong siapa pun. Tombol "sudah diterima" mengikuti canManage
+            yang sama dengan tombol Ubah/Batalkan (dan database menolak lagi
+            di belakangnya). */}
+        {order.status !== "CANCELLED" && customerLinkResult.status === "ok" && (
+          <CustomerLinkCard
+            link={customerLinkUrl(origin, customerLinkResult.token)}
+            waMessage={customerLinkMessage({
+              firstName: customer?.full_name?.trim().split(/\s+/)[0] ?? null,
+              orderNumber: order.order_number,
+              url: customerLinkUrl(origin, customerLinkResult.token),
+              storeName: partner?.name ?? null,
+            })}
+            customerPhone={customer?.phone_normalized ?? null}
+            orderNumber={order.order_number}
+            customerName={customer?.full_name ?? m.cabang.orderUnknownCustomer}
+            fonnteConfigured={fonnteReady}
+            deliveredAt={customerLinkResult.deliveredAt}
+            canMarkDelivered={canManage}
+            sendViaCompany={sendCustomerLinkViaCompany.bind(null, order.id)}
+            markDelivered={markOrderDelivered.bind(null, order.id)}
           />
         )}
 

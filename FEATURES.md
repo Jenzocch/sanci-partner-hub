@@ -1642,6 +1642,55 @@ grid 版面（rank/name/value 一行、bar 佔滿第二行）在手機和桌機�
 - 人工驗證（owner）：□ 新下一張單，訂單詳情的建立時間跟手機時鐘一致
   □ 分店訂單列表日期正確 □ 用日期篩選查得到當天（含半夜）建立的訂單
 
+### P2-XX 客人免登入訂單查看連結（migration 0023）— 待 owner 驗收
+
+**owner 定案（2026-08-28）**：每張訂單一條可分享的連結，客人不用登入就能看到
+自己的訂單進度。金額直接顯示；地址預設只到城市，輸入訂單登記的手機號碼才顯示
+全文；不顯示取消原因；店員端標籤用業務員一看就懂的自然印尼文。
+
+- **客人頁 `/lihat/<token>`**（根層路由、免登入、force-dynamic、手機優先、
+  **文案硬編印尼文不跑 i18n**——讀者是客人不是店員，理由同 SO/DO/Invoice 紙本）。
+  三態誠實（LESSONS #10）：token 查無 →「Link tidak valid」；RPC/DB 錯誤 →
+  「Sedang gangguan」＋重試；**故障絕不偽裝成查無**。First Load 105 kB
+  （沒有把三語字典拉進來——LESSONS #38）。
+- **階段全自動推導，唯一人工是「已送達」**：DIRECT_DELIVERY 無 DO →
+  Pesanan diterima；有 DO → Sedang dikirim（＋DO 日期）；`delivered_at` →
+  Sudah diterima。SHOWROOM_VISIT 依 `customer_arrived_at` 分
+  Silakan ambil di toko／Selesai。CANCELLED → 全頁只剩「hubungi toko」，
+  **不露原因**。
+- **資料只走 SECURITY DEFINER RPC，`partner_orders` 完全沒有開 anon policy**。
+  `fn_customer_order_view` 的白名單欄位是**一個一個列出來組成的**（沒有
+  `to_jsonb(o)`、沒有 `select *`），所以之後的 migration 新增欄位不會自動外洩。
+  電話、完整地址（驗證前）、取消原因、內部備註、店家進價、任何 uuid 都出不去
+  ——test-harness 95 的 T3c 是直接對 payload 文字做反向斷言。
+- **地址二段式**：預設只顯示 `customers.city`（**不解析** `shipping_address`
+  自由文字——猜錯就是洩漏街道名，正是這條規則要防的事）；「Lihat alamat
+  lengkap」輸入手機號碼驗證後才給全文。防猜：連錯 5 次鎖 15 分鐘，狀態誠實
+  顯示。計數器放在**獨立的 `customer_view_attempts` 表**（RLS 開、零 policy）
+  而不是 `partner_orders` 的欄位——後者會讓每次猜錯都產生一筆 ORDER_UPDATED
+  稽核，而且已取消訂單會被 0005 的唯讀守衛擋成硬錯誤。
+- **店員端（cabang + admin 兩個訂單詳情頁都有）**：Salin link ／
+  Kirim link via WhatsApp perusahaan（Fonnte，公司號）／Kirim dari WhatsApp saya
+  （wa.me 備援）／Tandai sudah diterima pelanggan。連結網址一律從 request host
+  組（`lib/request-origin.ts`，**不收 client 傳來的 base_url**——釣魚域名注入）。
+- **`FONNTE_TOKEN` 未設定時整條 Fonnte 路徑不出現**（LESSONS #12），店員只看到
+  wa.me 按鈕。token 只在 server（無 `NEXT_PUBLIC_` 前綴、`assertServerOnly()`
+  硬失敗、bundle 掃描證明 client chunk 零命中，且反向驗證掃描本身有效）。
+  Fonnte **HTTP 200 也可能 `status:false`**（配額用完／device 離線／對方沒有
+  WhatsApp），所以一定讀回應 JSON 的 `status`／`reason`，五類失敗各自誠實回報，
+  失敗即自動亮出 wa.me 備援鈕。
+- **客戶電話本身也是連結**（owner 追加）：兩個訂單詳情頁的電話號碼點了直接開
+  WhatsApp 對話（不帶預填文字）；**顯示文字維持 `displayPhoneID` 一字不變**，
+  號碼非 62 格式時退回純文字。
+- **`fn_audit_row` 一個字都沒改**（本切片紅線）：標記已送達走既有的
+  `ORDER_UPDATED` 通用分支，diff 帶 `delivered_at`——`web/lib/audit-format.ts`
+  給了它標籤＋WIB 格式（**不放進 SKIP**，否則稽核頁會出現「訂單已修改」但底下
+  什麼都沒有），`customer_view_token`／`delivered_by` 則進 SKIP（LESSONS #28）。
+- 人工驗證（owner）：□ 執行 0023 並回貼 35 項驗證結果 □ 用手機開一條真連結
+  □ 輸入錯號碼 5 次確認鎖定 □ 輸入正確號碼確認顯示全址 □ 按「已收到」後
+  日期跟牆上時鐘一致 □ 設好 `FONNTE_TOKEN` 後測公司號發送
+
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
@@ -1660,6 +1709,8 @@ grid 版面（rank/name/value 一行、bar 佔滿第二行）在手機和桌機�
 - [ ] **Jenzo 在 Ubah Partner 實際上傳一張 logo 測試**（阻塞 Partner Logo 標為 VERIFIED；換第二張圖確認畫面真的更新，不是舊圖）
 - [ ] Jenzo 部署後用手機實際測「加到主畫面」＋離線開啟已看過的頁面，確認 PWA #23 的 Service Worker 真的生效（本環境只驗證到路由本身有回應，見上方 #23）
 - [ ] Jenzo 用真帳號登入後，在 1366/1440/1920（desktop）與 360/390/430（mobile）檢查 `/admin`、`/admin/partners/[id]`、`/cabang` 系列頁（本環境已截圖驗證登入頁與 offline 頁在全部寬度無橫向捲動，但這兩頁不吃 sidebar/table/身份卡 規則，見 #20–22）
+- [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0023_customer_order_link.sql`**（阻塞客人連結標為 VERIFIED；回貼 35 項驗證結果核對——`ANON_ORDERS_ROWS` 必須是 0、`RPC_EXEC_ANON` 必須是 2、`TOKEN_ALL_DISTINCT` 必須是 1）
+- [ ] **Jenzo 在 Vercel → Settings → Environment Variables 加 `FONNTE_TOKEN`**（**變數名就是這個，不要加 `NEXT_PUBLIC_` 前綴**）——在他辦好 Fonnte 帳號之前，店員端只會看到 wa.me 那顆按鈕，不會壞
 - [ ] 之後依 SPEC §90 順序實作（Tests → Security test → Offline test → Self audit → Final verification）
 - [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0017_customer_code_email.sql`**（阻塞 P2-59 標為 VERIFIED；回貼 24 項驗證結果核對，見該檔頭部）
 - [ ] **Jenzo 在自己電腦跑 `web/scripts/import-customers/run.mjs`**（阻塞 P2-60 標為 VERIFIED；需先完成上一步；照 README.md 兩種憑證方式擇一，回貼結尾摘要——期望新建 33／已完整 1／跳過無電話 2）

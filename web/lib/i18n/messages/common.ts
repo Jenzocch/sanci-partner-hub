@@ -173,6 +173,38 @@ const id = {
   finalAmount: "Harga Akhir",
   remainingBalance: "Sisa Bayar",
 
+  // 0023 — Tautan pesanan untuk pelanggan (/lihat/<token>). Hidup di
+  // common.ts karena kartu yang SAMA digambar di DUA sisi (detail pesanan
+  // cabang DAN admin) — kalau ditulis dua kali, dua sisi akan menyimpang.
+  // Kata-katanya sengaja bahasa pegawai toko sehari-hari, bukan istilah
+  // teknis: yang membacanya staf penjualan, bukan admin sistem.
+  custLinkTitle: "Link untuk Pelanggan",
+  custLinkHint:
+    "Link ini menampilkan status pesanan, isi pesanan, dan sisa pembayaran. Alamat lengkap baru muncul setelah pelanggan memasukkan nomor HP-nya sendiri.",
+  custLinkCopyCta: "Salin link untuk pelanggan",
+  custLinkCopiedMsg: "Link tersalin.",
+  custLinkCopyFailedMsg: "Link tidak bisa disalin otomatis. Salin manual dari kotak di atas.",
+  custLinkSendCompanyCta: "Kirim link via WhatsApp perusahaan",
+  custLinkSendingMsg: "Mengirim…",
+  // "Terkirim", BUKAN "sampai": yang kita tahu hanyalah layanan WhatsApp
+  // menerima pesannya (LESSONS #7 — antrean bukan bukti sampai). Jangan
+  // diganti dengan kata yang lebih kuat.
+  custLinkSentCompanyMsg: "Terkirim dari nomor perusahaan.",
+  custLinkSendSelfCta: "Kirim dari WhatsApp saya",
+  custLinkNoPhoneMsg: "Pelanggan ini belum punya nomor WhatsApp yang bisa dipakai.",
+  custLinkUnavailableMsg: "Link pelanggan belum tersedia — database belum diperbarui.",
+  waOpenChatAria: "Buka percakapan WhatsApp dengan {phone}",
+
+  markDeliveredCta: "Tandai sudah diterima pelanggan",
+  markDeliveredModalTitle: "Tandai sudah diterima pelanggan?",
+  markDeliveredDesc:
+    "Pesanan {orderNumber} untuk {customer} akan ditandai sudah diterima. Waktunya diambil dari server, dan penandaan ini tidak bisa dibatalkan dari sini.",
+  markDeliveredConfirmCta: "Ya, sudah diterima",
+  markDeliveredWorkingCta: "Menandai…",
+  markDeliveredDoneLabel: "Sudah diterima pelanggan",
+  markDeliveredFailedMsg: "Penandaan belum tersimpan. Coba lagi sebentar lagi.",
+  deliveredAt: "Diterima Pelanggan",
+
   // Kalimat Aktivitas (kode aksi audit → bahasa sehari-hari)
   auditOrderCreated: "Pesanan dibuat",
   auditOrderUpdated: "Pesanan diubah",
@@ -486,6 +518,30 @@ const en = {
   finalAmount: "Final price",
   remainingBalance: "Remaining balance",
 
+  custLinkTitle: "Customer link",
+  custLinkHint:
+    "This link shows the order status, the items, and the outstanding balance. The full address only appears after the customer enters their own phone number.",
+  custLinkCopyCta: "Copy link for customer",
+  custLinkCopiedMsg: "Link copied.",
+  custLinkCopyFailedMsg: "The link could not be copied automatically. Copy it manually from the box above.",
+  custLinkSendCompanyCta: "Send link via company WhatsApp",
+  custLinkSendingMsg: "Sending…",
+  custLinkSentCompanyMsg: "Sent from the company number.",
+  custLinkSendSelfCta: "Send from my WhatsApp",
+  custLinkNoPhoneMsg: "This customer has no usable WhatsApp number.",
+  custLinkUnavailableMsg: "Customer link is not available yet — the database has not been updated.",
+  waOpenChatAria: "Open a WhatsApp chat with {phone}",
+
+  markDeliveredCta: "Mark as received by customer",
+  markDeliveredModalTitle: "Mark as received by the customer?",
+  markDeliveredDesc:
+    "Order {orderNumber} for {customer} will be marked as received. The time comes from the server, and this mark cannot be undone from here.",
+  markDeliveredConfirmCta: "Yes, it was received",
+  markDeliveredWorkingCta: "Marking…",
+  markDeliveredDoneLabel: "Received by customer",
+  markDeliveredFailedMsg: "The mark was not saved. Try again in a moment.",
+  deliveredAt: "Received by customer",
+
   auditOrderCreated: "Order created",
   auditOrderUpdated: "Order edited",
   auditOrderStatusChanged: "Order status changed",
@@ -753,6 +809,30 @@ const zh = {
   cashDiscount: "现金折让",
   finalAmount: "最终金额",
   remainingBalance: "尾款",
+
+  custLinkTitle: "客户查询链接",
+  custLinkHint:
+    "该链接显示订单状态、订单明细和尾款金额。完整地址只有在客户输入本人手机号之后才会显示。",
+  custLinkCopyCta: "复制客户链接",
+  custLinkCopiedMsg: "链接已复制。",
+  custLinkCopyFailedMsg: "无法自动复制链接，请从上方文本框手动复制。",
+  custLinkSendCompanyCta: "用公司 WhatsApp 发送链接",
+  custLinkSendingMsg: "发送中…",
+  custLinkSentCompanyMsg: "已从公司号码发出。",
+  custLinkSendSelfCta: "用我的 WhatsApp 发送",
+  custLinkNoPhoneMsg: "该客户没有可用的 WhatsApp 号码。",
+  custLinkUnavailableMsg: "客户链接尚不可用——数据库还没有更新。",
+  waOpenChatAria: "打开与 {phone} 的 WhatsApp 对话",
+
+  markDeliveredCta: "标记客户已收到",
+  markDeliveredModalTitle: "标记客户已收到？",
+  markDeliveredDesc:
+    "订单 {orderNumber}（客户 {customer}）将被标记为客户已收到。时间取自服务器，且该标记无法在此撤销。",
+  markDeliveredConfirmCta: "确认已收到",
+  markDeliveredWorkingCta: "标记中…",
+  markDeliveredDoneLabel: "客户已收到",
+  markDeliveredFailedMsg: "标记尚未保存，请稍后重试。",
+  deliveredAt: "客户已收到",
 
   auditOrderCreated: "订单已创建",
   auditOrderUpdated: "订单已修改",
