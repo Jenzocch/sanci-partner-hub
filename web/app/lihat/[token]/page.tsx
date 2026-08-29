@@ -211,12 +211,23 @@ export default async function LihatPesananPage({
             {items.map((it, i) => (
               <div key={`${it.code ?? it.name}-${i}`} style={{ display: "flex", gap: 14, alignItems: "center" }}>
                 {it.photo_url ? (
+                  /* `loading="lazy"` WAJIB di daftar seperti ini (aturan
+                     lib/catalog-shared.ts). Halaman ini dibuka PELANGGAN di
+                     ponselnya sendiri, sering dengan kuota/sinyal seadanya;
+                     tanpa atribut ini pesanan berisi banyak baris mengunduh
+                     SEMUA fotonya sekaligus (sumbernya 1280px, PRESET_PRODUK)
+                     termasuk yang jauh di bawah layar dan mungkin tidak pernah
+                     dilihat. Kotak 64px sudah dipesan lebih dulu lewat
+                     width/height + style tetap, jadi tata letak tidak melompat
+                     saat fotonya menyusul belakangan. */
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={it.photo_url}
                     alt=""
                     width={64}
                     height={64}
+                    loading="lazy"
+                    decoding="async"
                     style={{
                       width: 64,
                       height: 64,
