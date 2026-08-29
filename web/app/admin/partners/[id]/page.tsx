@@ -103,50 +103,101 @@ export default async function PartnerDetailPage({
   const m = await getAdminMessages();
   const supabase = await createClient();
 
-  const { data: partner } = await supabase
-    .from("partners")
-    .select("id, name, code, status, contact_name, contact_phone, logo_url, created_at")
-    .eq("id", id)
-    .maybeSingle();
-  if (!partner) notFound();
+  // Berpindah tab di halaman ini = navigasi ke query string lain (`?tab=`),
+  // jadi seluruh komponen server ini dijalankan ULANG setiap kali admin
+  // menekan tab. Karena itu dua hal harus benar sekaligus:
+  //
+  // 1. SATU gelombang, bukan berurutan. Semua pembacaan di bawah hanya butuh
+  //    `id` dari param rute — tidak satu pun menunggu hasil query partner —
+  //    jadi query partner ikut di gelombang yang sama, bukan di-await lebih
+  //    dulu (audit kecepatan 2026-08-22 temuan #7; halaman ini yang terlewat
+  //    pada pass itu, sementara halaman anaknya — cabang & paket — sudah).
+  //    Data khusus tab (izin penawaran, riwayat) juga ikut gelombang ini,
+  //    bukan perjalanan bolak-balik ketiga setelahnya.
+  // 2. Hanya data milik tab yang sedang dibuka yang diambil. Sebelumnya
+  //    keenam query jalan pada SETIAP perpindahan tab, termasuk yang tidak
+  //    dirender tab itu (mis. daftar paket & akses katalog saat admin cuma
+  //    membuka tab Riwayat). Yang TAMPIL tidak berubah sedikit pun — hanya
+  //    kapan ia diambil.
+  //
+  // Peta kebutuhan per tab (jangan diubah tanpa mengecek pemakaiannya di
+  // badan halaman): Ringkasan butuh cabang+akun+kebijakan (checklist
+  // persiapan), Cabang butuh cabang, Akun butuh cabang (nama & daftar cabang
+  // aktif) + akun, Paket butuh paket, Hak Akses butuh kebijakan + akses
+  // katalog + izin penawaran, Riwayat butuh audit.
+  const needBranches = tab === "overview" || tab === "branches" || tab === "users";
+  const needUsers = tab === "overview" || tab === "users";
+  const needPolicy = tab === "overview" || tab === "permissions";
 
   const [
+    { data: partner },
     { data: branches, error: branchesErr },
     { data: users, error: usersErr },
     { data: policy, error: policyErr },
     { data: packages, error: packagesErr },
     { data: catalogAccess, error: catalogErr },
-    { count: staffCount, error: staffErr },
+    offerPolicyRes,
+    auditRes,
   ] = await Promise.all([
     supabase
-      .from("partner_branches")
-      // `code` dipakai untuk mengusulkan ID login akun (<partner>-<cabang>@sanci.com).
-      .select("id, name, code, address, city, status")
-      .eq("partner_id", id)
-      .order("name"),
-    supabase.from("partner_users").select("id, name, role, status, branch_id").eq("partner_id", id),
-    supabase
-      .from("partner_access_policies")
-      .select("visibility_scope, edit_scope, configured")
-      .eq("partner_id", id)
+      .from("partners")
+      .select("id, name, code, status, contact_name, contact_phone, logo_url, created_at")
+      .eq("id", id)
       .maybeSingle(),
-    supabase
-      .from("partner_packages")
-      .select("id, name, code, description, status")
-      .eq("partner_id", id)
-      .order("name"),
-    supabase.from("sanci_catalog_access").select("enabled").eq("partner_id", id).maybeSingle(),
-    // Baris "staf" pada checklist persiapan hanya tampil selama DRAF — partner
-    // yang sudah aktif tidak perlu membayar query ini. head:true = hitung saja,
-    // tanpa mengambil baris.
-    partner.status === "DRAFT"
+    needBranches
       ? supabase
+          .from("partner_branches")
+          // `code` dipakai untuk mengusulkan ID login akun (<partner>-<cabang>@sanci.com).
+          .select("id, name, code, address, city, status")
+          .eq("partner_id", id)
+          .order("name")
+      : Promise.resolve({ data: null, error: null as QueryErr }),
+    needUsers
+      ? supabase.from("partner_users").select("id, name, role, status, branch_id").eq("partner_id", id)
+      : Promise.resolve({ data: null, error: null as QueryErr }),
+    needPolicy
+      ? supabase
+          .from("partner_access_policies")
+          .select("visibility_scope, edit_scope, configured")
+          .eq("partner_id", id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null as QueryErr }),
+    tab === "packages"
+      ? supabase
+          .from("partner_packages")
+          .select("id, name, code, description, status")
+          .eq("partner_id", id)
+          .order("name")
+      : Promise.resolve({ data: null, error: null as QueryErr }),
+    tab === "permissions"
+      ? supabase.from("sanci_catalog_access").select("enabled").eq("partner_id", id).maybeSingle()
+      : Promise.resolve({ data: null, error: null as QueryErr }),
+    tab === "permissions" ? fetchOfferPolicy(supabase, id) : Promise.resolve(null),
+    tab === "history"
+      ? supabase
+          .from("audit_logs")
+          .select("id, action, actor_role, created_at, before, after")
+          .eq("partner_id", id)
+          .order("created_at", { ascending: false })
+          .limit(100)
+      : Promise.resolve(null),
+  ]);
+  if (!partner) notFound();
+
+  // Baris "staf" pada checklist persiapan hanya tampil di tab Ringkasan selama
+  // DRAF — partner yang sudah aktif (atau tab lain) tidak perlu membayar query
+  // ini. Ini SATU-SATUNYA pembacaan halaman yang benar-benar bergantung pada
+  // hasil query partner (status-nya), jadi ia sengaja dibiarkan di gelombang
+  // kedua — dan gelombang itu hanya terjadi untuk partner DRAF yang sedang
+  // membuka Ringkasan. head:true = hitung saja, tanpa mengambil baris.
+  const { count: staffCount, error: staffErr } =
+    tab === "overview" && partner.status === "DRAFT"
+      ? await supabase
           .from("partner_staff")
           .select("id", { count: "exact", head: true })
           .eq("partner_id", id)
           .eq("status", "ACTIVE")
-      : Promise.resolve({ count: null as number | null, error: null as QueryErr }),
-  ]);
+      : { count: null as number | null, error: null as QueryErr };
 
   // Tabel partner_packages bisa saja belum ada (migrasi 0008 dijalankan
   // terpisah dari kode — LESSONS #12). Error lain (bukan 42P01) TIDAK boleh
@@ -515,7 +566,12 @@ export default async function PartnerDetailPage({
     // arti" — bawaan sistem (OWN_BRANCH) tetap berlaku di balik layar. Layar
     // ini harus bilang itu secara eksplisit, bukan diam (audit P2-2).
     const pol: PolicyRow = policy || { visibility_scope: "OWN_BRANCH", edit_scope: "OWN_BRANCH", configured: false };
-    const offerPolicy = await fetchOfferPolicy(supabase, id);
+    // Sudah diambil di gelombang paralel di atas dengan syarat yang persis
+    // sama dengan tab ini, jadi cabang `?? error` tidak pernah terpakai —
+    // kalaupun terpakai, tampilannya sama dengan kegagalan pengambilan biasa
+    // (kartu error), bukan layar kosong (LESSONS #10).
+    const offerPolicy: Awaited<ReturnType<typeof fetchOfferPolicy>> =
+      offerPolicyRes ?? { status: "error" };
     body = (
       <div>
         <PermissionsForm
@@ -562,12 +618,8 @@ export default async function PartnerDetailPage({
   }
 
   if (tab === "history") {
-    const { data: audit } = await supabase
-      .from("audit_logs")
-      .select("id, action, actor_role, created_at, before, after")
-      .eq("partner_id", id)
-      .order("created_at", { ascending: false })
-      .limit(100);
+    // Barisnya sudah diambil di gelombang paralel di atas.
+    const audit = auditRes ? auditRes.data : null;
 
     body = (
       <div className="card">
