@@ -475,6 +475,14 @@ const id = {
   produkCardPriceLoadFailed: "Harga gagal dimuat",
   productNoPhoto: "Tanpa foto",
   productStockFieldLabel: "Status stok",
+  // Dipakai KHUSUS sebagai {tombol} di pesan pemulihan jaringan (audit
+  // 2026-08-28) — dropdown Status Stok adalah satu-satunya pemakai
+  // submitSafely di seluruh app yang BUKAN tombol. Memakai
+  // productStockFieldLabel di sana ("Status stok") membuat kalimat
+  // "tekan \"Status stok\" lagi" terbaca aneh — bukan nama sesuatu yang
+  // bisa "ditekan". Frasa ini menamai KONTROLnya, bukan sekadar label
+  // kolomnya, supaya kalimat itu tetap masuk akal.
+  productStockRetryLabel: "pilihan Status Stok",
 
   // ---- Tambah Produk (add-product-button.tsx) ----
   productAddBtn: "+ Tambah Produk",
@@ -1351,6 +1359,7 @@ const en = {
   produkCardPriceLoadFailed: "Price failed to load",
   productNoPhoto: "No photo",
   productStockFieldLabel: "Stock status",
+  productStockRetryLabel: "Stock status dropdown",
 
   productAddBtn: "+ Add Product",
   productAddModalTitle: "Add Product",
@@ -2129,6 +2138,7 @@ const zh = {
   produkCardPriceLoadFailed: "价格加载失败",
   productNoPhoto: "暂无照片",
   productStockFieldLabel: "库存状态",
+  productStockRetryLabel: "库存状态下拉选单",
 
   productAddBtn: "+ 新增产品",
   productAddModalTitle: "新增产品",

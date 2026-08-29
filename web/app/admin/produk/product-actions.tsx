@@ -192,7 +192,12 @@ export default function ProductActions({
       kind: "update",
       run: () => setProductStockStatus(product.id, value),
       messages: m,
-      buttonLabel: m.admin.productStockFieldLabel,
+      // BUKAN productStockFieldLabel ("Status stok") — itu nama KOLOM, dan
+      // "tekan \"Status stok\" lagi" terbaca aneh (bukan nama sesuatu yang
+      // bisa ditekan). productStockRetryLabel menamai kontrolnya sendiri,
+      // supaya kalimat pemulihan jaringan tetap masuk akal untuk satu-
+      // satunya pemakai submitSafely yang berupa dropdown, bukan tombol.
+      buttonLabel: m.admin.productStockRetryLabel,
     });
     setStockBusy(false);
     if (out.status !== "ok") {

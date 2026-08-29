@@ -170,6 +170,40 @@ export async function moveProductPhoto(
   // rusak. `product_id` ikut dikirim di setiap baris (dan RLS ph_admin_all
   // tetap penjaga sesungguhnya) supaya id foto dari browser tidak pernah
   // bisa menyentuh baris produk lain.
+  //
+  // TAPI upsert (bukan update) berarti id yang SUDAH TIDAK ADA — foto itu
+  // dihapus penulis lain di antara pembacaan `photos` di atas dan penulisan
+  // di sini — bukan gagal diam-diam, melainkan DISISIPKAN LAGI sebagai baris
+  // baru (audit 2026-08-28, tinjauan menyeluruh setelah commit atomik ini).
+  // Hasilnya: foto yang sudah dihapus "hidup lagi" di galeri, dengan
+  // photo_url yang mungkin sudah tidak ada di storage — gambar rusak yang
+  // terlihat seolah operasi geser ini berhasil sempurna.
+  //
+  // Verifikasi ulang keberadaan SEMUA id TEPAT SEBELUM menulis mempersempit
+  // jendela balapan dari "selama modal foto ini terbuka" menjadi satu query
+  // — bukan penutup sempurna (transaksi/RPC sungguhan baru itu penutup
+  // penuh), tapi cukup untuk risiko nyatanya: dua admin menggeser DAN
+  // menghapus foto produk yang sama dalam hitungan detik.
+  const { data: masihAda, error: cekError } = await supabase
+    .from("product_photos")
+    .select("id")
+    .eq("product_id", productId)
+    .in(
+      "id",
+      target.map((p) => p.id)
+    );
+  if (cekError) {
+    if (isMissingTable(cekError.code)) return { error: { message: m.admin.catalogMigrationMsg } };
+    return { error: { message: m.common.errorLoad } };
+  }
+  if ((masihAda ?? []).length !== target.length) {
+    // Ada foto yang hilang sejak dibaca di atas — daftar di layar sudah
+    // basi. Berhenti di sini SEBELUM upsert, supaya id yang hilang itu
+    // tidak pernah tersisipkan lagi. Pemanggil menampilkan error + memuat
+    // ulang (sama seperti cabang `from === -1` di atas).
+    return { error: { message: m.admin.productGalleryMoveFailed } };
+  }
+
   const written = await safeWrite(
     supabase
       .from("product_photos")
