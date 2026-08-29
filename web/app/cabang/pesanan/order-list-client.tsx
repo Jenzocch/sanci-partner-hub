@@ -10,6 +10,7 @@ import {
 } from "@/lib/orders-shared";
 import { useCabangMessages } from "@/lib/i18n/provider";
 import type { CabangMessages } from "@/lib/i18n";
+import { useBrowsePersist } from "@/lib/use-browse-persist";
 import StatusBadge from "./status-badge";
 
 /** Filter status (SPEC §97) — "Semua" tetap menampilkan Dibatalkan, tidak boleh hilang dari pencarian. */
@@ -20,6 +21,14 @@ function statusFilters(m: CabangMessages): { value: StatusFilter; label: string 
     { value: "REGISTERED", label: orderStatusLabel(m, "REGISTERED") },
     { value: "CANCELLED", label: orderStatusLabel(m, "CANCELLED") },
   ];
+}
+
+/** Kunci sessionStorage keadaan jelajah (format sama dengan /cabang/produk). */
+const BROWSE_STATE_KEY = "cabang.pesanan.browse";
+
+/** Nilai dari sessionStorage tidak dipercaya: hanya filter yang memang ada. */
+function isStatusFilter(v: string | undefined): v is StatusFilter {
+  return v === "ALL" || v === "REGISTERED" || v === "CANCELLED";
 }
 
 export type OrderListItem = {
@@ -74,6 +83,24 @@ export default function OrderListClient({
       return false;
     });
   }, [items, q, statusFilter]);
+
+  // Kata kunci, filter status, dan posisi gulir bertahan saat pengguna masuk
+  // ke satu pesanan lalu kembali: tombol kembali di halaman detail adalah
+  // `<Link>` push, jadi komponen ini di-mount ULANG dan state di atas lahir
+  // kosong. Ini penambal kecil (lib/use-browse-persist.ts), BUKAN opsi
+  // `persist` milik use-catalog-search — daftar ini menyaring array hasil
+  // render server di memori, tanpa fetch/halaman, jadi hook katalog tidak
+  // cocok tanpa refaktor besar; alasan lengkapnya di berkas penambalnya.
+  // Dimatikan (key null) saat yang tampil kartu error: tidak ada daftar untuk
+  // dijelajahi, dan menulis keadaan kosong akan menghapus yang tersimpan.
+  useBrowsePersist({
+    key: errorKind === null ? BROWSE_STATE_KEY : null,
+    fields: { q, statusFilter },
+    onRestore: (saved) => {
+      if (saved.q !== undefined) setQ(saved.q);
+      if (isStatusFilter(saved.statusFilter)) setStatusFilter(saved.statusFilter);
+    },
+  });
 
   // Error state — jangan disamarkan sebagai daftar kosong (LESSONS #10).
   if (errorKind === "missing_table") {

@@ -90,33 +90,29 @@ export default async function AdminOrdersPage({
 
   const supabase = await createClient();
 
-  // ── 1. Kalau ada kata kunci, cari dulu customer yang cocok (nama atau
-  //      telepon setelah dinormalisasi) — hasilnya dipakai untuk memfilter
-  //      partner_orders di server, bukan menarik semua baris lalu menyaring
-  //      di sini (SPEC §75/§76).
-  let matchedCustomerIds: string[] = [];
   let queryErr: QueryErr = null;
 
-  if (q) {
-    const normalizedPhone = normalizePhoneID(q);
-    const custQuery = supabase.from("customers").select("id");
-    const { data: custRows, error: custErr } = normalizedPhone
-      ? await custQuery.eq("phone_normalized", normalizedPhone).limit(LIST_LIMIT)
-      : await custQuery.ilike("full_name", `%${likeEscape(q)}%`).limit(LIST_LIMIT);
-    if (custErr) {
-      queryErr = custErr;
-    } else {
-      matchedCustomerIds = (custRows ?? []).map((c: { id: string }) => c.id);
-    }
-  }
+  /**
+   * Satu bentuk query daftar pesanan: kolom + urutan + filter status/tanggal
+   * yang IDENTIK untuk semua jalur pencarian. Dipakai lewat pemanggilan
+   * (bukan satu builder dipakai ulang) karena builder supabase-js sekali
+   * pakai — tiap jalur butuh instansnya sendiri.
+   */
+  const ordersQuery = () => {
+    let qb = supabase.from("partner_orders").select(ORDER_COLS);
+    if (statusFilter !== "ALL") qb = qb.eq("status", statusFilter);
+    if (gteIso) qb = qb.gte("created_at", gteIso);
+    if (lteIso) qb = qb.lte("created_at", lteIso);
+    return qb.order("created_at", { ascending: false });
+  };
 
-  // ── 2. Ambil partner_orders — difilter status+tanggal di server, dan
+  // ── 1–2. Ambil partner_orders — difilter status+tanggal di server, dan
   //      (kalau ada kata kunci) digabung dari LIMA jalur pencarian yang
   //      hasilnya digabung-dedupe di memori berdasar id (bukan `.or()`
   //      lintas tabel — masing-masing jalur query vertikal sendiri,
   //      LESSONS #40):
   //        1) order_number cocok (ilike)
-  //        2) customer_id ada di hasil langkah 1 (nama/telepon)
+  //        2) customers.full_name/phone_normalized cocok → customer_id
   //        3) customer_po cocok (ilike) — kolom 0020, TOLERAN error apa pun
   //           (termasuk 42703 kalau migration belum jalan di suatu env):
   //           jalur ini gagal sendirian, tidak menggagalkan seluruh
@@ -128,137 +124,111 @@ export default async function AdminOrdersPage({
   //      dst.) TIDAK menggagalkan seluruh pencarian, hanya jalur itu yang
   //      diam-diam tidak menyumbang baris. Jalur 1/2 tetap mempertahankan
   //      perilaku lama: gagal = seluruh pencarian gagal (queryErr).
+  //
+  //      BENTUK EKSEKUSI (audit kecepatan 2026-08-29) — DUA gelombang, dulu
+  //      empat. Yang benar-benar berantai cuma "cari id dulu, baru cari
+  //      pesanannya": jalur 2/4/5 harus menunggu pencarian id
+  //      customer/item/staf-nya sendiri. Sisanya tidak saling bergantung
+  //      sama sekali dan dulu hanya kebetulan berurutan karena letaknya di
+  //      dalam blok `else` satu sama lain:
+  //        gelombang A (5 paralel): customers, order_number, customer_po,
+  //          order_items, partner_staff;
+  //        gelombang B (≤3 paralel): partner_orders by customer_id / by id
+  //          (hasil item) / by partner_sales_staff_id.
+  //      Konsekuensi yang disengaja: kalau jalur 1/2 gagal, empat query
+  //      gelombang A yang lain TETAP terlanjur jalan dan hasilnya dibuang —
+  //      lebih murah daripada satu perjalanan bolak-balik ekstra pada SETIAP
+  //      pencarian yang sehat (kasus normal), dan tampilannya sama persis
+  //      (queryErr → kartu error yang sama).
   let orderRows: OrderListRow[] = [];
   let productMatchCapped = false;
 
-  if (!queryErr) {
-    if (!q) {
-      let query = supabase
-        .from("partner_orders")
-        .select(ORDER_COLS)
-        .order("created_at", { ascending: false });
-      if (statusFilter !== "ALL") query = query.eq("status", statusFilter);
-      if (gteIso) query = query.gte("created_at", gteIso);
-      if (lteIso) query = query.lte("created_at", lteIso);
-      const { data, error } = await query.limit(LIST_LIMIT);
-      if (error) queryErr = error;
-      else orderRows = (data ?? []) as OrderListRow[];
-    } else {
-      const likePattern = `%${likeEscape(q)}%`;
+  if (!q) {
+    const { data, error } = await ordersQuery().limit(LIST_LIMIT);
+    if (error) queryErr = error;
+    else orderRows = (data ?? []) as OrderListRow[];
+  } else {
+    const likePattern = `%${likeEscape(q)}%`;
 
+    // Jalur 2, langkah A: customer yang cocok (nama ATAU telepon setelah
+    // dinormalisasi) — id-nya dipakai memfilter partner_orders di server,
+    // bukan menarik semua baris lalu menyaring di sini (SPEC §75/§76).
+    const normalizedPhone = normalizePhoneID(q);
+    const custQuery = supabase.from("customers").select("id");
+
+    // Jalur 4, langkah A: order_items.name_snapshot/code_snapshot — DUA
+    // kolom tabel yang sama, jadi pakai catalogIlikeOrFilter (sudah
+    // menangani escape + PostgREST-quote untuk `.or()`, LESSONS #40)
+    // alih-alih dua query terpisah.
+    const itemsOrFilter = catalogIlikeOrFilter(q, ["name_snapshot", "code_snapshot"]);
+    let itemsQuery = supabase
+      .from("order_items")
+      .select("order_id")
+      .order("created_at", { ascending: false })
+      .limit(ORDER_ITEMS_SCAN_LIMIT);
+    if (itemsOrFilter) itemsQuery = itemsQuery.or(itemsOrFilter);
+
+    // ── Gelombang A: lima pencarian yang TIDAK saling bergantung.
+    const [custRes, orderNumberRes, poRes, itemsRes, staffRes] = await Promise.all([
+      normalizedPhone
+        ? custQuery.eq("phone_normalized", normalizedPhone).limit(LIST_LIMIT)
+        : custQuery.ilike("full_name", likePattern).limit(LIST_LIMIT),
       // Jalur 1: order_number
-      let orderNumberQuery = supabase
-        .from("partner_orders")
-        .select(ORDER_COLS)
-        .ilike("order_number", likePattern)
-        .order("created_at", { ascending: false });
-      if (statusFilter !== "ALL") orderNumberQuery = orderNumberQuery.eq("status", statusFilter);
-      if (gteIso) orderNumberQuery = orderNumberQuery.gte("created_at", gteIso);
-      if (lteIso) orderNumberQuery = orderNumberQuery.lte("created_at", lteIso);
-      const coreJobs = [orderNumberQuery.limit(LIST_LIMIT)];
+      ordersQuery().ilike("order_number", likePattern).limit(LIST_LIMIT),
+      // Jalur 3: customer_po (toleran — errornya tidak pernah naik ke queryErr)
+      ordersQuery().ilike("customer_po", likePattern).limit(LIST_LIMIT),
+      itemsQuery,
+      // Jalur 5, langkah A: partner_staff.full_name → id staf.
+      supabase.from("partner_staff").select("id").ilike("full_name", likePattern).limit(STAFF_MATCH_SCAN_LIMIT),
+    ]);
 
-      // Jalur 2: customer (nama/telepon) — dari langkah 1
-      if (matchedCustomerIds.length > 0) {
-        let byCustomerQuery = supabase
-          .from("partner_orders")
-          .select(ORDER_COLS)
-          .in("customer_id", matchedCustomerIds)
-          .order("created_at", { ascending: false });
-        if (statusFilter !== "ALL") byCustomerQuery = byCustomerQuery.eq("status", statusFilter);
-        if (gteIso) byCustomerQuery = byCustomerQuery.gte("created_at", gteIso);
-        if (lteIso) byCustomerQuery = byCustomerQuery.lte("created_at", lteIso);
-        coreJobs.push(byCustomerQuery.limit(LIST_LIMIT));
+    // Urutan pemeriksaan error dipertahankan seperti versi berurutan:
+    // customers dulu, baru order_number, baru (di bawah) by-customer —
+    // penting karena isMissingTableError(queryErr) memilih pesan layar.
+    if (custRes.error) queryErr = custRes.error;
+    else if (orderNumberRes.error) queryErr = orderNumberRes.error;
+
+    if (!queryErr) {
+      const matchedCustomerIds = (custRes.data ?? []).map((c: { id: string }) => c.id);
+
+      let orderIdsFromItems: string[] = [];
+      if (!itemsRes.error) {
+        const itemRows = (itemsRes.data ?? []) as { order_id: string }[];
+        productMatchCapped = itemRows.length >= ORDER_ITEMS_SCAN_LIMIT;
+        orderIdsFromItems = Array.from(new Set(itemRows.map((r) => r.order_id)));
       }
+      const staffIdsMatched = staffRes.error
+        ? []
+        : (staffRes.data ?? []).map((r: { id: string }) => r.id);
 
-      const coreResults = await Promise.all(coreJobs);
-      const firstError = coreResults.find((r) => r.error)?.error;
-      if (firstError) {
-        queryErr = firstError;
-      } else {
+      // ── Gelombang B: tiga lanjutan "id → pesanan". Saling independen —
+      //    dulu jalur 4 dan 5 di-await berurutan tanpa alasan.
+      const [byCustomerRes, byItemsRes, byStaffRes] = await Promise.all([
+        matchedCustomerIds.length > 0
+          ? ordersQuery().in("customer_id", matchedCustomerIds).limit(LIST_LIMIT)
+          : null,
+        orderIdsFromItems.length > 0 ? ordersQuery().in("id", orderIdsFromItems).limit(LIST_LIMIT) : null,
+        staffIdsMatched.length > 0
+          ? ordersQuery().in("partner_sales_staff_id", staffIdsMatched).limit(LIST_LIMIT)
+          : null,
+      ]);
+
+      // Jalur 2 tetap "gagal = seluruh pencarian gagal" (perilaku lama).
+      if (byCustomerRes?.error) queryErr = byCustomerRes.error;
+
+      if (!queryErr) {
+        // Dedupe by id. Urutan penggabungan tidak penting: tiap jalur
+        // memilih ORDER_COLS yang sama dari tabel yang sama, jadi baris
+        // dengan id sama identik isinya.
         const byId = new Map<string, OrderListRow>();
-        coreResults.forEach((r) => (r.data ?? []).forEach((row: OrderListRow) => byId.set(row.id, row)));
-
-        // Jalur 3: customer_po — query langsung ke partner_orders (kolom
-        // sudah tersedia sejak 0020), tapi errornya TIDAK pernah dinaikkan
-        // ke queryErr (lihat catatan toleransi di atas).
-        let customerPoQuery = supabase
-          .from("partner_orders")
-          .select(ORDER_COLS)
-          .ilike("customer_po", likePattern)
-          .order("created_at", { ascending: false });
-        if (statusFilter !== "ALL") customerPoQuery = customerPoQuery.eq("status", statusFilter);
-        if (gteIso) customerPoQuery = customerPoQuery.gte("created_at", gteIso);
-        if (lteIso) customerPoQuery = customerPoQuery.lte("created_at", lteIso);
-
-        // Jalur 4, langkah A: order_items.name_snapshot/code_snapshot —
-        // DUA kolom tabel yang sama, jadi pakai catalogIlikeOrFilter (sudah
-        // menangani escape + PostgREST-quote untuk `.or()`, LESSONS #40)
-        // alih-alih dua query terpisah.
-        const itemsOrFilter = catalogIlikeOrFilter(q, ["name_snapshot", "code_snapshot"]);
-        let itemsQuery = supabase
-          .from("order_items")
-          .select("order_id")
-          .order("created_at", { ascending: false })
-          .limit(ORDER_ITEMS_SCAN_LIMIT);
-        if (itemsOrFilter) itemsQuery = itemsQuery.or(itemsOrFilter);
-
-        // Jalur 5, langkah A: partner_staff.full_name → id staf.
-        const staffQuery = supabase
-          .from("partner_staff")
-          .select("id")
-          .ilike("full_name", likePattern)
-          .limit(STAFF_MATCH_SCAN_LIMIT);
-
-        const [poRes, itemsRes, staffRes] = await Promise.all([
-          customerPoQuery.limit(LIST_LIMIT),
-          itemsQuery,
-          staffQuery,
-        ]);
-
-        // Gabung jalur 3 (toleran — error diabaikan, tidak menyumbang baris).
-        if (!poRes.error) {
-          (poRes.data ?? []).forEach((row: OrderListRow) => byId.set(row.id, row));
-        }
-
-        // Jalur 4, langkah B: order_id hasil → partner_orders (toleran).
-        if (!itemsRes.error) {
-          const itemRows = (itemsRes.data ?? []) as { order_id: string }[];
-          productMatchCapped = itemRows.length >= ORDER_ITEMS_SCAN_LIMIT;
-          const orderIdsFromItems = Array.from(new Set(itemRows.map((r) => r.order_id)));
-          if (orderIdsFromItems.length > 0) {
-            let byItemsQuery = supabase
-              .from("partner_orders")
-              .select(ORDER_COLS)
-              .in("id", orderIdsFromItems)
-              .order("created_at", { ascending: false });
-            if (statusFilter !== "ALL") byItemsQuery = byItemsQuery.eq("status", statusFilter);
-            if (gteIso) byItemsQuery = byItemsQuery.gte("created_at", gteIso);
-            if (lteIso) byItemsQuery = byItemsQuery.lte("created_at", lteIso);
-            const { data: itemOrderRows, error: itemOrderErr } = await byItemsQuery.limit(LIST_LIMIT);
-            if (!itemOrderErr) {
-              (itemOrderRows ?? []).forEach((row: OrderListRow) => byId.set(row.id, row));
-            }
-          }
-        }
-
-        // Jalur 5, langkah B: staff id hasil → partner_orders (toleran).
-        if (!staffRes.error) {
-          const staffIdsMatched = (staffRes.data ?? []).map((r: { id: string }) => r.id);
-          if (staffIdsMatched.length > 0) {
-            let byStaffQuery = supabase
-              .from("partner_orders")
-              .select(ORDER_COLS)
-              .in("partner_sales_staff_id", staffIdsMatched)
-              .order("created_at", { ascending: false });
-            if (statusFilter !== "ALL") byStaffQuery = byStaffQuery.eq("status", statusFilter);
-            if (gteIso) byStaffQuery = byStaffQuery.gte("created_at", gteIso);
-            if (lteIso) byStaffQuery = byStaffQuery.lte("created_at", lteIso);
-            const { data: staffOrderRows, error: staffOrderErr } = await byStaffQuery.limit(LIST_LIMIT);
-            if (!staffOrderErr) {
-              (staffOrderRows ?? []).forEach((row: OrderListRow) => byId.set(row.id, row));
-            }
-          }
-        }
+        const merge = (rows: OrderListRow[] | null) =>
+          (rows ?? []).forEach((row) => byId.set(row.id, row));
+        merge((orderNumberRes.data ?? []) as OrderListRow[]);
+        if (byCustomerRes) merge((byCustomerRes.data ?? []) as OrderListRow[]);
+        // Jalur 3/4/5 toleran: error = tidak menyumbang baris, titik.
+        if (!poRes.error) merge((poRes.data ?? []) as OrderListRow[]);
+        if (byItemsRes && !byItemsRes.error) merge((byItemsRes.data ?? []) as OrderListRow[]);
+        if (byStaffRes && !byStaffRes.error) merge((byStaffRes.data ?? []) as OrderListRow[]);
 
         orderRows = Array.from(byId.values())
           .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))

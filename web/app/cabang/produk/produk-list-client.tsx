@@ -10,12 +10,19 @@ import ProductImg from "@/lib/product-img";
 import { getCatalogPageBranch } from "@/app/cabang/catalog-actions";
 import styles from "./produk.module.css";
 
+/**
+ * Persis field yang DIRENDER kartu grid. `description` sengaja tidak ada:
+ * kartu hanya menampilkan foto/nama/kategori/harga/status stok, jadi
+ * mengangkutnya dari database ke ponsel (60 baris per halaman, teks bisa
+ * ratusan karakter per baris) adalah muatan yang tidak pernah dibaca. Yang
+ * MENAMPILKAN deskripsi adalah halaman detail /cabang/produk/[productId] —
+ * halaman itu memuat produknya sendiri dan tidak bergantung pada tipe ini.
+ */
 export type ProdukItem = {
   id: string;
   name: string;
   code: string | null;
   category: string | null;
-  description: string | null;
   photoUrl: string | null;
   stockStatus: StockStatus;
   /**
@@ -84,7 +91,6 @@ export default function ProdukListClient({
               name: p.name,
               code: p.code,
               category: p.category,
-              description: p.description ?? null,
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
               // "in" (bukan `?? null`): TANPA field = query harga gagal,

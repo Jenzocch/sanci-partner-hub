@@ -4,6 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { displayPhoneID, normalizePhoneID } from "@/lib/orders-shared";
 import { useCabangMessages } from "@/lib/i18n/provider";
+import { useBrowsePersist } from "@/lib/use-browse-persist";
+
+/** Kunci sessionStorage keadaan jelajah (format sama dengan /cabang/produk). */
+const BROWSE_STATE_KEY = "cabang.pelanggan.browse";
 
 export type CustomerListItem = {
   id: string;
@@ -36,6 +40,21 @@ export default function CustomerListClient({
       return false;
     });
   }, [items, q]);
+
+  // Kata kunci dan posisi gulir bertahan saat pengguna membuka satu pelanggan
+  // lalu kembali: tombol kembali di halaman detail adalah `<Link>` push, jadi
+  // komponen ini di-mount ULANG dan `q` di atas lahir kosong. Penambal kecil
+  // (lib/use-browse-persist.ts), BUKAN opsi `persist` milik use-catalog-search
+  // — daftar ini menyaring array hasil render server di memori, tanpa
+  // fetch/halaman; alasan lengkapnya di berkas penambalnya. Dimatikan (key
+  // null) saat yang tampil kartu error, sama seperti daftar pesanan.
+  useBrowsePersist({
+    key: errorKind === null ? BROWSE_STATE_KEY : null,
+    fields: { q },
+    onRestore: (saved) => {
+      if (saved.q !== undefined) setQ(saved.q);
+    },
+  });
 
   // Error state — jangan disamarkan sebagai daftar kosong (LESSONS #10).
   if (errorKind === "missing_table") {

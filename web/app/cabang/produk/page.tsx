@@ -11,12 +11,17 @@ import ProdukListClient, { type ProdukItem } from "./produk-list-client";
 export const dynamic = "force-dynamic";
 
 type CatalogAccessRow = { enabled: boolean };
+/** Persis kolom yang DIRENDER kartu grid (lihat produk-list-client.tsx) —
+ *  `description` sengaja TIDAK ikut: kartu tidak pernah menampilkannya, dan
+ *  teks deskripsi produk ini panjang (ratusan karakter/baris × 60 baris per
+ *  halaman) sehingga ikut terkirim ke ponsel tanpa pernah terpakai. Halaman
+ *  DETAIL /cabang/produk/[productId] punya query-nya sendiri yang memang
+ *  memilih dan menampilkan `description` — itu tidak berubah. */
 type ProductQueryRow = {
   id: string;
   name: string;
   code: string | null;
   category: string | null;
-  description: string | null;
   photo_url: string | null;
   stock_status: StockStatus;
 };
@@ -118,7 +123,7 @@ export default async function ProdukPage() {
   const [{ data: products, error: productsError }, categories] = await Promise.all([
     supabase
       .from("sanci_products")
-      .select("id, name, code, category, description, photo_url, stock_status")
+      .select("id, name, code, category, photo_url, stock_status")
       .order("name")
       .order("id")
       .range(0, CATALOG_PAGE_SIZE),
@@ -165,7 +170,6 @@ export default async function ProdukPage() {
     name: p.name,
     code: p.code,
     category: p.category,
-    description: p.description,
     photoUrl: p.photo_url,
     stockStatus: p.stock_status,
     displayPrice: "display_price" in p ? p.display_price : undefined,

@@ -21,10 +21,14 @@
  * sah membuat partner_users pulang kosong dan dilaporkan sebagai error biasa
  * (pemakai layar-layar ini pasti sudah login; kosong = ada yang tidak beres).
  *
- * `description` ikut di select karena modal detail /cabang/produk
- * menampilkannya; pemakai lain (kalkulator/picker) tinggal tidak memetakan
- * kolomnya — biaya kirimnya kecil dan lebih murah daripada memecah kontrak
- * jadi dua bentuk select.
+ * `description` TIDAK ikut di select (audit kecepatan 2026-08-29). Catatan
+ * lama di sini menyebut "modal detail /cabang/produk menampilkannya" — itu
+ * sudah tidak berlaku: detail produk cabang adalah HALAMAN tersendiri
+ * (/cabang/produk/[productId]) yang memuat produknya lewat query-nya sendiri
+ * dan memang menampilkan deskripsi. Tidak satu pun dari tiga pemakai action
+ * ini (grid jelajah, kalkulator, picker Isi Pesanan) merender kolom itu,
+ * jadi mengirimnya berarti mengangkut teks ratusan karakter × 60 baris per
+ * halaman ("Muat Lebih Banyak") ke ponsel untuk langsung dibuang.
  */
 
 import { createClient } from "@/lib/supabase/server";
@@ -63,7 +67,7 @@ export async function getCatalogPageBranch(input: CatalogPageInput): Promise<Cat
   const norm = normalizeCatalogPageInput(input);
   let query = supabase
     .from("sanci_products")
-    .select("id, name, code, category, description, photo_url, stock_status");
+    .select("id, name, code, category, photo_url, stock_status");
   // Semantik pencarian meniru memo `filtered` lama (substring nama ATAU kode
   // ATAU kategori, case-insensitive) — sanitasi di catalogIlikeOrFilter.
   const orFilter = catalogIlikeOrFilter(norm.q, ["name", "code", "category"]);

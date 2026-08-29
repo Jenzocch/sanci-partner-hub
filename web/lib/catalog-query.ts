@@ -91,8 +91,14 @@ export type CatalogPageInput = {
   withDisplayPrices?: boolean;
 };
 
-/** Baris produk seperti keluar dari PostgREST (snake_case). `description`
- *  hanya diisi action yang layarnya menampilkannya (produk cabang);
+/** Baris produk seperti keluar dari PostgREST (snake_case). TIDAK ada
+ *  `description`: tidak satu pun layar yang memakai kontrak ini merendernya
+ *  (grid jelajah cabang, kalkulator, picker Isi Pesanan) — dulu ikut karena
+ *  disangka dibutuhkan modal detail cabang, padahal detail produk adalah
+ *  halaman tersendiri dengan query sendiri (audit kecepatan 2026-08-29).
+ *  Layar yang MEMANG menampilkan deskripsi (/cabang/produk/[productId],
+ *  /p/[productId], modal Ubah admin) memilih kolomnya di query masing-masing,
+ *  bukan lewat tipe ini.
  *  `price` (harga efektif 0021, rupiah bulat) hanya diisi kalau pemanggil
  *  meminta `withPrices` DAN barisnya punya harga — ditempelkan action di
  *  server SETELAH query produk, bukan kolom PostgREST. */
@@ -101,7 +107,6 @@ export type CatalogProductRow = {
   name: string;
   code: string | null;
   category: string | null;
-  description?: string | null;
   photo_url: string | null;
   stock_status: StockStatus;
   price?: number | null;
