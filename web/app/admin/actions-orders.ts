@@ -550,6 +550,117 @@ export async function clearOrderOffer(orderId: string): Promise<ActionResult<tru
   return { data: true };
 }
 
+/**
+ * Baca nilai penawaran yang BERLAKU SEKARANG untuk satu pesanan. Dipakai
+ * modal "Ubah Penawaran" SETIAP KALI dibuka — bukan angka hasil render
+ * halaman.
+ *
+ * Kenapa ini perlu ada: setOrderOffer di atas adalah upsert SATU BARIS PENUH
+ * (keenam kolom sekaligus, berkunci order_id) — tidak ada perbandingan
+ * "kolom mana yang benar-benar diubah pengguna". Halaman detail pesanan
+ * tidak punya polling maupun Realtime, jadi angka propnya adalah potret saat
+ * render pertama dan tidak pernah menyusul sendiri. Kalau formulirnya diisi
+ * dari potret itu, admin yang cuma ingin membetulkan Kondisi Pembayaran ikut
+ * mengirim balik diskon/markup versi lama — perubahan orang lain (atau tab
+ * lain milik dirinya sendiri) TERTIMPA tanpa error, tanpa peringatan, dan
+ * tanpa satu pun tanda di layar kedua belah pihak. Ini kolom uang.
+ *
+ * Polanya ditiru persis dari getProductBasePrice (actions-products.ts,
+ * 0021): muat segar tiap kali modal dibuka, dan kalau gagal dimuat
+ * formulirnya TIDAK dibuka — bukan mundur diam-diam ke angka lama (itu sama
+ * saja dengan memasang kembali bug yang sedang diperbaiki).
+ *
+ * Gerbangnya SAMA dengan setOrderOffer/clearOrderOffer: client sesi pengguna
+ * sendiri, RLS admin-only tabel 0013 yang menegakkan (pengguna cabang
+ * mendapat nol baris). Tidak ada jalur otorisasi baru yang dikarang di sini
+ * — LESSONS #5/#6.
+ *
+ * `data: null` berarti pesanan ini MEMANG belum punya penawaran; itu bukan
+ * kegagalan dan tidak boleh dicampur dengan error (LESSONS #10).
+ */
+type OfferSnapshot = {
+  amount: number;
+  dpAmount: number;
+  paymentCondition: string | null;
+  discountPcts: number[];
+  markupPct: number | null;
+  cashDiscount: number;
+};
+
+export async function getOrderOffer(orderId: string): Promise<ActionResult<OfferSnapshot | null>> {
+  const m = await getAdminMessages();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("order_sanci_offers")
+    .select("amount, dp_amount, payment_condition, discount_pcts, markup_pct, cash_discount")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error.code)) return { error: { message: m.admin.orderOfferFeatureOffAction } };
+    if (isMissingColumnError(error.code)) {
+      // 0013/0014 sudah jalan tapi 0015 belum: kolom dasar tetap harus bisa
+      // diubah, hanya bagian diskon yang belum ada. SELECT sempit ini sama
+      // persis dengan fetchOrderOffer di halaman detail — tanpa fallback ini
+      // modalnya justru MATI di database yang formulirnya selama ini jalan
+      // (LESSONS #12: kode boleh naik sebelum SQL, fiturnya turun derajat,
+      // bukan hilang).
+      const narrow = await supabase
+        .from("order_sanci_offers")
+        .select("amount, dp_amount, payment_condition")
+        .eq("order_id", orderId)
+        .maybeSingle();
+      if (narrow.error) {
+        if (isMissingTable(narrow.error.code)) {
+          return { error: { message: m.admin.orderOfferFeatureOffAction } };
+        }
+        return { error: { message: m.common.errorLoad } };
+      }
+      const narrowRow = narrow.data as
+        | { amount: number | string; dp_amount: number | string; payment_condition: string | null }
+        | null;
+      if (!narrowRow) return { data: null };
+      return {
+        data: {
+          amount: Number(narrowRow.amount),
+          dpAmount: Number(narrowRow.dp_amount),
+          paymentCondition: narrowRow.payment_condition,
+          discountPcts: [],
+          markupPct: null,
+          cashDiscount: 0,
+        },
+      };
+    }
+    return { error: { message: m.common.errorLoad } };
+  }
+
+  const row = data as
+    | {
+        amount: number | string;
+        dp_amount: number | string;
+        payment_condition: string | null;
+        discount_pcts: number[] | null;
+        markup_pct: number | string | null;
+        cash_discount: number | string | null;
+      }
+    | null;
+  if (!row) return { data: null };
+  // numeric(15,2) bisa sampai ke sini sebagai string tergantung versi driver
+  // — Number() sekali di sini supaya formatIDR tidak pernah menerima teks
+  // (alasan yang sama ditulis di fetchOrderOffer halaman detail).
+  return {
+    data: {
+      amount: Number(row.amount),
+      dpAmount: Number(row.dp_amount),
+      paymentCondition: row.payment_condition,
+      discountPcts: (row.discount_pcts ?? []).map(Number),
+      markupPct: row.markup_pct == null ? null : Number(row.markup_pct),
+      cashDiscount: Number(row.cash_discount ?? 0),
+    },
+  };
+}
+
 /* ------------------------------------------------------------------ *
  * Isi Pesanan (order_items, migrasi 0014) — sisi admin.
  *
@@ -682,6 +793,78 @@ export async function addOrderItem(
 
   revalidatePath("/admin/orders/[orderId]", "page");
   return { data: { id: written.data.id } };
+}
+
+/**
+ * Baca SATU baris Isi Pesanan apa adanya di database. Dipakai modal
+ * "Ubah" SETIAP KALI dibuka, dengan alasan yang sama persis dengan
+ * getOrderOffer di atas: updateOrderItem di bawah menulis KEDELAPAN kolom
+ * sekaligus tanpa membandingkan apa pun, dan daftar di layar cuma potret
+ * saat halaman dirender (tanpa polling/Realtime). Mengisi formulir dari
+ * potret itu berarti admin yang cuma membetulkan catatan ikut mengirim
+ * balik unit_price/line_discount versi lama — harga baris pesanan orang
+ * lain hilang tanpa jejak.
+ *
+ * Baris yang tidak ditemukan BUKAN dilaporkan sebagai "gagal memuat":
+ * artinya baris ini memang sudah dihapus (tab/perangkat lain), dan pesannya
+ * harus mengatakan itu apa adanya, bukan menyuruh coba lagi selamanya
+ * (LESSONS #10). Yang jelas TIDAK dilakukan: mundur ke nilai prop lama.
+ *
+ * Gerbangnya sama dengan updateOrderItem/deleteOrderItem — RLS oi_admin_all
+ * di database, bukan pengecekan baru di sini (LESSONS #5/#6).
+ */
+type OrderItemSnapshot = {
+  id: string;
+  name_snapshot: string;
+  code_snapshot: string | null;
+  quantity: number;
+  note: string | null;
+  color_code: string | null;
+  custom_size: string | null;
+  unit_price: number | null;
+  line_discount: number | null;
+};
+
+export async function getOrderItem(itemId: string): Promise<ActionResult<OrderItemSnapshot>> {
+  const m = await getAdminMessages();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("order_items")
+    .select("id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size, unit_price, line_discount")
+    .eq("id", itemId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error.code)) return { error: { message: m.admin.orderItemsFeatureOff } };
+    return { error: { message: m.common.errorLoad } };
+  }
+  if (!data) return { error: { message: m.admin.orderItemGone } };
+
+  const row = data as {
+    id: string;
+    name_snapshot: string;
+    code_snapshot: string | null;
+    quantity: number | string;
+    note: string | null;
+    color_code: string | null;
+    custom_size: string | null;
+    unit_price: number | string | null;
+    line_discount: number | string | null;
+  };
+  return {
+    data: {
+      id: row.id,
+      name_snapshot: row.name_snapshot,
+      code_snapshot: row.code_snapshot,
+      quantity: Number(row.quantity),
+      note: row.note,
+      color_code: row.color_code,
+      custom_size: row.custom_size,
+      unit_price: row.unit_price == null ? null : Number(row.unit_price),
+      line_discount: row.line_discount == null ? null : Number(row.line_discount),
+    },
+  };
 }
 
 export async function updateOrderItem(

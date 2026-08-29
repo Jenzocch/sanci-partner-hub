@@ -670,6 +670,12 @@ const id = {
     "Hapus nilai penawaran untuk pesanan ini? Nilai terakhirnya tetap tercatat di Activity.",
   orderOfferInvalid: "Nilai penawaran tidak valid. Isi angka Rupiah, contoh: 1,500,000.",
   orderOfferFeatureOffAction: "Fitur penawaran SANCI belum aktif — migrasi belum dijalankan.",
+  // Modal Penawaran/Isi Pesanan memuat nilai yang BERLAKU SEKARANG tiap
+  // kali dibuka. Kalau pemuatan itu gagal, formulirnya sengaja TIDAK
+  // dibuka — kalimat di bawah harus menjelaskan sebabnya, bukan cuma
+  // menyuruh coba lagi (LESSONS #10).
+  orderOfferLoadFailed:
+    "Nilai penawaran yang berlaku sekarang gagal dimuat, jadi formulirnya tidak dibuka — mengisinya dari angka lama bisa menimpa perubahan orang lain tanpa terlihat.",
   orderOfferDpFieldLabel: "Uang Muka (DP, Rp)",
   orderOfferPaymentConditionFieldLabel: "Kondisi Pembayaran",
   orderOfferPaymentConditionPlaceholder: "Contoh: Full payment, DP 50%",
@@ -736,6 +742,9 @@ const id = {
   orderItemPriceFieldsLockedHint: "Kolom harga hanya bisa diisi kalau partner punya izin \"Boleh mengisi/mengubah Penawaran SANCI\".",
   orderItemSaveFailed: "Tidak bisa menyimpan baris ini sekarang.",
   orderItemDeleteFailed: "Tidak bisa menghapus baris ini sekarang.",
+  orderItemLoadFailed:
+    "Baris ini gagal dimuat, jadi formulirnya tidak dibuka — mengisinya dari angka lama bisa menimpa perubahan orang lain tanpa terlihat.",
+  orderItemGone: "Baris ini sudah tidak ada — kemungkinan dihapus dari tab atau perangkat lain. Tutup lalu muat ulang halaman.",
   orderItemQtyInvalid: "Jumlah harus angka bulat lebih dari 0.",
   orderItemPriceInvalid: "Nilai harga tidak valid.",
 
@@ -1513,6 +1522,8 @@ const en = {
     "Remove the offer amount for this order? The last value stays recorded in Activity.",
   orderOfferInvalid: "That offer amount is not valid. Enter a Rupiah number, for example 1,500,000.",
   orderOfferFeatureOffAction: "The SANCI offer feature is not active yet — the migration has not been run.",
+  orderOfferLoadFailed:
+    "The offer values in force right now could not be loaded, so the form was not opened — filling it from stale numbers can overwrite someone else's change without showing it.",
   orderOfferDpFieldLabel: "Down payment (DP, Rp)",
   orderOfferPaymentConditionFieldLabel: "Payment condition",
   orderOfferPaymentConditionPlaceholder: "Example: Full payment, DP 50%",
@@ -1573,6 +1584,9 @@ const en = {
   orderItemPriceFieldsLockedHint: "Price fields can only be filled in if the partner has the \"Can set/edit the SANCI offer\" permission.",
   orderItemSaveFailed: "Cannot save this line right now.",
   orderItemDeleteFailed: "Cannot delete this line right now.",
+  orderItemLoadFailed:
+    "This line could not be loaded, so the form was not opened — filling it from stale numbers can overwrite someone else's change without showing it.",
+  orderItemGone: "This line no longer exists — it was probably deleted from another tab or device. Close this and reload the page.",
   orderItemQtyInvalid: "Quantity must be a whole number greater than 0.",
   orderItemPriceInvalid: "That price value is not valid.",
 
@@ -2272,6 +2286,7 @@ const zh = {
   orderOfferClearConfirm: "确定删除该订单的方案金额？最后一次的数值仍会保留在操作记录里。",
   orderOfferInvalid: "方案金额不正确。请填写印尼盾数字，例如 1,500,000。",
   orderOfferFeatureOffAction: "SANCI 方案金额功能尚未启用 —— 迁移脚本还没有执行。",
+  orderOfferLoadFailed: "当前生效的方案金额加载失败，因此没有打开表单 —— 用旧数值填表会在无人察觉的情况下覆盖别人的修改。",
   orderOfferDpFieldLabel: "订金（Rp）",
   orderOfferPaymentConditionFieldLabel: "付款条件",
   orderOfferPaymentConditionPlaceholder: "示例：全款、订金 50%",
@@ -2330,6 +2345,8 @@ const zh = {
   orderItemPriceFieldsLockedHint: "只有合作商拥有「可以填写／修改 SANCI 方案金额」权限时才能填写价格栏位。",
   orderItemSaveFailed: "现在无法保存这一行。",
   orderItemDeleteFailed: "现在无法删除这一行。",
+  orderItemLoadFailed: "这一行加载失败，因此没有打开表单 —— 用旧数值填表会在无人察觉的情况下覆盖别人的修改。",
+  orderItemGone: "这一行已经不存在了 —— 可能已在其他标签页或设备上删除。请关闭后刷新页面。",
   orderItemQtyInvalid: "数量必须是大于 0 的整数。",
   orderItemPriceInvalid: "价格数值不正确。",
 
