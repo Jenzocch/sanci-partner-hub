@@ -61,6 +61,7 @@ import OrderItemsSection, {
   type PickedLine,
   type PickerLoadResult,
 } from "@/lib/order-item-picker";
+import OrderStickyBar from "@/lib/order-sticky-bar";
 import { INVOICE_ACCEPT, unggahInvoiceAdmin } from "./invoice-upload-admin";
 
 type PartnerOption = { id: string; name: string };
@@ -959,6 +960,22 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
             {submitting ? m.common.saving : m.admin.orderCreateSubmitCta}
           </button>
         </div>
+
+        {/* Duplikat tombol di atas, khusus ponsel (mati total di desktop —
+            lihat order-sticky-bar.module.css). `admin` menggeser bar
+            selebar rel navigasi desktop; tidak berpengaruh di bawah 900px
+            karena bar ini sendiri sudah mati di atas 767px. */}
+        <OrderStickyBar
+          lines={itemLines}
+          submitting={submitting}
+          disabled={submitting || !orderSectionReady}
+          onClick={onSubmitOrder}
+          submitLabel={m.admin.orderCreateSubmitCta}
+          savingLabel={m.common.saving}
+          countLabel={m.common.orderStickyCount}
+          submitAriaLabel={m.common.orderStickySubmitAria}
+          admin
+        />
       </form>
     </div>
   );

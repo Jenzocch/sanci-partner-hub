@@ -968,6 +968,40 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
 
+/* Varian opt-in `.modal.tall`: modal jadi kolom flex bertinggi terbatas dan
+   `.modalbody` di dalamnya menjadi SATU-SATUNYA area gulir — pengganti
+   pola lama ".overlay gulir + modal berisi <div style maxHeight/overflow>
+   sendiri" (dua area gulir bersarang, temuan review 2026-08-29 di picker
+   Isi Pesanan: pengguna tidak bisa membedakan sedang menggulir modal atau
+   daftarnya). `.overlay` tetap `overflow:auto` sebagai jaring pengaman kalau
+   modal ini sendiri lebih tinggi dari layar (mis. font besar/aksesibilitas)
+   — tapi dalam pemakaian normal modal tidak pernah melebihi 88dvh, jadi
+   overlay TIDAK ikut menggulir. TIDAK mengubah `.modal` dasar — 39 modal
+   lain di app ini memang benar sebagai blok normal, satu area gulir
+   (overlay) sudah cukup untuk modal pendek. */
+.modal.tall{
+  display:flex;flex-direction:column;
+  max-height:88dvh;
+}
+.modal.tall>h2{flex:none}
+.modalbody{
+  flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+
+/* Baris chip horizontal-scroll — dipakai kontrol filter yang BUKAN status
+   (mis. kategori produk di modal picker). SENGAJA bukan `.chip`: `.chip`
+   adalah taksonomi status (stok/entitas, STYLE CONTRACT §2b) yang tidak
+   pernah interaktif — mencampurnya dengan tombol filter yang bisa diklik
+   akan mengaburkan makna warna `.chip` di tempat lain. Pola sama dengan
+   `.filters`/`.filterchip` di produk.module.css (khusus /cabang/produk);
+   ini versi globalnya untuk pemakai lain seperti picker yang dipasang di
+   dua area (admin+cabang) dan tidak punya CSS module sendiri. */
+.chipscroll{
+  display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;padding-bottom:2px;min-width:0;max-width:100%;
+}
+.chipscroll>*{flex:none}
+
 /* ── 15. Tabs ──────────────────────────────────────────────────────────── */
 .tabs{
   display:flex;gap:2px;border-bottom:1px solid var(--line);

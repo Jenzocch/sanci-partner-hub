@@ -1,0 +1,50 @@
+/* Bar total sticky untuk form pesanan baru (admin & cabang) — meniru
+   lib/kalkulator.module.css 1:1 (pola sudah terbukti jalan di produksi),
+   HANYA untuk mobile: di desktop tombol "Buat Pesanan" di dasar form sudah
+   cukup terjangkau (satu gulir wajar), dan bar tetap di layar cuma menambah
+   noise visual tanpa manfaat jangkauan jempol yang jadi alasan bar ini ada
+   di ponsel. */
+
+.stickyBar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .stickyBar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+    background: var(--surface); border-top: 1px solid var(--line);
+    box-shadow: var(--shadow-lg);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+}
+@supports (backdrop-filter:blur(1px)) and (color:color-mix(in srgb,red,blue)){
+  @media (max-width: 767px) {
+    .stickyBar {
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      backdrop-filter: saturate(180%) blur(18px);
+      -webkit-backdrop-filter: saturate(180%) blur(18px);
+    }
+  }
+}
+.stickyLeft { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.stickyCount { font-size: var(--fs-caption); color: var(--ink2); }
+.stickyTotal {
+  font-size: calc(var(--fs-h3) + 2px); font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.stickyBtn { flex: none; }
+
+/* Varian admin: rel navigasi desktop selebar --side-w — tidak relevan di
+   sini karena bar ini sudah mati total di atas 767px (rel cuma tampil di
+   >=900px), tapi disiapkan kalau breakpoint bar ini kelak dilebarkan. */
+@media (min-width: 900px) {
+  .stickyBarAdmin { left: var(--side-w); }
+}
+
+/* Ruang di dasar form supaya field/tombol terakhir tidak ketutup bar —
+   HANYA perlu render saat bar-nya sendiri bisa tampil (mobile). */
+.bottomSpacer { display: none; }
+@media (max-width: 767px) {
+  .bottomSpacer { display: block; height: calc(76px + env(safe-area-inset-bottom)); }
+}

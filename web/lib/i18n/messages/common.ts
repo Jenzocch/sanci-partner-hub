@@ -379,6 +379,12 @@ const id = {
   pickerOpenCta: "+ Tambah Produk",
   pickerAddAria: "Tambah {name} ke pesanan",
   pickerEmptyHint: "Opsional — pesanan tetap bisa dibuat tanpa daftar produk.",
+  // Bar total sticky di form pesanan baru (lib/order-sticky-bar.tsx,
+  // 2026-08-29) — HANYA tampil di ponsel selagi minimal satu produk sudah
+  // dipilih. "{n} produk" bukan salinan calcTabCart ("Keranjang ({n})"):
+  // beda konteks (label tab vs ringkasan bar), teksnya juga beda kata.
+  orderStickyCount: "{n} produk",
+  orderStickySubmitAria: "Kirim pesanan — {n} produk, {total}",
   // Dulu ada DUA kunci dengan teks identik kata per kata di ketiga bahasa:
   // cabangOfferFinalNegative (cabang.ts) dan orderOfferFinalNegative
   // (admin.ts). Sekarang SATU kunci untuk kalkulator + form penawaran cabang
@@ -680,6 +686,8 @@ const en = {
   pickerOpenCta: "+ Add product",
   pickerAddAria: "Add {name} to the order",
   pickerEmptyHint: "Optional — the order can still be created without a product list.",
+  orderStickyCount: "{n} products",
+  orderStickySubmitAria: "Submit order — {n} products, {total}",
   offerFinalNegative:
     "This combination of discount/markup/cash discount produces a negative final price. Please check the values.",
   calcPageTitle: "Offer Calculator",
@@ -972,6 +980,8 @@ const zh = {
   pickerOpenCta: "+ 新增产品",
   pickerAddAria: "把{name}加入订单",
   pickerEmptyHint: "可选 —— 不选产品也能创建订单。",
+  orderStickyCount: "{n} 件产品",
+  orderStickySubmitAria: "送出订单 —— {n} 件产品，{total}",
   offerFinalNegative: "这个折扣/加成/现金折让组合会得出负数的最终金额，请检查数值。",
   calcPageTitle: "方案计算器",
   calcTabProducts: "产品",

@@ -226,9 +226,15 @@ export default function OrderItemsSection({
     onLinesChange(lines.map((l) => (l.productId === productId ? { ...l, unitPrice: n ?? 0 } : l)));
   }
 
+  // 44px ("var(--tap)") — bukan 34px seperti sebelumnya. Kontrol qty +/-
+  // yang SAMA di kalkulator (lib/kalkulator.module.css .stepBtn) sudah
+  // benar 44px sejak awal; baris ini adalah satu-satunya tempat di app yang
+  // tertinggal 34px (temuan review 2026-08-29) — kontrol yang paling sering
+  // ditekan di seluruh alur bikin pesanan, salah satu yang paling penting
+  // untuk memenuhi kontrak --tap.
   const stepBtn: React.CSSProperties = {
-    width: 34,
-    height: 34,
+    width: "var(--tap)",
+    height: "var(--tap)",
     border: "1px solid var(--line)",
     borderRadius: "var(--r-sm)",
     background: "var(--surface2)",
@@ -310,7 +316,16 @@ export default function OrderItemsSection({
 
       {open && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label={m.calcGoToProductsCta}>
+          {/* `.tall`: modal jadi kolom flex bertinggi terbatas, `.modalbody`
+              di bawah jadi SATU-SATUNYA area gulir (bukan overlay MAUPUN
+              modal yang ikut gulir) — sebelumnya daftar produk punya
+              gulirnya sendiri (maxHeight 52vh) DI DALAM modal yang overlay-
+              nya juga bisa gulir: dua area gulir bersarang, pengguna tidak
+              bisa membedakan sedang menggeser yang mana (temuan review
+              2026-08-29). Header/pencarian/kategori tetap di luar
+              `.modalbody` supaya selalu terlihat; tombol Tutup juga di
+              luar, di dasar, supaya tidak perlu digulir ke ujung daftar. */}
+          <div className="modal tall" role="dialog" aria-modal="true" aria-label={m.calcGoToProductsCta}>
             <h2>{m.calcGoToProductsCta}</h2>
 
             {initialLoading && <div className="hint">{m.loading}</div>}
@@ -327,7 +342,7 @@ export default function OrderItemsSection({
 
             {loadedOnce && (
               <>
-                <div className="searchrow" style={{ marginBottom: 10 }}>
+                <div className="searchrow" style={{ marginBottom: 10, flex: "none" }}>
                   <input
                     className="search-input"
                     type="search"
@@ -337,7 +352,7 @@ export default function OrderItemsSection({
                   />
                 </div>
                 {categories.length > 0 && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div className="chipscroll" style={{ marginBottom: 10, flex: "none" }}>
                     <button
                       type="button"
                       className={`btn sm${katalog.category === null ? " primary" : ""}`}
@@ -360,69 +375,79 @@ export default function OrderItemsSection({
 
                 {/* Error susulan (pencarian/muat-lebih gagal): daftar yang
                     sudah ada TETAP tampil di bawahnya, tidak dikosongkan. */}
-                {error && <div className="banner bad">{error}</div>}
-                {searching && <div className="hint">{m.loading}</div>}
-
-                {products.length === 0 ? (
-                  !searching && (
-                    <div className="emptybox">
-                      {katalog.isFiltered ? m.noProductsMatchSearch : m.noProductsYet}
-                    </div>
-                  )
-                ) : (
-                  <div style={{ maxHeight: "52vh", overflowY: "auto" }}>
-                    {products.map((p) => {
-                      const inListQty = qtyByProduct.get(p.id) ?? 0;
-                      const isOut = p.stockStatus === "OUT_OF_STOCK";
-                      return (
-                        <div
-                          key={p.id}
-                          style={{
-                            display: "flex",
-                            gap: 10,
-                            alignItems: "center",
-                            padding: "8px 2px",
-                            borderBottom: "1px solid var(--line)",
-                          }}
-                        >
-                          <PickerThumb url={p.photoUrl} name={p.name} muted={isOut} placeholder={m.noPhotoPlaceholder} />
-                          <div style={{ flex: 1, minWidth: 0, ...(isOut ? { opacity: 0.6 } : null) }}>
-                            <div style={{ fontWeight: 600, overflowWrap: "anywhere" }}>{p.name}</div>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 3 }}>
-                              {p.code && <span className="code">{p.code}</span>}
-                              <span className={STOCK_STATUS_CHIP[p.stockStatus]}>{stockStatusLabel({ common: m }, p.stockStatus)}</span>
-                              {inListQty > 0 && <span className="small muted">×{inListQty}</span>}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn sm primary"
-                            onClick={() => addProduct(p)}
-                            aria-label={m.pickerAddAria.replace("{name}", p.name)}
-                          >
-                            {m.add}
-                          </button>
-                        </div>
-                      );
-                    })}
-                    {hasMore && (
-                      <div className="btnrow" style={{ justifyContent: "center", margin: "10px 0" }}>
-                        <button
-                          type="button"
-                          className="btn sm"
-                          onClick={katalog.loadMore}
-                          disabled={loadingMore || searching}
-                        >
-                          {loadingMore ? m.loading : m.loadMoreCta}
-                        </button>
-                      </div>
-                    )}
+                {error && (
+                  <div className="banner bad" style={{ flex: "none" }}>
+                    {error}
                   </div>
                 )}
+                {searching && (
+                  <div className="hint" style={{ flex: "none" }}>
+                    {m.loading}
+                  </div>
+                )}
+
+                <div className="modalbody">
+                  {products.length === 0 ? (
+                    !searching && (
+                      <div className="emptybox">
+                        {katalog.isFiltered ? m.noProductsMatchSearch : m.noProductsYet}
+                      </div>
+                    )
+                  ) : (
+                    <>
+                      {products.map((p) => {
+                        const inListQty = qtyByProduct.get(p.id) ?? 0;
+                        const isOut = p.stockStatus === "OUT_OF_STOCK";
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              display: "flex",
+                              gap: 10,
+                              alignItems: "center",
+                              padding: "8px 2px",
+                              borderBottom: "1px solid var(--line)",
+                            }}
+                          >
+                            <PickerThumb url={p.photoUrl} name={p.name} muted={isOut} placeholder={m.noPhotoPlaceholder} />
+                            <div style={{ flex: 1, minWidth: 0, ...(isOut ? { opacity: 0.6 } : null) }}>
+                              <div style={{ fontWeight: 600, overflowWrap: "anywhere" }}>{p.name}</div>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 3 }}>
+                                {p.code && <span className="code">{p.code}</span>}
+                                <span className={STOCK_STATUS_CHIP[p.stockStatus]}>{stockStatusLabel({ common: m }, p.stockStatus)}</span>
+                                {inListQty > 0 && <span className="small muted">×{inListQty}</span>}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn sm primary"
+                              onClick={() => addProduct(p)}
+                              aria-label={m.pickerAddAria.replace("{name}", p.name)}
+                            >
+                              {m.add}
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {hasMore && (
+                        <div className="btnrow" style={{ justifyContent: "center", margin: "10px 0" }}>
+                          <button
+                            type="button"
+                            className="btn sm"
+                            onClick={katalog.loadMore}
+                            disabled={loadingMore || searching}
+                          >
+                            {loadingMore ? m.loading : m.loadMoreCta}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </>
             )}
 
-            <div className="btnrow" style={{ marginTop: 14 }}>
+            <div className="btnrow" style={{ marginTop: 14, flex: "none" }}>
               <button type="button" className="btn" onClick={() => setOpen(false)}>
                 {m.close}
               </button>

@@ -32,6 +32,7 @@ import OrderItemsSection, {
   type PickedLine,
   type PickerLoadResult,
 } from "@/lib/order-item-picker";
+import OrderStickyBar from "@/lib/order-sticky-bar";
 import { INVOICE_ACCEPT, unggahInvoice } from "../invoice-upload";
 import PackageContents from "../package-contents";
 import StatusBadge from "../status-badge";
@@ -893,6 +894,21 @@ export default function NewOrderForm({
             {submitting ? m.common.saving : m.cabang.createOrderCta}
           </button>
         </div>
+
+        {/* Duplikat tombol di atas, khusus ponsel (mati total di desktop —
+            lihat order-sticky-bar.module.css): manajer yang sudah memilih
+            produk di Isi Pesanan tidak perlu menggulir lewat Sales/PIC/
+            Alamat/PO/Catatan/Invoice untuk mencapai tombol kirim. */}
+        <OrderStickyBar
+          lines={itemLines}
+          submitting={submitting}
+          disabled={submitting || !customerReady}
+          onClick={onSubmitOrder}
+          submitLabel={m.cabang.createOrderCta}
+          savingLabel={m.common.saving}
+          countLabel={m.common.orderStickyCount}
+          submitAriaLabel={m.common.orderStickySubmitAria}
+        />
       </form>
     </div>
   );
