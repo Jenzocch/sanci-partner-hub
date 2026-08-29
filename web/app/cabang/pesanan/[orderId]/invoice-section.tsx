@@ -42,16 +42,23 @@ export default function InvoiceSection({
       return;
     }
     setStatus("loading");
-    getOrderInvoiceSignedUrl(orderId).then((res) => {
-      if (!alive) return;
-      if (res.status === "ok") {
-        setUrl(res.url);
-        setStatus("idle");
-      } else {
-        setUrl(null);
-        setStatus("error");
-      }
-    });
+    getOrderInvoiceSignedUrl(orderId)
+      .then((res) => {
+        if (!alive) return;
+        if (res.status === "ok") {
+          setUrl(res.url);
+          setStatus("idle");
+        } else {
+          setUrl(null);
+          setStatus("error");
+        }
+      })
+      // Server Action yang REJECT (jaringan putus, atau 404 deploy usang)
+      // tidak pernah masuk .then — tanpa .catch ini status macet di
+      // "loading" selamanya, tanpa pesan error, tanpa tombol coba lagi.
+      .catch(() => {
+        if (alive) setStatus("error");
+      });
     return () => {
       alive = false;
     };

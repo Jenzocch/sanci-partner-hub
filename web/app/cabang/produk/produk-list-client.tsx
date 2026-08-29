@@ -130,16 +130,62 @@ export default function ProdukListClient({
   const firstNewCardRef = useRef<HTMLAnchorElement | null>(null);
   const [firstNewIndex, setFirstNewIndex] = useState<number | null>(null);
   const [announce, setAnnounce] = useState("");
-  // Pemulihan keadaan jelajah mengganti seluruh daftar SEKALI dan punya
-  // posisi gulirnya sendiri — penggantian yang itu tidak boleh memicu
-  // gulir-ke-atas di bawah (dua gulir saling melawan di frame yang sama).
-  const skipScrollTop = useRef(false);
-  if (restoring) skipScrollTop.current = true;
+  /**
+   * Ref TERPISAH untuk melacak transisi `restoring` (bukan cuma nilainya
+   * sekarang) — perbaikan LESSONS-worthy 2026-08-28: versi sebelumnya
+   * menyimpan "sedang/pernah restoring" di sebuah flag yang HANYA dikonsumsi
+   * di dalam cabang append-heuristic di bawah. Itu bocor dua arah:
+   *   1. Array hasil pemulihan (mulai dari batch awal, ditambah halaman-
+   *      halaman berikutnya — lihat use-catalog-search.ts) berbentuk PERSIS
+   *      seperti hasil "Muat Lebih Banyak" (ekor array sama dengan array
+   *      lama), jadi heuristik appended di bawah SALAH mengenalinya sebagai
+   *      pertambahan halaman — memicu pengumuman aria-live palsu dan
+   *      scrollIntoView yang berebut frame dengan restoreScrollTo milik hook.
+   *   2. Kalau pemulihan DIBATALKAN di tengah jalan (pengguna mengetik
+   *      pencarian baru sebelum semua halaman termuat), `products` tidak
+   *      pernah berubah pada render itu — efek pulang lebih dulu tanpa
+   *      sempat mengonsumsi flag-nya. Flag itu lalu bocor ke perubahan
+   *      `products` BERIKUTNYA, yaitu hasil pencarian BARU yang sungguhan,
+   *      dan gulir-ke-atas untuk pencarian itu ikut terlewat — pas seperti
+   *      yang diperingatkan komentar di bawah.
+   * Solusinya: deteksi transisi restoring true→false LANGSUNG di render itu
+   * juga (lewat ref sebelumnya), sebelum heuristik appended sempat jalan,
+   * dan konsumsi begitu transisi terjadi — bukan menunggu products berubah.
+   */
+  const prevRestoringRef = useRef(restoring);
 
   useEffect(() => {
     const prev = prevProductsRef.current;
+    const berubah = prev !== products;
     prevProductsRef.current = products;
-    if (prev === products) return;
+
+    const sedangPulih = prevRestoringRef.current;
+    prevRestoringRef.current = restoring;
+
+    // Masih memuat halaman demi halaman — belum ada yang perlu ditanggapi
+    // (loop di hook belum memanggil setProducts sampai halaman terakhir).
+    if (restoring) {
+      if (berubah) {
+        setFirstNewIndex(null);
+        setAnnounce("");
+      }
+      return;
+    }
+
+    // BARU SAJA selesai memulihkan — baik berhasil (products berubah,
+    // restoreScrollTo hook sudah menempatkan posisi gulir yang benar) MAUPUN
+    // dibatalkan pencarian baru (products TIDAK berubah). Kedua kasus
+    // ditangani DI SINI, di render transisi ini juga — bukan ditunda —
+    // supaya flagnya tidak sempat bocor ke render berikutnya.
+    if (sedangPulih) {
+      if (berubah) {
+        setFirstNewIndex(null);
+        setAnnounce("");
+      }
+      return;
+    }
+
+    if (!berubah) return;
     const appended =
       prev.length > 0 && products.length > prev.length && products[prev.length - 1]?.id === prev[prev.length - 1]?.id;
     if (appended) {
@@ -149,10 +195,6 @@ export default function ProdukListClient({
     }
     setFirstNewIndex(null);
     setAnnounce("");
-    if (skipScrollTop.current || restoring) {
-      skipScrollTop.current = false;
-      return;
-    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [products, restoring, m]);
 

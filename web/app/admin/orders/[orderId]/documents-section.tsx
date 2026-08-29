@@ -158,26 +158,35 @@ function DocumentModal({
   useEffect(() => {
     let cancelled = false;
     setLoadState("loading");
-    getOrderDocumentItemCoverage(orderId, docType, excludeDocumentId).then((res) => {
-      if (cancelled) return;
-      if ("error" in res) {
-        setLoadState("error");
-        return;
-      }
-      setItems(res.data.items);
-      const defaults: Record<string, string> = {};
-      for (const it of res.data.items) {
-        const current = existingItems[it.id];
-        if (current != null) {
-          defaults[it.id] = String(current);
-        } else {
-          const remaining = docType === "SO" ? it.ordered : Math.max(it.ordered - it.covered, 0);
-          defaults[it.id] = remaining > 0 ? String(remaining) : "";
+    getOrderDocumentItemCoverage(orderId, docType, excludeDocumentId)
+      .then((res) => {
+        if (cancelled) return;
+        if ("error" in res) {
+          setLoadState("error");
+          return;
         }
-      }
-      setQtyByItem(defaults);
-      setLoadState("ok");
-    });
+        setItems(res.data.items);
+        const defaults: Record<string, string> = {};
+        for (const it of res.data.items) {
+          const current = existingItems[it.id];
+          if (current != null) {
+            defaults[it.id] = String(current);
+          } else {
+            const remaining = docType === "SO" ? it.ordered : Math.max(it.ordered - it.covered, 0);
+            defaults[it.id] = remaining > 0 ? String(remaining) : "";
+          }
+        }
+        setQtyByItem(defaults);
+        setLoadState("ok");
+      })
+      // Server Action yang REJECT (jaringan putus di tengah, atau 404 deploy
+      // usang — dua kegagalan yang sudah pernah terjadi di produksi, lihat
+      // safe-write.ts) tidak pernah masuk .then di atas. Tanpa .catch ini,
+      // loadState macet permanen di "loading" — modal menampilkan hint
+      // "memuat" selamanya, tanpa pesan error, tanpa tombol coba lagi.
+      .catch(() => {
+        if (!cancelled) setLoadState("error");
+      });
     return () => {
       cancelled = true;
     };
