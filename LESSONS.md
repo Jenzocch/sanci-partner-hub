@@ -262,6 +262,12 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **同族的三個**：`markOrderDelivered` 失敗時回傳 `custLinkUnavailableMsg`（講的是另一個東西，而且沒說到底標記了沒）；客戶已存、訂單失敗時把訊息蓋成 `errOrderModuleInactive`（`partial` 明明帶著 customerId，店員卻不知道客戶保住了，於是重打一次）；同一個 `final_amount` 在三個畫面叫「Harga Akhir」「Total Akhir」「Total」。**共同根因都是「訊息由最靠近錯誤的那段程式挑，而不是由使用者剛做的那個動作挑」。**
 - **給非技術使用者的錯誤訊息不要出現「migrasi database」**：店員對遷移編號無能為力，那個詞只會讓他覺得系統壞了。留「什麼不能用 + Hubungi SANCI Admin」，以及**訊息原本帶的保證**（訂單真的已取消／客戶真的已存）——那才是有用的部分。admin.ts 的同款字串**刻意保留**遷移字眼：SANCI 辦公室同仁確實會把編號轉給工程端。**「同一個技術狀況，對不同讀者是不同的訊息」不是重複，是分工。**
 
+### 47. 五個 agent 同時派進同一個共用工作目錄，`git commit`／`git add -A`／`git stash` 會互相踩踏——commit 內容跟訊息文字對不上、真正的工作被埋進別人的 commit 裡、HEAD 在無人主動操作下自己移動〔本專案 2026-08-29，P2/P3 批次修復實戰〕
+- **實際發生的三種踩踏**：①`git add -A` 沒有路徑限定，把當下工作目錄裡**所有 agent**的未 commit 修改一起掃進自己的 commit——commit 訊息只描述自己的任務，內容卻混進了別人的檔案；②在混亂狀態下做 `git reset`／`git stash pop`，把別人剛做完、還沒來得及 commit 的修改整段吞掉，事後只能從 stash 物件或 dangling commit 裡搶救；③兩個 agent 前後腳 `git commit`，後面那個在自己的 commit 裡不小心 amend／覆寫了前一個 commit 的內容，訊息卻沒跟著換——結果是 `git log` 顯示的一句話跟 `git show --stat` 秀出來的檔案清單完全對不上，光看 log 會誤判「這件事沒做」。
+- **現場鑑識的正確順序（不是猜，是查）**：先 `git reflog`（比 `git log` 多看見已經被 reset 甩開的舊 HEAD）＋`git fsck --dangling`（撈被 stash/amend 甩掉但物件還在的懸空 commit）；懷疑訊息跟內容對不上，直接 `git show --stat <sha>` 對照 `git diff <sha的parent> <sha>`；懷疑短碼撞了别的 commit，`git rev-parse --disambiguate=<短碼>` 確認唯一。**commit 物件本身永遠不會變**——一旦某個 agent 真的成功建立過一個 commit（哪怕分支後來被甩開），它的內容就凍結在那個 SHA 底下，可以永遠撈回來；真正會被踩踏、會遺失的只有「還沒 commit 的工作目錄／索引」那一段。
+- **搶救與重組都在乾淨的地方做，不要在共用目錄裡繼續動刀**：對每個 agent 真正留下的 commit（哪怕訊息文字錯了）先驗證內容（`git diff` 比對，逐段讀 diff，不要只看行數），確認乾淨後開一個全新的 `git worktree add --detach`（不是修復共用目錄那個），在裡面用 `git cherry-pick`／`git checkout <sha> -- <path>` 疊出正確的最終序列，跑完 tsc/eslint/build 三件套，**直接從那個隔離 worktree `git push`**（worktree 共用同一個 `.git`，push 不需要回到主目錄）。全部確認完才回頭對共用目錄 `git status` 逐檔比對「跟剛推上去的內容是不是零差異」，零差異才能安心 `git reset --hard origin/main`——這一步等於清掉所有 agent 留下的殘局，動手前必須先證明每一份殘局都已經安全落地。
+- **教訓**：**同時派多個 agent 進同一個共用目錄，是拿「檔案範圍不重疊」當防線,不是拿「worktree 真的隔離」當防線**（後者這個環境已經證實不成立）——即使每個 agent 分到的檔案彼此不重疊,`git add -A`／`git commit -a`／`git stash` 這幾個「操作整個工作目錄」的指令依然會跨過那條界線互相污染。合併前永遠先問「這個 commit 的訊息，配不配得上它實際改的檔案？」，答案不確定就別信 `git log`，去 `git show --stat` 對照著看。
+
 ## Owner 已定調的決策（不要再重複提議）
 
 - **技術選型 = Next.js + Supabase**（2026-08-14 定案）。
