@@ -7,6 +7,7 @@ import type { StockStatus } from "@/lib/catalog-shared";
 import { fetchEffectivePrices } from "@/lib/price-query";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 import ProdukDetailClient, { type ProdukDetailItem, type GalleryPhoto } from "./produk-detail-client";
+import CatalogCartBar from "../catalog-cart-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -192,6 +193,10 @@ export default async function ProdukDetailPage({ params }: { params: Promise<{ p
     <main className="pwrap">
       <BackRow m={m} />
       <ProdukDetailClient item={item} gallery={gallery} />
+      {/* Bar yang SAMA dengan halaman grid: barang yang ditambahkan di sini
+          dan di sana masuk keranjang yang sama, dan bar-nya diam total kalau
+          keranjang kosong (lihat catalog-cart-bar.tsx). */}
+      <CatalogCartBar />
     </main>
   );
 }

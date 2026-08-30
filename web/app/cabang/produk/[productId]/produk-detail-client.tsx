@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
+import { addToCatalogCart } from "@/lib/catalog-cart";
 import { useCabangMessages } from "@/lib/i18n/provider";
 import { formatIDR } from "@/lib/orders-shared";
 import ProductImg from "@/lib/product-img";
@@ -32,6 +33,14 @@ export type ProdukDetailItem = {
  * untuk memilih, klik foto besar untuk memperbesar) — pola lightbox
  * "photoView" yang sama dengan lib/kalkulator-client.tsx (overlay + modal,
  * tanpa library tambahan).
+ *
+ * URUTAN halaman ini disusun sebagai alur MENJUAL (2026-08-30): foto →
+ * nama/kode/stok → harga → "Tambah ke Pesanan" → baru spesifikasi (Ukuran)
+ * dan deskripsi. Alasannya: staf membuka halaman ini sambil pelanggan
+ * berdiri di depannya, dan tiga hal yang menentukan "jadi beli atau tidak"
+ * (rupanya, harganya, cara memesannya) harus muat di satu layar ponsel tanpa
+ * menggulir. TIDAK ADA informasi yang hilang — semua yang dulu ada tetap
+ * ada, hanya pindah urutan (lihat catatan Ukuran di bawah).
  */
 export default function ProdukDetailClient({
   item,
@@ -69,6 +78,41 @@ export default function ProdukDetailClient({
 
   const shareText = m.cabang.produkDetailShareText.replace("{name}", item.name).replace("{url}", item.publicUrl);
   const waHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+
+  // ── "Tambah ke Pesanan" — keranjang katalog (lib/catalog-cart.ts) ──
+  // Menambah qty 1 ke keranjang yang SAMA dengan tombol "+" di halaman grid;
+  // bar bawah (CatalogCartBar, dipasang page.tsx) yang membawanya ke form
+  // pesanan baru. Tidak ada penulisan ke database dari layar ini.
+  const [added, setAdded] = useState(false);
+  const [addErr, setAddErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!added) return;
+    const t = setTimeout(() => setAdded(false), 1600);
+    return () => clearTimeout(t);
+  }, [added]);
+
+  function handleAddToOrder() {
+    // Harga yang TAMPIL di halaman ini; `null` (tidak punya Harga Normal —
+    // barisnya memang tidak dirender) jadi 0, tetap bisa diketik di form
+    // pesanan. Keranjang tidak pernah mengarang angka harga.
+    const ok = addToCatalogCart({
+      productId: item.id,
+      name: item.name,
+      code: item.code,
+      unitPrice: item.price ?? 0,
+      qty: 1,
+    });
+    if (!ok) {
+      // Penyimpanan penuh/diblokir — dikatakan apa adanya, bukan tombol yang
+      // diam-diam tidak melakukan apa pun (LESSONS #10).
+      setAdded(false);
+      setAddErr(m.cabang.katalogCartSaveFailed);
+      return;
+    }
+    setAddErr(null);
+    setAdded(true);
+  }
 
   return (
     <>
@@ -121,28 +165,43 @@ export default function ProdukDetailClient({
       </div>
       {item.category && <div className="muted small">{item.category}</div>}
 
-      {/* Ukuran (0024) — spesifikasi, jadi di ATAS harga: staf menjawab
-          "muat tidak di kamarnya" sebelum menyebut angka rupiah. */}
-      {item.size && (
-        <div className={`rowline ${styles.specline}`} style={{ marginTop: 12 }}>
-          <span className="muted">{m.cabang.produkDetailSizeLabel}</span>
-          {/* .speclineValue: ukuran panjang seperti
-              "(1200-1550)*1200/(1600-1800)*2000" harus PATAH, bukan
-              terpotong diam-diam oleh body{overflow-x:hidden}. */}
-          <span className={styles.speclineValue}>{item.size}</span>
-        </div>
-      )}
-
       {/* Harga Normal (0021) — hanya tampil kalau toko ini punya harga
           efektif (override sendiri atau Harga Dasar SANCI). Tanpa harga =
           baris ini TIDAK ADA sama sekali, bukan "Rp 0" (0 adalah harga
           promo yang sah, beda makna dari "belum ada harga"). */}
       {item.price !== null && (
-        <div className={`rowline ${styles.specline}`}>
+        <div className={`rowline ${styles.specline}`} style={{ marginTop: 12 }}>
           <span className="muted">{m.cabang.produkDetailPriceLabel}</span>
           <span className={styles.speclineValue} style={{ fontVariantNumeric: "tabular-nums" }}>
             {formatIDR(item.price)}
           </span>
+        </div>
+      )}
+
+      {addErr && (
+        <div className="banner bad" style={{ marginTop: 12 }}>
+          {addErr}
+        </div>
+      )}
+      <div className="btnrow" style={{ marginTop: 12 }}>
+        <button type="button" className="btn primary lg block" onClick={handleAddToOrder}>
+          {added ? m.cabang.produkDetailAddedLabel : m.cabang.produkDetailAddCta}
+        </button>
+      </div>
+
+      {/* Ukuran (0024). Keputusan 0024 menaruhnya DI ATAS harga ("staf
+          menjawab 'muat tidak di kamarnya' sebelum menyebut angka rupiah");
+          sejak penataan alur menjual 2026-08-30 letaknya DI BAWAH harga +
+          tombol pesan, supaya foto→harga→cara memesan muat satu layar
+          ponsel. Isinya sendiri tidak berubah, dan pertanyaan "muat tidak"
+          tetap terjawab di layar yang sama, cuma satu gulir pendek di bawah. */}
+      {item.size && (
+        <div className={`rowline ${styles.specline}`} style={{ marginTop: 16 }}>
+          <span className="muted">{m.cabang.produkDetailSizeLabel}</span>
+          {/* .speclineValue: ukuran panjang seperti
+              "(1200-1550)*1200/(1600-1800)*2000" harus PATAH, bukan
+              terpotong diam-diam oleh body{overflow-x:hidden}. */}
+          <span className={styles.speclineValue}>{item.size}</span>
         </div>
       )}
 
@@ -152,8 +211,12 @@ export default function ProdukDetailClient({
         </p>
       )}
 
+      {/* Bagikan ke pelanggan — TETAP ada dan tetap di tempat yang sama.
+          Kelasnya turun dari `btn primary` jadi `btn` sejak "Tambah ke
+          Pesanan" di atas menjadi aksi utama halaman: dua tombol primer di
+          satu layar membuat keduanya berhenti menunjuk mana yang utama. */}
       <div className="btnrow" style={{ marginTop: 18 }}>
-        <a href={waHref} target="_blank" rel="noopener noreferrer" className="btn primary">
+        <a href={waHref} target="_blank" rel="noopener noreferrer" className="btn">
           {m.cabang.produkDetailShareBtn}
         </a>
       </div>

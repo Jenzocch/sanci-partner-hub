@@ -7,6 +7,7 @@ import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/
 import { attachDisplayPrices } from "@/lib/price-query";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 import ProdukListClient, { type ProdukItem } from "./produk-list-client";
+import CatalogCartBar from "./catalog-cart-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -184,6 +185,10 @@ export default async function ProdukPage() {
         initialHasMore={page.hasMore}
         categories={categories ?? []}
       />
+      {/* Bar keranjang katalog — DIAM sepenuhnya selama keranjang kosong
+          (tidak merender apa pun, termasuk spacer), jadi halaman ini tetap
+          persis seperti sebelumnya sampai staf menekan "+" di sebuah kartu. */}
+      <CatalogCartBar />
     </main>
   );
 }

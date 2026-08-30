@@ -1,0 +1,61 @@
+/* Bar keranjang katalog — dipasang di /cabang/produk (grid) dan
+   /cabang/produk/[productId] (detail). Bahasa visualnya MENYALIN
+   lib/order-sticky-bar.module.css (surface + garis atas + blur + shadow-lg,
+   z-index 25) supaya tiga bar bawah sistem ini — navigasi bawah, bar total
+   form pesanan, dan bar ini — terasa satu keluarga.
+
+   DUA beda yang disengaja dari order-sticky-bar:
+
+   1. Bar ini HIDUP JUGA DI DESKTOP. Bar total form pesanan sengaja mati di
+      atas 767px karena tombol aslinya sudah ada di dasar form (duplikat
+      belaka). Bar ini BUKAN duplikat apa pun: tanpa dia, keranjang katalog
+      tidak punya jalan keluar sama sekali di layar lebar.
+
+   2. Di ponsel bar ini DUDUK DI ATAS navigasi bawah cabang (58px + safe
+      area, lihat app/cabang/bottom-nav.module.css) — dua elemen fixed
+      dengan z-index 25 yang sama akan saling menimpa kalau keduanya
+      bottom:0, dan yang tertutup justru "Buat Pesanan". Karena nav itu
+      sendiri sudah menghabiskan safe-area-inset-bottom, padding bawah bar
+      di ponsel kembali ke 10px (kalau tidak, jaraknya terhitung dua kali). */
+
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  background: var(--surface); border-top: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+@media (max-width: 767px) {
+  .bar {
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    padding-bottom: 10px;
+  }
+}
+@supports (backdrop-filter: blur(1px)) and (color: color-mix(in srgb, red, blue)) {
+  .bar {
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+  }
+}
+
+.left { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.count { font-size: var(--fs-caption); color: var(--ink2); }
+.total {
+  font-size: calc(var(--fs-h3) + 2px); font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+/* Sebagian baris tanpa harga (unitPrice 0) — subtotal di atas jadi TIDAK
+   lengkap, dan itu harus tertulis, bukan dibiarkan terbaca sebagai angka
+   penuh (LESSONS #10: jangan menampilkan yang belum pasti sebagai pasti). */
+.note { font-size: var(--fs-caption); color: var(--ink2); overflow-wrap: anywhere; }
+.actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+/* Ruang di dasar halaman supaya kartu/tombol terakhir tidak ketutup bar.
+   Di ponsel navigasi bawah SUDAH menyumbang ruangnya sendiri (spacer di
+   bottom-nav.module.css), jadi di sana yang perlu ditambah cuma tinggi bar
+   ini saja — safe area tidak dihitung dua kali. */
+.spacer { display: block; height: calc(76px + env(safe-area-inset-bottom)); }
+@media (max-width: 767px) {
+  .spacer { height: 76px; }
+}

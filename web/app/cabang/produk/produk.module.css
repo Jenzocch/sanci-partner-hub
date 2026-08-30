@@ -20,6 +20,49 @@
   .grid { grid-template-columns: repeat(5, 1fr); }
 }
 
+/* Pembungkus satu sel grid: <Link> kartu + tombol "+" tambah cepat sebagai
+   SAUDARA (bukan anak) — tombol di dalam <a> adalah HTML tidak sah, lihat
+   catatan handleQuickAdd di produk-list-client.tsx. Pembungkusnya sendiri
+   tidak menggambar apa pun; dia cuma jadi acuan position:absolute tombolnya
+   dan meneruskan tinggi sel supaya kartu tetap sama tinggi seperti sebelum
+   ada pembungkus ini. */
+.cardwrap {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.cardwrap > .card { flex: 1; }
+
+/* Tombol "+" di pojok foto. --tap penuh (44px, kontrak STYLE CONTRACT): ini
+   target sentuh sungguhan di ponsel dan letaknya persis di sebelah tautan
+   sebesar kartu, jadi target yang kekecilan = salah pencet membuka halaman
+   detail. Latar solid --surface (bukan transparan) supaya tetap terbaca di
+   atas foto produk yang terang maupun gelap. */
+.quickadd {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  width: var(--tap);
+  height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--accent-2);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.quickadd:hover { background: var(--accent-soft); }
+.quickadd:active { transform: scale(.94); }
+
 /* Sejak migration 0022 kartu ini adalah <Link> (bukan <button>) yang
    membawa ke /cabang/produk/[productId] — `color:inherit`/`text-decoration:
    none` di sini menjaga kartu tetap terlihat SAMA seperti sebelumnya (bukan

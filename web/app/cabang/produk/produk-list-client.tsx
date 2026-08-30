@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
 import { useCatalogSearch, type CatalogFetchResult } from "@/lib/use-catalog-search";
+import { addToCatalogCart } from "@/lib/catalog-cart";
 import { useCabangMessages } from "@/lib/i18n/provider";
 import { formatIDR } from "@/lib/orders-shared";
 import ProductImg from "@/lib/product-img";
@@ -209,6 +210,56 @@ export default function ProdukListClient({
     firstNewCardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [firstNewIndex]);
 
+  // ── Tambah cepat ke keranjang katalog (lib/catalog-cart.ts) ──
+  // Kartu ini SUDAH menjadi <Link> ke halaman detail, jadi tombol "+" TIDAK
+  // BOLEH berada di dalamnya (elemen interaktif bersarang di dalam <a> itu
+  // HTML tidak sah dan perilakunya berbeda-beda antar browser/pembaca layar).
+  // Karena itu tombolnya adalah SAUDARA <Link>, ditumpuk di pojok foto lewat
+  // pembungkus .cardwrap yang position:relative — tidak bersarang, jadi juga
+  // tidak perlu menahan perambatan klik: menekan "+" tidak pernah menyentuh
+  // tautan kartunya.
+  //
+  // Produk HABIS tetap bisa ditambahkan — perlakuan yang SAMA dengan picker
+  // Isi Pesanan (lib/order-item-picker.tsx: baris habis diredam visual tapi
+  // tombol "Tambah"-nya tetap hidup). Kartu di sini sudah pudar lewat kelas
+  // .outofstock + chip merahnya, jadi staf tahu persis apa yang dipesannya;
+  // menyembunyikan tombolnya berarti memutuskan sendiri bahwa barang habis
+  // tidak boleh dipesan — itu keputusan toko, bukan keputusan layar ini.
+  const [quickAddErr, setQuickAddErr] = useState<string | null>(null);
+  /** Objek (bukan sekadar id) supaya menambah produk yang SAMA dua kali tetap
+   *  menghasilkan nilai baru — timer umpan balik di bawah ikut disetel ulang. */
+  const [justAdded, setJustAdded] = useState<{ id: string; at: number } | null>(null);
+
+  useEffect(() => {
+    if (!justAdded) return;
+    const t = setTimeout(() => setJustAdded(null), 1400);
+    return () => clearTimeout(t);
+  }, [justAdded]);
+
+  function handleQuickAdd(it: ProdukItem) {
+    // Harga kartu dipakai apa adanya kalau berupa angka; "belum ada harga"
+    // (null) maupun "gagal dimuat" (undefined) sama-sama jadi 0 — keranjang
+    // tidak boleh mengarang harga, dan harga baris tetap bisa diketik di form
+    // pesanan nanti (lihat catatan CatalogCartLine di lib/catalog-cart.ts).
+    const ok = addToCatalogCart({
+      productId: it.id,
+      name: it.name,
+      code: it.code,
+      unitPrice: typeof it.displayPrice === "number" ? it.displayPrice : 0,
+      qty: 1,
+    });
+    if (!ok) {
+      // Penyimpanan penuh/diblokir — katakan apa adanya. Tombol yang
+      // diam-diam tidak melakukan apa pun adalah kegagalan yang menyamar
+      // jadi "tidak terjadi apa-apa" (LESSONS #10).
+      setJustAdded(null);
+      setQuickAddErr(m.cabang.katalogCartSaveFailed);
+      return;
+    }
+    setQuickAddErr(null);
+    setJustAdded({ id: it.id, at: Date.now() });
+  }
+
   return (
     <>
       <div className="searchrow">
@@ -253,6 +304,7 @@ export default function ProdukListClient({
       {/* Pencarian gagal ≠ daftar kosong: hasil sebelumnya tetap tampil di
           bawah banner ini (jaringan lemah tidak boleh mengosongkan layar). */}
       {error && <div className="banner bad">{error}</div>}
+      {quickAddErr && <div className="banner bad">{quickAddErr}</div>}
       {searching && <div className="hint">{m.common.loading}</div>}
 
       {/* Pengumuman untuk pembaca layar; pengguna awas melihat tombolnya
@@ -280,38 +332,48 @@ export default function ProdukListClient({
           {products.map((it, i) => {
             const isOut = it.stockStatus === "OUT_OF_STOCK";
             return (
-              <Link
-                key={it.id}
-                ref={i === firstNewIndex ? firstNewCardRef : undefined}
-                href={`/cabang/produk/${it.id}`}
-                className={`${styles.card}${isOut ? ` ${styles.outofstock}` : ""}`}
-                aria-label={m.cabang.produkViewDetailAria.replace("{name}", it.name)}
-              >
-                <div className={styles.photo}>
-                  <ProductImg
-                    src={it.photoUrl}
-                    alt={it.name}
-                    placeholder={<div className={styles.placeholder}>{m.common.noPhotoPlaceholder}</div>}
-                  />
-                </div>
-                <div className={styles.body}>
-                  <div className={styles.name}>{it.name}</div>
-                  {it.category && <div className={styles.cat}>{it.category}</div>}
-                  {/* Harga Normal toko ini (keputusan owner 2026-08-28).
-                      TIGA keadaan dibedakan — angka / "belum ada harga" /
-                      "gagal dimuat" (LESSONS #10). */}
-                  <div>
-                    {typeof it.displayPrice === "number" ? (
-                      <span className={styles.price}>{formatIDR(it.displayPrice)}</span>
-                    ) : it.displayPrice === null ? (
-                      <span className="small muted">{m.cabang.produkCardPriceNone}</span>
-                    ) : (
-                      <span className="small muted">{m.cabang.produkCardPriceLoadFailed}</span>
-                    )}
+              <div key={it.id} className={styles.cardwrap}>
+                <Link
+                  ref={i === firstNewIndex ? firstNewCardRef : undefined}
+                  href={`/cabang/produk/${it.id}`}
+                  className={`${styles.card}${isOut ? ` ${styles.outofstock}` : ""}`}
+                  aria-label={m.cabang.produkViewDetailAria.replace("{name}", it.name)}
+                >
+                  <div className={styles.photo}>
+                    <ProductImg
+                      src={it.photoUrl}
+                      alt={it.name}
+                      placeholder={<div className={styles.placeholder}>{m.common.noPhotoPlaceholder}</div>}
+                    />
                   </div>
-                  <span className={STOCK_STATUS_CHIP[it.stockStatus]}>{stockStatusLabel(m, it.stockStatus)}</span>
-                </div>
-              </Link>
+                  <div className={styles.body}>
+                    <div className={styles.name}>{it.name}</div>
+                    {it.category && <div className={styles.cat}>{it.category}</div>}
+                    {/* Harga Normal toko ini (keputusan owner 2026-08-28).
+                        TIGA keadaan dibedakan — angka / "belum ada harga" /
+                        "gagal dimuat" (LESSONS #10). */}
+                    <div>
+                      {typeof it.displayPrice === "number" ? (
+                        <span className={styles.price}>{formatIDR(it.displayPrice)}</span>
+                      ) : it.displayPrice === null ? (
+                        <span className="small muted">{m.cabang.produkCardPriceNone}</span>
+                      ) : (
+                        <span className="small muted">{m.cabang.produkCardPriceLoadFailed}</span>
+                      )}
+                    </div>
+                    <span className={STOCK_STATUS_CHIP[it.stockStatus]}>{stockStatusLabel(m, it.stockStatus)}</span>
+                  </div>
+                </Link>
+                {/* Saudara <Link>, bukan anaknya — lihat catatan handleQuickAdd. */}
+                <button
+                  type="button"
+                  className={styles.quickadd}
+                  onClick={() => handleQuickAdd(it)}
+                  aria-label={m.cabang.katalogQuickAddAria.replace("{name}", it.name)}
+                >
+                  {justAdded?.id === it.id ? "✓" : "+"}
+                </button>
+              </div>
             );
           })}
         </div>

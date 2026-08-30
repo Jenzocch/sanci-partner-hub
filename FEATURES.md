@@ -1833,6 +1833,78 @@ Master Data CSV（編碼毀損已修復），**價格完全未觸碰**。
 - 順帶查明：當時 4 個 NICE DREAM 枕頭處於 INACTIVE（owner 測試停用按鈕所
   致），已提供復原 SQL。
 
+### 型錄直接下單＋產品詳情頁改為銷售動線（2026-08-30，owner 核可兩項一起做）
+
+店員逛 `/cabang/produk` 只能看，要下單得回首頁 →「+ Pesanan Baru」→ 在選擇器
+裡把同一個產品再搜一次。這次把那段路補起來，**零 migration、零 Server Action
+簽名變動、零新寫入路徑**。
+
+**型錄購物車（`web/lib/catalog-cart.ts`，只存在分店端）**
+- localStorage key `sanci:katalog:cart`，內容 `{savedAt, lines[]}`；每列
+  `{productId, name, code, unitPrice, qty}`——刻意與 `CalcHandoffLine` 同形，
+  好讓它直接餵給既有的 `mergeLinesFromHandoff`（同品項數量相加、已有價格不
+  覆寫），合併規則只有一份。不存 `photoUrl`（order_items 用不到）。
+- 紀律照抄 `lib/calculator-shared.ts`：全程 try/catch、讀回來的每列過
+  `isValidLine`、空車直接刪 key。**唯一刻意的差別**：這裡的寫入是使用者剛按
+  下去的動作，不是延遲自動存檔，所以 write/add/clear 都回傳 boolean，失敗一
+  律出現一句話（`katalogCartSaveFailed`）——「＋」按下去毫無反應就是把失敗
+  偽裝成沒事發生（LESSONS #10）。
+- 跨元件同步靠自訂事件 `sanci:katalog:cart-change`（同分頁；寫入自己那個分頁
+  不會觸發 `storage`）＋ `storage` 事件（別的分頁）。
+
+**單向交接 `sanci:katalog:handoff`（一次性）**
+- 只在按下購物車列的「Buat Pesanan」時寫入，`/cabang/pesanan/baru` 掛載時
+  **先刪再用**，重整頁面不會灌兩次。與計算機的 `sanci:kalkulator:handoff`
+  分開兩把 key：店員可以同時用計算機算折扣鏈、又從型錄帶產品，兩條路不互相
+  覆蓋。沒有 `:admin` 變體（型錄購物車只有分店端）。
+- **和計算機交接的差別（刻意）**：計算機那條要按「Gunakan angka ini」才生效，
+  因為內容是報價數字（折扣鏈）且不完全顯示在表單上；型錄這條直接灌進 Isi
+  Pesanan——那是使用者幾秒前自己按的、且每列都看得見改得動，所以不是 SPEC §58
+  禁止的「靜默還原」。落地後出現一句可關閉的 `banner info`
+  （「N produk dibawa dari katalog — periksa harga dan jumlah sebelum kirim.」）。
+
+**`unitPrice` 為什麼可能是 0**：型錄卡片的價格有三態（數字／`null` 確定沒價
+／`undefined` 價格查詢失敗，LESSONS #10）。購物車只吃數字，另外兩態一律存 0
+——**不編造價格**。三態的區分留在型錄畫面本身（卡片仍寫「Belum ada harga」vs
+「Harga gagal dimuat」）；購物車列若有 0 價，底部列的小計下方會多一句「小計並
+不完整」，價格最後仍在訂單表單裡逐列可改。
+
+**寫入路徑完全沒動**：型錄帶進來的列跟 picker 選的、計算機灌的是**同一個
+`itemLines`**，建單成功後仍舊只走 `applyPickedItemsIfNeeded` →
+`copyCalcCartItemsToOrder`（idempotency 後綴仍是 `{rid}:calc-item:{productId}`），
+分店端價格照樣受 `trg_order_item_price_guard`(0014) 管。
+
+**UI**
+- 卡片右上角「＋」是 `<Link>` 的**兄弟節點**不是子節點（`<a>` 裡包 `<button>`
+  是不合法 HTML），靠 `.cardwrap{position:relative}` 疊在照片角落，44px 符合
+  `--tap`。缺貨產品照樣可加——與 picker 一致（灰化但「Tambah」仍可按），要不要
+  賣缺貨品是門市的決定，不是這個畫面的。
+- 底部購物車列（`catalog-cart-bar.tsx`＋同名 module.css）視覺照抄
+  `lib/order-sticky-bar.module.css`（surface＋上緣線＋blur＋z-index 25），但
+  **桌機也顯示**（它不是任何按鈕的複製品，沒它就沒有出口），且**手機上坐在分店
+  底部導覽列之上**（`bottom: calc(58px + env(safe-area-inset-bottom))`，兩者
+  z-index 都是 25，同時 bottom:0 會蓋掉「Buat Pesanan」）。空車時整個元件不
+  render（連 spacer 都沒有），型錄頁與改版前完全一樣。
+- 產品詳情頁改成銷售動線：照片／相簿 → 名稱＋代碼＋庫存 chip → 價格 →
+  **「Tambah ke Pesanan」主按鈕**（按下後短暫顯示「Sudah ditambahkan」）→ 尺寸
+  → 說明 → 分享。**沒有刪掉任何資訊，只換順序**：0024 當初把 Ukuran 排在價格
+  上方，這次移到 CTA 之下（理由與原註解都留在檔案裡）；WhatsApp 分享鈕仍在原
+  位，只從 `btn primary` 降為 `btn`，避免一頁兩個主按鈕。photoView lightbox
+  行為完全沒動。
+
+**i18n**（`lib/i18n/messages/cabang.ts`，三語）：新增 `katalogQuickAddAria`、
+`produkDetailAddCta`、`produkDetailAddedLabel`、`katalogCartClearCta`、
+`katalogCartPriceIncomplete`、`katalogCartSaveFailed`、`katalogHandoffMsg` 七
+把。購物車列的主按鈕沿用既有 `cabang.createOrderCta`（「Buat Pesanan」）、件數
+沿用 `common.orderStickyCount`（「{n} produk」）、關閉沿用 `common.close`。
+
+**待 Jenzo 實機驗證**：①型錄卡片按「＋」→ 底部列出現且件數/小計正確；②手機上
+底部列不被下方導覽列蓋住、最後一排卡片不被擋；③按「Buat Pesanan」→ 跳到建單
+表單、產品已在 Isi Pesanan 且可改可刪、出現來源說明；④重整建單頁**不會**再灌
+一次（一次性）；⑤同一個產品在型錄按兩次＝數量 2（不是兩列）；⑥沒價格的產品加
+進去後，小計下方出現「不完整」那句，且建單後價格欄可自己填；⑦詳情頁在 360px
+寬手機上，照片→價格→「Tambah ke Pesanan」不用捲動就看得到。
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）

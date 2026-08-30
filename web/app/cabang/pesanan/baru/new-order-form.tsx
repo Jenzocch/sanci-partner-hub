@@ -15,6 +15,7 @@ import {
   type FulfillmentPath,
 } from "@/lib/orders-shared";
 import { readCalcHandoff, clearCalcHandoff, type CalcHandoff } from "@/lib/calculator-shared";
+import { readCatalogHandoff, clearCatalogHandoff } from "@/lib/catalog-cart";
 import {
   copyCalcCartItemsToOrder,
   createCustomerAndOrder,
@@ -122,8 +123,41 @@ export default function NewOrderForm({
    * bisa berhasil sementara yang lain gagal, dan staf perlu tahu keduanya. */
   const [itemsMsg, setItemsMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  /**
+   * Hand-off dari KATALOG (/cabang/produk, bar keranjang → "Buat Pesanan";
+   * lib/catalog-cart.ts). Beda perlakuan dari hand-off Kalkulator di atas,
+   * dan bedanya disengaja:
+   *
+   * Hand-off kalkulator menunggu persetujuan ("Gunakan angka ini") karena
+   * isinya ANGKA PENAWARAN — subtotal + rantai diskon yang akan diterapkan
+   * ke Penawaran SANCI, tidak seluruhnya terlihat di form ini. Hand-off
+   * katalog TIDAK butuh gerbang itu: isinya cuma daftar produk, ditulis
+   * beberapa detik lalu oleh ketukan "Buat Pesanan" staf sendiri, dan
+   * mendarat di daftar "Isi Pesanan" yang TERLIHAT PENUH dan setiap
+   * barisnya bisa diubah/dihapus sebelum dikirim. Jadi ini BUKAN pemulihan
+   * state diam-diam yang dilarang SPEC §58 (yang dilarang: aplikasi
+   * memunculkan kembali isian lama tanpa pengguna memintanya) — pengguna
+   * baru saja memintanya, dan hasilnya kelihatan seluruhnya. Yang tetap
+   * dijaga: sekali pakai (dihapus SEBELUM dipakai, jadi muat-ulang halaman
+   * tidak menuangkannya dua kali) dan ada kalimat yang mengatakan barangnya
+   * datang dari mana serta apa yang perlu diperiksa.
+   *
+   * Nol jalur tulis baru: baris ini masuk ke `itemLines` yang SAMA dengan
+   * picker dan prefill kalkulator, jadi penulisannya tetap satu-satunya
+   * jalur `applyPickedItemsIfNeeded` → `copyCalcCartItemsToOrder`.
+   *
+   * Disimpan sebagai JUMLAH (bukan kalimat jadi) supaya kalimatnya dirakit
+   * saat render — ikut berganti kalau bahasa layar berganti.
+   */
+  const [catalogHandoffCount, setCatalogHandoffCount] = useState(0);
+
   useEffect(() => {
     setCalcHandoff(readCalcHandoff("cabang"));
+    const katalog = readCatalogHandoff();
+    if (!katalog) return;
+    clearCatalogHandoff(); // sekali pakai: dihapus dulu, baru dipakai
+    setItemLines((prev) => mergeLinesFromHandoff(prev, katalog.lines));
+    setCatalogHandoffCount(katalog.lines.length);
   }, []);
 
   const hasPackages = packages.length > 0;
@@ -397,6 +431,10 @@ export default function NewOrderForm({
     setCalcOutcomeMsg(null);
     setItemsMsg(null);
     setItemLines([]);
+    // Barang katalog sudah ikut pesanan yang barusan dibuat (dan hand-off-nya
+    // sudah dihapus saat dibaca) — pesanan berikutnya di sesi form yang sama
+    // mulai dari daftar kosong, tanpa kalimat yang menggantung.
+    setCatalogHandoffCount(0);
     // Hand-off (kalau ada) sudah dikonsumsi (dipakai atau diabaikan) sebelum
     // sampai di sini — pesanan berikutnya di sesi form yang sama TIDAK boleh
     // diam-diam memakai angka kalkulator yang sudah dipakai untuk pesanan lain.
@@ -652,6 +690,22 @@ export default function NewOrderForm({
       {partialMsg && <div className="banner bad">{partialMsg}</div>}
       {errs._form && <div className="banner bad">{errs._form}</div>}
       <DraftBanner draft={draft.draft} onRestore={handleRestoreDraft} onDiscard={draft.discard} />
+
+      {/* Barang dari katalog SUDAH masuk daftar Isi Pesanan di bawah (lihat
+          catatan panjang di atas) — kalimat ini cuma memberi tahu dari mana
+          asalnya dan apa yang perlu diperiksa, jadi tombolnya cukup "Tutup".
+          Menutupnya tidak membuang apa pun; barisnya tetap ada dan tetap
+          bisa diubah/dihapus satu per satu. */}
+      {catalogHandoffCount > 0 && (
+        <div className="banner info">
+          {m.cabang.katalogHandoffMsg.replace("{n}", String(catalogHandoffCount))}
+          <div className="btnrow-inline">
+            <button type="button" className="btn sm" onClick={() => setCatalogHandoffCount(0)}>
+              {m.common.close}
+            </button>
+          </div>
+        </div>
+      )}
 
       {calcHandoff && !calcApply && (
         <div className="banner info">

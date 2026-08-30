@@ -311,6 +311,28 @@ const id = {
   // disusun server (headers() untuk host, LESSONS: jangan tulis domain
   // statis supaya vercel.app maupun domain resmi sama-sama benar).
   produkDetailShareText: "Lihat produk ini: {name}\n{url}",
+  // ---- Keranjang katalog (lib/catalog-cart.ts, 2026-08-30) ----
+  // Tombol "+" di kartu grid dan CTA di halaman detail menaruh barang di
+  // keranjang lokal; bar bawah membawanya ke form pesanan baru. Tombol utama
+  // bar memakai `createOrderCta` yang SUDAH ADA ("Buat Pesanan") dan jumlah
+  // barangnya memakai `common.orderStickyCount` ("{n} produk") — sengaja
+  // tidak dibuatkan kembarannya di sini.
+  katalogQuickAddAria: "Tambah {name} ke daftar pesanan",
+  produkDetailAddCta: "Tambah ke Pesanan",
+  produkDetailAddedLabel: "Sudah ditambahkan",
+  katalogCartClearCta: "Kosongkan",
+  // Subtotal bar TIDAK lengkap kalau ada barang tanpa harga (produk boleh
+  // memang belum berharga, atau harganya gagal dimuat) — angka yang belum
+  // pasti tidak boleh terbaca sebagai pasti (LESSONS #10).
+  katalogCartPriceIncomplete: "Sebagian barang belum ada harganya — subtotal ini belum lengkap.",
+  // localStorage penuh/diblokir: tombol yang diam-diam tidak melakukan
+  // apa-apa lebih buruk daripada kalimat gagal yang menunjuk jalan lain.
+  katalogCartSaveFailed:
+    "Pilihan belum bisa disimpan di perangkat ini. Pakai \"+ Pesanan Baru\" di Beranda — produknya bisa dipilih " +
+    "langsung di form itu.",
+  // Ditampilkan di form pesanan baru sesudah barang katalog dituangkan ke
+  // daftar Isi Pesanan (lihat catatan hand-off di new-order-form.tsx).
+  katalogHandoffMsg: "{n} produk dibawa dari katalog — periksa harga dan jumlah sebelum kirim.",
 
   // Penawaran SANCI (0014 izin can_view_offer/can_edit_offer, 0015 rantai
   // diskon can_discount) — hanya terlihat/terisi kalau admin membuka izinnya
@@ -677,6 +699,15 @@ const en = {
   produkDetailGalleryAria: "View photo {n} of {total}",
   produkDetailShareBtn: "Share with Customer (WhatsApp)",
   produkDetailShareText: "Check out this product: {name}\n{url}",
+  katalogQuickAddAria: "Add {name} to the order list",
+  produkDetailAddCta: "Add to Order",
+  produkDetailAddedLabel: "Added",
+  katalogCartClearCta: "Clear",
+  katalogCartPriceIncomplete: "Some items have no price yet — this subtotal is not complete.",
+  katalogCartSaveFailed:
+    "Your picks could not be saved on this device. Use \"+ New order\" on the Home screen — you can pick the " +
+    "products right there in the form.",
+  katalogHandoffMsg: "{n} products carried over from the catalogue — check the prices and quantities before sending.",
 
   cabangOfferCardTitle: "SANCI offer",
   cabangOfferEmpty: "No SANCI offer for this order yet.",
@@ -999,6 +1030,14 @@ const zh = {
   produkDetailGalleryAria: "查看第 {n} / {total} 张照片",
   produkDetailShareBtn: "分享给客户(WhatsApp)",
   produkDetailShareText: "看看这个产品:{name}\n{url}",
+  katalogQuickAddAria: "把{name}加入订单清单",
+  produkDetailAddCta: "加入订单",
+  produkDetailAddedLabel: "已加入",
+  katalogCartClearCta: "清空",
+  katalogCartPriceIncomplete: "有些产品还没有价格 —— 这个小计并不完整。",
+  katalogCartSaveFailed:
+    "所选产品无法存在这台设备上。请到首页用\"+ 新建订单\" —— 产品可以直接在那个表单里挑选。",
+  katalogHandoffMsg: "从产品目录带过来 {n} 件产品 —— 送出前请检查价格和数量。",
 
   cabangOfferCardTitle: "SANCI 方案金额",
   cabangOfferEmpty: "这笔订单还没有 SANCI 方案金额。",
