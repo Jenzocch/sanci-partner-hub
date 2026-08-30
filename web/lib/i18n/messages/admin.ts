@@ -13,6 +13,8 @@
  */
 
 const id = {
+  calcProposalCta: "Buat Proposal",
+  proposalSaveFailed: "Proposal belum bisa disiapkan di perangkat ini. Coba lagi, atau pakai perangkat lain.",
   // Nav (admin-nav.tsx) — signOut dipakai dari common.ts (m.common.signOut),
   // jangan didefinisikan ulang di sini.
   navOrders: "Pesanan Partner",
@@ -943,6 +945,8 @@ const id = {
 type Shape = Record<keyof typeof id, string>;
 
 const en = {
+  calcProposalCta: "Create Proposal",
+  proposalSaveFailed: "The proposal could not be prepared on this device. Try again, or use another device.",
   navOrders: "Partner orders",
   navPartners: "Partners",
   navProducts: "Products",
@@ -1778,6 +1782,8 @@ const en = {
 } satisfies Shape;
 
 const zh = {
+  calcProposalCta: "制作提案",
+  proposalSaveFailed: "这台设备上暂时无法准备提案。请再试一次,或换一台设备。",
   navOrders: "合作商订单",
   navPartners: "合作商",
   navProducts: "产品",

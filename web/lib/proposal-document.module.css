@@ -1,0 +1,285 @@
+/* Proposal — dokumen yang dibawa PULANG oleh pelanggan.
+ *
+ * Acuannya majalah furnitur, bukan formulir kantor: sampul bergambar, angka
+ * bab, judul serif berukuran editorial, foto selebar kolom, dan ruang kosong
+ * yang disengaja. Aplikasi dirancang untuk staf yang bekerja cepat; halaman
+ * ini untuk pelanggan yang duduk membacanya.
+ *
+ * Warna dikunci di sini (bukan var(--ink) dkk) DENGAN SENGAJA: dokumen ini
+ * dicetak di atas kertas, jadi ia tidak boleh ikut berubah kalau palet
+ * aplikasi berubah — dan tidak boleh ikut mode gelap sama sekali (kertas
+ * tidak punya mode gelap).
+ *
+ * Tipografi memakai tumpukan serif sistem (Georgia dst), BUKAN webfont:
+ * webfont membuat halaman ini bergantung pada jaringan tepat pada detik staf
+ * menekan Cetak, dan Georgia sudah ada di mesin yang akan mencetaknya.
+ */
+
+.sheet {
+  --p-ink: #16150f;
+  --p-ink2: #5d5a50;
+  --p-faint: #a29d90;
+  --p-line: #e0dbd0;
+  --p-navy: #16233f;
+  --p-gold: #ab8a45;
+  --p-paper: #fdfcf9;
+
+  background: var(--p-paper);
+  color: var(--p-ink);
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 0 0 24mm;
+  font-size: 11pt;
+  line-height: 1.6;
+  color-scheme: light;
+}
+
+.eyebrow {
+  display: block;
+  font-size: 7.5pt;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--p-faint);
+}
+
+/* Angka bab — penanda editorial yang membuat dokumen terbaca sebagai
+   terbitan, bukan lampiran. */
+.secIndex {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 9pt;
+  letter-spacing: .18em;
+  color: var(--p-gold);
+  flex: none;
+}
+
+/* ── Sampul ────────────────────────────────────────────────────────── */
+.cover { padding: 16mm 16mm 0; }
+.coverTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--p-line);
+}
+.coverLogo { height: 30px; width: auto; display: block; }
+.coverDate {
+  font-size: 8pt;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--p-faint);
+}
+.coverImg {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  display: block;
+  margin-top: 20px;
+  background: #efece5;
+}
+.coverTitle {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 46pt;
+  font-weight: 400;
+  letter-spacing: -.015em;
+  line-height: 1.02;
+  margin: 26px 0 0;
+  color: var(--p-navy);
+}
+.coverSub {
+  font-size: 11.5pt;
+  font-style: italic;
+  color: var(--p-ink2);
+  margin: 10px 0 0;
+  max-width: 46ch;
+}
+.coverFor {
+  margin: 30px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--p-line);
+}
+.coverForName {
+  display: block;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19pt;
+  line-height: 1.25;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+/* ── Ringkasan pilihan ─────────────────────────────────────────────── */
+.summary { padding: 0 16mm; }
+.secTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15pt;
+  font-weight: 400;
+  letter-spacing: .04em;
+  color: var(--p-navy);
+  margin: 34px 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--p-navy);
+}
+
+.items { width: 100%; border-collapse: collapse; }
+.items th {
+  text-align: left;
+  font-size: 7.5pt;
+  font-weight: 400;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--p-faint);
+  padding: 0 10px 9px 0;
+}
+.items td {
+  padding: 14px 10px 14px 0;
+  border-top: 1px solid var(--p-line);
+  vertical-align: top;
+}
+.items th:last-child,
+.items td:last-child { padding-right: 0; text-align: right; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.thumb {
+  width: 62px; height: 62px; object-fit: cover; display: block;
+  background: #efece5;
+}
+.thumbCell { width: 62px; padding-right: 14px !important; }
+.itemName {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12.5pt;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.itemMeta {
+  font-size: 8pt;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--p-faint);
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+
+/* ── Ringkasan angka ───────────────────────────────────────────────── */
+.totals { margin: 22px 0 0 auto; width: min(340px, 100%); }
+.totalRow {
+  display: flex; justify-content: space-between; gap: 18px;
+  padding: 7px 0; font-size: 10.5pt;
+}
+.totalRow span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.totalDisc { color: var(--p-ink2); }
+.grand {
+  margin-top: 10px; padding: 14px 0 0;
+  border-top: 1px solid var(--p-navy);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19pt;
+  line-height: 1.2;
+  color: var(--p-navy);
+}
+
+.note {
+  margin-top: 30px; padding-top: 14px;
+  border-top: 1px solid var(--p-line);
+  font-size: 8.5pt; line-height: 1.6; color: var(--p-ink2);
+  max-width: 62ch;
+}
+
+/* ── Halaman profil produk ─────────────────────────────────────────── */
+/* Tiap produk mulai di halaman BARU saat dicetak — itu yang membuat dokumen
+   ini terasa seperti katalog, bukan lampiran. */
+.product { padding: 0 16mm; margin-top: 52px; }
+.productHead {
+  display: flex; align-items: baseline; gap: 14px;
+  border-bottom: 1px solid var(--p-navy);
+  padding-bottom: 10px;
+}
+.productName {
+  flex: 1;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26pt; font-weight: 400; line-height: 1.1;
+  letter-spacing: -.01em;
+  color: var(--p-navy); margin: 0; overflow-wrap: anywhere;
+}
+.productCode {
+  flex: none;
+  font-size: 8pt; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--p-faint); white-space: nowrap;
+}
+.hero {
+  width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block;
+  margin-top: 18px; background: #efece5;
+}
+
+/* Badan produk: spesifikasi di kolom sempit kiri, cerita produk di kolom
+   lebar kanan — pola dua kolom majalah. Di layar sempit keduanya menumpuk. */
+.productBody {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 28px;
+  margin-top: 22px;
+}
+@media (max-width: 640px) {
+  .productBody { grid-template-columns: 1fr; gap: 16px; }
+}
+.specs { border-top: 1px solid var(--p-navy); padding-top: 10px; }
+.specRow { padding: 8px 0; border-bottom: 1px solid var(--p-line); }
+.specKey {
+  display: block;
+  font-size: 7.5pt; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--p-faint); margin-bottom: 3px;
+}
+.specVal { font-size: 10pt; overflow-wrap: anywhere; }
+.desc {
+  margin: 0;
+  white-space: pre-line;
+  font-size: 11pt;
+  line-height: 1.75;
+}
+/* Inisial besar — sentuhan majalah yang hanya muncul kalau deskripsinya
+   memang ada (elemennya sendiri tidak dirender saat deskripsi kosong). */
+.desc::first-letter {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30pt;
+  line-height: 1;
+  float: left;
+  padding: 3px 8px 0 0;
+  color: var(--p-navy);
+}
+
+.gallery {
+  margin-top: 24px;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+}
+.galleryImg {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
+  background: #efece5;
+}
+
+/* ── Chrome aplikasi (tidak ikut tercetak) ─────────────────────────── */
+.bar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.nameField {
+  flex: 1 1 220px; min-width: 0; min-height: var(--tap);
+  padding: 8px 12px; font-size: var(--fs-body);
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line2); border-radius: var(--r-md);
+}
+.nameField:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+
+@media print {
+  /* Bar aksi menghilang; navigasi bawah cabang tidak dirender sama sekali di
+     rute ini (lihat HIDDEN_PATHS di app/cabang/bottom-nav.tsx). */
+  .noprint { display: none !important; }
+  .sheet { max-width: none; margin: 0; padding: 0; font-size: 10.5pt; background: #fff; }
+  .cover, .summary, .product { padding-left: 0; padding-right: 0; }
+  .cover { padding-top: 0; }
+  .summary { break-before: page; page-break-before: always; }
+  .product { break-before: page; page-break-before: always; margin-top: 0; }
+  .productHead, .specRow, .items tr { break-inside: avoid; page-break-inside: avoid; }
+  .hero, .coverImg, .galleryImg { break-inside: avoid; page-break-inside: avoid; }
+  @page { size: A4; margin: 16mm 15mm; }
+}

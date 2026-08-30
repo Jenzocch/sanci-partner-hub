@@ -24,6 +24,36 @@
 import { offline } from "./offline";
 
 const id = {
+  /* Proposal — dokumen cetak untuk pelanggan, dipasang di dua area
+     (cabang & admin), jadi teksnya milik slice common. */
+  proposalTitle: "Proposal",
+  proposalSubtitle: "Pilihan produk yang kami siapkan untuk Anda",
+  proposalForLabel: "Disiapkan untuk",
+  proposalCustomerPlaceholder: "Nama pelanggan / proyek (opsional)",
+  proposalPrintCta: "Cetak / Simpan PDF",
+  proposalBackCta: "Kembali ke Kalkulator",
+  proposalColItem: "Produk",
+  proposalColQty: "Jumlah",
+  proposalColUnit: "Harga Satuan",
+  proposalColTotal: "Jumlah Harga",
+  proposalSelectionTitle: "Pilihan Anda",
+  proposalSubtotal: "Subtotal",
+  proposalDiscountStep: "Diskon {pct}%",
+  proposalMarkup: "Penyesuaian {pct}%",
+  proposalCashDiscount: "Potongan tunai",
+  proposalGrandTotal: "Total",
+  proposalSpecSize: "Ukuran",
+  proposalSpecCategory: "Kategori",
+  proposalFootnote:
+    "Harga dalam Rupiah dan belum termasuk ongkos kirim serta pemasangan, kecuali disebutkan lain. " +
+    "Ketersediaan barang dikonfirmasi ulang saat pesanan dibuat.",
+  proposalEmptyTitle: "Belum ada yang bisa dicetak",
+  proposalEmptyBody:
+    "Pilih dulu produknya di Kalkulator Penawaran, lalu tekan \"Buat Proposal\" di keranjang.",
+  proposalLoadFailed: "Detail produk gagal dimuat, jadi halaman profil produk belum bisa ditampilkan.",
+  proposalCatalogClosed: "Katalog SANCI belum dibuka untuk toko ini, jadi profil produk tidak bisa ditampilkan.",
+  proposalProfilesMissing:
+    "Ringkasan di atas tetap lengkap. Halaman profil produk bisa dicoba lagi setelah masalah di atas beres.",
   // Tiga kunci offline (retry/offlineTitle/offlineBody) hidup di offline.ts
   // (sumber tunggal — lihat komentar di sana; audit 2026-08-22 #12) dan
   // disebar masuk ke sini supaya pemakai lain tetap membaca m.common.*.
@@ -429,6 +459,34 @@ const id = {
 type Shape = Record<keyof typeof id, string>;
 
 const en = {
+  proposalTitle: "Proposal",
+  proposalSubtitle: "A selection we have prepared for you",
+  proposalForLabel: "Prepared for",
+  proposalCustomerPlaceholder: "Customer / project name (optional)",
+  proposalPrintCta: "Print / Save PDF",
+  proposalBackCta: "Back to Calculator",
+  proposalColItem: "Product",
+  proposalColQty: "Qty",
+  proposalColUnit: "Unit price",
+  proposalColTotal: "Amount",
+  proposalSelectionTitle: "Your selection",
+  proposalSubtotal: "Subtotal",
+  proposalDiscountStep: "Discount {pct}%",
+  proposalMarkup: "Adjustment {pct}%",
+  proposalCashDiscount: "Cash discount",
+  proposalGrandTotal: "Total",
+  proposalSpecSize: "Size",
+  proposalSpecCategory: "Category",
+  proposalFootnote:
+    "Prices are in Rupiah and exclude delivery and installation unless stated otherwise. " +
+    "Availability is reconfirmed when the order is placed.",
+  proposalEmptyTitle: "Nothing to print yet",
+  proposalEmptyBody:
+    "Pick the products in the Offer Calculator first, then press \"Create Proposal\" in the cart.",
+  proposalLoadFailed: "Product details failed to load, so the product pages cannot be shown yet.",
+  proposalCatalogClosed: "The SANCI catalogue is not open for this store, so product pages cannot be shown.",
+  proposalProfilesMissing:
+    "The summary above is still complete. The product pages can be retried once the problem above is resolved.",
   ...offline.en,
   loadMoreCta: "Load more",
   appName: "SANCI Partner System",
@@ -726,6 +784,31 @@ const en = {
 } satisfies Shape;
 
 const zh = {
+  proposalTitle: "产品提案",
+  proposalSubtitle: "为您挑选的产品",
+  proposalForLabel: "呈送",
+  proposalCustomerPlaceholder: "客户 / 项目名称(可不填)",
+  proposalPrintCta: "列印 / 存成 PDF",
+  proposalBackCta: "回到计算器",
+  proposalColItem: "产品",
+  proposalColQty: "数量",
+  proposalColUnit: "单价",
+  proposalColTotal: "金额",
+  proposalSelectionTitle: "您的选择",
+  proposalSubtotal: "小计",
+  proposalDiscountStep: "折扣 {pct}%",
+  proposalMarkup: "调整 {pct}%",
+  proposalCashDiscount: "现金折扣",
+  proposalGrandTotal: "总计",
+  proposalSpecSize: "尺寸",
+  proposalSpecCategory: "类别",
+  proposalFootnote:
+    "价格以印尼盾计算,除另行说明外不含运费与安装费。备货情况于下单时再次确认。",
+  proposalEmptyTitle: "还没有可以列印的内容",
+  proposalEmptyBody: "请先在方案计算器里选好产品,再到购物车按\"制作提案\"。",
+  proposalLoadFailed: "产品详情载入失败,产品介绍页暂时无法显示。",
+  proposalCatalogClosed: "SANCI 产品目录尚未对这家门店开放,无法显示产品介绍页。",
+  proposalProfilesMissing: "上方的摘要仍然完整。上述问题解决后可以再试一次产品介绍页。",
   ...offline.zh,
   loadMoreCta: "加载更多",
   appName: "SANCI 合作商系统",

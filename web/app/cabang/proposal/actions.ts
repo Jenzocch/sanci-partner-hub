@@ -19,17 +19,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
-import type { ProposalProduct } from "@/lib/proposal-shared";
-
-export type ProposalLoadResult =
-  | { ok: true; products: ProposalProduct[] }
-  | { ok: false; reason: "no-account" | "catalog-closed" | "failed" };
+import type { ProposalLoadResult, ProposalProduct } from "@/lib/proposal-shared";
 
 /** Batas jumlah id per panggilan — keranjang kalkulator praktis tidak pernah
  *  sebesar ini; angkanya ada supaya daftar karangan tidak bisa memaksa query
  *  raksasa. Diam-diam memotong daftar akan membuat produk hilang dari
  *  proposal tanpa penjelasan, jadi kelebihannya DITOLAK, bukan dipangkas. */
 const MAX_PRODUCTS = 60;
+
+/** Foto per produk yang ikut tercetak: sampul + maksimal 4 foto galeri. */
+const MAX_PHOTOS = 5;
 
 export async function loadProposalProducts(productIds: string[]): Promise<ProposalLoadResult> {
   const ids = Array.from(new Set(productIds.filter((s) => typeof s === "string" && s.length > 0)));
@@ -110,9 +109,11 @@ export async function loadProposalProducts(productIds: string[]): Promise<Propos
         category: p.category,
         description: p.description,
         size: p.size,
-        // Satu URL bisa muncul dua kali kalau foto sampul juga terdaftar di
-        // galeri — dedup supaya profil tidak mengulang foto yang sama.
-        photos: Array.from(new Set(photos)),
+        // Dedup dulu (foto sampul bisa juga terdaftar di galeri), baru
+        // dipotong MAX_PHOTOS. Batasnya keputusan owner 2026-08-30: satu
+        // produk dengan 20 foto membuat halamannya panjang tanpa menambah
+        // apa pun untuk pelanggan yang sedang memutuskan.
+        photos: Array.from(new Set(photos)).slice(0, MAX_PHOTOS),
       };
     });
 

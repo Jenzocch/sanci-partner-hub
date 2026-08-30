@@ -139,6 +139,11 @@ export default async function AdminKalkulatorPage() {
           scopeNote: m.admin.calcAdminConvertScopeNote,
           href: "/admin/orders/baru",
         }}
+        proposal={{
+          cta: m.admin.calcProposalCta,
+          href: "/admin/proposal",
+          saveFailed: m.admin.proposalSaveFailed,
+        }}
       />
     </div>
   );
