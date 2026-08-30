@@ -37,7 +37,19 @@ export async function loadProposalProductsAdmin(productIds: string[]): Promise<P
       .from("sanci_products")
       .select("id, name, code, category, description, size, photo_url, status")
       .in("id", ids),
-    supabase.from("product_photos").select("product_id, photo_url").in("product_id", ids),
+    // Urutan galeri KANONIK: sort_order, created_at, id — persis bentuk yang
+    // ditetapkan migration 0022 (dan bentuk index idx_product_photos_order),
+    // sama dengan yang dipakai admin, /cabang/produk, dan halaman publik.
+    // Tanpa ORDER BY, PostgREST bebas mengembalikan baris dalam urutan apa
+    // pun: foto pembuka bisa berganti antar-render, dan proposal yang dicetak
+    // dua kali bisa tidak sama. Proposal TIDAK PERNAH mengurutkan ulang foto.
+    supabase
+      .from("product_photos")
+      .select("product_id, photo_url")
+      .in("product_id", ids)
+      .order("sort_order")
+      .order("created_at")
+      .order("id"),
   ]);
 
   if (productsError) return { ok: false, reason: "failed" };

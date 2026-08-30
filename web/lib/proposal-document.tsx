@@ -343,10 +343,6 @@ export default function ProposalDocument({
                   <p className={`${styles.priceValue} ${styles.num}`}>{formatIDR(r.line.unitPrice)}</p>
                 </div>
                 <div>
-                  <p className={styles.priceLabel}>{m.proposalSpecCategory}</p>
-                  <p className={styles.priceValue}>{r.product?.category ?? "—"}</p>
-                </div>
-                <div>
                   <p className={styles.priceLabel}>{m.proposalColTotal}</p>
                   <p className={`${styles.priceValue} ${styles.priceStrong} ${styles.num}`}>
                     {formatIDR(r.amount)}

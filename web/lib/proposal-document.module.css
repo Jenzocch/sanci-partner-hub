@@ -125,10 +125,18 @@
 .secHead { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 26px; }
 .secTitle { margin: 8px 0 0; font-family: var(--serif); font-size: 44px; line-height: 1; font-weight: 500; }
 .selList { border-top: 1px solid var(--line); }
+/* Lebar kolom dihitung terhadap lebar isi A4, bukan dikira-kira: 210mm − 32mm
+   marjin ≈ 673px. Jumlah kolom tetap (44+110+64+118+128 = 464) + 5 celah 12px
+   = 524px, menyisakan ~149px untuk nama produk. Versi sebelumnya punya satu
+   kolom lagi (Kategori) dan jumlah tetapnya 712px — LEBIH LEBAR dari kertas,
+   sehingga dua kolom terakhir keluar dari halaman dan terpotong saat dicetak
+   begitu harganya besar (mis. Rp 1.287.500.000). Kategori tetap ada di
+   halaman rincian produk, jadi tidak ada informasi yang hilang. */
 .selRow {
-  display: grid; grid-template-columns: 52px 140px 1fr 90px 112px 112px 122px;
-  gap: 14px; align-items: center; padding: 17px 0; border-bottom: 1px solid var(--line);
+  display: grid; grid-template-columns: 44px 110px minmax(0, 1fr) 64px 118px 128px;
+  gap: 12px; align-items: center; padding: 17px 0; border-bottom: 1px solid var(--line);
 }
+.selRow > * { min-width: 0; }
 .selNo { font-family: var(--serif); font-size: 21px; }
 .selPhoto { aspect-ratio: 1.4 / 1; background: var(--ivory); overflow: hidden; }
 /* `contain`, bukan `cover`: memotong kasur/sofa demi kotak yang rapi adalah
