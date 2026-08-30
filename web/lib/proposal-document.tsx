@@ -1,31 +1,38 @@
 "use client";
 
 /**
- * Dokumen Proposal — halaman sampul, lalu ringkasan pilihan + angka, lalu
- * satu profil produk per halaman (foto besar, ukuran, deskripsi, galeri).
+ * Dokumen Proposal — buku proposal pelanggan bergaya editorial furnitur,
+ * dirakit dari keranjang Kalkulator dan data katalog SANCI yang sesungguhnya.
  *
- * Komponen ini dipasang di DUA area (cabang & admin), jadi mengikuti aturan
- * rumah untuk komponen dua-area (sama seperti lib/order-item-picker.tsx dan
- * lib/kalkulator-client.tsx): teksnya dari slice `common`, sedangkan yang
- * berbeda per area — Server Action pemuat produk dan tujuan tombol kembali —
- * datang sebagai prop. Dengan begitu tidak ada satu pun kunci `admin.*` atau
- * `cabang.*` yang bocor ke sini.
+ * Bahasa visualnya mengikuti prototipe HTML milik owner (30-08-2026,
+ * "SANCI Proposal — Premium Furniture Editorial"): lembar A4 sungguhan,
+ * kertas gading, tipografi serif besar, foto besar, ruang kosong lebar.
+ * Yang BERBEDA dari prototipe itu, dan sengaja:
  *
- * Aturan yang mengikat layar ini:
+ *   1. Foto memakai foto produk SANCI dari product_photos, bukan gambar stok
+ *      Unsplash. Gambar stok adalah furnitur milik orang lain — dokumen yang
+ *      dibawa pelanggan tidak boleh memperlihatkannya sebagai produk SANCI.
+ *   2. Setiap produk mendapat perlakuan yang SAMA (pembuka, rincian, galeri
+ *      sesuai jumlah fotonya), bukan hanya produk pertama.
+ *   3. Semua teks dari slice `common` supaya komponen ini bisa dipasang di
+ *      /cabang maupun /admin (aturan rumah untuk komponen dua-area).
+ *
+ * Aturan keras yang mengikat layar ini:
  *   - TIDAK menulis apa pun ke database (lihat lib/proposal-shared.ts).
- *   - Angka TIDAK dihitung ulang di sini. Subtotal, total diskon, dan total
- *     akhir datang apa adanya dari hand-off yang ditulis Kalkulator, yang
- *     memakai computeChainFinal() — satu-satunya rumus yang sah
- *     (calculator-shared.ts: kalikan berurutan, SATU kali round di akhir).
- *     Rumus kedua di sini adalah cara paling mudah membuat kertas yang
- *     dipegang pelanggan meleset beberapa rupiah dari layar staf. Yang
- *     dihitung di sini HANYA jumlah per baris (unitPrice × qty).
- *   - Profil produk diambil SEGAR dari database; kalau gagal, ringkasannya
- *     tetap tercetak dan kegagalannya DIKATAKAN (LESSONS #10) — bukan
- *     dokumen yang diam-diam kehilangan halaman isi.
+ *   - Angka TIDAK dihitung ulang. Subtotal, total diskon, dan harga akhir
+ *     datang apa adanya dari hand-off Kalkulator, yang memakai
+ *     computeChainFinal() — satu-satunya rumus yang sah. Rumus kedua di sini
+ *     adalah cara paling mudah membuat kertas yang dipegang pelanggan meleset
+ *     beberapa rupiah dari layar staf. Yang dihitung di sini HANYA jumlah per
+ *     baris (unitPrice × qty), angka yang tidak ada di hand-off dan tidak
+ *     masuk rantai mana pun.
+ *   - Bidang kosong DISEMBUNYIKAN seluruhnya — tidak pernah "N/A", "-", atau
+ *     "Rp 0".
+ *   - Tidak ada klaim produk yang dikarang: setiap kalimat tentang produk
+ *     berasal dari kolom description milik katalog.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCommonMessages } from "@/lib/i18n/provider";
 import { formatIDR } from "@/lib/orders-shared";
@@ -38,10 +45,57 @@ import {
 } from "@/lib/proposal-shared";
 import styles from "./proposal-document.module.css";
 
+const LOGO = "/brand/sanci-logo.png";
+
 type LoadState =
   | { phase: "loading" }
   | { phase: "ready"; products: ProposalProduct[] }
   | { phase: "error"; text: string };
+
+/** Satu lembar A4. `n` null = tanpa nomor halaman (sampul). */
+function Sheet({
+  children,
+  n,
+  dark,
+}: {
+  children: React.ReactNode;
+  n: number | null;
+  dark?: boolean;
+}) {
+  return (
+    <section className={dark ? `${styles.sheet} ${styles.dark}` : styles.sheet}>
+      <div className={styles.inner}>
+        {children}
+        <span className={styles.pgBrand}>SANCI Proposal</span>
+        {n !== null && <span className={styles.pgNo}>{String(n).padStart(2, "0")}</span>}
+      </div>
+    </section>
+  );
+}
+
+/** Foto produk, atau bidang gading tenang kalau produk itu belum berfoto. */
+function Photo({
+  src,
+  alt,
+  className,
+  eager,
+}: {
+  src: string | undefined;
+  alt: string;
+  className: string;
+  eager?: boolean;
+}) {
+  return (
+    <div className={className}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- URL publik Supabase Storage, pola sama dengan seluruh layar katalog
+        <img src={src} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" />
+      ) : (
+        <span className={styles.noPhoto} aria-hidden="true" />
+      )}
+    </div>
+  );
+}
 
 export default function ProposalDocument({
   loadProducts,
@@ -49,7 +103,7 @@ export default function ProposalDocument({
 }: {
   /** Server Action pemuat profil produk milik area pemasang (gerbangnya sendiri). */
   loadProducts: (productIds: string[]) => Promise<ProposalLoadResult>;
-  /** Tujuan tombol "kembali" — kalkulator area pemasang. */
+  /** Tujuan tombol kembali — kalkulator area pemasang. */
   backHref: string;
 }) {
   const m = useCommonMessages();
@@ -92,6 +146,26 @@ export default function ProposalDocument({
     };
   }, [handoff, loadProducts, m]);
 
+  /**
+   * Baris pilihan digabung dengan profil produknya, sekali saja.
+   * Daftar produk diturunkan DI DALAM memo, bukan di badan komponen: di luar
+   * sini `load.phase !== "ready"` menghasilkan array baru tiap render, dan
+   * memo yang bergantung padanya tidak pernah benar-benar menahan apa pun.
+   */
+  const rows = useMemo(() => {
+    if (!handoff) return [];
+    const products = load.phase === "ready" ? load.products : [];
+    return handoff.lines.map((line) => {
+      const product = products.find((x) => x.id === line.productId);
+      return {
+        line,
+        product,
+        amount: line.unitPrice * line.qty,
+        photos: product?.photos ?? [],
+      };
+    });
+  }, [handoff, load]);
+
   if (!ready) return null;
 
   if (!handoff) {
@@ -116,19 +190,47 @@ export default function ProposalDocument({
     month: "long",
     year: "numeric",
   });
-  const products = load.phase === "ready" ? load.products : [];
-  // Foto sampul untuk halaman judul: foto produk pertama yang punya foto.
-  // Tanpa foto sama sekali, halaman judul tetap sah — judulnya saja.
-  const coverPhoto = products.find((p) => p.photos.length > 0)?.photos[0];
+  const who = customerName.trim();
+  const heroPhotos = rows.flatMap((r) => r.photos);
+
+  // Nomor halaman dihitung sambil menyusun: sampul tidak bernomor, sisanya
+  // berurutan berapa pun jumlah produk dan fotonya.
+  let pageNo = 1;
+  const next = () => ++pageNo;
+
+  const totals = (
+    <>
+      <div className={styles.moneyRow}>
+        <span className={styles.micro}>{m.proposalSubtotal}</span>
+        <strong className={styles.num}>{formatIDR(handoff.subtotal)}</strong>
+      </div>
+      {handoff.discountPcts.length > 0 && (
+        <div className={styles.moneyRow}>
+          <span className={styles.micro}>
+            {m.proposalDiscountStep.replace("{pct}", handoff.discountPcts.join("% + "))}
+          </span>
+          <strong className={styles.num}>− {formatIDR(handoff.totalDiscountAmount)}</strong>
+        </div>
+      )}
+      {handoff.cashDiscount > 0 && (
+        <div className={styles.moneyRow}>
+          <span className={styles.micro}>{m.proposalCashDiscount}</span>
+          <strong className={styles.num}>− {formatIDR(handoff.cashDiscount)}</strong>
+        </div>
+      )}
+      <div className={styles.moneyFinal}>
+        <p className={styles.priceLabel}>{m.proposalFinalPrice}</p>
+        <p className={`${styles.value} ${styles.num}`}>{formatIDR(handoff.finalAmount)}</p>
+      </div>
+    </>
+  );
 
   return (
-    <>
-      {/* `styles.noprint`, BUKAN string "noprint": nama kelas di CSS Module
-          di-hash, jadi kelas global bernama sama tidak akan pernah cocok. */}
-      <div className={`${styles.bar} ${styles.noprint}`}>
-        <Link href={backHref} className="btn sm">
-          {m.proposalBackCta}
-        </Link>
+    <div className={styles.wrap}>
+      <header className={`${styles.bar} noprint`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- aset merek publik */}
+        <img src={LOGO} alt={lh.brand} style={{ height: 15, width: "auto", display: "block" }} />
+        <span className={styles.barSpacer} />
         <input
           className={styles.nameField}
           value={customerName}
@@ -136,171 +238,336 @@ export default function ProposalDocument({
           placeholder={m.proposalCustomerPlaceholder}
           aria-label={m.proposalForLabel}
         />
-        <button type="button" className="btn primary" onClick={() => window.print()}>
+        <Link href={backHref} className={styles.tool}>
+          {m.proposalBackCta}
+        </Link>
+        <button
+          type="button"
+          className={`${styles.tool} ${styles.toolPrimary}`}
+          onClick={() => window.print()}
+        >
           {m.proposalPrintCta}
         </button>
-      </div>
+      </header>
 
-      <article className={styles.sheet}>
-        {/* ── Sampul ─────────────────────────────────────────────────── */}
-        <section className={styles.cover}>
-          <div className={styles.coverTop}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- aset publik /brand, bukan foto yang butuh optimasi next/image */}
-            <img className={styles.coverLogo} src="/brand/sanci-logo.png" alt={lh.brand} />
-            <span className={styles.coverDate}>{dateText}</span>
+      <main className={styles.doc}>
+        {/* ── Sampul ─────────────────────────────────────────────── */}
+        <Sheet n={null}>
+          <div className={styles.coverGrid}>
+            <div className={styles.coverCopy}>
+              <span className={styles.wordmark}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- aset merek publik */}
+                <img src={LOGO} alt={lh.brand} />
+              </span>
+              <div>
+                <p className={styles.eyebrow}>{m.proposalCoverKicker}</p>
+                <h1 className={styles.coverTitle}>{m.proposalTitle}</h1>
+                <p className={styles.coverSub}>{m.proposalCoverSub}</p>
+              </div>
+              <div className={styles.coverMeta}>
+                {who && (
+                  <div>
+                    <p className={styles.eyebrow}>{m.proposalForLabel}</p>
+                    <p className={styles.coverName}>{who}</p>
+                  </div>
+                )}
+                <div>
+                  <p className={styles.eyebrow}>{m.proposalMetaDate}</p>
+                  <p className={styles.coverDate}>{dateText}</p>
+                </div>
+              </div>
+            </div>
+            <Photo
+              src={heroPhotos[0]}
+              alt={rows[0]?.line.name ?? lh.brand}
+              className={styles.coverImage}
+              eager
+            />
           </div>
+        </Sheet>
 
-          {coverPhoto && (
-            // eslint-disable-next-line @next/next/no-img-element -- URL publik Supabase Storage
-            <img className={styles.coverImg} src={coverPhoto} alt="" />
-          )}
+        {/* ── Pengantar ──────────────────────────────────────────── */}
+        <Sheet n={next()}>
+          <div className={styles.introGrid}>
+            <div>
+              <p className={styles.eyebrow}>{m.proposalForLabel}</p>
+              <h2 className={styles.introTitle}>{m.proposalIntroTitle}</h2>
+              {who && <p className={styles.clientName}>{who}</p>}
+              <p className={styles.introNote}>{m.proposalIntroNote}</p>
+            </div>
+            <div className={styles.metaStack}>
+              <div className={styles.metaRow}>
+                <p className={styles.metaLabel}>{m.proposalMetaDate}</p>
+                <p className={`${styles.metaValue} ${styles.num}`}>{dateText}</p>
+              </div>
+              <div className={styles.metaRow}>
+                <p className={styles.metaLabel}>{m.proposalMetaBy}</p>
+                <p className={styles.metaValue}>{lh.name}</p>
+              </div>
+              <div className={styles.metaRow}>
+                <p className={styles.metaLabel}>{m.proposalMetaCount}</p>
+                <p className={`${styles.metaValue} ${styles.num}`}>{rows.length}</p>
+              </div>
+            </div>
+          </div>
+        </Sheet>
 
-          <h1 className={styles.coverTitle}>{m.proposalTitle}</h1>
-          <p className={styles.coverSub}>{m.proposalSubtitle}</p>
-
-          {customerName.trim() && (
-            <p className={styles.coverFor}>
-              <span className={styles.eyebrow}>{m.proposalForLabel}</span>
-              <span className={styles.coverForName}>{customerName.trim()}</span>
+        {/* ── Pilihan Anda ───────────────────────────────────────── */}
+        <Sheet n={next()}>
+          <div className={styles.secHead}>
+            <div>
+              <p className={styles.eyebrow}>{m.proposalSelectionKicker}</p>
+              <h2 className={styles.secTitle}>{m.proposalSelectionTitle}</h2>
+            </div>
+            <p className={styles.micro}>
+              {m.proposalProductsCount.replace("{n}", String(rows.length))}
             </p>
-          )}
-        </section>
-
-        {/* ── Ringkasan pilihan ──────────────────────────────────────── */}
-        <section className={styles.summary}>
-          <h2 className={styles.secTitle}>
-            <span className={styles.secIndex}>01</span>
-            {m.proposalSelectionTitle}
-          </h2>
-
-          <table className={styles.items}>
-            <thead>
-              <tr>
-                <th aria-hidden="true" />
-                <th>{m.proposalColItem}</th>
-                <th className={styles.num}>{m.proposalColQty}</th>
-                <th className={styles.num}>{m.proposalColUnit}</th>
-                <th className={styles.num}>{m.proposalColTotal}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {handoff.lines.map((line) => {
-                const prod = products.find((p) => p.id === line.productId);
-                const cover = prod?.photos[0];
-                return (
-                  <tr key={line.productId}>
-                    <td className={styles.thumbCell}>
-                      {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- URL publik Supabase Storage
-                        <img className={styles.thumb} src={cover} alt="" />
-                      ) : (
-                        <span className={styles.thumb} aria-hidden="true" />
-                      )}
-                    </td>
-                    <td>
-                      <div className={styles.itemName}>{line.name}</div>
-                      {(line.code || prod?.size) && (
-                        <div className={styles.itemMeta}>
-                          {[line.code, prod?.size].filter(Boolean).join("  ·  ")}
-                        </div>
-                      )}
-                    </td>
-                    <td className={styles.num}>{line.qty}</td>
-                    <td className={styles.num}>{formatIDR(line.unitPrice)}</td>
-                    <td className={styles.num}>{formatIDR(line.unitPrice * line.qty)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          <div className={styles.totals}>
-            <div className={styles.totalRow}>
-              <span>{m.proposalSubtotal}</span>
-              <span>{formatIDR(handoff.subtotal)}</span>
-            </div>
-            {/* Rantai diskon dirangkum SATU baris ("10% + 5%") dengan rupiah
-                totalnya. Memecah rupiah per langkah adalah bahasa alat hitung
-                staf; pelanggan cuma perlu tahu berapa potongannya dan berapa
-                akhirnya — dan satu baris berarti tidak ada angka per-langkah
-                yang perlu dihitung ulang di sini. */}
-            {handoff.discountPcts.length > 0 && (
-              <div className={`${styles.totalRow} ${styles.totalDisc}`}>
-                <span>{m.proposalDiscountStep.replace("{pct}", handoff.discountPcts.join("% + "))}</span>
-                <span>−{formatIDR(handoff.totalDiscountAmount)}</span>
-              </div>
-            )}
-            {handoff.markupPct !== null && handoff.markupPct !== 0 && (
-              <div className={`${styles.totalRow} ${styles.totalDisc}`}>
-                <span>{m.proposalMarkup.replace("{pct}", String(handoff.markupPct))}</span>
-                <span />
-              </div>
-            )}
-            {handoff.cashDiscount > 0 && (
-              <div className={`${styles.totalRow} ${styles.totalDisc}`}>
-                <span>{m.proposalCashDiscount}</span>
-                <span>−{formatIDR(handoff.cashDiscount)}</span>
-              </div>
-            )}
-            <div className={`${styles.totalRow} ${styles.grand}`}>
-              <span>{m.proposalGrandTotal}</span>
-              <span>{formatIDR(handoff.finalAmount)}</span>
-            </div>
           </div>
 
-          <p className={styles.note}>{m.proposalFootnote}</p>
+          <div className={styles.selList}>
+            {rows.map((r, i) => (
+              <article className={styles.selRow} key={r.line.productId}>
+                <span className={styles.selNo}>{String(i + 1).padStart(2, "0")}</span>
+                <Photo src={r.photos[0]} alt={r.line.name} className={styles.selPhoto} />
+                <div>
+                  <div className={styles.selName}>{r.line.name}</div>
+                  {r.line.code && <p className={styles.selCode}>{r.line.code}</p>}
+                  {r.product?.size && <p className={styles.selSize}>{r.product.size}</p>}
+                </div>
+                <div>
+                  <p className={styles.priceLabel}>{m.proposalColQty}</p>
+                  <p className={`${styles.priceValue} ${styles.num}`}>{r.line.qty}</p>
+                </div>
+                <div>
+                  <p className={styles.priceLabel}>{m.proposalColUnit}</p>
+                  <p className={`${styles.priceValue} ${styles.num}`}>{formatIDR(r.line.unitPrice)}</p>
+                </div>
+                <div>
+                  <p className={styles.priceLabel}>{m.proposalSpecCategory}</p>
+                  <p className={styles.priceValue}>{r.product?.category ?? "—"}</p>
+                </div>
+                <div>
+                  <p className={styles.priceLabel}>{m.proposalColTotal}</p>
+                  <p className={`${styles.priceValue} ${styles.priceStrong} ${styles.num}`}>
+                    {formatIDR(r.amount)}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
 
-          {load.phase === "error" && (
-            <div className="banner bad" style={{ marginTop: 20 }}>
-              {load.text}
-              <div style={{ marginTop: 6 }}>{m.proposalProfilesMissing}</div>
-            </div>
-          )}
-        </section>
+          <div className={styles.selTotal}>
+            <div className={styles.selTotalBox}>{totals}</div>
+          </div>
+        </Sheet>
 
-        {/* ── Profil produk, satu per halaman ────────────────────────── */}
-        {products.map((p, i) => (
-          <section className={styles.product} key={p.id}>
-            <div className={styles.productHead}>
-              <span className={styles.secIndex}>{String(i + 2).padStart(2, "0")}</span>
-              <h2 className={styles.productName}>{p.name}</h2>
-              {p.code && <span className={styles.productCode}>{p.code}</span>}
-            </div>
-
-            {p.photos[0] && (
-              // eslint-disable-next-line @next/next/no-img-element -- URL publik Supabase Storage
-              <img className={styles.hero} src={p.photos[0]} alt={p.name} />
-            )}
-
-            <div className={styles.productBody}>
-              <div className={styles.specs}>
-                {p.size && (
-                  <div className={styles.specRow}>
-                    <span className={styles.specKey}>{m.proposalSpecSize}</span>
-                    <span className={styles.specVal}>{p.size}</span>
-                  </div>
-                )}
-                {p.category && (
-                  <div className={styles.specRow}>
-                    <span className={styles.specKey}>{m.proposalSpecCategory}</span>
-                    <span className={styles.specVal}>{p.category}</span>
-                  </div>
-                )}
+        {/* ── Ringkasan harga ────────────────────────────────────── */}
+        <Sheet n={next()}>
+          <div className={styles.sumLayout}>
+            <div className={styles.sumCopy}>
+              <p className={styles.eyebrow}>{m.proposalSummaryKicker}</p>
+              <h2 className={styles.sumTitle}>{m.proposalSummaryTitle}</h2>
+              <div className={styles.metaStack}>
+                <div className={styles.moneyRow}>
+                  <span className={styles.micro}>{m.proposalMetaCount}</span>
+                  <strong className={styles.num}>{rows.length}</strong>
+                </div>
+                {totals}
               </div>
-              {p.description && <p className={styles.desc}>{p.description}</p>}
+              <p className={styles.sumNote}>{m.proposalFootnote}</p>
             </div>
+            <Photo
+              src={heroPhotos[1] ?? heroPhotos[0]}
+              alt={rows[0]?.line.name ?? lh.brand}
+              className={styles.sumImage}
+            />
+          </div>
+        </Sheet>
 
-            {p.photos.length > 1 && (
-              <div className={styles.gallery}>
-                {p.photos.slice(1).map((url) => (
-                  // eslint-disable-next-line @next/next/no-img-element -- URL publik Supabase Storage
-                  <img className={styles.galleryImg} src={url} alt={p.name} key={url} />
-                ))}
+        {/* ── Spread editorial gelap. Judulnya kalimat PENANDA BAGIAN,
+             bukan klaim tentang produk — dokumen ini tidak pernah
+             mengarang sifat produk. Hanya dirender kalau memang ada
+             foto yang layak memenuhi satu halaman penuh. ─────────── */}
+        {heroPhotos.length > 0 && (
+          <Sheet n={next()} dark>
+            <div className={styles.darkHero}>
+              <div>
+                <p className={styles.eyebrow}>{m.proposalCollectionKicker}</p>
+                <h2 className={styles.darkTitle}>{m.proposalCollectionTitle}</h2>
               </div>
-            )}
-          </section>
-        ))}
-      </article>
-    </>
+              <Photo
+                src={heroPhotos[heroPhotos.length - 1]}
+                alt={rows[rows.length - 1]?.line.name ?? lh.brand}
+                className={styles.darkImage}
+              />
+            </div>
+          </Sheet>
+        )}
+
+        {/* ── Tiap produk: pembuka, rincian, galeri ──────────────── */}
+        {rows.map((r, i) => {
+          const p = r.product;
+          const desc = p?.description?.trim();
+          const gallery = r.photos.slice(1);
+          return (
+            <div key={`p-${r.line.productId}`}>
+              <Sheet n={next()}>
+                <div className={styles.prodHero}>
+                  <div className={styles.prodHead}>
+                    <span className={styles.prodNo}>{String(i + 1).padStart(2, "0")}</span>
+                    <div>
+                      <h2 className={styles.prodTitle}>{r.line.name}</h2>
+                      {r.line.code && <p className={styles.prodCode}>{r.line.code}</p>}
+                    </div>
+                  </div>
+                  <Photo src={r.photos[0]} alt={r.line.name} className={styles.heroPhoto} />
+                  <div className={styles.heroMeta}>
+                    {desc && (
+                      <div>
+                        <p className={styles.eyebrow}>{m.proposalAboutLabel}</p>
+                        <p className={styles.heroDesc}>{desc}</p>
+                      </div>
+                    )}
+                    {p?.size && (
+                      <div className={styles.dimension}>
+                        <p className={styles.eyebrow}>{m.proposalSpecSize}</p>
+                        <p className={`${styles.dimensionValue} ${styles.num}`}>{p.size}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Sheet>
+
+              {/* Halaman rincian hanya kalau ada yang bisa dirinci — halaman
+                  berisi tiga label kosong lebih buruk daripada tidak ada
+                  halaman sama sekali. */}
+              {(desc || p?.size || p?.category) && (
+                <Sheet n={next()}>
+                  <div className={styles.edGrid}>
+                    <Photo
+                      src={r.photos[1] ?? r.photos[0]}
+                      alt={r.line.name}
+                      className={styles.edImage}
+                    />
+                    <div className={styles.edCopy}>
+                      <p className={styles.eyebrow}>
+                        {m.proposalDetailKicker.replace("{name}", r.line.name)}
+                      </p>
+                      <h2 className={styles.edTitle}>{r.line.name}</h2>
+                      {desc && <p>{desc}</p>}
+                      <div className={styles.detailBlock}>
+                        {p?.size && (
+                          <div className={styles.detailRow}>
+                            <p className={styles.detailLabel}>{m.proposalSpecSize}</p>
+                            <p className={`${styles.detailValue} ${styles.num}`}>{p.size}</p>
+                          </div>
+                        )}
+                        {r.line.code && (
+                          <div className={styles.detailRow}>
+                            <p className={styles.detailLabel}>{m.proposalSpecCode}</p>
+                            <p className={styles.detailValue}>{r.line.code}</p>
+                          </div>
+                        )}
+                        {p?.category && (
+                          <div className={styles.detailRow}>
+                            <p className={styles.detailLabel}>{m.proposalSpecCategory}</p>
+                            <p className={styles.detailValue}>{p.category}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Sheet>
+              )}
+
+              {/* Galeri hanya kalau ada foto SELAIN foto pembuka. */}
+              {gallery.length > 0 && (
+                <Sheet n={next()}>
+                  <div className={styles.galHead}>
+                    <p className={styles.eyebrow}>
+                      {m.proposalGalleryKicker.replace("{name}", r.line.name)}
+                    </p>
+                    <h2 className={styles.galTitle}>{m.proposalGalleryTitle}</h2>
+                  </div>
+                  <div className={`${styles.gallery} ${galleryShape(gallery.length)}`}>
+                    {gallery.map((url) => (
+                      <div className={styles.galItem} key={url}>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- URL publik Supabase Storage */}
+                        <img src={url} alt={r.line.name} loading="lazy" decoding="async" />
+                      </div>
+                    ))}
+                  </div>
+                </Sheet>
+              )}
+            </div>
+          );
+        })}
+
+        {/* ── Halaman akhir ──────────────────────────────────────── */}
+        <Sheet n={next()}>
+          <div className={styles.finalLayout}>
+            <div>
+              <p className={styles.eyebrow}>{m.proposalFinalKicker}</p>
+              <h2 className={styles.finalTitle}>{m.proposalFinalTitle}</h2>
+              <p className={styles.finalPriceLabel}>{m.proposalFinalPrice}</p>
+              <p className={`${styles.finalPrice} ${styles.num}`}>{formatIDR(handoff.finalAmount)}</p>
+              <div className={styles.metaStack} style={{ maxWidth: 430 }}>
+                <div className={styles.moneyRow}>
+                  <span className={styles.micro}>{m.proposalMetaCount}</span>
+                  <strong className={styles.num}>{rows.length}</strong>
+                </div>
+                <div className={styles.moneyRow}>
+                  <span className={styles.micro}>{m.proposalSubtotal}</span>
+                  <strong className={styles.num}>{formatIDR(handoff.subtotal)}</strong>
+                </div>
+              </div>
+              <div className={styles.thanks}>
+                <h3>{m.proposalThanksTitle}</h3>
+                <p>{m.proposalThanksBody}</p>
+                <div className={styles.contact}>
+                  <div>
+                    <p className={styles.eyebrow}>{m.proposalContactShowroom}</p>
+                    <p className={styles.contactValue}>{lh.name}</p>
+                  </div>
+                  <div>
+                    <p className={styles.eyebrow}>{m.proposalContactLabel}</p>
+                    <p className={styles.contactValue}>
+                      {lh.phone ? `WhatsApp · ${lh.phone}` : lh.website}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Photo
+              src={heroPhotos[2] ?? heroPhotos[0]}
+              alt={rows[0]?.line.name ?? lh.brand}
+              className={styles.finalImage}
+            />
+          </div>
+        </Sheet>
+
+        {load.phase === "error" && (
+          <div className="banner bad noprint" style={{ maxWidth: 900, margin: "0 auto 34px" }}>
+            {load.text}
+            <div style={{ marginTop: 6 }}>{m.proposalProfilesMissing}</div>
+          </div>
+        )}
+      </main>
+    </div>
   );
+}
+
+/**
+ * Bentuk grid galeri mengikuti JUMLAH foto — satu grid tetap akan
+ * meninggalkan lubang kosong ketika produk cuma punya dua foto. Lebih dari
+ * lima foto per produk tidak mungkin sampai ke sini (dibatasi di Server
+ * Action), tapi kalau batas itu kelak dinaikkan, bentuk terpadatlah yang
+ * dipakai, bukan grid yang rusak.
+ */
+function galleryShape(count: number): string {
+  if (count <= 1) return styles.gal1;
+  if (count === 2) return styles.gal2;
+  if (count === 3) return styles.gal3;
+  if (count === 4) return styles.gal4;
+  return styles.gal5;
 }

@@ -1,285 +1,345 @@
 /* Proposal — dokumen yang dibawa PULANG oleh pelanggan.
  *
- * Acuannya majalah furnitur, bukan formulir kantor: sampul bergambar, angka
- * bab, judul serif berukuran editorial, foto selebar kolom, dan ruang kosong
- * yang disengaja. Aplikasi dirancang untuk staf yang bekerja cepat; halaman
- * ini untuk pelanggan yang duduk membacanya.
+ * Bahasa visualnya diambil dari prototipe HTML milik owner (30-08-2026,
+ * "SANCI Proposal — Premium Furniture Editorial"): lembar A4 sungguhan di
+ * atas meja abu hangat, kertas gading, tipografi serif besar, netral batu,
+ * ruang kosong lebar, foto besar, dan hampir tanpa ornamen.
  *
- * Warna dikunci di sini (bukan var(--ink) dkk) DENGAN SENGAJA: dokumen ini
- * dicetak di atas kertas, jadi ia tidak boleh ikut berubah kalau palet
- * aplikasi berubah — dan tidak boleh ikut mode gelap sama sekali (kertas
- * tidak punya mode gelap).
+ * Palet UI Partner System SENGAJA tidak dipakai di sini — itu warna
+ * antarmuka, bukan warna merek, dan membawanya ke sini membuat dokumen
+ * terbaca sebagai layar aplikasi, bukan katalog furnitur. Warna dikunci
+ * sebagai nilai tetap (bukan var(--ink) dkk) karena dokumen ini dicetak di
+ * atas kertas: ia tidak boleh ikut berubah kalau palet aplikasi berubah,
+ * dan tidak boleh ikut mode gelap sama sekali.
  *
- * Tipografi memakai tumpukan serif sistem (Georgia dst), BUKAN webfont:
- * webfont membuat halaman ini bergantung pada jaringan tepat pada detik staf
- * menekan Cetak, dan Georgia sudah ada di mesin yang akan mencetaknya.
+ * SATU PENYIMPANGAN SADAR dari prototipe: di sana `.sheet` memakai
+ * `overflow:hidden` dengan tinggi tetap 297mm. Dengan data contoh itu pas,
+ * tetapi dengan deskripsi produk sungguhan (yang panjangnya bebas) isi yang
+ * melewati batas akan TERPOTONG DIAM-DIAM — pelanggan menerima dokumen yang
+ * kehilangan satu paragraf tanpa ada yang tahu. Di sini `min-height` tetap
+ * 297mm (metafora halamannya utuh) tetapi tingginya boleh tumbuh, dan
+ * pemenggalan halaman diserahkan ke mesin cetak lewat break-inside.
+ * LESSONS #10: jangan pernah menyembunyikan kegagalan sebagai "kosong".
  */
 
-.sheet {
-  --p-ink: #16150f;
-  --p-ink2: #5d5a50;
-  --p-faint: #a29d90;
-  --p-line: #e0dbd0;
-  --p-navy: #16233f;
-  --p-gold: #ab8a45;
-  --p-paper: #fdfcf9;
+.wrap {
+  --paper: #f7f4ee;
+  --ivory: #fcfaf5;
+  --white: #ffffff;
+  --black: #1e1d1a;
+  --charcoal: #292824;
+  --warm: #68645d;
+  --muted: #918b82;
+  --line: #dcd6cb;
+  --stone: #e8e2d8;
+  --taupe: #9a8f7d;
+  --desk: #eeece7;
 
-  background: var(--p-paper);
-  color: var(--p-ink);
-  max-width: 210mm;
-  margin: 0 auto;
-  padding: 0 0 24mm;
-  font-size: 11pt;
+  --serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+
+  --pw: 210mm;
+  --ph: 297mm;
+  --px: 16mm;
+  --py: 16mm;
+
+  background: var(--desk);
+  color: var(--black);
+  font-family: var(--sans);
+  font-size: 16px;
   line-height: 1.6;
   color-scheme: light;
 }
 
+.doc { padding: 34px 20px 70px; }
+
+.sheet {
+  width: var(--pw);
+  min-height: var(--ph);
+  margin: 0 auto 34px;
+  background: var(--paper);
+  box-shadow: 0 20px 50px rgba(20, 18, 14, .08);
+  position: relative;
+}
+.inner {
+  min-height: var(--ph);
+  padding: var(--py) var(--px);
+  position: relative;
+}
+.dark { background: var(--charcoal); color: var(--paper); }
+.dark .eyebrow, .dark .micro { color: #beb7ab; }
+.dark .pgNo, .dark .pgBrand { color: #a8a196; }
+
 .eyebrow {
-  display: block;
-  font-size: 7.5pt;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--p-faint);
+  font-size: 11px; line-height: 1.2; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); margin: 0;
+}
+.micro { font-size: 11px; line-height: 1.4; color: var(--muted); margin: 0; }
+.serif { font-family: var(--serif); }
+.num { font-variant-numeric: tabular-nums; }
+.nowrap { white-space: nowrap; }
+
+.pgNo {
+  position: absolute; right: var(--px); bottom: 10mm;
+  color: var(--muted); font-size: 10px; letter-spacing: .08em;
+}
+.pgBrand {
+  position: absolute; left: var(--px); bottom: 10mm;
+  color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
 }
 
-/* Angka bab — penanda editorial yang membuat dokumen terbaca sebagai
-   terbitan, bukan lampiran. */
-.secIndex {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 9pt;
-  letter-spacing: .18em;
-  color: var(--p-gold);
-  flex: none;
+/* ── Sampul ─────────────────────────────────────────────────────── */
+.coverGrid {
+  display: grid; grid-template-columns: 1fr 1.08fr; gap: 18mm;
+  min-height: calc(var(--ph) - 32mm); align-items: stretch;
 }
-
-/* ── Sampul ────────────────────────────────────────────────────────── */
-.cover { padding: 16mm 16mm 0; }
-.coverTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--p-line);
-}
-.coverLogo { height: 30px; width: auto; display: block; }
-.coverDate {
-  font-size: 8pt;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--p-faint);
-}
-.coverImg {
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-  display: block;
-  margin-top: 20px;
-  background: #efece5;
-}
+.coverCopy { display: flex; flex-direction: column; justify-content: space-between; padding-top: 2mm; gap: 24px; }
+.wordmark { display: block; }
+.wordmark img { height: 24px; width: auto; display: block; }
 .coverTitle {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 46pt;
-  font-weight: 400;
-  letter-spacing: -.015em;
-  line-height: 1.02;
-  margin: 26px 0 0;
-  color: var(--p-navy);
-}
-.coverSub {
-  font-size: 11.5pt;
-  font-style: italic;
-  color: var(--p-ink2);
-  margin: 10px 0 0;
-  max-width: 46ch;
-}
-.coverFor {
-  margin: 30px 0 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--p-line);
-}
-.coverForName {
-  display: block;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 19pt;
-  line-height: 1.25;
-  margin-top: 6px;
+  font-family: var(--serif); font-size: 62px; line-height: .92;
+  letter-spacing: -.025em; font-weight: 500; margin: 6px 0 0;
   overflow-wrap: anywhere;
 }
+.coverSub { max-width: 310px; margin: 18px 0 0; color: var(--warm); font-size: 15px; }
+.coverMeta { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 360px; }
+.coverName { margin-top: 5px; font-family: var(--serif); font-size: 20px; overflow-wrap: anywhere; }
+.coverDate { margin-top: 7px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+.coverImage { min-height: 100%; background: var(--stone); overflow: hidden; }
+.coverImage img { width: 100%; height: 100%; min-height: 100%; object-fit: cover; display: block; }
 
-/* ── Ringkasan pilihan ─────────────────────────────────────────────── */
-.summary { padding: 0 16mm; }
-.secTitle {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 15pt;
-  font-weight: 400;
-  letter-spacing: .04em;
-  color: var(--p-navy);
-  margin: 34px 0 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--p-navy);
+/* ── Pengantar ──────────────────────────────────────────────────── */
+.introGrid {
+  min-height: calc(var(--ph) - 32mm);
+  display: grid; grid-template-columns: 1fr .8fr; gap: 20mm; align-items: center;
 }
+.introTitle { margin: 14px 0 0; font-family: var(--serif); font-weight: 500; font-size: 54px; line-height: .98; }
+.clientName { margin: 26px 0 0; font-family: var(--serif); font-size: 34px; line-height: 1.05; overflow-wrap: anywhere; }
+.introNote { max-width: 460px; color: var(--warm); margin-top: 18px; }
+.metaStack { border-top: 1px solid var(--line); }
+.metaRow { padding: 14px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 120px 1fr; gap: 14px; }
+.metaLabel { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; margin: 0; }
+.metaValue { font-size: 14px; margin: 0; overflow-wrap: anywhere; }
 
-.items { width: 100%; border-collapse: collapse; }
-.items th {
-  text-align: left;
-  font-size: 7.5pt;
-  font-weight: 400;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  color: var(--p-faint);
-  padding: 0 10px 9px 0;
+/* ── Pilihan Anda ───────────────────────────────────────────────── */
+.secHead { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 26px; }
+.secTitle { margin: 8px 0 0; font-family: var(--serif); font-size: 44px; line-height: 1; font-weight: 500; }
+.selList { border-top: 1px solid var(--line); }
+.selRow {
+  display: grid; grid-template-columns: 52px 140px 1fr 90px 112px 112px 122px;
+  gap: 14px; align-items: center; padding: 17px 0; border-bottom: 1px solid var(--line);
 }
-.items td {
-  padding: 14px 10px 14px 0;
-  border-top: 1px solid var(--p-line);
-  vertical-align: top;
-}
-.items th:last-child,
-.items td:last-child { padding-right: 0; text-align: right; }
-.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.thumb {
-  width: 62px; height: 62px; object-fit: cover; display: block;
-  background: #efece5;
-}
-.thumbCell { width: 62px; padding-right: 14px !important; }
-.itemName {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 12.5pt;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-.itemMeta {
-  font-size: 8pt;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--p-faint);
-  margin-top: 5px;
-  overflow-wrap: anywhere;
+.selNo { font-family: var(--serif); font-size: 21px; }
+.selPhoto { aspect-ratio: 1.4 / 1; background: var(--ivory); overflow: hidden; }
+/* `contain`, bukan `cover`: memotong kasur/sofa demi kotak yang rapi adalah
+   justru hal yang membuat katalog furnitur terlihat murah. */
+.selPhoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.selName { font-family: var(--serif); font-size: 25px; line-height: 1.05; overflow-wrap: anywhere; }
+.selCode { margin: 5px 0 0; font-size: 10px; color: var(--muted); letter-spacing: .09em; }
+.selSize { margin: 8px 0 0; font-size: 12px; color: var(--warm); }
+.priceLabel { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 3px; }
+.priceValue { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; margin: 0; }
+.priceStrong { font-size: 13px; font-weight: 600; }
+
+.selTotal { display: flex; justify-content: flex-end; margin-top: 28px; }
+.selTotalBox { width: 360px; max-width: 100%; }
+.moneyRow { display: flex; justify-content: space-between; gap: 20px; padding: 8px 0; }
+.moneyRow + .moneyRow { border-top: 1px solid var(--line); }
+.moneyFinal { margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--black); }
+.moneyFinal .value {
+  font-size: 38px; line-height: 1; font-weight: 500;
+  white-space: nowrap; font-variant-numeric: tabular-nums; margin: 0;
 }
 
-/* ── Ringkasan angka ───────────────────────────────────────────────── */
-.totals { margin: 22px 0 0 auto; width: min(340px, 100%); }
-.totalRow {
-  display: flex; justify-content: space-between; gap: 18px;
-  padding: 7px 0; font-size: 10.5pt;
+/* ── Ringkasan ──────────────────────────────────────────────────── */
+.sumLayout {
+  min-height: calc(var(--ph) - 32mm);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14mm; align-items: center;
 }
-.totalRow span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.totalDisc { color: var(--p-ink2); }
-.grand {
-  margin-top: 10px; padding: 14px 0 0;
-  border-top: 1px solid var(--p-navy);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 19pt;
-  line-height: 1.2;
-  color: var(--p-navy);
-}
+.sumCopy { max-width: 450px; }
+.sumTitle { font-family: var(--serif); font-size: 60px; line-height: .92; font-weight: 500; margin: 12px 0 28px; }
+.sumImage { aspect-ratio: 4 / 3; overflow: hidden; background: var(--ivory); }
+.sumImage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sumNote { margin-top: 30px; color: var(--warm); max-width: 420px; font-size: 13px; line-height: 1.7; }
 
-.note {
-  margin-top: 30px; padding-top: 14px;
-  border-top: 1px solid var(--p-line);
-  font-size: 8.5pt; line-height: 1.6; color: var(--p-ink2);
-  max-width: 62ch;
+/* ── Halaman pembuka produk ─────────────────────────────────────── */
+.prodHero { display: grid; grid-template-columns: 1fr; min-height: calc(var(--ph) - 32mm); }
+.prodHead { padding-top: 4mm; display: grid; grid-template-columns: 80px 1fr; gap: 14px; }
+.prodNo { font-family: var(--serif); font-size: 27px; line-height: 1; }
+.prodTitle {
+  font-family: var(--serif); font-size: 59px; line-height: .92; font-weight: 500;
+  letter-spacing: -.025em; margin: 0; overflow-wrap: anywhere;
 }
+.prodCode { margin: 9px 0 0; font-size: 11px; color: var(--muted); letter-spacing: .09em; }
+.heroPhoto { margin-top: 18mm; height: 142mm; background: var(--ivory); overflow: hidden; }
+.heroPhoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.heroMeta { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; margin-top: 12mm; flex-wrap: wrap; }
+.heroDesc { max-width: 500px; color: var(--warm); font-size: 14px; margin: 6px 0 0; }
+.dimension { text-align: right; }
+.dimensionValue { margin: 3px 0 0; font-family: var(--serif); font-size: 23px; overflow-wrap: anywhere; }
 
-/* ── Halaman profil produk ─────────────────────────────────────────── */
-/* Tiap produk mulai di halaman BARU saat dicetak — itu yang membuat dokumen
-   ini terasa seperti katalog, bukan lampiran. */
-.product { padding: 0 16mm; margin-top: 52px; }
-.productHead {
-  display: flex; align-items: baseline; gap: 14px;
-  border-bottom: 1px solid var(--p-navy);
-  padding-bottom: 10px;
+/* ── Halaman rincian ────────────────────────────────────────────── */
+.edGrid {
+  display: grid; grid-template-columns: 1.05fr .95fr; gap: 16mm;
+  min-height: calc(var(--ph) - 32mm); align-items: center;
 }
-.productName {
-  flex: 1;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 26pt; font-weight: 400; line-height: 1.1;
-  letter-spacing: -.01em;
-  color: var(--p-navy); margin: 0; overflow-wrap: anywhere;
-}
-.productCode {
-  flex: none;
-  font-size: 8pt; letter-spacing: .18em; text-transform: uppercase;
-  color: var(--p-faint); white-space: nowrap;
-}
-.hero {
-  width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block;
-  margin-top: 18px; background: #efece5;
-}
+.edImage { aspect-ratio: 4 / 5; overflow: hidden; background: var(--ivory); }
+.edImage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.edTitle { font-family: var(--serif); font-size: 42px; line-height: 1; font-weight: 500; margin: 10px 0 18px; }
+.edCopy p { max-width: 450px; color: var(--warm); font-size: 14px; margin: 0 0 14px; }
+.edCopy p:last-of-type { margin-bottom: 0; }
+.detailBlock { margin-top: 32px; }
+.detailRow { display: grid; grid-template-columns: 125px 1fr; gap: 20px; padding: 12px 0; border-top: 1px solid var(--line); }
+.detailRow:last-child { border-bottom: 1px solid var(--line); }
+.detailLabel { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; margin: 0; }
+.detailValue { font-size: 13px; margin: 0; overflow-wrap: anywhere; }
 
-/* Badan produk: spesifikasi di kolom sempit kiri, cerita produk di kolom
-   lebar kanan — pola dua kolom majalah. Di layar sempit keduanya menumpuk. */
-.productBody {
-  display: grid;
-  grid-template-columns: 170px 1fr;
-  gap: 28px;
-  margin-top: 22px;
-}
-@media (max-width: 640px) {
-  .productBody { grid-template-columns: 1fr; gap: 16px; }
-}
-.specs { border-top: 1px solid var(--p-navy); padding-top: 10px; }
-.specRow { padding: 8px 0; border-bottom: 1px solid var(--p-line); }
-.specKey {
-  display: block;
-  font-size: 7.5pt; letter-spacing: .2em; text-transform: uppercase;
-  color: var(--p-faint); margin-bottom: 3px;
-}
-.specVal { font-size: 10pt; overflow-wrap: anywhere; }
-.desc {
-  margin: 0;
-  white-space: pre-line;
-  font-size: 11pt;
-  line-height: 1.75;
-}
-/* Inisial besar — sentuhan majalah yang hanya muncul kalau deskripsinya
-   memang ada (elemennya sendiri tidak dirender saat deskripsi kosong). */
-.desc::first-letter {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 30pt;
-  line-height: 1;
-  float: left;
-  padding: 3px 8px 0 0;
-  color: var(--p-navy);
-}
+/* ── Galeri ─────────────────────────────────────────────────────── */
+.galHead { margin-bottom: 16mm; }
+.galTitle { font-family: var(--serif); font-size: 50px; line-height: .95; font-weight: 500; margin: 8px 0 0; }
+.gallery { display: grid; gap: 7mm; }
+.galItem { background: var(--ivory); overflow: hidden; }
+.galItem img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Bentuk grid mengikuti JUMLAH foto — bukan satu grid tetap yang memaksa
+   foto ketiga jadi lubang kosong ketika produk cuma punya dua. */
+.gal1 { grid-template-columns: 1fr; height: 215mm; }
+.gal2 { grid-template-columns: 1fr 1fr; height: 215mm; }
+.gal3 { grid-template-columns: 1.6fr .8fr; grid-template-rows: 1fr 1fr; height: 215mm; }
+.gal3 .galItem:first-child { grid-row: 1 / 3; }
+.gal4 { grid-template-columns: 1.6fr .8fr; grid-template-rows: repeat(3, 1fr); height: 215mm; }
+.gal4 .galItem:first-child { grid-row: 1 / 3; }
+.gal5 { grid-template-columns: 1.6fr .8fr; grid-template-rows: repeat(4, 1fr); height: 215mm; }
+.gal5 .galItem:first-child { grid-row: 1 / 3; }
 
-.gallery {
-  margin-top: 24px;
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+/* ── Halaman akhir ──────────────────────────────────────────────── */
+.finalLayout {
+  min-height: calc(var(--ph) - 32mm);
+  display: grid; grid-template-columns: 1fr .9fr; gap: 16mm; align-items: end;
 }
-.galleryImg {
-  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
-  background: #efece5;
+.finalTitle { font-family: var(--serif); font-size: 64px; line-height: .9; font-weight: 500; margin: 10px 0 30px; }
+.finalPriceLabel { font-size: 10px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin: 0; }
+.finalPrice {
+  font-size: 53px; line-height: 1; font-variant-numeric: tabular-nums;
+  margin: 7px 0 25px; white-space: nowrap;
 }
+.finalImage { aspect-ratio: 3 / 4; background: var(--stone); overflow: hidden; }
+.finalImage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thanks { margin-top: 45mm; max-width: 450px; }
+.thanks h3 { font-family: var(--serif); font-size: 35px; font-weight: 500; margin: 0 0 12px; }
+.thanks p { color: var(--warm); font-size: 14px; margin: 0; }
+.contact { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 17px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.contactValue { margin: 6px 0 0; color: var(--warm); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 
-/* ── Chrome aplikasi (tidak ikut tercetak) ─────────────────────────── */
+/* ── Spread editorial gelap ─────────────────────────────────────── */
+.darkHero { min-height: calc(var(--ph) - 32mm); display: flex; flex-direction: column; justify-content: space-between; }
+.darkTitle { font-family: var(--serif); font-size: 68px; line-height: .9; font-weight: 500; max-width: 650px; margin: 13mm 0 0; overflow-wrap: anywhere; }
+.darkImage { height: 166mm; margin-top: 12mm; background: #383631; overflow: hidden; }
+.darkImage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── Placeholder foto (produk tanpa foto) ───────────────────────── */
+/* Bukan gambar rusak dan bukan tulisan "tidak ada foto": bidang gading
+   tenang yang tidak menarik perhatian ke sesuatu yang tidak ada. */
+.noPhoto { width: 100%; height: 100%; min-height: 60px; background: var(--ivory); display: block; }
+
+/* ── Chrome aplikasi (tidak pernah ikut tercetak) ───────────────── */
 .bar {
-  position: sticky; top: 0; z-index: 5;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  padding: 10px 16px;
-  background: var(--surface); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 20; height: 64px; padding: 0 20px;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255, 255, 255, .9); border-bottom: 1px solid rgba(220, 214, 203, .9);
 }
+@supports (backdrop-filter: blur(4px)) {
+  .bar { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+}
+.barBrand { font-family: var(--serif); font-size: 21px; letter-spacing: .06em; margin-right: 10px; }
+.barSpacer { flex: 1; }
 .nameField {
-  flex: 1 1 220px; min-width: 0; min-height: var(--tap);
-  padding: 8px 12px; font-size: var(--fs-body);
-  color: var(--ink); background: var(--surface);
-  border: 1px solid var(--line2); border-radius: var(--r-md);
+  flex: 0 1 240px; min-width: 0; min-height: 44px; padding: 9px 12px;
+  font: inherit; font-size: 14px; color: var(--black); background: var(--white);
+  border: 1px solid var(--line); border-radius: 8px;
 }
-.nameField:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+.nameField:focus { outline: none; border-color: var(--charcoal); box-shadow: 0 0 0 3px rgba(41, 40, 36, .12); }
+.tool {
+  min-height: 44px; padding: 9px 14px; font: inherit; font-size: 14px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--white); color: var(--black); cursor: pointer;
+  transition: background .18s cubic-bezier(.2, .65, .25, 1);
+}
+.tool:hover { background: var(--ivory); }
+.toolPrimary { color: var(--white); background: var(--charcoal); border-color: var(--charcoal); }
+.toolPrimary:hover { background: var(--black); }
+.tool:focus-visible, .nameField:focus-visible { outline: 2px solid var(--charcoal); outline-offset: 2px; }
 
+/* ── Responsif ──────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .sheet { width: min(100%, 900px); min-height: auto; }
+  .inner { min-height: auto; }
+  .coverGrid, .introGrid, .sumLayout, .edGrid, .finalLayout { grid-template-columns: 1fr; }
+  .coverGrid, .introGrid, .sumLayout, .edGrid, .finalLayout, .prodHero, .darkHero { min-height: 0; }
+  .coverImage { min-height: 480px; }
+  .prodTitle { font-size: 48px; }
+  .heroPhoto { height: 520px; }
+  .gallery { height: auto; }
+  .gal3, .gal4, .gal5 { grid-template-columns: 1fr 1fr; grid-template-rows: none; }
+  .gal3 .galItem:first-child, .gal4 .galItem:first-child, .gal5 .galItem:first-child { grid-row: auto; grid-column: 1 / 3; min-height: 480px; }
+  .galItem { min-height: 250px; }
+  .finalImage { max-height: 560px; }
+  .darkImage { height: 420px; }
+}
+@media (max-width: 720px) {
+  .wrap { background: var(--paper); }
+  .bar { height: 58px; padding: 0 12px; }
+  .barBrand { font-size: 18px; }
+  .nameField { flex: 1 1 120px; }
+  .tool { padding: 8px 11px; font-size: 13px; }
+  .doc { padding: 0; }
+  .sheet { width: 100%; margin: 0; box-shadow: none; }
+  .inner { padding: 28px 18px 60px; }
+  .coverTitle { font-size: 48px; }
+  .coverImage { min-height: 390px; }
+  /* Baris pilihan tidak bisa tetap jadi baris di 375px: foto dan nama
+     menempati dua kolom pertama, seluruh angka turun ke kolom nama. */
+  .selRow { grid-template-columns: 38px 90px 1fr; }
+  .selRow > *:nth-child(n + 4) { grid-column: 3; }
+  .selPhoto { aspect-ratio: 1 / 1; }
+  .selName { font-size: 23px; }
+  .selTotal { justify-content: stretch; }
+  .selTotalBox { width: 100%; }
+  .sumTitle { font-size: 48px; }
+  .sumImage { order: -1; }
+  .prodHead { grid-template-columns: 46px 1fr; }
+  .prodTitle { font-size: 44px; }
+  .heroPhoto { height: 410px; margin-top: 42px; }
+  .heroMeta { align-items: flex-start; flex-direction: column; }
+  .dimension { text-align: left; }
+  .gal2, .gal3, .gal4, .gal5 { grid-template-columns: 1fr; }
+  .gal3 .galItem:first-child, .gal4 .galItem:first-child, .gal5 .galItem:first-child { grid-column: auto; min-height: 340px; }
+  .galItem { min-height: 250px; }
+  .finalTitle { font-size: 50px; }
+  .finalPrice { font-size: 39px; }
+  .darkTitle { font-size: 44px; }
+  .contact { grid-template-columns: 1fr; }
+}
+/* Diikat ke .wrap: CSS Module menolak selektor global seperti `*`, dan
+   memang tidak ada alasan aturan ini bocor ke luar dokumen. */
+@media (prefers-reduced-motion: reduce) {
+  .wrap, .wrap * { transition: none !important; }
+}
+
+/* ── Cetak A4 ───────────────────────────────────────────────────── */
 @media print {
-  /* Bar aksi menghilang; navigasi bawah cabang tidak dirender sama sekali di
-     rute ini (lihat HIDDEN_PATHS di app/cabang/bottom-nav.tsx). */
   .noprint { display: none !important; }
-  .sheet { max-width: none; margin: 0; padding: 0; font-size: 10.5pt; background: #fff; }
-  .cover, .summary, .product { padding-left: 0; padding-right: 0; }
-  .cover { padding-top: 0; }
-  .summary { break-before: page; page-break-before: always; }
-  .product { break-before: page; page-break-before: always; margin-top: 0; }
-  .productHead, .specRow, .items tr { break-inside: avoid; page-break-inside: avoid; }
-  .hero, .coverImg, .galleryImg { break-inside: avoid; page-break-inside: avoid; }
-  @page { size: A4; margin: 16mm 15mm; }
+  .wrap { background: #fff; }
+  .doc { padding: 0; }
+  .sheet {
+    width: 210mm; min-height: 297mm; margin: 0; box-shadow: none;
+    break-after: page; page-break-after: always;
+  }
+  .sheet:last-child { break-after: auto; page-break-after: auto; }
+  .inner { min-height: 297mm; }
+  /* Blok yang tidak boleh terbelah kalau isinya membuat lembar tumbuh
+     melewati satu halaman (deskripsi produk sungguhan panjangnya bebas). */
+  .selRow, .metaRow, .detailRow, .galItem, .heroPhoto, .moneyFinal, .thanks {
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .dark { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
