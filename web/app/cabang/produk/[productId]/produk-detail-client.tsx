@@ -165,6 +165,26 @@ export default function ProdukDetailClient({
       </div>
       {item.category && <div className="muted small">{item.category}</div>}
 
+      {/* Ukuran (0024) — TETAP di atas harga, dan sengaja MENEMPEL padanya.
+          Keputusan 0024 ("staf menjawab 'muat tidak di kamarnya' sebelum
+          menyebut angka rupiah") ditinjau ulang saat penataan alur menjual
+          2026-08-30 dan DIKUKUHKAN owner: untuk kasur/furnitur ukuran bukan
+          spesifikasi sampingan melainkan sumbu pemilihan — pelanggan bertanya
+          "ada yang queen?" lebih dulu, dan harganya sendiri mengikuti ukuran.
+          Keduanya harus terbaca sebagai SATU pasang; dipisah tombol membuat
+          staf menggulir bolak-balik untuk menjawab "queen berapa". Alur
+          menjualnya tetap utuh: tombol pesan langsung menyusul harga, dan
+          foto→ukuran→harga→cara memesan tetap muat satu layar ponsel. */}
+      {item.size && (
+        <div className={`rowline ${styles.specline}`} style={{ marginTop: 12 }}>
+          <span className="muted">{m.cabang.produkDetailSizeLabel}</span>
+          {/* .speclineValue: ukuran panjang seperti
+              "(1200-1550)*1200/(1600-1800)*2000" harus PATAH, bukan
+              terpotong diam-diam oleh body{overflow-x:hidden}. */}
+          <span className={styles.speclineValue}>{item.size}</span>
+        </div>
+      )}
+
       {/* Harga Normal (0021) — hanya tampil kalau toko ini punya harga
           efektif (override sendiri atau Harga Dasar SANCI). Tanpa harga =
           baris ini TIDAK ADA sama sekali, bukan "Rp 0" (0 adalah harga
@@ -188,22 +208,6 @@ export default function ProdukDetailClient({
           {added ? m.cabang.produkDetailAddedLabel : m.cabang.produkDetailAddCta}
         </button>
       </div>
-
-      {/* Ukuran (0024). Keputusan 0024 menaruhnya DI ATAS harga ("staf
-          menjawab 'muat tidak di kamarnya' sebelum menyebut angka rupiah");
-          sejak penataan alur menjual 2026-08-30 letaknya DI BAWAH harga +
-          tombol pesan, supaya foto→harga→cara memesan muat satu layar
-          ponsel. Isinya sendiri tidak berubah, dan pertanyaan "muat tidak"
-          tetap terjawab di layar yang sama, cuma satu gulir pendek di bawah. */}
-      {item.size && (
-        <div className={`rowline ${styles.specline}`} style={{ marginTop: 16 }}>
-          <span className="muted">{m.cabang.produkDetailSizeLabel}</span>
-          {/* .speclineValue: ukuran panjang seperti
-              "(1200-1550)*1200/(1600-1800)*2000" harus PATAH, bukan
-              terpotong diam-diam oleh body{overflow-x:hidden}. */}
-          <span className={styles.speclineValue}>{item.size}</span>
-        </div>
-      )}
 
       {item.description && (
         <p className="sub" style={{ whiteSpace: "pre-line", marginTop: 12 }}>
