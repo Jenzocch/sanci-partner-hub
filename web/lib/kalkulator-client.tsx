@@ -24,6 +24,7 @@ import {
   type CalcCartState,
   type CalcDraft,
 } from "@/lib/calculator-shared";
+import { writeProposalHandoff } from "@/lib/proposal-shared";
 import styles from "./kalkulator.module.css";
 
 export type KalkulatorProduct = {
@@ -58,6 +59,17 @@ export type KalkulatorProduct = {
 export type KalkulatorConvert = { cta: string; scopeNote: string; href: string };
 
 /**
+ * CTA "Buat Proposal" — dokumen cetak yang dibawa pulang pelanggan
+ * (lib/proposal-shared.ts). Teks + tujuan datang sebagai prop dengan alasan
+ * yang PERSIS sama dengan KalkulatorConvert di atas: komponen ini dipasang
+ * di dua area dan hanya membaca slice `common`, sementara teks ini milik
+ * slice area pemasang. Route yang belum punya halaman proposal mengirim
+ * `null` — tombolnya tidak dirender sama sekali (per 2026-08-30 baru rute
+ * cabang yang punya; sisi admin tinggal mengirim prop ini kalau kelak mau).
+ */
+export type KalkulatorProposal = { cta: string; href: string; saveFailed: string };
+
+/**
  * Pesan hasil fetch katalog per area — komponen ini hanya membaca slice
  * `common`, sedangkan kalimat "katalog belum dibuka"/"modul belum aktif"/
  * "gagal memuat" milik slice area pemasang, jadi dikirim sebagai prop string
@@ -89,6 +101,7 @@ export default function KalkulatorClient({
   fetchMessages,
   area,
   convert,
+  proposal = null,
 }: {
   /** Batch pertama (60) hasil render server — halaman langsung terisi tanpa
    *  fetch client di paint pertama; batch berikut & pencarian lewat fetchPage. */
@@ -102,6 +115,8 @@ export default function KalkulatorClient({
   /** Menentukan key draf localStorage (terpisah per area, lihat calculator-shared.ts). */
   area: CalcArea;
   convert: KalkulatorConvert | null;
+  /** Lihat KalkulatorProposal — `null`/tidak dikirim = tombolnya tidak ada. */
+  proposal?: KalkulatorProposal | null;
 }) {
   const m = useCommonMessages();
   const router = useRouter();
@@ -112,6 +127,9 @@ export default function KalkulatorClient({
   const [discountSlots, setDiscountSlots] = useState<string[]>([""]);
   const [markup, setMarkup] = useState("");
   const [cash, setCash] = useState("");
+
+  /** Kegagalan menulis hand-off proposal ke localStorage — lihat handleMakeProposal. */
+  const [proposalErr, setProposalErr] = useState<string | null>(null);
 
   const [pendingDraft, setPendingDraft] = useState<CalcDraft | null>(null);
   const [ready, setReady] = useState(false);
@@ -360,6 +378,44 @@ export default function KalkulatorClient({
     return { n: i + 1, pct, amount: Math.round(before - discountRunning) };
   });
   const totalDiscountAmount = subtotal - afterDiscountDisplay;
+
+  /**
+   * "Buat Proposal" — dokumen cetak untuk pelanggan. Dua beda yang disengaja
+   * dari handleConvertToOrder di bawah:
+   *   - draf kalkulator TIDAK dihapus. Mencetak proposal bukan tanda
+   *     penawaran ini selesai: staf mencetak, lalu sering kembali mengubah
+   *     angka dan mencetak lagi. Menghapus draf di sini akan membuang
+   *     keranjang mereka tepat saat mereka paling mungkin kembali.
+   *   - hand-off-nya tidak sekali-pakai (halaman proposal cuma membacanya),
+   *     supaya Ctrl+P / muat ulang / kembali tidak menghilangkan dokumen.
+   */
+  function handleMakeProposal() {
+    if (!proposal || lines.length === 0) return;
+    const ok = writeProposalHandoff({
+      customerName: "",
+      subtotal,
+      discountPcts: parsedDiscounts,
+      totalDiscountAmount,
+      markupPct: markupTrimmed === "" ? null : parsedMarkup,
+      cashDiscount: parsedCash,
+      finalAmount: finalDisplay,
+      lines: lines.map((l) => ({
+        productId: l.productId,
+        name: l.name,
+        code: l.code,
+        unitPrice: l.unitPrice,
+        qty: l.qty,
+      })),
+    });
+    // Penyimpanan penuh/diblokir: berpindah halaman sekarang berarti dokumen
+    // kosong tanpa sebab yang kelihatan. Katakan apa adanya (LESSONS #10).
+    if (!ok) {
+      setProposalErr(proposal.saveFailed);
+      return;
+    }
+    setProposalErr(null);
+    router.push(proposal.href);
+  }
 
   function handleConvertToOrder() {
     // Route tanpa `convert` tidak merender tombolnya sama sekali — guard ini
@@ -773,7 +829,30 @@ export default function KalkulatorClient({
                 <span>{formatIDR(finalDisplay)}</span>
               </div>
             </div>
-            {convert && <p className="footnote" style={{ marginTop: 0 }}>{convert.scopeNote}</p>}
+            {/* "Buat Proposal" = aksi SEKUNDER di sini: aksi utama keranjang
+                tetap "Buat Pesanan" di bar bawah. Proposal adalah kertas yang
+                dibawa pelanggan untuk memutuskan, jadi tempatnya tepat di
+                bawah angka yang baru saja dibacanya. */}
+            {proposal && (
+              <>
+                {proposalErr && (
+                  <div className="banner bad" style={{ marginTop: 12 }}>
+                    {proposalErr}
+                  </div>
+                )}
+                <div className="btnrow" style={{ marginTop: 12 }}>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={lines.length === 0}
+                    onClick={handleMakeProposal}
+                  >
+                    {proposal.cta}
+                  </button>
+                </div>
+              </>
+            )}
+            {convert && <p className="footnote" style={{ marginTop: 12 }}>{convert.scopeNote}</p>}
           </div>
         </>
       )}

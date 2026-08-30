@@ -215,6 +215,11 @@ export default async function KalkulatorPage() {
           scopeNote: m.cabang.calcConvertScopeNote,
           href: "/cabang/pesanan/baru",
         }}
+        proposal={{
+          cta: m.cabang.calcProposalCta,
+          href: "/cabang/proposal",
+          saveFailed: m.cabang.proposalSaveFailed,
+        }}
       />
     </main>
   );

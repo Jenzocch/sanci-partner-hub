@@ -22,7 +22,14 @@ import { usePathname } from "next/navigation";
 import { useCabangMessages } from "@/lib/i18n/provider";
 import styles from "./bottom-nav.module.css";
 
-const HIDDEN_PATHS = ["/cabang/pesanan/baru", "/cabang/kalkulator"];
+/**
+ * /cabang/pesanan/baru dan /cabang/kalkulator: sudah punya bar bawah sendiri
+ * (dua bar menumpuk memakan seperempat layar ponsel).
+ * /cabang/proposal: halaman itu adalah DOKUMEN CETAK — nav yang menempel di
+ * dasar layar menutupi kertasnya, dan tidak punya arti apa pun di atas
+ * kertas yang dibawa pelanggan.
+ */
+const HIDDEN_PATHS = ["/cabang/pesanan/baru", "/cabang/kalkulator", "/cabang/proposal"];
 
 function IconHome() {
   return (
