@@ -280,3 +280,10 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 
 ### 14. 推 main 前對 git 實況〔battle-tested〕
 `git fetch && git log origin/main..HEAD` 先看遠端有沒有跑在前面；遠端 session 容器可能被回收重建，本地被還原到舊 commit——type check 突然報「你明明加過的東西不存在」時，**先對 git 實況再修錯誤**，不要在舊樹上疊分歧版本。
+
+### 48. 列印時的 `max-width` 比對的是「紙張內容框」，不是螢幕——手機斷點會在 A4 上生效，把雙欄版面整個壓成單欄〔本專案 2026-08-30，Proposal 提案冊〕
+- **機制**：`@media (max-width: 720px)` 這種不加 `screen` 的斷點，在列印時仍然會被求值，而求值對象是 **page box**（紙寬減去 `@page` margin），不是視窗寬度。A4 的內容框只有 178–210mm ≈ **673–794px**——正好落在絕大多數人寫的「平板／手機」斷點裡。結果是：**螢幕上看到的雙欄 editorial 版面，印出來全部變成手機堆疊版**，而且沒有任何錯誤訊息。
+- **實測數字（Proposal 修復前）**：`coverGrid` 在 673/718/794px 三種紙張內容框下**一律只剩 1 欄**（應為 2 欄）；`selRow` 在 673/718px 下掉到 **3 欄**（手機版，應為 6 欄）；10 個 sheet 印成 **14 頁 PDF**。修好後三種寬度都回到 2 欄／6 欄，同一份變 11 頁（多的 1 頁是內容真的過長而正常流到次頁）。
+- **修法兩件事，缺一不可**：①所有響應式斷點加 `screen and`，讓它們永遠不碰紙；②明確宣告 `@page { size: A4 portrait; margin: 0 }`——不宣告就是交給瀏覽器預設邊界，而預設值會讓 page box 落進斷點區間。`margin: 0` 必須跟「`.sheet` 寬 210mm ＋ 內層 padding 16mm 當安全區」成套使用；若給 `@page` 非零 margin，210mm 的 sheet 反而比內容框寬，右緣會被裁掉。
+- **測試方法的陷阱（這條比 bug 本身重要）**：用 Playwright `emulateMedia({media:'print'})` **抓不到這個問題**——媒體查詢此時仍比對 viewport 寬度，所以在 1400px viewport 下量出來一切正常。必須**真的產生 PDF**（`page.pdf({format:'A4'})` 數頁數），或把 viewport 寬度設成 page box 寬度再讀 `getComputedStyle().gridTemplateColumns`。**「我測過了」要看測的是不是真的那條路徑**：第一輪測試全綠，實際上量的是螢幕版面。
+- **同場加映**：固定欄寬的表格要拿 A4 內容寬回去驗算，不能憑感覺。`grid-template-columns` 的固定欄合計 712px 放進 673px 的內容框，平常看不出來（欄位內容短），一遇到 `Rp 1.287.500.000` 這種長字串就整片推出紙外被裁掉。

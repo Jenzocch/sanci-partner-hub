@@ -278,7 +278,14 @@
 .tool:focus-visible, .nameField:focus-visible { outline: 2px solid var(--charcoal); outline-offset: 2px; }
 
 /* ── Responsif ──────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
+/* `screen and`, BUKAN sekadar `max-width`. Saat mencetak, fitur width diuji
+   terhadap KOTAK HALAMAN, bukan lebar layar: kotak teks A4 hanya 178-210mm
+   (~673-794px), jadi aturan telepon/tablet ikut menyala di atas kertas dan
+   tata letak dua kolom yang justru menjadi inti dokumen ini tidak pernah
+   sampai ke kertas. Terukur: coverGrid jatuh ke 1 kolom dan selRow ke 3
+   kolom pada ketiga lebar A4 yang mungkin, dan 10 lembar tercetak jadi 14
+   halaman. Membatasinya ke `screen` menutup jalur itu sepenuhnya. */
+@media screen and (max-width: 1100px) {
   .sheet { width: min(100%, 900px); min-height: auto; }
   .inner { min-height: auto; }
   .coverGrid, .introGrid, .sumLayout, .edGrid, .finalLayout { grid-template-columns: 1fr; }
@@ -293,7 +300,7 @@
   .finalImage { max-height: 560px; }
   .darkImage { height: 420px; }
 }
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
   .wrap { background: var(--paper); }
   .bar { height: 58px; padding: 0 12px; }
   .barBrand { font-size: 18px; }
@@ -334,7 +341,13 @@
 }
 
 /* ── Cetak A4 ───────────────────────────────────────────────────── */
+@page { size: A4 portrait; margin: 0; }
+
 @media print {
+  /* Marjin halaman NOL disengaja dan berpasangan dengan `.sheet` selebar
+     210mm: area aman datang dari padding 16mm milik `.inner`. Kalau marjin
+     @page diberi nilai, lembar 210mm menjadi lebih lebar daripada kotak
+     teksnya dan tepi kanan terpotong. */
   .noprint { display: none !important; }
   .wrap { background: #fff; }
   .doc { padding: 0; }
