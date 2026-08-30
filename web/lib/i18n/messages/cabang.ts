@@ -11,6 +11,13 @@
  */
 
 const id = {
+  // Navigasi bawah (mobile) — label pendek satu kata supaya muat 4 kolom
+  // di layar sempit; padanan panjangnya tetap dipakai di menu Beranda.
+  navAria: "Menu utama",
+  navHome: "Beranda",
+  navOrders: "Pesanan",
+  navProducts: "Produk",
+  navCustomers: "Pelanggan",
   // Beranda
   homeNewOrder: "+ Pesanan Baru",
   homeOrders: "Daftar Pesanan",
@@ -420,6 +427,11 @@ const id = {
 type Shape = Record<keyof typeof id, string>;
 
 const en = {
+  navAria: "Main menu",
+  navHome: "Home",
+  navOrders: "Orders",
+  navProducts: "Products",
+  navCustomers: "Customers",
   homeNewOrder: "+ New order",
   homeOrders: "Orders",
   homeCustomers: "Customers",
@@ -754,6 +766,11 @@ const en = {
 } satisfies Shape;
 
 const zh = {
+  navAria: "主菜单",
+  navHome: "首页",
+  navOrders: "订单",
+  navProducts: "产品",
+  navCustomers: "客户",
   homeNewOrder: "+ 新建订单",
   homeOrders: "订单列表",
   homeCustomers: "客户",
