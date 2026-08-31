@@ -16,8 +16,11 @@
  *   - Tidak pernah menulis balik ke sistem. Suntingan di lembar TIDAK naik.
  *   - Tidak pernah menghapus baris. Pesanan batal hanya berubah statusnya.
  *   - Tidak pernah menyentuh kolom U dan seterusnya — itu milik catatan manual
- *     (batas ini bergeser dari L → O → T → U seiring migrasi 0014/0015/0020
- *     menambah kolom, lihat README.md §2 "⚠️ Perubahan cakupan kolom").
+ *     (batas ini bergeser dari L → O → T → U → AF seiring migrasi 0014/0015/0020 dan
+ *     penambahan arsip 2026-08-31 menambah kolom, lihat README.md §2
+ *     "⚠️ Perubahan cakupan kolom").
+ *   - Tab "Item Pesanan" dan "Pelanggan" adalah ARSIP: ditulis ULANG penuh
+ *     tiap run, jadi JANGAN menulis catatan apa pun di kedua tab itu.
  */
 
 // ── Konfigurasi tetap ───────────────────────────────────────
@@ -46,10 +49,13 @@ var HEADERS = [
   'No. PO Pelanggan',
   'Cabang',
   'Pelanggan',
+  'Kode Pelanggan',
   'Telepon',
+  'Nama Sales',
   'Package',
   'Status',
   'Jalur Pesanan',
+  'Status Kirim',
   'Belanja Toko (IDR)',
   'Penawaran SANCI (IDR)',
   'Uang Muka / DP (IDR)',
@@ -60,13 +66,21 @@ var HEADERS = [
   'Potongan Tunai (IDR)',
   'Harga Akhir (IDR)',
   'Sisa (IDR)',
+  'No. SO',
+  'Tgl SO',
+  'No. DO',
+  'Tgl DO',
+  'No. Invoice',
+  'Tgl Invoice',
+  'Tgl Terima Pelanggan',
+  'Alasan Batal',
   'Dibuat',
   'Diubah'
 ];
-var COL_COUNT = HEADERS.length;    // 20
+var COL_COUNT = HEADERS.length;    // 31
 var KEY_COL = 1;                   // Nomor Pesanan ada di kolom A
-/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3, migrasi 0020: 3 → 4). */
-var HEADER_VERSION = 4;
+/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3, migrasi 0020: 3 → 4, arsip 2026-08-31: 4 → 5). */
+var HEADER_VERSION = 5;
 
 /** Nilai enum internal tetap Inggris di basis data; label mengikuti glosarium. */
 var STATUS_LABEL = {
@@ -142,6 +156,33 @@ function runSync_() {
   var orders = ordersFetch.rows;
   var offers = fetchOffersByOrderId_(cfg, token);   // {} kalau 0013 belum jalan (amount saja jika 0014 belum jalan)
 
+  // Dokumen + item + cakupan DO. Ketiganya opsional: kalau migrasinya belum
+  // jalan, kolomnya kosong dan sisa lembar tetap benar (LESSONS #12).
+  var docs = fetchDocsByOrderId_(cfg, token);
+  var itemsFetch = fetchOrderItems_(cfg, token);
+  var coverage = docs.available
+    ? fetchDoCoverage_(cfg, token, docs.doDocIds)
+    : { covered: {}, available: false };
+
+  var itemsByOrder = {};
+  for (var it = 0; it < itemsFetch.rows.length; it++) {
+    var item = itemsFetch.rows[it];
+    if (!Object.prototype.hasOwnProperty.call(itemsByOrder, item.order_id)) {
+      itemsByOrder[item.order_id] = [];
+    }
+    itemsByOrder[item.order_id].push(item);
+  }
+
+  var ctx = {
+    offers: offers,
+    docsByOrder: docs.byOrder,
+    docsAvailable: docs.available,
+    itemsByOrder: itemsByOrder,
+    itemsAvailable: itemsFetch.available,
+    doCovered: coverage.covered,
+    staffNames: fetchStaffNames_(cfg, token)
+  };
+
   var byPartner = {};
   var partnerNames = [];
   for (var i = 0; i < orders.length; i++) {
@@ -166,7 +207,7 @@ function runSync_() {
     // Satu tab bermasalah (nama aneh, lembar terkunci, kuota) tidak boleh
     // menggagalkan seluruh run — partner lain tetap harus tersinkron.
     try {
-      var res = writePartnerTab_(ss, name, byPartner[name], offers);
+      var res = writePartnerTab_(ss, name, byPartner[name], ctx);
       updated += res.updated;
       appended += res.appended;
       okTabs++;
@@ -176,11 +217,37 @@ function runSync_() {
     }
   }
 
+  // ── Tab ARSIP (bukan per partner): satu tab untuk seluruh sistem ──
+  // Ditulis ULANG penuh setiap run, TIDAK pakai pola "cari baris lalu
+  // perbarui" seperti tab partner. Alasannya beda kegunaan: tab partner
+  // adalah lembar KERJA yang orang tulisi catatan di kolom sebelah kanan, tab
+  // ini adalah SALINAN — tidak ada yang menulis di sini, dan penulisan ulang
+  // penuh membuatnya mustahil menyimpan baris hantu dari data yang sudah
+  // dihapus di sistem.
+  var archiveTabs = 0, archiveFailed = 0;
+  try {
+    writeItemsTab_(ss, itemsFetch.rows, orders, ctx);
+    archiveTabs++;
+  } catch (errItems) {
+    archiveFailed++;
+    Logger.log('TAB "' + ITEMS_TAB_NAME + '" GAGAL: ' + errItems);
+  }
+  try {
+    writeCustomersTab_(ss, orders);
+    archiveTabs++;
+  } catch (errCust) {
+    archiveFailed++;
+    Logger.log('TAB "' + CUSTOMERS_TAB_NAME + '" GAGAL: ' + errCust);
+  }
+
   var seconds = ((new Date()).getTime() - startedAt.getTime()) / 1000;
   Logger.log('SANCI Sync selesai: ' + orders.length + ' pesanan, ' +
     okTabs + ' tab OK, ' + failedTabs + ' tab gagal, ' +
     updated + ' baris diperbarui, ' + appended + ' baris baru, ' +
     'penawaran: ' + countKeys_(offers) + ' baris, ' +
+    'dokumen: ' + (docs.available ? countKeys_(docs.byOrder) + ' pesanan berdokumen' : 'belum dimigrasikan') + ', ' +
+    'item: ' + itemsFetch.rows.length + ' baris, ' +
+    'tab arsip: ' + archiveTabs + ' OK / ' + archiveFailed + ' gagal, ' +
     seconds.toFixed(1) + ' detik. Zona waktu lembar: ' + tz + '.');
 }
 
@@ -253,56 +320,82 @@ function restHeaders_(cfg, token, extra) {
  * pasti, halaman kedua boleh saja mengembalikan baris yang sudah ikut di
  * halaman pertama — dan baris lain hilang tanpa ada yang tahu.
  */
-function ordersSelect_(includeShipping, includeCustomerPo) {
-  return 'id,order_number,' + (includeCustomerPo ? 'customer_po,' : '') + 'package_name,status,fulfillment_path,' +
-    'partner_purchase_amount,' + (includeShipping ? 'shipping_address,' : '') + 'created_at,updated_at,' +
-    'customers:customer_id(full_name,phone,phone_normalized),' +
-    'partner_branches:branch_id(name),' +
-    'partners:partner_id(name)';
+/**
+ * Kolom partner_orders yang boleh HILANG kalau migrasinya belum dijalankan di
+ * suatu environment. Ditulis sebagai DAFTAR, bukan tangga if-else bertingkat:
+ * sampai 2026-08-31 setiap kolom opsional baru menuntut satu anak tangga
+ * tulis-tangan sendiri di fetchAllOrders_, dan tangga itu harus tahu urutan
+ * mana yang dilaporkan PostgREST lebih dulu. Sekarang: coba SELECT terlebar,
+ * kalau ditolak 42703 buang kolom yang disebut, ulangi. Kolom apa pun yang
+ * kelak ditambahkan cukup didaftarkan di sini (LESSONS #12).
+ */
+var OPTIONAL_ORDER_COLS = [
+  'customer_po',          // 0020
+  'shipping_address',     // 0014
+  'delivered_at',         // 0023
+  'cancellation_reason'   // 0005
+];
+
+/** Kolom customers yang boleh hilang (customer_code: 0017/0018/0019). */
+var OPTIONAL_CUSTOMER_COLS = ['customer_code'];
+
+/**
+ * Menyusun `select=` dari kolom wajib + kolom opsional yang MASIH dianggap
+ * ada. `dropped` adalah objek {nama_kolom: true} berisi yang sudah terbukti
+ * tidak ada.
+ */
+function ordersSelect_(dropped) {
+  var cols = ['id', 'order_number', 'package_name', 'status', 'fulfillment_path',
+    'partner_purchase_amount', 'partner_sales_staff_id', 'created_at', 'updated_at'];
+  for (var i = 0; i < OPTIONAL_ORDER_COLS.length; i++) {
+    var c = OPTIONAL_ORDER_COLS[i];
+    if (!dropped[c]) cols.push(c);
+  }
+  var custCols = ['full_name', 'phone', 'phone_normalized'];
+  for (var j = 0; j < OPTIONAL_CUSTOMER_COLS.length; j++) {
+    var cc = OPTIONAL_CUSTOMER_COLS[j];
+    if (!dropped[cc]) custCols.push(cc);
+  }
+  return cols.join(',') +
+    ',customers:customer_id(' + custCols.join(',') + ')' +
+    ',partner_branches:branch_id(name)' +
+    ',partners:partner_id(name)';
 }
 
 /**
- * shipping_address (migrasi 0014) dan customer_po (migrasi 0020) diminta di
- * SELECT yang SAMA dengan pesanan itu sendiri — beda dari order_sanci_offers
- * (tabel terpisah, permintaan kedua): keduanya adalah KOLOM di partner_orders,
- * jadi kalau migrasinya belum dijalankan, PostgREST menolak SELURUH
- * permintaan ini (kolom tidak dikenal, HTTP 400 + kode 42703), bukan cuma
- * kolom itu yang kosong. Jadi halaman PERTAMA dicoba dulu dengan KEDUANYA;
- * kalau ditolak karena customer_po, diulang tanpa customer_po saja (0014
- * sudah/duluan jalan, hanya 0020 yang belum — ini kasus paling mungkin karena
- * 0020 §0 mensyaratkan 0014 sudah ada sebelum migrasinya sendiri boleh
- * jalan); kalau MASIH ditolak karena shipping_address, diulang tanpa
- * keduanya (0014 pun belum jalan, dan berdasarkan prasyarat 0020 di atas,
- * customer_po pasti juga belum ada). Setiap tingkat degradasi independen dan
- * tidak menggagalkan kolom lain (LESSONS #12, pola yang sama dengan
- * fetchOffersByOrderId_ di bawah).
+ * Mengambil SELURUH pesanan, halaman demi halaman lewat header Range.
+ *
+ * `order=` WAJIB ada dan harus menghasilkan urutan yang TOTAL (created_at bisa
+ * sama persis untuk dua pesanan; `id` memutuskan sisanya). Tanpa urutan yang
+ * pasti, halaman kedua boleh saja mengembalikan baris yang sudah ikut di
+ * halaman pertama — dan baris lain hilang tanpa ada yang tahu.
+ *
+ * Degradasi kolom opsional: lihat OPTIONAL_ORDER_COLS di atas. Satu kolom yang
+ * belum dimigrasikan membuat selnya KOSONG, bukan menggagalkan seluruh sync.
  */
 function fetchAllOrders_(cfg, token) {
-  var includeShipping = true;
-  var includeCustomerPo = true;
-  var select = ordersSelect_(includeShipping, includeCustomerPo);
-  var probe = fetchOrdersPage_(cfg, token, select, 0, PAGE_SIZE);
-
-  if (probe.status === 'missing-column' && probe.column === 'customer_po') {
-    includeCustomerPo = false;
-    Logger.log('customer_po belum ada di partner_orders (migrasi 0020 belum dijalankan) — ' +
-      'kolom No. PO Pelanggan dibiarkan kosong.');
-    select = ordersSelect_(includeShipping, includeCustomerPo);
+  var dropped = {};
+  var probe = null;
+  // +1 percobaan terakhir setelah semua kolom opsional habis dibuang.
+  var maxTries = OPTIONAL_ORDER_COLS.length + OPTIONAL_CUSTOMER_COLS.length + 1;
+  var select = '';
+  for (var attempt = 0; attempt < maxTries; attempt++) {
+    select = ordersSelect_(dropped);
     probe = fetchOrdersPage_(cfg, token, select, 0, PAGE_SIZE);
-  }
-  if (probe.status === 'missing-column' && probe.column === 'shipping_address') {
-    includeShipping = false;
-    includeCustomerPo = false;
-    Logger.log('shipping_address belum ada di partner_orders (migrasi 0014 belum dijalankan) — ' +
-      'kolom Alamat Kirim dan No. PO Pelanggan dibiarkan kosong.');
-    select = ordersSelect_(includeShipping, includeCustomerPo);
-    probe = fetchOrdersPage_(cfg, token, select, 0, PAGE_SIZE);
+    if (probe.status !== 'missing-column') break;
+    if (dropped[probe.column]) {
+      // Kolom yang sama dilaporkan dua kali = kita salah membaca pesannya.
+      // Jangan berputar selamanya dan jangan pura-pura sukses.
+      throw new Error('Gagal membaca pesanan: kolom "' + probe.column +
+        '" tetap ditolak setelah dibuang. Periksa skema partner_orders.');
+    }
+    dropped[probe.column] = true;
+    Logger.log('Kolom "' + probe.column + '" belum ada (migrasinya belum dijalankan) — ' +
+      'kolom lembar yang bergantung padanya dibiarkan kosong.');
   }
   if (probe.status === 'missing-column') {
-    // Seharusnya tidak tercapai (hanya dua kolom opsional yang dikenal di
-    // atas) — kalau tetap terjadi, jangan diam-diam pura-pura sukses.
     throw new Error('Gagal membaca pesanan: kolom "' + probe.column + '" tidak dikenal dan tidak ' +
-      'tercakup oleh degradasi yang ada. Periksa skema partner_orders.');
+      'terdaftar di OPTIONAL_ORDER_COLS. Periksa skema partner_orders.');
   }
   if (probe.status === 'error') {
     throw new Error('Gagal membaca pesanan (HTTP ' + probe.code + '): ' + probe.body);
@@ -317,7 +410,7 @@ function fetchAllOrders_(cfg, token) {
     from += PAGE_SIZE;
     if (from > 200000) break;  // sabuk pengaman: jangan pernah berputar selamanya
   }
-  return { rows: out, hasShipping: includeShipping, hasCustomerPo: includeCustomerPo };
+  return { rows: out, dropped: dropped };
 }
 
 function fetchOrdersPage_(cfg, token, select, from, pageSize) {
@@ -336,12 +429,14 @@ function fetchOrdersPage_(cfg, token, select, from, pageSize) {
   var code = res.getResponseCode();
   var text = res.getContentText();
   if (code === 400 && text.indexOf('42703') >= 0) {
-    // PostgREST hanya melaporkan kolom PERTAMA yang tidak dikenal dalam satu
-    // respons — customer_po dicek dulu karena select_() selalu meletakkannya
-    // sebelum shipping_address, jadi kalau keduanya hilang, ini yang muncul
-    // lebih dulu (lihat fetchAllOrders_ untuk urutan degradasinya).
-    if (text.indexOf('customer_po') >= 0) return { status: 'missing-column', column: 'customer_po' };
-    if (text.indexOf('shipping_address') >= 0) return { status: 'missing-column', column: 'shipping_address' };
+    // PostgREST hanya melaporkan kolom PERTAMA yang tidak dikenal per respons.
+    // Namanya dicari di dalam pesan, dicocokkan dengan daftar kolom opsional —
+    // dicocokkan, BUKAN diambil mentah dari pesan server, supaya pesan yang
+    // bentuknya berubah tidak pernah membuat kita membuang kolom wajib.
+    var known = OPTIONAL_ORDER_COLS.concat(OPTIONAL_CUSTOMER_COLS);
+    for (var k = 0; k < known.length; k++) {
+      if (text.indexOf(known[k]) >= 0) return { status: 'missing-column', column: known[k] };
+    }
   }
   // 200 = halaman terakhir (atau semuanya muat), 206 = masih ada sisanya.
   if (code !== 200 && code !== 206) {
@@ -474,9 +569,337 @@ function totalFromContentRange_(res) {
   return isNaN(n) ? null : n;
 }
 
+// ── Dokumen (SO/DO/Invoice), item pesanan, dan status kirim ─
+//
+// Ketiganya lahir dari migrasi 0014 (order_items) dan 0016 (order_documents,
+// order_document_items). SEMUANYA permintaan TERPISAH, tidak pernah embed di
+// dalam query pesanan — alasan yang sama dengan order_sanci_offers: satu
+// migrasi yang belum jalan tidak boleh mengosongkan seluruh lembar, ia hanya
+// boleh mengosongkan kolom yang bergantung padanya (LESSONS #12).
+
+var DOC_TYPES = ['SO', 'DO', 'INVOICE'];
+
+/** Label kolom "Status Kirim" — satu kolom, empat keadaan yang berbeda nyata. */
+var SHIPPING_LABEL = {
+  CANCELLED: 'Dibatalkan',
+  RECEIVED: 'Sudah diterima',
+  FULL: 'Sudah DO',
+  PARTIAL: 'DO sebagian',
+  NONE: 'Belum DO',
+  UNKNOWN: ''
+};
+
+/**
+ * Pengambil generik satu tabel, halaman demi halaman.
+ * `{ status:'missing-table' }` kalau tabelnya belum ada (42P01/404) — itu
+ * BUKAN kegagalan sync, hanya berarti fitur itu belum dimigrasikan.
+ * Kegagalan lain mengembalikan baris yang SEMPAT terbaca + menandai partial,
+ * supaya selisihnya kelihatan di log dan bukan diam-diam jadi "tidak ada".
+ */
+function fetchTableAll_(cfg, token, table, select, orderBy) {
+  var rows = [];
+  var from = 0;
+  while (true) {
+    var url = cfg.url + '/rest/v1/' + table + '?select=' + encodeURIComponent(select) +
+      '&order=' + encodeURIComponent(orderBy);
+    var res = UrlFetchApp.fetch(url, {
+      method: 'get',
+      headers: restHeaders_(cfg, token, {
+        'Range-Unit': 'items',
+        Range: from + '-' + (from + PAGE_SIZE - 1)
+      }),
+      muteHttpExceptions: true
+    });
+    var code = res.getResponseCode();
+    var text = res.getContentText();
+    if (code === 404 || (code >= 400 && text.indexOf('42P01') >= 0)) {
+      Logger.log('Tabel "' + table + '" belum ada — kolom yang bergantung padanya dibiarkan kosong.');
+      return { status: 'missing-table', rows: [] };
+    }
+    if (code >= 400 && text.indexOf('42703') >= 0) {
+      Logger.log('Kolom tidak dikenal saat membaca "' + table + '" — dilewati. Jawaban: ' + text);
+      return { status: 'missing-column', rows: rows };
+    }
+    if (code !== 200 && code !== 206) {
+      Logger.log('Gagal membaca "' + table + '" (HTTP ' + code + '): ' + text +
+        ' — memakai ' + rows.length + ' baris yang sempat terbaca.');
+      return { status: 'partial', rows: rows };
+    }
+    var page = JSON.parse(text);
+    rows = rows.concat(page);
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+    if (from > 500000) break;   // sabuk pengaman
+  }
+  return { status: 'ok', rows: rows };
+}
+
+/**
+ * order_id → { SO: {numbers:[], lastDate:''}, DO: {...}, INVOICE: {...} }.
+ *
+ * Satu pesanan BOLEH punya lebih dari satu dokumen per jenis — itu justru
+ * inti fitur 0016: pengiriman bertahap = beberapa DO, penagihan bertahap =
+ * beberapa Invoice. Jadi nomornya digabung dengan "+" (pola yang sama dengan
+ * rantai diskon di kolom Diskon) dan tanggalnya memakai yang TERBARU. Menaruh
+ * hanya satu nomor akan menyembunyikan pengiriman kedua dan seterusnya.
+ */
+function fetchDocsByOrderId_(cfg, token) {
+  var out = { byOrder: {}, doDocIds: {}, available: false };
+  var res = fetchTableAll_(cfg, token, 'order_documents',
+    'id,order_id,doc_type,doc_number,doc_date', 'doc_date.asc,id.asc');
+  if (res.status === 'missing-table') return out;
+  out.available = true;
+  for (var i = 0; i < res.rows.length; i++) {
+    var d = res.rows[i];
+    if (!Object.prototype.hasOwnProperty.call(out.byOrder, d.order_id)) {
+      out.byOrder[d.order_id] = { SO: null, DO: null, INVOICE: null };
+    }
+    var slot = out.byOrder[d.order_id];
+    if (DOC_TYPES.indexOf(d.doc_type) < 0) continue;
+    if (!slot[d.doc_type]) slot[d.doc_type] = { numbers: [], lastDate: '' };
+    slot[d.doc_type].numbers.push(d.doc_number);
+    // Baris datang urut doc_date menaik, jadi yang terakhir menang.
+    if (d.doc_date) slot[d.doc_type].lastDate = d.doc_date;
+    if (d.doc_type === 'DO') out.doDocIds[d.id] = true;
+  }
+  return out;
+}
+
+/** Semua baris order_items (dipakai tab "Item Pesanan" DAN status kirim). */
+function fetchOrderItems_(cfg, token) {
+  var res = fetchTableAll_(cfg, token, 'order_items',
+    'id,order_id,product_id,name_snapshot,code_snapshot,quantity,color_code,custom_size,created_at',
+    'created_at.asc,id.asc');
+  return { rows: res.rows, available: res.status !== 'missing-table' };
+}
+
+/**
+ * order_item_id → jumlah yang SUDAH tercakup DO. `doDocIds` datang dari
+ * fetchDocsByOrderId_ supaya tidak perlu embed order_documents di sini —
+ * embed menambah satu cara gagal tanpa menambah satu pun informasi.
+ */
+function fetchDoCoverage_(cfg, token, doDocIds) {
+  var covered = {};
+  var res = fetchTableAll_(cfg, token, 'order_document_items',
+    'document_id,order_item_id,quantity', 'document_id.asc,order_item_id.asc');
+  if (res.status === 'missing-table') return { covered: covered, available: false };
+  for (var i = 0; i < res.rows.length; i++) {
+    var r = res.rows[i];
+    if (!doDocIds[r.document_id]) continue;   // Invoice/SO tidak menandakan pengiriman
+    covered[r.order_item_id] = (covered[r.order_item_id] || 0) + Number(r.quantity || 0);
+  }
+  return { covered: covered, available: true };
+}
+
+/**
+ * Status kirim satu pesanan. Urutan pemeriksaannya adalah keputusan yang
+ * disengaja:
+ *   1. Dibatalkan menang atas segalanya — pesanan batal yang tertulis
+ *      "Belum DO" akan ikut terhitung sebagai pekerjaan yang menunggu dikirim.
+ *   2. "Sudah diterima" (delivered_at, 0023) menang atas hitungan DO: kalau
+ *      pelanggan sudah menerima barangnya, seberapa lengkap DO-nya tidak lagi
+ *      menjadi pertanyaan operasional.
+ *   3. Sisanya dihitung dari kuantitas: DO menutup SEMUA item → Sudah DO,
+ *      sebagian → DO sebagian, tidak ada DO sama sekali → Belum DO.
+ *
+ * Mengembalikan '' (kosong) kalau datanya memang tidak bisa diketahui —
+ * 0016/0014 belum dimigrasikan, atau pesanan tanpa satu pun item. Sel kosong
+ * berarti "tidak diketahui"; ia TIDAK PERNAH ditulis sebagai "Belum DO",
+ * karena menebak akan menyuruh orang mengirim barang yang mungkin sudah
+ * dikirim (LESSONS #10).
+ */
+function shippingStatus_(order, ctx) {
+  if (order.status === 'CANCELLED') return SHIPPING_LABEL.CANCELLED;
+  if (order.delivered_at) return SHIPPING_LABEL.RECEIVED;
+  if (!ctx.docsAvailable || !ctx.itemsAvailable) return SHIPPING_LABEL.UNKNOWN;
+
+  var items = ctx.itemsByOrder[order.id] || [];
+  if (!items.length) return SHIPPING_LABEL.UNKNOWN;
+
+  var ordered = 0, covered = 0;
+  for (var i = 0; i < items.length; i++) {
+    ordered += Number(items[i].quantity || 0);
+    covered += Number(ctx.doCovered[items[i].id] || 0);
+  }
+  if (covered <= 0) return SHIPPING_LABEL.NONE;
+  return covered >= ordered ? SHIPPING_LABEL.FULL : SHIPPING_LABEL.PARTIAL;
+}
+
+/** {numbers:[...]} → "SO-001+SO-002"; null/kosong → ''. */
+function docNumbers_(slot) {
+  return slot && slot.numbers && slot.numbers.length ? slot.numbers.join('+') : '';
+}
+
+function docLastDate_(slot) {
+  return slot && slot.lastDate ? toDateOrBlank_(slot.lastDate) : '';
+}
+
+/**
+ * partner_staff.id → nama. Permintaan TERPISAH, bukan embed: partner_orders
+ * punya DUA foreign key ke partner_staff (partner_sales_staff_id dan
+ * partner_pic_staff_id), dan embed PostgREST terhadap tabel yang ditunjuk dua
+ * kali WAJIB disebutkan nama constraint-nya — persis jebakan LESSONS #24,
+ * yang tidak tertangkap sampai benar-benar dijalankan. Peta lokal ini tidak
+ * punya cara gagal seperti itu.
+ */
+function fetchStaffNames_(cfg, token) {
+  var map = {};
+  var res = fetchTableAll_(cfg, token, 'partner_staff', 'id,full_name', 'id.asc');
+  for (var i = 0; i < res.rows.length; i++) {
+    map[res.rows[i].id] = res.rows[i].full_name || '';
+  }
+  return map;
+}
+
+// ── Tab arsip: Item Pesanan & Pelanggan ─────────────────────
+//
+// KENAPA ADA: lembar per partner adalah SATU BARIS PER PESANAN, jadi isi
+// pesanannya tidak pernah muncul di mana pun. Akibatnya dua pertanyaan yang
+// paling sering ditanya tidak bisa dijawab dari lembar ini sama sekali:
+// "model ini pernah dijual ke siapa saja" dan "pelanggan ini pernah beli
+// apa". Di aplikasi, pencarian produk hanya memindai 200 baris item TERBARU
+// (ORDER_ITEMS_SCAN_LIMIT), jadi model laris justru yang paling cepat
+// terpotong — tab ini memuat SEMUANYA, tanpa batas itu.
+
+var ITEMS_TAB_NAME = 'Item Pesanan';
+var ITEMS_HEADERS = [
+  'Nomor Pesanan',
+  'Tanggal Pesanan',
+  'Partner',
+  'Cabang',
+  'Pelanggan',
+  'Kode Produk',
+  'Nama Produk',
+  'Jumlah',
+  'Warna',
+  'Ukuran',
+  'Status Kirim',
+  'Sudah DO (jumlah)'
+];
+
+var CUSTOMERS_TAB_NAME = 'Pelanggan';
+var CUSTOMERS_HEADERS = [
+  'Pelanggan',
+  'Kode Pelanggan',
+  'Telepon',
+  'Partner',
+  'Cabang',
+  'Jumlah Pesanan',
+  'Pesanan Pertama',
+  'Pesanan Terakhir'
+];
+
+/**
+ * Menulis ulang SELURUH isi satu tab arsip (judul + data) dalam satu
+ * setValues, lalu menghapus sisa baris lama kalau datanya menyusut. Berbeda
+ * dari tab partner yang tidak pernah menyentuh kolom di sebelah kanan: tab
+ * arsip adalah salinan murni, tidak ada catatan manual yang perlu dijaga —
+ * dan justru karena itu ia boleh dibersihkan sepenuhnya.
+ */
+function writeArchiveTab_(ss, name, headers, rows) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.setFrozenRows(1);
+  }
+  var wanted = 1 + rows.length;
+  if (sheet.getMaxRows() < wanted) sheet.insertRowsAfter(sheet.getMaxRows(), wanted - sheet.getMaxRows());
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+  var block = [headers].concat(rows);
+  sheet.getRange(1, 1, block.length, headers.length).setValues(block);
+  // Baris sisa dari run sebelumnya yang datanya sudah lebih pendek: dibersihkan,
+  // bukan ditinggalkan sebagai baris hantu yang terlihat seperti data sungguhan.
+  var lastRow = sheet.getLastRow();
+  if (lastRow > wanted) {
+    sheet.getRange(wanted + 1, 1, lastRow - wanted, sheet.getLastColumn()).clearContent();
+  }
+  return sheet;
+}
+
+function writeItemsTab_(ss, items, orders, ctx) {
+  var orderById = {};
+  for (var i = 0; i < orders.length; i++) orderById[orders[i].id] = orders[i];
+
+  var rows = [];
+  for (var j = 0; j < items.length; j++) {
+    var it = items[j];
+    var o = orderById[it.order_id];
+    // Item milik pesanan yang tidak ikut terbaca (RLS/halaman) DILEWATI,
+    // bukan ditulis dengan sel kosong: baris tanpa pesanan tidak bisa
+    // ditelusuri ke mana pun dan hanya menambah keraguan pada tab ini.
+    if (!o) continue;
+    var customer = pickOne_(o.customers);
+    var branch = pickOne_(o.partner_branches);
+    rows.push([
+      o.order_number || '',
+      toDateOrBlank_(o.created_at),
+      pickName_(o.partners) || '',
+      (branch && branch.name) || '',
+      (customer && customer.full_name) || '',
+      it.code_snapshot || '',
+      it.name_snapshot || '',
+      toNumberOrBlank_(it.quantity),
+      it.color_code || '',
+      it.custom_size || '',
+      shippingStatus_(o, ctx),
+      toNumberOrBlank_(ctx.doCovered[it.id] || 0)
+    ]);
+  }
+  writeArchiveTab_(ss, ITEMS_TAB_NAME, ITEMS_HEADERS, rows);
+}
+
+/**
+ * Satu baris per pelanggan, diringkas DARI pesanan yang sudah terbaca — bukan
+ * permintaan baru ke tabel customers. Konsekuensi yang disengaja: pelanggan
+ * yang BELUM pernah memesan tidak muncul di sini. Tab ini menjawab "pelanggan
+ * ini pernah beli apa dan kapan", dan pelanggan tanpa pesanan tidak punya
+ * jawaban untuk pertanyaan itu.
+ */
+function writeCustomersTab_(ss, orders) {
+  var byKey = {};
+  var keys = [];
+  for (var i = 0; i < orders.length; i++) {
+    var o = orders[i];
+    var customer = pickOne_(o.customers);
+    if (!customer) continue;
+    var branch = pickOne_(o.partner_branches);
+    // Kunci = nama + telepon: customer_id tidak ikut di select, dan dua orang
+    // bernama sama dengan nomor berbeda memang dua pelanggan berbeda.
+    var key = String(customer.full_name || '') + '|' + String(customer.phone_normalized || customer.phone || '');
+    if (!Object.prototype.hasOwnProperty.call(byKey, key)) {
+      byKey[key] = {
+        name: customer.full_name || '',
+        code: customer.customer_code || '',
+        phone: customerPhone_(customer),
+        partner: pickName_(o.partners) || '',
+        branch: (branch && branch.name) || '',
+        count: 0,
+        first: o.created_at || '',
+        last: o.created_at || ''
+      };
+      keys.push(key);
+    }
+    var rec = byKey[key];
+    rec.count++;
+    if (o.created_at && (!rec.first || o.created_at < rec.first)) rec.first = o.created_at;
+    if (o.created_at && (!rec.last || o.created_at > rec.last)) rec.last = o.created_at;
+    if (!rec.code && customer.customer_code) rec.code = customer.customer_code;
+  }
+
+  var rows = [];
+  for (var k = 0; k < keys.length; k++) {
+    var r = byKey[keys[k]];
+    rows.push([r.name, r.code, r.phone, r.partner, r.branch, r.count,
+      toDateOrBlank_(r.first), toDateOrBlank_(r.last)]);
+  }
+  writeArchiveTab_(ss, CUSTOMERS_TAB_NAME, CUSTOMERS_HEADERS, rows);
+}
+
 // ── Menulis satu tab partner ────────────────────────────────
 
-function writePartnerTab_(ss, partnerName, orders, offers) {
+function writePartnerTab_(ss, partnerName, orders, ctx) {
   var sheet = ensureSheet_(ss, partnerName);
 
   // Peta "nomor pesanan → nomor baris" dibaca SEKALI per tab (satu panggilan
@@ -498,7 +921,7 @@ function writePartnerTab_(ss, partnerName, orders, offers) {
   var updates = [];   // { row: <nomor baris>, values: [...] }
   var appends = [];
   for (var j = 0; j < orders.length; j++) {
-    var row = buildRow_(orders[j], offers);
+    var row = buildRow_(orders[j], ctx);
     var existingRow = rowOf[String(orders[j].order_number)];
     if (existingRow) updates.push({ row: existingRow, values: row });
     else appends.push(row);
@@ -581,12 +1004,13 @@ function ensureSheet_(ss, partnerName) {
   if (!headerMatches_(sheet)) {
     throw new Error(
       'Format lama terdeteksi di tab "' + name + '" (header tidak cocok dengan versi ' +
-      'terbaru — migrasi 0020 menyisipkan kolom BARU B "No. PO Pelanggan" tepat setelah Nomor ' +
-      'Pesanan, yang menggeser SEMUA kolom lama (Cabang dst) satu huruf ke kanan: C..S versi lama ' +
-      'menjadi D..T versi baru; kolom setelah Diubah (dulu T dst) sekarang mulai dari U dst.). ' +
-      'Skrip ini TIDAK menimpa tab ini secara otomatis supaya catatan manual Anda di kolom lama ' +
-      'tidak salah tertulis. Ganti nama tab ini (mis. tambahkan " (lama)") atau arsipkan ke lembar ' +
-      'lain, lalu jalankan Sync sekarang lagi — tab baru dengan format terbaru akan dibuat otomatis.'
+      'terbaru). Versi 2026-08-31 menambah 11 kolom: Kode Pelanggan, Nama Sales, Status Kirim, ' +
+      'No./Tgl SO, No./Tgl DO, No./Tgl Invoice, Tgl Terima Pelanggan, dan Alasan Batal — ' +
+      'jumlahnya menjadi 31 kolom (A..AE), sehingga catatan manual Anda sekarang mulai dari ' +
+      'kolom AF. Skrip ini TIDAK menimpa tab ini secara otomatis supaya catatan manual Anda di ' +
+      'kolom lama tidak salah tertulis. Ganti nama tab ini (mis. tambahkan " (lama)") atau ' +
+      'arsipkan ke lembar lain, lalu jalankan Sync sekarang lagi — tab baru dengan format ' +
+      'terbaru akan dibuat otomatis.'
     );
   }
   return sheet;
@@ -611,44 +1035,53 @@ function discountChainForSheet_(discountPcts) {
   return discountPcts.join('+');
 }
 
-function buildRow_(o, offers) {
+function buildRow_(o, ctx) {
   var customer = pickOne_(o.customers);
   var branch = pickOne_(o.partner_branches);
   // { amount, dp, condition, discountPcts, markup, cash, final } | { amount, dp, condition }
   // | { amount } | undefined — lihat fetchOffersByOrderId_ untuk tiga tingkat degradasi.
-  var offer = offers[o.id];
+  var offer = ctx.offers[o.id];
   // Sisa (Q) = Harga Akhir − DP, sama seperti "Sisa Bayar" di layar aplikasi
   // (matematika tampilan, tidak pernah disimpan sebagai kolom) — dihitung
   // HANYA kalau kedua nilainya ada (final_amount butuh 0015 sudah jalan).
   var hasFinal = offer && offer.final !== undefined && offer.final !== null;
   var remaining = hasFinal ? Number(offer.final) - Number(offer.dp || 0) : '';
 
+  var docs = (ctx.docsByOrder && ctx.docsByOrder[o.id]) || { SO: null, DO: null, INVOICE: null };
+
   return [
     o.order_number || '',
-    // customer_po bisa `undefined` (migrasi 0020 belum jalan, lihat
-    // fetchAllOrders_) ATAU `null` (kolom ada tapi belum diisi pelanggan) —
-    // keduanya sama-sama harus jadi sel kosong, sama pola dengan
-    // shipping_address di bawah.
+    // Kolom opsional bisa `undefined` (migrasinya belum jalan, lihat
+    // OPTIONAL_ORDER_COLS) ATAU `null` (kolom ada tapi belum diisi) —
+    // keduanya sama-sama harus jadi sel kosong, bukan teks "undefined".
     o.customer_po || '',
     (branch && branch.name) || '',
     (customer && customer.full_name) || '',
+    (customer && customer.customer_code) || '',
     customerPhone_(customer),
+    (ctx.staffNames && ctx.staffNames[o.partner_sales_staff_id]) || '',
     o.package_name || '',
     STATUS_LABEL[o.status] || o.status || '',
     FULFILLMENT_LABEL[o.fulfillment_path] || '',
+    shippingStatus_(o, ctx),
     toNumberOrBlank_(o.partner_purchase_amount),
     toNumberOrBlank_(offer && offer.amount),
     toNumberOrBlank_(offer && offer.dp),
     (offer && offer.condition) || '',
-    // shipping_address bisa `undefined` (0014 belum jalan, lihat
-    // fetchAllOrders_) ATAU `null` (kolom ada tapi belum diisi) — keduanya
-    // sama-sama harus jadi sel kosong, bukan teks "undefined"/"null".
     o.shipping_address || '',
     discountChainForSheet_(offer && offer.discountPcts),
     toNumberOrBlank_(offer && offer.markup),
     toNumberOrBlank_(offer && offer.cash),
     toNumberOrBlank_(offer && offer.final),
     remaining,
+    docNumbers_(docs.SO),
+    docLastDate_(docs.SO),
+    docNumbers_(docs.DO),
+    docLastDate_(docs.DO),
+    docNumbers_(docs.INVOICE),
+    docLastDate_(docs.INVOICE),
+    toDateOrBlank_(o.delivered_at),
+    o.cancellation_reason || '',
     toDateOrBlank_(o.created_at),
     toDateOrBlank_(o.updated_at)
   ];
