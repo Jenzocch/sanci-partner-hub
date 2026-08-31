@@ -221,7 +221,13 @@
 .heroDesc { color: var(--warm); font-size: 14px; line-height: 1.75; margin: 8px 0 0; max-width: 62ch; }
 .prodSpec { grid-area: spec; align-self: start; }
 
-/* 01 — foto memimpin: selebar halaman, teks dua kolom di bawahnya. */
+/* Enam susunan, dipakai bergiliran. Tiga master (foto memimpin / terbelah /
+   teks memimpin), masing-masing dengan pasangan cerminnya — jadi produk
+   ketujuh baru mengulang susunan produk pertama. Majalah pun bekerja begitu:
+   sejumlah kecil master yang diputar, bukan halaman yang didesain ulang satu
+   per satu. Bahannya identik di keenamnya; hanya penempatannya berbeda. */
+
+/* 01 — foto memimpin: selebar halaman di atas, teks dua kolom di bawah. */
 .layoutHero {
   grid-template-columns: 1fr 250px;
   grid-template-areas: "head head" "photo photo" "text spec";
@@ -232,14 +238,13 @@
 .layoutSplit {
   grid-template-columns: 1fr 1fr;
   grid-template-areas: "photo head" "photo text" "photo spec";
-  align-content: start;
 }
 .layoutSplit .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
 .layoutSplit .prodHead { grid-template-columns: 56px 1fr; }
 .layoutSplit .prodTitle { font-size: 42px; }
 
-/* 03 — teks memimpin: judul dan cerita di kiri, foto tinggi di kanan,
-   spesifikasi jadi pita selebar halaman di dasar. */
+/* 03 — teks memimpin: cerita di kiri, foto tinggi di kanan, spesifikasi
+   jadi pita selebar halaman di dasar. */
 .layoutStory {
   grid-template-columns: 1fr 1fr;
   grid-template-areas: "head photo" "text photo" "spec spec";
@@ -252,12 +257,36 @@
 }
 .layoutStory .detailRow:last-child { border-bottom: none; }
 
-/* ── Halaman rincian ────────────────────────────────────────────── */
-.detailBlock { margin-top: 32px; }
-.detailRow { display: grid; grid-template-columns: 125px 1fr; gap: 20px; padding: 12px 0; border-top: 1px solid var(--line); }
-.detailRow:last-child { border-bottom: 1px solid var(--line); }
-.detailLabel { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; margin: 0; }
-.detailValue { font-size: 13px; margin: 0; overflow-wrap: anywhere; }
+/* 04 — foto menutup: teks dulu, foto selebar halaman di dasar. Urutan baca
+   tetap masuk akal (judul, cerita, lalu barangnya), tapi iramanya terbalik
+   dari 01. */
+.layoutHeroEnd {
+  grid-template-columns: 1fr 250px;
+  grid-template-areas: "head head" "text spec" "photo photo";
+}
+.layoutHeroEnd .prodPhoto { aspect-ratio: 16 / 9; padding: 4mm; }
+
+/* 05 — cermin dari 02. */
+.layoutSplitMirror {
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "head photo" "text photo" "spec photo";
+}
+.layoutSplitMirror .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
+.layoutSplitMirror .prodHead { grid-template-columns: 56px 1fr; }
+.layoutSplitMirror .prodTitle { font-size: 42px; }
+
+/* 06 — cermin dari 03. */
+.layoutStoryMirror {
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "photo head" "photo text" "spec spec";
+}
+.layoutStoryMirror .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
+.layoutStoryMirror .prodTitle { font-size: 44px; }
+.layoutStoryMirror .prodSpec {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0 24px; border-top: 1px solid var(--line); padding-top: 4px;
+}
+.layoutStoryMirror .detailRow:last-child { border-bottom: none; }
 
 /* ── Galeri ─────────────────────────────────────────────────────── */
 .galHead { margin-bottom: 16mm; }
@@ -334,11 +363,15 @@
   /* Ketiga susunan runtuh jadi satu kolom dengan urutan baca yang sama.
      Mempertahankan asimetri di layar sempit membuat kolomnya jadi terlalu
      kurus untuk dibaca — di ponsel keterbacaan menang atas ritme. */
-  .layoutHero, .layoutSplit, .layoutStory {
+  .layoutHero, .layoutSplit, .layoutStory,
+  .layoutHeroEnd, .layoutSplitMirror, .layoutStoryMirror {
     grid-template-columns: 1fr;
     grid-template-areas: "head" "photo" "text" "spec";
   }
-  .layoutSplit .prodPhoto, .layoutStory .prodPhoto { aspect-ratio: 16 / 10; }
+  .layoutSplit .prodPhoto, .layoutStory .prodPhoto,
+  .layoutSplitMirror .prodPhoto, .layoutStoryMirror .prodPhoto {
+    aspect-ratio: 16 / 10; height: auto; min-height: 0;
+  }
   .prodTitle { font-size: 48px; }
   .gallery { height: auto; }
   .gal3, .gal4, .gal5 { grid-template-columns: 1fr 1fr; grid-template-rows: none; }

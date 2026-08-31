@@ -52,12 +52,26 @@ const LOGO = "/brand/sanci-logo.png";
  * Tiga susunan halaman produk yang dipakai bergiliran. Bukan hiasan: tiga
  * halaman berturut-turut yang identik membuat dokumen terbaca sebagai daftar
  * yang panjang, dan mata berhenti memperhatikan. Isinya sama di ketiganya.
- *   layoutHero   — foto selebar halaman di atas, teks dua kolom di bawah
- *   layoutSplit  — foto tegak di kiri, seluruh teks menumpuk di kanan
- *   layoutStory  — teks memimpin di kiri, foto tinggi di kanan, spesifikasi
- *                  jadi pita selebar halaman di dasar
+ *   01 foto memimpin  — foto selebar halaman di atas, teks dua kolom di bawah
+ *   02 terbelah       — foto tegak di kiri, seluruh teks menumpuk di kanan
+ *   03 teks memimpin  — cerita di kiri, foto tinggi di kanan, spesifikasi
+ *                       jadi pita selebar halaman di dasar
+ *   04 foto menutup   — kebalikan irama 01: teks dulu, foto di dasar
+ *   05, 06            — cermin dari 02 dan 03
+ *
+ * Produk KETUJUH baru mengulang susunan produk pertama, dan di antara
+ * keduanya ada halaman galeri, jadi jaraknya belasan halaman. Majalah pun
+ * bekerja begitu: sejumlah kecil master yang diputar, bukan tiap halaman
+ * didesain ulang sendiri-sendiri.
  */
-const LAYOUTS = [styles.layoutHero, styles.layoutSplit, styles.layoutStory];
+const LAYOUTS = [
+  styles.layoutHero,
+  styles.layoutSplit,
+  styles.layoutStory,
+  styles.layoutHeroEnd,
+  styles.layoutSplitMirror,
+  styles.layoutStoryMirror,
+];
 
 type LoadState =
   | { phase: "loading" }
