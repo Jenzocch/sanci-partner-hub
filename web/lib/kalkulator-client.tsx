@@ -132,7 +132,13 @@ export default function KalkulatorClient({
   /** Kegagalan menulis hand-off proposal ke localStorage — lihat handleMakeProposal. */
   const [proposalErr, setProposalErr] = useState<string | null>(null);
   /** Ringkasan isi pesanan yang baru saja dibawa masuk dari halaman pesanan. */
-  const [prefill, setPrefill] = useState<{ n: number; skipped: number; customerName: string } | null>(null);
+  const [prefill, setPrefill] = useState<{
+    n: number;
+    skipped: number;
+    /** Berapa baris pesanan yang LEBUR jadi satu karena produknya sama. */
+    merged: number;
+    customerName: string;
+  } | null>(null);
 
   const [pendingDraft, setPendingDraft] = useState<CalcDraft | null>(null);
   const [ready, setReady] = useState(false);
@@ -154,19 +160,58 @@ export default function KalkulatorClient({
     const pre = takeCalcPrefill(area);
     if (pre) {
       if (pre.lines.length > 0) {
-        setLines(
-          pre.lines.map((l) => ({
+        // GABUNGKAN baris dengan produk yang SAMA (audit 2026-08-31).
+        //
+        // Satu pesanan BOLEH memuat produk yang sama lebih dari sekali:
+        // order_items tidak punya unique (order_id, product_id) — 0014 —
+        // dan kolom color_code/custom_size memang ada supaya "sofa krem 2"
+        // dan "sofa abu 3" menjadi DUA baris. Sufiks idempotency-nya juga
+        // dua ruang nama yang sengaja terpisah (`:item:` salinan Package vs
+        // `:calc-item:` isi kalkulator), jadi satu pesanan bisa punya
+        // keduanya untuk produk yang sama.
+        //
+        // Sementara itu SELURUH model keranjang kalkulator memakai productId
+        // sebagai identitas baris: addToCart menambah qty ke baris yang
+        // sudah ada, dan removeLine/setLineQty/setLineUnitPrice semuanya
+        // mencocokkan productId. Menuang dua baris ber-productId sama ke
+        // dalamnya merusak keranjang DIAM-DIAM: mengubah qty satu baris
+        // mengubah KEDUANYA (2+3 jadi 3+3 — subtotal salah, dan salahnya
+        // ikut tercetak di proposal yang dibawa pulang pelanggan), dan
+        // menghapus satu menghapus keduanya.
+        //
+        // Kalkulator tidak punya konsep warna/ukuran, jadi jumlah yang benar
+        // untuk perhitungannya memang jumlah GABUNGAN. Tapi penggabungannya
+        // DIKATAKAN di banner, tidak pernah diam-diam (LESSONS #10).
+        const merged: CalcLine[] = [];
+        const at = new Map<string, number>();
+        for (const l of pre.lines) {
+          const idx = at.get(l.productId);
+          if (idx !== undefined) {
+            merged[idx] = { ...merged[idx], qty: Math.min(CALC_MAX_QTY, merged[idx].qty + l.qty) };
+            continue;
+          }
+          at.set(l.productId, merged.length);
+          merged.push({
             productId: l.productId,
             name: l.name,
             code: l.code,
             photoUrl: null,
             unitPrice: 0,
-            qty: l.qty,
-          }))
-        );
+            qty: Math.min(CALC_MAX_QTY, l.qty),
+          });
+        }
+        setLines(merged);
         setTab("keranjang");
+        setPrefill({
+          n: merged.length,
+          skipped: pre.skipped,
+          merged: pre.lines.length - merged.length,
+          customerName: pre.customerName,
+        });
+        setReady(true);
+        return;
       }
-      setPrefill({ n: pre.lines.length, skipped: pre.skipped, customerName: pre.customerName });
+      setPrefill({ n: 0, skipped: pre.skipped, merged: 0, customerName: pre.customerName });
       setReady(true);
       return;
     }
@@ -383,6 +428,17 @@ export default function KalkulatorClient({
   const markupTrimmed = markup.trim();
   const parsedMarkupRaw = markupTrimmed === "" ? 0 : Number(markupTrimmed.replace(",", "."));
   const parsedMarkup = Number.isFinite(parsedMarkupRaw) ? parsedMarkupRaw : 0;
+  /**
+   * Markup di LUAR 0–100 (audit 2026-08-31). Slot diskon sudah memakai
+   * gerbang yang sama persis dengan database (`> 0 && < 100`, lihat filter di
+   * atas), tapi markup tidak: `check (markup_pct >= 0 and markup_pct <= 100)`
+   * di 0015 dan validasi kedua Server Action (setOrderOffer /
+   * setOrderOfferBranch) menolaknya, sementara kalkulator dengan senang hati
+   * menghitung markup 150% dan mencetaknya di proposal. Kegagalannya baru
+   * muncul di ujung — sesudah pesanan tersimpan dan rantai diskonnya gagal
+   * diterapkan. Dikatakan DI SINI, di tempat angkanya diketik.
+   */
+  const markupOutOfRange = markupTrimmed !== "" && (!Number.isFinite(parsedMarkupRaw) || parsedMarkupRaw < 0 || parsedMarkupRaw > 100);
   const parsedCash = parseIDRInput(cash) ?? 0;
 
   const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
@@ -495,8 +551,16 @@ export default function KalkulatorClient({
       {prefill && (
         <div className="banner info">
           {prefill.n > 0 && m.calcPrefillBanner.replace("{n}", String(prefill.n))}
-          {prefill.skipped > 0 && (
+          {/* Baris yang dilebur karena produknya sama — dikatakan, supaya
+              jumlah yang terlihat di keranjang tidak pernah tampak "salah"
+              dibandingkan kertas pesanannya. */}
+          {prefill.merged > 0 && (
             <div style={{ marginTop: prefill.n > 0 ? 6 : 0 }}>
+              {m.calcPrefillMerged.replace("{n}", String(prefill.merged))}
+            </div>
+          )}
+          {prefill.skipped > 0 && (
+            <div style={{ marginTop: prefill.n > 0 || prefill.merged > 0 ? 6 : 0 }}>
               {m.calcPrefillSkipped.replace("{n}", String(prefill.skipped))}
             </div>
           )}
@@ -842,6 +906,14 @@ export default function KalkulatorClient({
 
           <div className="card">
             {finalTotal < 0 && <div className="banner bad">{m.offerFinalNegative}</div>}
+            {/* Peringatan, BUKAN penghalang — sengaja. Markup di atas 100%
+                adalah angka jual yang sah untuk proposal ke pelanggan (layar
+                ini memang bebas gerbang can_discount/can_edit_offer), yang
+                TIDAK bisa cuma satu hal: tersimpan ke order_sanci_offers saat
+                dikonversi jadi pesanan. Memblokirnya di sini akan mencabut
+                kemampuan yang sah; mendiamkannya membuat kegagalan muncul di
+                ujung alur. Jadi: dikatakan, lalu staf yang memutuskan. */}
+            {markupOutOfRange && <div className="banner bad">{m.calcMarkupOutOfRange}</div>}
             <div className={styles.breakdown}>
               <div className={styles.breakdownRow}>
                 <span>{m.calcBreakdownSubtotal}</span>

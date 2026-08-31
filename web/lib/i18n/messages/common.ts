@@ -29,6 +29,10 @@ const id = {
   proposalPrintPreparing: "Menyiapkan…",
   calcPrefillBanner: "{n} produk dibawa dari pesanan ini. Harga satuan sengaja kosong — isi harga yang Anda jual ke pelanggan, lalu tekan \"Buat Proposal\".",
   calcPrefillSkipped: "{n} baris pesanan tidak bisa dibawa karena tidak terhubung ke produk katalog — tambahkan sendiri di tab Produk kalau perlu.",
+  calcMarkupOutOfRange:
+    "Markup harus antara 0 dan 100. Angka di luar itu masih bisa dihitung dan dicetak di Proposal, tapi TIDAK bisa diterapkan saat keranjang ini dijadikan pesanan — penerapannya akan ditolak di langkah terakhir.",
+  calcPrefillMerged:
+    "{n} baris pesanan digabung karena produknya sama — jumlahnya sudah dijumlahkan jadi satu baris. Warna/ukuran per baris tidak dibawa: kalkulator menghitung per produk.",
   proposalCoverKicker: "Proposal Produk Pelanggan",
   proposalCoverSub: "Pilihan furnitur yang kami siapkan khusus untuk rumah Anda.",
   proposalIntroTitle: "Sebuah proposal untuk rumah Anda.",
@@ -84,6 +88,8 @@ const id = {
   proposalCatalogClosed: "Katalog SANCI belum dibuka untuk toko ini, jadi profil produk tidak bisa ditampilkan.",
   proposalProfilesMissing:
     "Ringkasan di atas tetap lengkap. Halaman profil produk bisa dicoba lagi setelah masalah di atas beres.",
+  proposalProfilesPartial:
+    "{n} produk tidak punya halaman profil di dokumen ini ({names}) — detailnya tidak bisa diambil, biasanya karena produknya sudah ditarik SANCI. Barisnya TETAP ada di daftar pilihan dan ringkasan harga; hanya halaman profilnya yang dilewati supaya tidak tercetak selembar kosong.",
   // Tiga kunci offline (retry/offlineTitle/offlineBody) hidup di offline.ts
   // (sumber tunggal — lihat komentar di sana; audit 2026-08-22 #12) dan
   // disebar masuk ke sini supaya pemakai lain tetap membaca m.common.*.
@@ -494,6 +500,10 @@ const en = {
   proposalPrintPreparing: "Preparing…",
   calcPrefillBanner: "{n} products carried over from this order. Unit prices are deliberately empty — enter what you sell them for, then press \"Create Proposal\".",
   calcPrefillSkipped: "{n} order lines could not be carried over because they are not linked to a catalogue product — add them yourself in the Products tab if needed.",
+  calcMarkupOutOfRange:
+    "Markup must be between 0 and 100. A value outside that range can still be calculated and printed on the Proposal, but it CANNOT be applied when this cart becomes an order — it will be rejected at the last step.",
+  calcPrefillMerged:
+    "{n} order lines were merged because they are the same product — their quantities are now one line. Per-line colour/size is not carried over: the calculator works per product.",
   proposalCoverKicker: "Customer Product Proposal",
   proposalCoverSub: "A curated selection of furniture prepared for your home.",
   proposalIntroTitle: "A proposal made for your home.",
@@ -547,6 +557,8 @@ const en = {
   proposalCatalogClosed: "The SANCI catalogue is not open for this store, so product pages cannot be shown.",
   proposalProfilesMissing:
     "The summary above is still complete. The product pages can be retried once the problem above is resolved.",
+  proposalProfilesPartial:
+    "{n} products have no profile page in this document ({names}) — their details could not be fetched, usually because SANCI has withdrawn them. Their rows REMAIN in the selection list and the price summary; only the profile page is skipped so a blank sheet is not printed.",
   ...offline.en,
   loadMoreCta: "Load more",
   appName: "SANCI Partner System",
@@ -849,6 +861,10 @@ const zh = {
   proposalPrintPreparing: "准备中…",
   calcPrefillBanner: "已从这笔订单带入 {n} 件产品。单价刻意留空 —— 请填入您卖给客户的价格,再按\"制作提案\"。",
   calcPrefillSkipped: "有 {n} 行订单项目无法带入,因为没有连结到目录产品 —— 需要的话请到产品分页自行加入。",
+  calcMarkupOutOfRange:
+    "加成必须介于 0 到 100 之间。超出范围的数字仍然可以计算、也可以印在提案册上,但在把这个购物车转成订单时无法套用 —— 会在最后一步被拒绝。",
+  calcPrefillMerged:
+    "有 {n} 行订单项目因为是同一件产品而合并 —— 数量已经加总成一行。每行的颜色/尺寸不会带入:计算器是以产品为单位计算的。",
   proposalCoverKicker: "客户产品提案",
   proposalCoverSub: "为您的家精心挑选的家具。",
   proposalIntroTitle: "为您的家准备的提案。",
@@ -899,6 +915,8 @@ const zh = {
   proposalLoadFailed: "产品详情载入失败,产品介绍页暂时无法显示。",
   proposalCatalogClosed: "SANCI 产品目录尚未对这家门店开放,无法显示产品介绍页。",
   proposalProfilesMissing: "上方的摘要仍然完整。上述问题解决后可以再试一次产品介绍页。",
+  proposalProfilesPartial:
+    "有 {n} 件产品在这份文件里没有介绍页({names})—— 无法取得详细资料,通常是 SANCI 已经下架。它们仍然留在选购清单和价格摘要里,只是跳过介绍页,以免印出一张空白纸。",
   ...offline.zh,
   loadMoreCta: "加载更多",
   appName: "SANCI 合作商系统",

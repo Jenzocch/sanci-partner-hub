@@ -6,6 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useCabangMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
+import { computeChainFinal } from "@/lib/calculator-shared";
 import { setOrderOfferBranch } from "../actions";
 
 /**
@@ -23,9 +24,15 @@ import { setOrderOfferBranch } from "../actions";
  * dipasang). Prop `canViewOffer` tetap diteruskan untuk konsistensi dan
  * berjaga-jaga.
  */
-function liveDiscountMultiplier(pcts: number[]): number {
-  return pcts.reduce((mult, p) => mult * (1 - p / 100), 1);
-}
+/* Rumus rantai diskonnya TIDAK ditulis ulang di sini: satu-satunya versi
+   yang sah ada di lib/calculator-shared.ts (computeChainFinal), yang meniru
+   persis fn_compute_order_offer_final (0015 §5) — kalikan berurutan, markup,
+   kurangi potongan tunai, SATU kali round di akhir. Sampai audit 2026-08-31
+   berkas ini dan order-offer-form.tsx sisi admin masing-masing menyimpan
+   salinannya sendiri: tiga salinan yang hari itu identik, tapi tiga tempat
+   yang harus diingat bersamaan kalau rumusnya pernah berubah — dan kalau
+   satu tertinggal, angka yang DITAMPILKAN diam-diam berbeda dari angka yang
+   DISIMPAN database, tanpa error apa pun. */
 
 export type OfferData = {
   amount: number | null;
@@ -68,11 +75,11 @@ export default function OfferSection({
   const parsedMarkup = liveMarkup.trim() === "" ? 0 : Number(liveMarkup.trim().replace(",", "."));
   const liveFinal =
     liveAmount != null
-      ? Math.round(
-          liveAmount *
-            liveDiscountMultiplier(parsedDiscounts) *
-            (1 + (Number.isFinite(parsedMarkup) ? parsedMarkup : 0) / 100) -
-            (liveCash ?? 0)
+      ? computeChainFinal(
+          liveAmount,
+          parsedDiscounts,
+          Number.isFinite(parsedMarkup) ? parsedMarkup : 0,
+          liveCash ?? 0
         )
       : null;
   const remaining = liveFinal != null ? liveFinal - (liveDp ?? 0) : null;

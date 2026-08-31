@@ -149,12 +149,20 @@ async function validateAgainstRemaining(
  * kuantitas PENUH, dihitung SERVER (LESSONS #6 — tidak dipercaya dari
  * client). Ini adalah SATU-SATUNYA tempat default itu diterapkan — RPC-nya
  * sendiri tidak tahu apa-apa soal default SO (0016 SCOPE NOTE test-harness).
+ *
+ * `null` = query GAGAL, dan itu BEDA dari "pesanannya memang tidak punya
+ * baris" (LESSONS #10, audit 2026-08-31). Sebelumnya `error` dibuang dan
+ * kegagalan pulang sebagai `[]` — yang di pemanggil berarti "default-nya
+ * kosong", jadi sebuah Surat Order tercetak TANPA satu baris barang pun,
+ * tanpa error, tanpa ada yang tahu. Dokumen ini keluar dari kantor; ia tidak
+ * boleh pernah lahir dari kegagalan yang didiamkan.
  */
 async function resolveSoDefaultItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orderId: string
-): Promise<{ order_item_id: string; quantity: number }[]> {
-  const { data } = await supabase.from("order_items").select("id, quantity").eq("order_id", orderId);
+): Promise<{ order_item_id: string; quantity: number }[] | null> {
+  const { data, error } = await supabase.from("order_items").select("id, quantity").eq("order_id", orderId);
+  if (error) return null;
   return ((data ?? []) as { id: string; quantity: number }[]).map((it) => ({
     order_item_id: it.id,
     quantity: it.quantity,
@@ -182,7 +190,12 @@ export async function createOrderDocument(
   if (!parsed.ok) return { error: parsed.error };
   let items = parsed.value;
   if (docType === "SO" && items.length === 0) {
-    items = await resolveSoDefaultItems(supabase, orderId);
+    const soDefault = await resolveSoDefaultItems(supabase, orderId);
+    // Gagal membaca baris pesanan = TIDAK membuat dokumen. Melanjutkan dengan
+    // daftar kosong akan menerbitkan Surat Order tanpa barang (lihat catatan
+    // di resolveSoDefaultItems).
+    if (soDefault === null) return { error: { message: PESAN.serverSibuk } };
+    items = soDefault;
   }
 
   const overshipErr = await validateAgainstRemaining(m, supabase, orderId, docType, items);

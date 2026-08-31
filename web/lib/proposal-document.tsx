@@ -209,6 +209,30 @@ export default function ProposalDocument({
     });
   }, [handoff, load]);
 
+  /**
+   * Produk yang BERHASIL dimuat tapi profilnya tidak ikut pulang (audit
+   * 2026-08-31). Penyebab nyatanya bukan kegagalan jaringan — pemuatan itu
+   * `ok:true`, cuma isinya lebih sedikit dari yang diminta:
+   *   - SANCI menandai produknya INACTIVE sesudah staf memasukkannya ke
+   *     keranjang (keranjang kalkulator adalah draf localStorage yang bisa
+   *     berumur berhari-hari), atau produknya dihapus;
+   *   - katalog toko ini ditutup di tengah jalan, jadi RLS memulangkan
+   *     barisnya kosong.
+   *
+   * Sebelum perbaikan ini halaman produknya TETAP dicetak — dengan nomor dan
+   * nama saja, tanpa foto/deskripsi/ukuran/kategori — dan tidak ada satu
+   * kalimat pun di layar yang mengatakannya. Staf mencetak selembar A4 nyaris
+   * kosong dan menyerahkannya ke pelanggan.
+   *
+   * Sekarang: halaman profilnya TIDAK dicetak (selembar kosong lebih buruk
+   * daripada tidak ada lembar), barisnya TETAP utuh di daftar pilihan dan
+   * ringkasan harga (staf memang memilihnya, dan harganya ada di sana), dan
+   * layar mengatakan produk mana yang kehilangan halaman profil — di banner
+   * `noprint`, jadi tidak pernah ikut tercetak (LESSONS #10).
+   */
+  const missingProfiles =
+    load.phase === "ready" ? rows.filter((r) => !r.product).map((r) => r.line.name) : [];
+
   if (!ready) return null;
 
   if (!handoff) {
@@ -481,6 +505,11 @@ export default function ProposalDocument({
         {/* ── Tiap produk: pembuka, rincian, galeri ──────────────── */}
         {rows.map((r, i) => {
           const p = r.product;
+          // Profil tidak ikut pulang = TIDAK ada halaman produk (lihat
+          // missingProfiles di atas). `i` tetap dihitung dari rows PENUH —
+          // nomor 01/02/03 di halaman produk harus tetap cocok dengan nomor
+          // yang sama di daftar pilihan halaman 2.
+          if (!p) return null;
           const desc = p?.description?.trim();
           /**
            * Foto KEDUA ikut di halaman produk, bukan membuka halaman galeri
@@ -578,6 +607,18 @@ export default function ProposalDocument({
           <div className="banner bad noprint" style={{ maxWidth: 900, margin: "0 auto 34px" }}>
             {load.text}
             <div style={{ marginTop: 6 }}>{m.proposalProfilesMissing}</div>
+          </div>
+        )}
+
+        {/* Sebagian produk kehilangan halaman profilnya — beda keadaan dari
+            banner di atas (pemuatannya BERHASIL, isinya yang kurang), jadi
+            kalimatnya sendiri dan warnanya `info`, bukan `bad`. `noprint`:
+            ini pesan untuk staf, bukan untuk pelanggan yang memegang kertas. */}
+        {missingProfiles.length > 0 && (
+          <div className="banner info noprint" style={{ maxWidth: 900, margin: "0 auto 34px" }}>
+            {m.proposalProfilesPartial
+              .replace("{n}", String(missingProfiles.length))
+              .replace("{names}", missingProfiles.join(", "))}
           </div>
         )}
       </main>

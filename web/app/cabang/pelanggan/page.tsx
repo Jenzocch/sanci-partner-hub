@@ -61,6 +61,8 @@ export default async function PelangganListPage() {
 
   const ids = (customers ?? []).map((c) => c.id);
   const orderCounts = new Map<string, number>();
+  /** true = query hitungan pesanan gagal; angkanya "tidak diketahui", bukan 0. */
+  let countsFailed = false;
   if (ids.length > 0) {
     // Hitung jumlah pesanan per pelanggan lewat query terpisah — RLS pada
     // partner_orders otomatis membatasi ke order yang boleh dilihat cabang
@@ -71,14 +73,24 @@ export default async function PelangganListPage() {
     // tak terbatas (audit kecepatan muat 2026-08-22 #16). Angka yang tampil
     // bisa jadi kurang dari sebenarnya HANYA di atas 5000 order gabungan
     // 100 pelanggan itu — batas yang realistis tidak akan tersentuh.
-    const { data: orderRows } = await supabase
+    const { data: orderRows, error: orderError } = await supabase
       .from("partner_orders")
       .select("customer_id")
       .in("customer_id", ids)
       .limit(5000);
-    (orderRows ?? []).forEach((o: { customer_id: string }) => {
-      orderCounts.set(o.customer_id, (orderCounts.get(o.customer_id) ?? 0) + 1);
-    });
+    // GAGAL ≠ NOL (LESSONS #10, audit 2026-08-31). Sebelumnya `error`
+    // dibuang, jadi satu kegagalan sesaat membuat SETIAP pelanggan tertulis
+    // "0 pesanan" — angka yang terlihat pasti dan salah, dan manajer yang
+    // membacanya menyimpulkan pelanggan itu belum pernah membeli. Daftar
+    // pelanggannya sendiri TETAP tampil (kegagalan hitungan tidak boleh
+    // menjatuhkan halaman); hanya angkanya yang jadi "tidak diketahui".
+    if (orderError) {
+      countsFailed = true;
+    } else {
+      (orderRows ?? []).forEach((o: { customer_id: string }) => {
+        orderCounts.set(o.customer_id, (orderCounts.get(o.customer_id) ?? 0) + 1);
+      });
+    }
   }
 
   const items: CustomerListItem[] = (customers ?? []).map((c) => ({
@@ -86,7 +98,8 @@ export default async function PelangganListPage() {
     fullName: c.full_name,
     phoneNormalized: c.phone_normalized,
     customerCode: c.customer_code ?? null,
-    orderCount: orderCounts.get(c.id) ?? 0,
+    // `null` = hitungannya tidak diketahui (query gagal), BUKAN nol.
+    orderCount: countsFailed ? null : orderCounts.get(c.id) ?? 0,
   }));
 
   return (

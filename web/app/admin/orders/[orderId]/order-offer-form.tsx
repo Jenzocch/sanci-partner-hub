@@ -6,6 +6,7 @@ import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
+import { computeChainFinal } from "@/lib/calculator-shared";
 import { getOrderOffer, setOrderOffer, clearOrderOffer } from "../../actions-orders";
 
 /**
@@ -41,9 +42,10 @@ import { getOrderOffer, setOrderOffer, clearOrderOffer } from "../../actions-ord
  * Saat gagal, formulirnya TIDAK dibuka sama sekali — mundur ke angka prop
  * sama saja dengan memasang kembali bug yang diperbaiki di sini.
  */
-function liveDiscountMultiplier(pcts: number[]): number {
-  return pcts.reduce((mult, p) => mult * (1 - p / 100), 1);
-}
+/* Rumus rantai diskonnya TIDAK ditulis ulang di sini — lihat catatan kembar
+   di app/cabang/pesanan/[orderId]/offer-section.tsx. Satu-satunya versi yang
+   sah: computeChainFinal di lib/calculator-shared.ts (meniru persis
+   fn_compute_order_offer_final, 0015 §5). */
 
 /** Nilai yang BENAR-BENAR ada di database saat modal dibuka (bukan prop halaman). */
 type OfferSnapshot = {
@@ -134,11 +136,11 @@ export default function OrderOfferForm({
   const parsedMarkup = liveMarkup.trim() === "" ? 0 : Number(liveMarkup.trim().replace(",", "."));
   const liveFinal =
     liveAmount != null
-      ? Math.round(
-          liveAmount *
-            liveDiscountMultiplier(parsedDiscounts) *
-            (1 + (Number.isFinite(parsedMarkup) ? parsedMarkup : 0) / 100) -
-            (liveCash ?? 0)
+      ? computeChainFinal(
+          liveAmount,
+          parsedDiscounts,
+          Number.isFinite(parsedMarkup) ? parsedMarkup : 0,
+          liveCash ?? 0
         )
       : null;
   const remaining = liveFinal != null ? liveFinal - (liveDp ?? 0) : null;

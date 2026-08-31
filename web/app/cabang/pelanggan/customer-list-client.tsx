@@ -15,7 +15,10 @@ export type CustomerListItem = {
   phoneNormalized: string;
   /** customer_code (migrasi 0017/0018/0019) — null kalau belum digenerate. */
   customerCode: string | null;
-  orderCount: number;
+  /** `null` = jumlahnya TIDAK DIKETAHUI (query hitungan gagal), bukan nol —
+   *  "0 pesanan" yang sebenarnya kegagalan menyuruh manajer menyimpulkan
+   *  pelanggan ini belum pernah membeli (LESSONS #10). */
+  orderCount: number | null;
 };
 
 export default function CustomerListClient({
@@ -101,7 +104,11 @@ export default function CustomerListClient({
                 {it.customerCode && <span className="code">{it.customerCode}</span>}
               </div>
               <div className="rc-sub">{it.phoneNormalized ? displayPhoneID(it.phoneNormalized) : m.cabang.noPhoneNumber}</div>
-              <div className="rc-meta">{m.cabang.customerOrderCount.replace("{n}", String(it.orderCount))}</div>
+              <div className="rc-meta">
+                {it.orderCount === null
+                  ? m.cabang.customerOrderCountUnknown
+                  : m.cabang.customerOrderCount.replace("{n}", String(it.orderCount))}
+              </div>
               <span className="rc-arrow" aria-hidden="true">&rsaquo;</span>
             </Link>
           ))}

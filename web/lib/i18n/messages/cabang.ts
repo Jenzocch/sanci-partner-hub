@@ -85,6 +85,7 @@ const id = {
   noCustomersYet: "Belum ada pelanggan tercatat.",
   noCustomersMatchSearch: 'Tidak ada pelanggan yang cocok dengan pencarian "{q}".',
   customerOrderCount: "{n} Pesanan",
+  customerOrderCountUnknown: "Jumlah pesanan belum bisa dihitung",
   errCustomerListLoadFailed: "Gagal memuat daftar pelanggan.",
 
   // Detail Pelanggan
@@ -513,6 +514,7 @@ const en = {
   noCustomersYet: "No customers recorded yet.",
   noCustomersMatchSearch: 'No customers match "{q}".',
   customerOrderCount: "{n} orders",
+  customerOrderCountUnknown: "Order count unavailable",
   errCustomerListLoadFailed: "Could not load the customer list.",
 
   errCustomerDetailLoadFailed: "Could not load customer details.",
@@ -861,6 +863,7 @@ const zh = {
   noCustomersYet: "还没有客户记录。",
   noCustomersMatchSearch: '没有符合"{q}"的客户。',
   customerOrderCount: "{n} 个订单",
+  customerOrderCountUnknown: "订单数暂时无法计算",
   errCustomerListLoadFailed: "客户列表加载失败。",
 
   errCustomerDetailLoadFailed: "客户详情加载失败。",
