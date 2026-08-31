@@ -9,6 +9,8 @@ import { updateOrderItemFields, deleteOrderItemCabang } from "../actions";
 
 export type OrderItemRow = {
   id: string;
+  /** Boleh null: baris ketikan bebas tidak terhubung ke produk katalog. */
+  product_id: string | null;
   name_snapshot: string;
   code_snapshot: string | null;
   quantity: number;

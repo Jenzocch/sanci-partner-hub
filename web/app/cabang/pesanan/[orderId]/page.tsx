@@ -20,6 +20,7 @@ import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
 import InvoiceSection from "./invoice-section";
 import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
+import OrderProposalButton from "@/lib/order-proposal-button";
 import OfferSection from "./offer-section";
 
 export const dynamic = "force-dynamic";
@@ -220,7 +221,7 @@ async function fetchOrderItems(
 ): Promise<{ items: OrderItemRow[]; unavailable: boolean }> {
   const { data, error } = await supabase
     .from("order_items")
-    .select("id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size")
+    .select("id, product_id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size")
     .eq("order_id", orderId)
     .order("created_at", { ascending: true });
   if (error) return { items: [], unavailable: error.code === "42P01" };
@@ -658,12 +659,25 @@ export default async function PesananDetailPage({
         )}
 
         {itemsResult.unavailable ? null : (
-          <OrderItemsSection
-            orderId={order.id}
-            items={itemsResult.items}
-            canManage={canManage}
-            copyWarning={false}
-          />
+          <>
+            <OrderItemsSection
+              orderId={order.id}
+              items={itemsResult.items}
+              canManage={canManage}
+              copyWarning={false}
+            />
+            {/* Lihat catatan yang sama di halaman pesanan admin: yang dibawa
+                cuma produk dan jumlahnya, harganya diketik staf. */}
+            <OrderProposalButton
+              items={itemsResult.items}
+              customerName={customer?.full_name ?? ""}
+              area="cabang"
+              href="/cabang/kalkulator"
+              cta={m.cabang.orderProposalCta}
+              saveFailed={m.cabang.proposalSaveFailed}
+              noProducts={m.cabang.orderProposalNoProducts}
+            />
+          </>
         )}
 
         {offerFlags.canViewOffer && offerData && (

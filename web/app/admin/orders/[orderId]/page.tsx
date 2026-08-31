@@ -17,6 +17,7 @@ import MarkArrivedButton from "./mark-arrived-button";
 import InternalNoteForm from "./internal-note-form";
 import OrderOfferForm from "./order-offer-form";
 import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
+import OrderProposalButton from "@/lib/order-proposal-button";
 import DocumentsSection, { type OrderDocumentListRow } from "./documents-section";
 import {
   getInvoiceSignedUrl,
@@ -300,7 +301,7 @@ async function fetchOrderItems(
 ): Promise<{ items: OrderItemRow[]; unavailable: boolean }> {
   const { data, error } = await supabase
     .from("order_items")
-    .select("id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size, unit_price, line_discount")
+    .select("id, product_id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size, unit_price, line_discount")
     .eq("order_id", orderId)
     .order("created_at", { ascending: true });
   if (error) return { items: [], unavailable: isMissingTableError(error) };
@@ -852,7 +853,22 @@ export default async function AdminOrderDetailPage({
           <div className="emptybox">{m.admin.orderItemsFeatureOff}</div>
         </div>
       ) : (
-        <OrderItemsSection orderId={order.id} items={itemsResult.items} copyWarning={false} />
+        <>
+          <OrderItemsSection orderId={order.id} items={itemsResult.items} copyWarning={false} />
+          {/* Membawa DAFTAR PRODUK pesanan ini kembali ke Kalkulator — tanpa
+              harga. Alasan lengkapnya di lib/calc-prefill.ts: pesanan tidak
+              menyimpan harga jual ke pelanggan, dan Penawaran SANCI adalah
+              harga SANCI kepada toko. */}
+          <OrderProposalButton
+            items={itemsResult.items}
+            customerName={customer?.full_name ?? ""}
+            area="admin"
+            href="/admin/kalkulator"
+            cta={m.admin.orderProposalCta}
+            saveFailed={m.admin.proposalSaveFailed}
+            noProducts={m.admin.orderProposalNoProducts}
+          />
+        </>
       )}
 
       {documentsResult.unavailable ? (

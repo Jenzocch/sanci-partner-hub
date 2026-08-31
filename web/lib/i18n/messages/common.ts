@@ -24,6 +24,8 @@
 import { offline } from "./offline";
 
 const id = {
+  calcPrefillBanner: "{n} produk dibawa dari pesanan ini. Harga satuan sengaja kosong — isi harga yang Anda jual ke pelanggan, lalu tekan \"Buat Proposal\".",
+  calcPrefillSkipped: "{n} baris pesanan tidak bisa dibawa karena tidak terhubung ke produk katalog — tambahkan sendiri di tab Produk kalau perlu.",
   proposalCoverKicker: "Proposal Produk Pelanggan",
   proposalCoverSub: "Pilihan furnitur yang kami siapkan khusus untuk rumah Anda.",
   proposalIntroTitle: "Sebuah proposal untuk rumah Anda.",
@@ -486,6 +488,8 @@ const id = {
 type Shape = Record<keyof typeof id, string>;
 
 const en = {
+  calcPrefillBanner: "{n} products carried over from this order. Unit prices are deliberately empty — enter what you sell them for, then press \"Create Proposal\".",
+  calcPrefillSkipped: "{n} order lines could not be carried over because they are not linked to a catalogue product — add them yourself in the Products tab if needed.",
   proposalCoverKicker: "Customer Product Proposal",
   proposalCoverSub: "A curated selection of furniture prepared for your home.",
   proposalIntroTitle: "A proposal made for your home.",
@@ -838,6 +842,8 @@ const en = {
 } satisfies Shape;
 
 const zh = {
+  calcPrefillBanner: "已从这笔订单带入 {n} 件产品。单价刻意留空 —— 请填入您卖给客户的价格,再按\"制作提案\"。",
+  calcPrefillSkipped: "有 {n} 行订单项目无法带入,因为没有连结到目录产品 —— 需要的话请到产品分页自行加入。",
   proposalCoverKicker: "客户产品提案",
   proposalCoverSub: "为您的家精心挑选的家具。",
   proposalIntroTitle: "为您的家准备的提案。",

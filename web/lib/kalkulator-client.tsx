@@ -25,6 +25,7 @@ import {
   type CalcDraft,
 } from "@/lib/calculator-shared";
 import { writeProposalHandoff } from "@/lib/proposal-shared";
+import { takeCalcPrefill } from "@/lib/calc-prefill";
 import styles from "./kalkulator.module.css";
 
 export type KalkulatorProduct = {
@@ -130,6 +131,8 @@ export default function KalkulatorClient({
 
   /** Kegagalan menulis hand-off proposal ke localStorage — lihat handleMakeProposal. */
   const [proposalErr, setProposalErr] = useState<string | null>(null);
+  /** Ringkasan isi pesanan yang baru saja dibawa masuk dari halaman pesanan. */
+  const [prefill, setPrefill] = useState<{ n: number; skipped: number; customerName: string } | null>(null);
 
   const [pendingDraft, setPendingDraft] = useState<CalcDraft | null>(null);
   const [ready, setReady] = useState(false);
@@ -142,6 +145,31 @@ export default function KalkulatorClient({
   // (`area` konstan sepanjang umur halaman — masuk deps hanya demi kejujuran
   // exhaustive-deps, tidak pernah memicu baca ulang.)
   useEffect(() => {
+    // Isi pesanan yang dibawa dari halaman pesanan DITUANG LANGSUNG, tidak
+    // menunggu persetujuan seperti draf: pengguna baru saja memintanya
+    // beberapa detik lalu dengan menekan tombol, dan hasilnya kelihatan
+    // seluruhnya di keranjang. Yang dilarang SPEC §58 adalah state lama yang
+    // menyembul TANPA diminta — bukan ini. Harga sengaja 0: pesanan tidak
+    // menyimpan harga jual ke pelanggan (lihat lib/calc-prefill.ts).
+    const pre = takeCalcPrefill(area);
+    if (pre) {
+      if (pre.lines.length > 0) {
+        setLines(
+          pre.lines.map((l) => ({
+            productId: l.productId,
+            name: l.name,
+            code: l.code,
+            photoUrl: null,
+            unitPrice: 0,
+            qty: l.qty,
+          }))
+        );
+        setTab("keranjang");
+      }
+      setPrefill({ n: pre.lines.length, skipped: pre.skipped, customerName: pre.customerName });
+      setReady(true);
+      return;
+    }
     const d = readCalcDraft(area);
     if (d) {
       setPendingDraft(d);
@@ -392,7 +420,9 @@ export default function KalkulatorClient({
   function handleMakeProposal() {
     if (!proposal || lines.length === 0) return;
     const ok = writeProposalHandoff({
-      customerName: "",
+      // Nama pelanggan ikut kalau isi keranjang ini datang dari sebuah
+      // pesanan — staf tidak perlu mengetiknya ulang di dokumen.
+      customerName: prefill?.customerName ?? "",
       subtotal,
       discountPcts: parsedDiscounts,
       totalDiscountAmount,
@@ -458,6 +488,25 @@ export default function KalkulatorClient({
         onRestore={handleRestoreDraft}
         onDiscard={handleDiscardDraft}
       />
+
+      {/* Isi pesanan yang baru dibawa masuk. Menutupnya tidak membuang apa
+          pun — barisnya sudah ada di keranjang dan tetap bisa diubah. Baris
+          yang TIDAK bisa dibawa dikatakan di sini, bukan hilang diam-diam. */}
+      {prefill && (
+        <div className="banner info">
+          {prefill.n > 0 && m.calcPrefillBanner.replace("{n}", String(prefill.n))}
+          {prefill.skipped > 0 && (
+            <div style={{ marginTop: prefill.n > 0 ? 6 : 0 }}>
+              {m.calcPrefillSkipped.replace("{n}", String(prefill.skipped))}
+            </div>
+          )}
+          <div className="btnrow-inline">
+            <button type="button" className="btn sm" onClick={() => setPrefill(null)}>
+              {m.close}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="tabs">
         <button type="button" className={`tab${tab === "produk" ? " on" : ""}`} onClick={() => setTab("produk")}>

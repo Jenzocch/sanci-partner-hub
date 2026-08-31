@@ -13,6 +13,8 @@
  */
 
 const id = {
+  orderProposalCta: "Buat Proposal dari pesanan ini",
+  orderProposalNoProducts: "Tidak ada baris pesanan yang terhubung ke produk katalog, jadi belum ada yang bisa dibawa ke Kalkulator.",
   calcProposalCta: "Buat Proposal",
   proposalSaveFailed: "Proposal belum bisa disiapkan di perangkat ini. Coba lagi, atau pakai perangkat lain.",
   // Nav (admin-nav.tsx) — signOut dipakai dari common.ts (m.common.signOut),
@@ -945,6 +947,8 @@ const id = {
 type Shape = Record<keyof typeof id, string>;
 
 const en = {
+  orderProposalCta: "Create Proposal from this order",
+  orderProposalNoProducts: "No order line is linked to a catalogue product, so there is nothing to carry over to the Calculator yet.",
   calcProposalCta: "Create Proposal",
   proposalSaveFailed: "The proposal could not be prepared on this device. Try again, or use another device.",
   navOrders: "Partner orders",
@@ -1782,6 +1786,8 @@ const en = {
 } satisfies Shape;
 
 const zh = {
+  orderProposalCta: "从这笔订单制作提案",
+  orderProposalNoProducts: "这笔订单没有任何项目连结到目录产品,目前没有东西可以带到计算器。",
   calcProposalCta: "制作提案",
   proposalSaveFailed: "这台设备上暂时无法准备提案。请再试一次,或换一台设备。",
   navOrders: "合作商订单",

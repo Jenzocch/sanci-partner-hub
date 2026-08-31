@@ -815,6 +815,8 @@ export async function addOrderItem(
  */
 type OrderItemSnapshot = {
   id: string;
+  /** Boleh null: baris ketikan bebas tidak terhubung ke produk katalog. */
+  product_id: string | null;
   name_snapshot: string;
   code_snapshot: string | null;
   quantity: number;
@@ -831,7 +833,7 @@ export async function getOrderItem(itemId: string): Promise<ActionResult<OrderIt
 
   const { data, error } = await supabase
     .from("order_items")
-    .select("id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size, unit_price, line_discount")
+    .select("id, product_id, name_snapshot, code_snapshot, quantity, note, color_code, custom_size, unit_price, line_discount")
     .eq("id", itemId)
     .maybeSingle();
 
@@ -843,6 +845,7 @@ export async function getOrderItem(itemId: string): Promise<ActionResult<OrderIt
 
   const row = data as {
     id: string;
+    product_id: string | null;
     name_snapshot: string;
     code_snapshot: string | null;
     quantity: number | string;
@@ -855,6 +858,7 @@ export async function getOrderItem(itemId: string): Promise<ActionResult<OrderIt
   return {
     data: {
       id: row.id,
+      product_id: row.product_id,
       name_snapshot: row.name_snapshot,
       code_snapshot: row.code_snapshot,
       quantity: Number(row.quantity),
