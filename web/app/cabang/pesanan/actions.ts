@@ -1967,7 +1967,13 @@ export async function getCustomerPayment(orderId: string): Promise<CustomerPayme
   return { status: "ok", data: toPaymentSnapshot(data as PaymentRowRaw) };
 }
 
-const MAX_PAYMENT_AMOUNT = 99_999_999_999_999;
+// Batas kolom, BUKAN batas parser: numeric(15,2) menampung maksimal 13
+// digit di depan koma. Versi awal menyalin 14-digit milik parseIDRInput
+// (orders-shared.ts) — nilai 10-99 triliun lolos validasi app lalu ditolak
+// Postgres dengan 22003 yang jatuh ke pesan generik "server sibuk", dan
+// staf mengulang-ulang simpanan yang tidak akan pernah berhasil. Pola
+// angka yang sama dengan MAX_PURCHASE_AMOUNT (actions-create-order.ts).
+const MAX_PAYMENT_AMOUNT = 9_999_999_999_999;
 const MAX_EXPEDITION_LEN = 120;
 const MAX_CONFIRM_STATUS_LEN = 200;
 

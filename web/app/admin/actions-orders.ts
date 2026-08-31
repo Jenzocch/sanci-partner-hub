@@ -1177,7 +1177,9 @@ export async function getCustomerPaymentAdmin(orderId: string): Promise<Customer
   return { status: "ok", data: toPaymentSnapshot(data as PaymentRowRaw) };
 }
 
-const MAX_PAYMENT_AMOUNT = 99_999_999_999_999;
+// numeric(15,2) = maksimal 13 digit di depan koma — lihat catatan kembar
+// di app/cabang/pesanan/actions.ts (audit 2026-08-31).
+const MAX_PAYMENT_AMOUNT = 9_999_999_999_999;
 const MAX_EXPEDITION_LEN = 120;
 const MAX_CONFIRM_STATUS_LEN = 200;
 

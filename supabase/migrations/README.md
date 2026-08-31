@@ -31,8 +31,8 @@ tanpa perlu membaca SQL-nya.
 | 0022 | `0022_product_photos.sql` | Irisan ketujuh belas: Galeri Foto Produk + halaman publik per produk — tabel BARU `product_photos` (foto TAMBAHAN, DI LUAR `sanci_products.photo_url` sampul milik 0010; FK `product_id` **ON DELETE RESTRICT**, beda sengaja dari `product_prices` yang CASCADE — pola LESSONS #4). RLS: admin penuh; partner baca sama persis gerbang `sp_partner_read` (produk ACTIVE + `fn_catalog_enabled()`); **BARU**: policy `ph_anon_read`/`sp_anon_read` untuk sesi TANPA LOGIN (`auth.uid() is null`) — satu-satunya alasan berkas ini menyentuh RLS `sanci_products` sama sekali, untuk halaman publik `/p/[productId]` (root-level route, tanpa gerbang katalog partner). Bucket storage `product-photos` (0010) DIPAKAI APA ADANYA (path baru `<product_id>/gallery/<id acak>.webp`, tidak ada perubahan bucket/RLS storage). Mendefinisikan ULANG `fn_audit_row` (salinan UTUH versi 0021 + SATU baris pemetaan `product_photos` → 'PRODUCT_PHOTO'). Blok verifikasi Bagian B genuinely `SET ROLE anon` (bukan sekadar membaca teks policy) untuk membuktikan `ANON_PRICES_ZERO`/`ANON_ORDERS_ZERO`/`ANON_CATALOG_ACCESS_ZERO` = 0 sungguhan. Perilaku dibuktikan `supabase/test-harness/100_behavior_0022.sql` (17 PASS, termasuk bukti partner login dengan katalog tertutup tetap 0 baris). |
 | 0023 | `0023_customer_order_link.sql` | Irisan kedelapan belas: Tautan Pesanan untuk Pelanggan (halaman `/lihat/<token>` tanpa login) — `partner_orders` dapat 3 kolom BARU: `customer_view_token` (text NOT NULL UNIQUE, DEFAULT acak 64 hex; baris lama terisi lewat **table-rewrite `ADD COLUMN`** — diukur di PG16: DEFAULT volatile dievaluasi per baris DAN nol row-trigger dipicu, jadi tidak ada banjir audit dan tidak tertolak penjaga CANCELLED 0005), `delivered_at`/`delivered_by` (nullable, DIPAKSA server oleh trigger BARU `fn_guard_order_customer_link` — token beku bagi non-admin, penandaan tidak bisa dibatalkan cabang, penandaan ulang = no-op). Tabel BARU `customer_view_attempts` (rem penebak nomor HP: 5× salah → kunci 15 menit) dengan **RLS aktif dan NOL policy** — tertutup untuk semua peran PostgREST, hanya RPC yang menyentuhnya (pola 0009 §3). Dua RPC SECURITY DEFINER untuk anon+authenticated: `fn_customer_order_view(text)` (DAFTAR PUTIH kolom disusun satu per satu — TANPA telepon, alamat lengkap, alasan pembatalan, atau uuid apa pun) dan `fn_customer_reveal_address(text,text)`. **`fn_audit_row` TIDAK didefinisikan ulang** (garis merah penugasan): penandaan `delivered_at` tercatat lewat cabang generik `ORDER_UPDATED` yang sudah ada, dibuktikan T8. NOL policy anon di tabel mana pun. Perilaku dibuktikan `supabase/test-harness/95_behavior_0023.sql` (27 PASS). |
 | 0024 | `0024_product_size.sql` | Irisan kesembilan belas: `sanci_products.size` — SATU kolom text nullable, TEKS BEBAS (bukan angka terstruktur — data nyata memuat "180*200*30", "(1200-1550)*1200", "60*36*9/7"), SENGAJA TANPA CHECK. Owner: "把 Description 跟 size 放進去" (2026-08-28) — ukuran adalah spesifikasi PERTAMA yang ditanyakan pembeli, sekarang tampil di halaman detail cabang & halaman publik produk (0022). TIDAK menyentuh RLS `sanci_products` (kolom baru otomatis ikut ketiga policy 0010+0022 — ukuran ikut terbaca ANON, DISENGAJA: spesifikasi produk, bukan rahasia). TIDAK mendefinisikan ulang `fn_audit_row` (kolom baru otomatis ikut lewat `to_jsonb`, preseden 0014 `shipping_address`/0020 `customer_po`). TIDAK mengisi data — pengisian dilakukan terpisah lewat skrip UPDATE yang diberikan ke owner. **Catatan dokumentasi**: berkas ini sudah ada di repo sejak commit yang sama dengan fitur lain, tapi baru mendapat baris di README ini pada 2026-08-31 (ditemukan saat menulis 0025/0026) — tidak ada perilaku yang berubah, murni dokumentasi yang tertinggal. |
-| 0025 | `0025_product_colors.sql` | Irisan kesembilan belas: Katalog Warna Global — tabel BARU `product_colors` (kode warna GLOBAL C01/C02/… lintas SEMUA produk; `code` UNIQUE TOTAL, bukan partial — LESSONS #36 dihindari sengaja karena `order_items.color_code`, 0014, menunjuk kode ini SELAMANYA sebagai teks bebas; `status` ACTIVE/INACTIVE deactivate-don't-delete LESSONS #4; foto di bucket `product-photos` 0010 DIPAKAI APA ADANYA, path baru `colors/<uuid acak>.webp`) + kolom BARU `sanci_products.has_color_options` (boolean NOT NULL DEFAULT false — LESSONS #8, default paling aman secara bisnis). RLS: admin penuh (`pc_admin_all`); cabang BACA SAJA lewat `fn_catalog_enabled() AND status='ACTIVE'` (gerbang setara `ph_partner_read` 0022, disesuaikan bentuknya karena warna GLOBAL tidak menunjuk satu produk); TIDAK ADA policy anon (halaman publik belum menampilkan pilihan warna — batas sadar, bukan luput). TIDAK ADA foreign key dari `order_items.color_code` ke tabel ini (katalog ini bantuan PILIH untuk UI, bukan batasan integritas referensial atas riwayat pesanan lama). Mendefinisikan ULANG `fn_audit_row` (salinan UTUH versi 0022 + SATU baris pemetaan `product_colors` → 'PRODUCT_COLOR'). |
-| 0026 | `0026_customer_payment_shipping.sql` | Irisan kedua puluh: Pembayaran Pelanggan (pelanggan → CABANG — angka KETIGA yang berbeda dari `partner_purchase_amount` 0009 dan `order_sanci_offers.final_amount` 0015/0009) + Ekspedisi + Status Confirm — ENAM kolom BARU nullable/default aman di `partner_orders`: `customer_total_amount`, `customer_paid_amount` (NOT NULL DEFAULT 0), `customer_dp_paid_at`, `customer_settled_at` (dipaksa server), `expedition`, `confirm_status`. "Nama Admin" pada lembar kerja manual TIDAK mendapat kolom — `partner_orders.partner_pic_staff_id` (0004) sudah menjalankan peran itu. Trigger BARU `fn_guard_customer_payment`: `customer_settled_at` DIHITUNG ULANG dari nol pada SETIAP tulisan (nilai client TIDAK PERNAH dipercaya, LESSONS #11), IDEMPOTEN (tidak men-cap ulang kalau sudah lunas) dan SELF-REVOKING (paid dikoreksi turun di bawah total → cap tercabut otomatis); syarat stamping SEJAJAR PERSIS rumus tampilan kanonik (`web/lib/payment-shared.ts` + sinkronisasi Sheets) `customer_total_amount IS NOT NULL AND customer_paid_amount >= customer_total_amount` — TERMASUK total=0 eksplisit. TIDAK ADA policy RLS baru — menumpang `o_partner_update` (0005), diverifikasi (bukan diasumsikan) lewat replay dengan akun cabang SUNGGUHAN. `fn_audit_row` TIDAK didefinisikan ulang (keenam kolom baru otomatis ikut lewat `to_jsonb`, pola 0014/0020/0024). |
+| 0025 | `0025_product_colors.sql` | Irisan kedua puluh: Katalog Warna Global — tabel BARU `product_colors` (kode warna GLOBAL C01/C02/… lintas SEMUA produk; `code` UNIQUE TOTAL, bukan partial — LESSONS #36 dihindari sengaja karena `order_items.color_code`, 0014, menunjuk kode ini SELAMANYA sebagai teks bebas; `status` ACTIVE/INACTIVE deactivate-don't-delete LESSONS #4; foto di bucket `product-photos` 0010 DIPAKAI APA ADANYA, path baru `colors/<uuid acak>.webp`) + kolom BARU `sanci_products.has_color_options` (boolean NOT NULL DEFAULT false — LESSONS #8, default paling aman secara bisnis). RLS: admin penuh (`pc_admin_all`); cabang BACA SAJA lewat `fn_catalog_enabled() AND status='ACTIVE'` (gerbang setara `ph_partner_read` 0022, disesuaikan bentuknya karena warna GLOBAL tidak menunjuk satu produk); TIDAK ADA policy anon (halaman publik belum menampilkan pilihan warna — batas sadar, bukan luput). TIDAK ADA foreign key dari `order_items.color_code` ke tabel ini (katalog ini bantuan PILIH untuk UI, bukan batasan integritas referensial atas riwayat pesanan lama). Kode DINORMALKAN DI DATABASE (`trg_normalize_color_code`: `upper(btrim())` — review adversarial 2026-08-31: tanpa ini 'C01'/'c01'/'C01 ' hidup berdampingan dan UNIQUE-nya lebih lemah dari yang dijanjikan; pola 0018 `fn_set_customer_code`). CATATAN: berkas FOTO warna tetap anon-terbaca lewat URL (bucket `product-photos` public 0010, path uuid acak) — yang tertutup untuk anon hanya METADATA-nya, setara foto produk yang sudah ada. Mendefinisikan ULANG `fn_audit_row` (salinan UTUH versi 0022 + SATU baris pemetaan `product_colors` → 'PRODUCT_COLOR'). |
+| 0026 | `0026_customer_payment_shipping.sql` | Irisan kedua puluh satu: Pembayaran Pelanggan (pelanggan → CABANG — angka KETIGA yang berbeda dari `partner_purchase_amount` 0009 dan `order_sanci_offers.final_amount` 0015/0009) + Ekspedisi + Status Confirm — ENAM kolom BARU nullable/default aman di `partner_orders`: `customer_total_amount`, `customer_paid_amount` (NOT NULL DEFAULT 0), `customer_dp_paid_at`, `customer_settled_at` (dipaksa server), `expedition`, `confirm_status`. "Nama Admin" pada lembar kerja manual TIDAK mendapat kolom — `partner_orders.partner_pic_staff_id` (0004) sudah menjalankan peran itu. Trigger BARU `fn_guard_customer_payment`: `customer_settled_at` DIHITUNG ULANG dari nol pada SETIAP tulisan (nilai client TIDAK PERNAH dipercaya, LESSONS #11), IDEMPOTEN (tidak men-cap ulang kalau sudah lunas) dan SELF-REVOKING (paid dikoreksi turun di bawah total → cap tercabut otomatis); syarat stamping SEJAJAR PERSIS rumus tampilan kanonik (`web/lib/payment-shared.ts` + sinkronisasi Sheets) `customer_total_amount IS NOT NULL AND customer_paid_amount >= customer_total_amount` — TERMASUK total=0 eksplisit. TIDAK ADA policy RLS baru — menumpang `o_partner_update` (0005), diverifikasi (bukan diasumsikan) lewat replay dengan akun cabang SUNGGUHAN. `fn_audit_row` TIDAK didefinisikan ulang (keenam kolom baru otomatis ikut lewat `to_jsonb`, pola 0014/0020/0024). |
 
 ## ATURAN BESI
 
@@ -1090,7 +1090,7 @@ dokumentasi yang tertinggal saat 0024 pertama ditulis.
 | COLOR_NONADMIN_WRITE | **0** ← WAJIB 0 (asersi negatif inti) |
 | COLOR_PARTNER_READ_GATED | 1 |
 | COLOR_ANON_POLICY_COUNT | **0** ← WAJIB 0: TIDAK ADA policy anon (batas sadar, beda dari `product_photos` 0022) |
-| COLOR_TRIGGERS | 2 |
+| COLOR_TRIGGERS | **3** ← trg_set_created_by + trg_audit + trg_normalize_color_code (review 2026-08-31) |
 | HAS_COLOR_OPTIONS_COLUMN / _DEFAULT_FALSE / _NOT_NULL | 1 / 1 / 1 |
 | PRODUCT_POLICIES_AFTER_0025 | **3** ← WAJIB TETAP 3: berkas ini tidak menyentuh RLS `sanci_products` |
 | PRODUCT_NO_PRICE_COLUMN | **0** ← WAJIB 0 |
@@ -1158,24 +1158,28 @@ diawali `partner%`, tidak ikut terhitung — pola sama dengan
 diperkirakan; replay penuh `0001→…→0025→0026`) — lihat blok verifikasi di
 kepala berkas `0026_customer_payment_shipping.sql` §5.
 
-**Bagian B (§7) — dua teknik TANPA fixture pesanan (penugasan SQL-only, tidak
-menambah berkas test-harness baru)**:
+**Bagian B (§7)** — direvisi setelah review adversarial 2026-08-31:
 - **Tabel bayangan** (`v0026_payment_shadow`, tiga kolom bernama sama)
   dengan `fn_guard_customer_payment()` — OBJEK FUNGSI PRODUKSI YANG SAMA —
   dipasang sebagai trigger BEFORE-nya: `SHADOW_T1_UNPAID_NULL` …
   `SHADOW_T6_NULL_TOTAL_UNSETTLED` dan `SHADOW_T_ZERO_TOTAL_STAMPED`
-  semuanya **true**. Idempotensi (T3→T4) dan self-revoking (T5) diuji
-  lintas TRANSAKSI TERPISAH (`BEGIN`/`COMMIT` eksplisit + `pg_sleep(1)` di
-  antaranya) — BUKAN satu blok `DO`, karena `now()` PL/pgSQL konstan
-  sepanjang satu transaksi (lihat kepala berkas §6 untuk penjelasan
-  lengkap kenapa itu wajib).
-- **CHECK constraint pada `partner_orders` sungguhan**, lewat "bogus
-  update" (`BEGIN…EXCEPTION`, savepoint implisit membatalkan dirinya
-  sendiri): diukur DUA KALI — pada database KOSONG
-  (`CHECK_PAID_REJECTS_NEGATIVE`/`CHECK_EXPEDITION_REJECTS_TOOLONG`
-  melaporkan jujur "TIDAK DIUJI: tidak ada baris…") dan SETELAH
-  `supabase/test-harness/10_fixtures.sql` dimuat (keduanya **1**, nol
-  residu pada baris fixture setelahnya — diperiksa langsung).
+  semuanya **1** (asersi memakai `::int::text`, konsisten dengan 0025).
+  `SHADOW_T3_STAMP_VALUE` BUKAN asersi — ia baris timestamp yang disimpan
+  hanya sebagai pembanding T4; nilai waktunya berapa pun benar. Idempotensi
+  (T3→T4) dan self-revoking (T5) diuji lintas TRANSAKSI TERPISAH
+  (`BEGIN`/`COMMIT` eksplisit + `pg_sleep(1)` di antaranya) — BUKAN satu
+  blok `DO`, karena `now()` PL/pgSQL konstan sepanjang satu transaksi;
+  itulah kenapa berkas ini SATU-SATUNYA yang tidak atomik (dicatat tebal
+  di kepala berkasnya).
+- **CHECK constraint pada `partner_orders`**: di dalam migrasi hanya
+  diverifikasi STRUKTURAL (`CHECK_PAID_DEF_OK`/`CHECK_EXPEDITION_DEF_OK`
+  membaca `pg_get_constraintdef`) — versi awal memakai "bogus update" pada
+  SATU BARIS PESANAN SUNGGUHAN dan ditolak review: jaring pengamannya
+  adalah tepat constraint yang sedang diuji, dan berkas yang tertempel
+  separuh akan meng-commit paid=-1 ke pesanan nyata tanpa pesan apa pun.
+  Perilaku tolak-menolaknya kini diuji di
+  `supabase/test-harness/110_behavior_0026.sql` di atas fixture, dibungkus
+  transaksi yang SELALU rollback.
 - **Validasi tambahan di luar blok migrasi** (sesi replay yang sama):
   UPDATE sungguhan sebagai pengguna CABANG (`set role authenticated` +
   sesi login staf Branch A1) berhasil mengisi
@@ -1191,8 +1195,9 @@ menambah berkas test-harness baru)**:
 Idempotensi diverifikasi terpisah: 0026 dijalankan ulang 3× di atas rantai
 penuh (dengan fixture terpasang), `pg_dump -s` (disaring noise `\restrict`,
 LESSONS #33) menghasilkan **nol diff** setiap kali, dan ke-25 angka Bagian A
-+ ke-10 angka Bagian B identik pada percobaan ke-3; baris fixture
-`partner_orders` tidak membawa residu dari pengujian CHECK.
++ ke-10 baris Bagian B identik pada percobaan ke-3 (9 asersi bernilai `1`
++ 1 baris timestamp pembanding); tidak ada satu pun baris pesanan yang
+disentuh oleh blok verifikasi.
 
 Angka blok verifikasi berkas 0001 setelah 0026 — SUDAH DIUKUR: `RLS_ENABLED`
 TETAP **28** (0026 tidak membuat tabel baru), `POLICIES` TETAP **61** (nol

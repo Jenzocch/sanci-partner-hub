@@ -10,6 +10,15 @@
 -- migrations/README.md — ATURAN BESI; baris ATURAN BESI itu sendiri BELUM
 -- diperbarui oleh berkas ini, lihat catatan "CAKUPAN README" di bawah).
 --
+-- ⚠️ BERKAS INI TIDAK ATOMIK — berbeda dari 0001..0025. §7 Bagian B
+-- memakai DUA transaksi eksplisit yang dipisah `commit;` + `pg_sleep(1)`
+-- (satu-satunya cara membuktikan idempotensi cap waktu: `now()` konstan di
+-- dalam satu transaksi). Konsekuensinya: begitu commit pertama lewat,
+-- kegagalan di bawahnya TIDAK menggulung balik DDL §1–§5. Itu AMAN karena
+-- seluruh DDL idempoten (jalankan ulang berkas ini dari atas = pulih), tapi
+-- klaim "satu transaksi, gagal = bersih" milik berkas-berkas lain TIDAK
+-- berlaku di sini.
+--
 -- ============================================================
 -- LATAR BELAKANG BISNIS (owner, keputusan 2026-08-31)
 -- ============================================================
@@ -178,10 +187,10 @@ alter table public.partner_orders
 -- SUDAH ada dari percobaan migrasi sebelumnya yang gagal separuh jalan,
 -- `add column if not exists` di atas akan NO-OP TOTAL untuk kolom itu —
 -- termasuk TIDAK memasang CHECK-nya kalau CHECK-nya ditulis inline di sana.
--- Pola conname-guard PERSIS 0015 §2/§4 dipakai di ketiganya supaya
+-- Pola conname-guard PERSIS 0015 §2/§4 dipakai di keempatnya supaya
 -- menjalankan ulang berkas ini di database mana pun (kolom baru murni,
 -- ATAU kolom yang sudah pernah setengah jadi) berakhir pada hasil yang
--- SAMA: ketiga constraint terpasang, tidak digandakan.
+-- SAMA: keempat constraint terpasang, tidak digandakan.
 do $$
 begin
   if not exists (select 1 from pg_constraint
@@ -218,7 +227,7 @@ begin
 end;
 $$;
 
--- TANPA BACKFILL (LESSONS #44 dipatuhi secara harfiah): kelima kolom di
+-- TANPA BACKFILL (LESSONS #44 dipatuhi secara harfiah): keenam kolom di
 -- atas nullable ATAU ber-default KONSTAN (`0`, bukan ekspresi VOLATILE
 -- seperti gen_random_uuid() milik 0023) — `ADD COLUMN ... NOT NULL DEFAULT
 -- 0` dengan default KONSTAN adalah operasi metadata-only sejak Postgres 11
@@ -285,6 +294,12 @@ begin
      and new.customer_paid_amount >= new.customer_total_amount then
     new.customer_settled_at := coalesce(v_old_settled, now());
   else
+    -- Cap DICABUT begitu syarat lunas tidak lagi terpenuhi (self-revoking).
+    -- KONSEKUENSI YANG DISADARI: kalau nanti dibayar penuh LAGI, cap yang
+    -- dipasang adalah now() BARU — tanggal lunas pertama tidak disimpan di
+    -- kolom mana pun dan hanya bisa ditelusuri lewat audit_logs (diff
+    -- ORDER_UPDATED menyimpan nilai lamanya). Merawat sejarah cap adalah
+    -- pekerjaan audit trail, bukan kolom ini.
     new.customer_settled_at := null;
   end if;
 
@@ -306,8 +321,11 @@ end;
 $$;
 
 -- Urutan trigger BEFORE di partner_orders setelah berkas ini (Postgres:
--- urut nama — trg_order_customer_payment jatuh di antara trg_order_arrival
--- dan trg_order_customer_link secara alfabet):
+-- urut nama — trg_order_customer_payment jatuh TEPAT SESUDAH
+-- trg_order_customer_link secara alfabet, 'l' < 'p'; daftar di bawah
+-- adalah urutan eksekusi sebenarnya dan TIDAK lengkap-semua-trigger,
+-- hanya para penjaga BEFORE yang relevan — trg_order_number (0004) dan
+-- trg_order_invoice_path (0011) juga hidup di tabel ini):
 --   trg_check_order_refs        (0004/0008)
 --   trg_order_arrival           (0009)
 --   trg_order_customer_link     (0023)
@@ -328,7 +346,7 @@ create trigger trg_order_customer_payment before insert or update on public.part
 -- `o_partner_update` (0005 §4, `create policy o_partner_update on
 -- partner_orders for update using (fn_can_edit_branch(branch_id)) with
 -- check (fn_can_edit_branch(branch_id))`) SUDAH membiarkan cabang meng-UPDATE
--- baris pesanannya sendiri TANPA daftar kolom yang dibatasi — kelima kolom
+-- baris pesanannya sendiri TANPA daftar kolom yang dibatasi — keenam kolom
 -- baru di §1 OTOMATIS ikut tercakup begitu kolomnya ada, PERSIS pola
 -- `shipping_address` (0014)/`customer_po` (0020)/`size` produk (0024, tabel
 -- lain tapi doktrin sama). Diverifikasi ulang di §7
@@ -354,13 +372,14 @@ create trigger trg_order_customer_payment before insert or update on public.part
 
 -- ── 4. fn_audit_row: TIDAK didefinisikan ulang ──────────────
 
--- Berkas ini TIDAK menyentuh fn_audit_row SATU BARIS PUN (0 kemunculan
--- `create or replace function public.fn_audit_row`). Alasannya sama persis
+-- Berkas ini TIDAK menyentuh fn_audit_row SATU BARIS PUN — tidak ada
+-- pernyataan create-or-replace atas fungsi itu di sini (kalimat ini
+-- sendiri akan kena grep naif; hitung pernyataan SQL non-komentar). Alasannya sama persis
 -- dengan 0015/0017/0019/0020/0024 (garis merah yang SAMA, bukan kebetulan
 -- berulang): `partner_orders` SUDAH diaudit sejak 0004 (awalan 'ORDER'),
 -- dan versi fn_audit_row yang aktif SIAPA PUN itu (§0021+, sekarang 0022
 -- atau 0025 tergantung urutan jalan) men-serialize SELURUH baris lewat
--- `to_jsonb(new)`/`to_jsonb(old)` — kelima kolom baru OTOMATIS ikut masuk
+-- `to_jsonb(new)`/`to_jsonb(old)` — keenam kolom baru OTOMATIS ikut masuk
 -- ke before/after tanpa satu baris kode tambahan. Perubahan angka
 -- pembayaran pelanggan akan tercatat sebagai `ORDER_UPDATED` biasa (cabang
 -- generik `v_prefix || '_UPDATED'`), bukan aksi bernama khusus — membuat
@@ -371,7 +390,7 @@ create trigger trg_order_customer_payment before insert or update on public.part
 --
 -- SUSULAN SISI APLIKASI (LESSONS #28, DI LUAR CAKUPAN BERKAS SQL INI):
 -- `web/lib/audit-format.ts` (SKIP/LABELS/VALUE_LABELS) HARUS diajari
--- kelima kolom baru begitu ada agen yang menyentuh sisi aplikasi:
+-- keenam kolom baru begitu ada agen yang menyentuh sisi aplikasi:
 --   customer_total_amount / customer_paid_amount → LABELS (format rupiah,
 --     BUKAN string mentah)
 --   customer_dp_paid_at   → LABELS (format tanggal, kolom `date` polos,
@@ -379,8 +398,10 @@ create trigger trg_order_customer_payment before insert or update on public.part
 --     timestamptz lain)
 --   customer_settled_at   → LABELS (format tanggal-waktu WIB, pola
 --     `delivered_at` 0023 yang sudah lebih dulu diberi label serupa)
+--   expedition            → LABELS (teks polos)
+--   confirm_status        → LABELS (teks polos)
 --   expedition             → LABELS (label biasa, teks bebas)
--- Sampai itu dikerjakan, layar Aktivitas akan menampilkan kelima kolom ini
+-- Sampai itu dikerjakan, layar Aktivitas akan menampilkan keenam kolom ini
 -- sebagai key JSON mentah dalam diff — BUKAN kebocoran data (hanya admin
 -- yang melihat layar Aktivitas order), tapi TIDAK RAMAH DIBACA. Ini
 -- pekerjaan APLIKASI, bukan SQL — sengaja tidak dikerjakan di berkas ini.
@@ -427,7 +448,12 @@ create trigger trg_order_customer_payment before insert or update on public.part
 --                                        create/drop policy
 -- AUDIT (garis merah §4)
 --   AUDIT_ROW_UNTOUCHED_MARKER      1   ← fn_audit_row versi aktif MASIH
---                                        memuat pemetaan PRODUCT_PRICE
+--                                        memuat pemetaan PRODUCT_COLOR —
+--                                        penanda TERBARU (0025). Memeriksa
+--                                        PRODUCT_PRICE tidak membuktikan
+--                                        apa-apa: ia lolos di versi mana
+--                                        pun sejak 0021, termasuk versi
+--                                        yang sudah kehilangan 0025
 --                                        (0021) — bukti fungsi ini tidak
 --                                        ikut disentuh berkas ini
 select 'TOTAL_COLUMN' as check_type, count(*)::text as result
@@ -548,7 +574,7 @@ from pg_policies where schemaname = 'public' and tablename = 'partner_orders'
 union all
 select 'AUDIT_ROW_UNTOUCHED_MARKER', count(*)::text
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public' and p.proname = 'fn_audit_row' and p.prosrc like '%''PRODUCT_PRICE''%';
+where n.nspname = 'public' and p.proname = 'fn_audit_row' and p.prosrc like '%''PRODUCT_COLOR''%';
 
 -- ── 6. Kenapa Bagian B TIDAK memakai baris partner_orders sungguhan ──
 --
@@ -629,17 +655,17 @@ begin;
 insert into v0026_payment_shadow (id, customer_total_amount, customer_paid_amount)
 values (1, 1000000, 0);
 insert into v0026_behavior
-  select 'SHADOW_T1_UNPAID_NULL', (customer_settled_at is null)::text
+  select 'SHADOW_T1_UNPAID_NULL', (customer_settled_at is null)::int::text
   from v0026_payment_shadow where id = 1;
 
 update v0026_payment_shadow set customer_paid_amount = 500000 where id = 1;
 insert into v0026_behavior
-  select 'SHADOW_T2_DP_NULL', (customer_settled_at is null)::text
+  select 'SHADOW_T2_DP_NULL', (customer_settled_at is null)::int::text
   from v0026_payment_shadow where id = 1;
 
 update v0026_payment_shadow set customer_paid_amount = 1000000 where id = 1;
 insert into v0026_behavior
-  select 'SHADOW_T3_LUNAS_STAMPED', (customer_settled_at is not null)::text
+  select 'SHADOW_T3_LUNAS_STAMPED', (customer_settled_at is not null)::int::text
   from v0026_payment_shadow where id = 1;
 insert into v0026_behavior
   select 'SHADOW_T3_STAMP_VALUE', customer_settled_at::text
@@ -657,17 +683,17 @@ update v0026_payment_shadow set customer_paid_amount = 1000000 where id = 1;
 insert into v0026_behavior
   select 'SHADOW_T4_STAMP_UNCHANGED_IDEMPOTENT',
     ((select result from v0026_behavior where check_type = 'SHADOW_T3_STAMP_VALUE')
-     = customer_settled_at::text)::text
+     = customer_settled_at::text)::int::text
   from v0026_payment_shadow where id = 1;
 
 update v0026_payment_shadow set customer_paid_amount = 400000 where id = 1;
 insert into v0026_behavior
-  select 'SHADOW_T5_REVOKED_NULL', (customer_settled_at is null)::text
+  select 'SHADOW_T5_REVOKED_NULL', (customer_settled_at is null)::int::text
   from v0026_payment_shadow where id = 1;
 
 update v0026_payment_shadow set customer_total_amount = null where id = 1;
 insert into v0026_behavior
-  select 'SHADOW_T6_NULL_TOTAL_UNSETTLED', (customer_settled_at is null)::text
+  select 'SHADOW_T6_NULL_TOTAL_UNSETTLED', (customer_settled_at is null)::int::text
   from v0026_payment_shadow where id = 1;
 
 -- Kasus batas yang DISELESAIKAN di §2 "KASUS BATAS total=0": total literal
@@ -676,53 +702,37 @@ insert into v0026_behavior
 -- "LUNAS" lewat cabang paid>=total.
 update v0026_payment_shadow set customer_total_amount = 0, customer_paid_amount = 0 where id = 1;
 insert into v0026_behavior
-  select 'SHADOW_T_ZERO_TOTAL_STAMPED', (customer_settled_at is not null)::text
+  select 'SHADOW_T_ZERO_TOTAL_STAMPED', (customer_settled_at is not null)::int::text
   from v0026_payment_shadow where id = 1;
 commit;
 
--- (B) CHECK constraint pada partner_orders SUNGGUHAN, lewat "bogus update"
--- yang TIDAK PERNAH ter-commit (lihat §6-B).
-do $$
-declare
-  v_id  uuid;
-  v_old numeric;
-begin
-  select id, customer_paid_amount into v_id, v_old
-  from public.partner_orders where status <> 'CANCELLED' limit 1;
+-- (B) CHECK constraint pada partner_orders — STRUKTURAL, bukan bogus
+-- update. Versi awal berkas ini menguji kedua CHECK dengan meng-UPDATE
+-- SATU BARIS PESANAN SUNGGUHAN ke nilai ilegal dan mengandalkan CHECK itu
+-- sendiri untuk menolaknya — review adversarial 2026-08-31 menolak pola
+-- itu: satu-satunya jaring pengaman aksi destruktifnya adalah TEPAT benda
+-- yang sedang diuji (kebalikan LESSONS #7), dan kalau berkas ini tertempel
+-- sebagian (SQL Editor memutus 700+ baris — pernah terjadi) update-nya
+-- COMMIT ke pesanan nyata: paid=-1, cap lunas tercabut, audit palsu, tanpa
+-- satu pun pesan. Di sini cukup dibuktikan CONSTRAINT-nya TERPASANG dengan
+-- definisi yang benar; perilaku tolak-menolaknya diuji di
+-- supabase/test-harness/110_behavior_0026.sql di atas fixture — bukan di
+-- atas data produksi.
+insert into v0026_behavior
+select 'CHECK_PAID_DEF_OK',
+  (count(*) = 1)::int::text
+from pg_constraint
+where conname = 'partner_orders_customer_paid_amount_check'
+  and conrelid = 'public.partner_orders'::regclass
+  and pg_get_constraintdef(oid) like '%customer_paid_amount%>=%0%';
 
-  if v_id is null then
-    insert into v0026_behavior values
-      ('CHECK_PAID_REJECTS_NEGATIVE', 'TIDAK DIUJI: tidak ada baris partner_orders non-CANCELLED untuk diuji');
-  else
-    begin
-      update public.partner_orders set customer_paid_amount = -1 where id = v_id;
-      insert into v0026_behavior values ('CHECK_PAID_REJECTS_NEGATIVE', '0 (GAGAL: nilai negatif diterima)');
-    exception when check_violation then
-      insert into v0026_behavior values ('CHECK_PAID_REJECTS_NEGATIVE', '1');
-    end;
-  end if;
-end;
-$$;
-
-do $$
-declare
-  v_id uuid;
-begin
-  select id into v_id from public.partner_orders where status <> 'CANCELLED' limit 1;
-
-  if v_id is null then
-    insert into v0026_behavior values
-      ('CHECK_EXPEDITION_REJECTS_TOOLONG', 'TIDAK DIUJI: tidak ada baris partner_orders non-CANCELLED untuk diuji');
-  else
-    begin
-      update public.partner_orders set expedition = repeat('X', 121) where id = v_id;
-      insert into v0026_behavior values ('CHECK_EXPEDITION_REJECTS_TOOLONG', '0 (GAGAL: teks >120 karakter diterima)');
-    exception when check_violation then
-      insert into v0026_behavior values ('CHECK_EXPEDITION_REJECTS_TOOLONG', '1');
-    end;
-  end if;
-end;
-$$;
+insert into v0026_behavior
+select 'CHECK_EXPEDITION_DEF_OK',
+  (count(*) = 1)::int::text
+from pg_constraint
+where conname = 'partner_orders_expedition_check'
+  and conrelid = 'public.partner_orders'::regclass
+  and pg_get_constraintdef(oid) like '%120%';
 
 -- Angka yang diharapkan:
 --   SHADOW_T1_UNPAID_NULL                  1   ← total=1jt, paid=0 → BELUM
@@ -741,7 +751,11 @@ $$;
 --                                                DISELESAIKAN di §2 —
 --                                                sejalan dengan rumus
 --                                                tampilan kanonik
---   CHECK_PAID_REJECTS_NEGATIVE            1   ← atau "TIDAK DIUJI: ..."
---                                                kalau database kosong
---   CHECK_EXPEDITION_REJECTS_TOOLONG       1   ← atau "TIDAK DIUJI: ..."
+--   SHADOW_T3_STAMP_VALUE            <timestamp>  ← BUKAN asersi: nilai
+--                                                cap milik T3, disimpan
+--                                                hanya supaya T4 punya
+--                                                pembanding. Berapa pun
+--                                                waktunya, itu benar.
+--   CHECK_PAID_DEF_OK                      1   ← constraint >= 0 terpasang
+--   CHECK_EXPEDITION_DEF_OK                1   ← constraint <=120 terpasang
 select check_type, result from v0026_behavior order by check_type;

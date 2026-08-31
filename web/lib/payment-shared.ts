@@ -32,7 +32,12 @@ export function customerPaymentStatus(total: number | null, paid: number): Custo
   return "BELUM";
 }
 
-/** Sisa tagihan. `null` kalau total belum dicatat (tidak ada "sisa" yang berarti). */
+/** Sisa tagihan. `null` kalau total belum dicatat (tidak ada "sisa" yang
+ *  berarti). NEGATIF saat kelebihan bayar — DISENGAJA dan diikuti persis
+ *  oleh Code.gs (remainingCustomerForSheet_): untuk staf, minus adalah
+ *  sinyal "kembalikan selisihnya", bukan angka yang harus disembunyikan.
+ *  Beda dari fn_customer_order_view (0023) yang meng-clamp ke 0 karena
+ *  pembacanya PELANGGAN. */
 export function customerPaymentRemaining(total: number | null, paid: number): number | null {
   return total == null ? null : total - paid;
 }

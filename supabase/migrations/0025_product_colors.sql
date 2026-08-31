@@ -13,6 +13,14 @@
 -- ATURAN BESI; baris itu sendiri masih perlu diperbarui manual, lihat catatan
 -- di kepala 0026).
 --
+-- CATATAN VISIBILITAS FOTO: METADATA warna (tabel product_colors) tidak
+-- punya jalur baca anon — tapi BERKAS FOTONYA hidup di bucket
+-- `product-photos` yang PUBLIC (0010), jadi siapa pun yang memegang URL-nya
+-- bisa membukanya tanpa login, persis seperti foto produk/galeri yang sudah
+-- ada. Path-nya uuid acak (tidak bisa ditebak/dienumerasi). Kalau suatu
+-- saat foto warna dianggap rahasia, itu butuh bucket terpisah — keputusan
+-- yang belum diminta siapa pun.
+--
 -- ============================================================
 -- LATAR BELAKANG BISNIS (owner, lewat rencana kerja)
 -- ============================================================
@@ -173,6 +181,26 @@ create trigger trg_audit after insert or update or delete on public.product_colo
   for each row execute function public.fn_audit_row();
 
 -- SENGAJA TANPA trg_touch: tabel ini tidak punya kolom updated_at (§1).
+
+-- NORMALISASI KODE DI DATABASE, bukan hanya di app (LESSONS #5 — app layer
+-- checks are not checks). Tanpa ini, UNIQUE(code) lebih lemah dari yang
+-- dijanjikan §1: 'C01', 'c01', 'C01 ', ' C01' adalah EMPAT baris sah yang
+-- hidup berdampingan — pemilih warna menampilkan dua C01, order_items.
+-- color_code (teks bebas) menyimpan keduanya, dan rekap "C01 terjual
+-- berapa" kehilangan separuhnya. Pola preseden: fn_set_customer_code 0018
+-- (normalisasi di BEFORE trigger, bukan berharap semua penulis ingat).
+create or replace function public.fn_normalize_color_code() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  new.code := upper(btrim(new.code));
+  return new;
+end;
+$$;
+revoke execute on function public.fn_normalize_color_code() from public, anon, authenticated;
+
+drop trigger if exists trg_normalize_color_code on public.product_colors;
+create trigger trg_normalize_color_code before insert or update on public.product_colors
+  for each row execute function public.fn_normalize_color_code();
 
 -- ── 3. sanci_products.has_color_options ──────────────────────
 
@@ -432,7 +460,8 @@ $$;
 --   COLOR_ANON_POLICY_COUNT        0   ← WAJIB 0 (asersi negatif inti):
 --                                        TIDAK ADA policy anon di tabel ini
 -- TRIGGER WARNA
---   COLOR_TRIGGERS                 2   ← trg_set_created_by + trg_audit
+--   COLOR_TRIGGERS                 3   ← trg_set_created_by + trg_audit
+--                                        + trg_normalize_color_code
 -- SANCI_PRODUCTS
 --   HAS_COLOR_OPTIONS_COLUMN       1
 --   HAS_COLOR_OPTIONS_DEFAULT_FALSE 1  ← DEFAULT false (LESSONS #8)

@@ -64,7 +64,12 @@ export async function addColor(
 ): Promise<ActionResult<{ id: string }>> {
   const m = await getAdminMessages();
   const PESAN = pesan(m);
-  const trimmedCode = code.trim();
+  // upper() SEJALAN dengan trigger DB trg_normalize_color_code (0025):
+  // normalisasi sesungguhnya terjadi di database (LESSONS #5), baris ini
+  // hanya membuat nilai yang DIKIRIM sama dengan yang akan TERSIMPAN,
+  // supaya pesan sukses/duplikat menampilkan kode persis sebagaimana ia
+  // akan muncul di daftar.
+  const trimmedCode = code.trim().toUpperCase();
   if (!trimmedCode) return { error: { field: "code", message: m.admin.colorCodeRequired } };
   if (trimmedCode.length > MAX_CODE_LEN) {
     return { error: { field: "code", message: m.admin.colorCodeTooLong } };
