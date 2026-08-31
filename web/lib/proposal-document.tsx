@@ -482,7 +482,15 @@ export default function ProposalDocument({
         {rows.map((r, i) => {
           const p = r.product;
           const desc = p?.description?.trim();
-          const gallery = r.photos.slice(1);
+          /**
+           * Foto KEDUA ikut di halaman produk, bukan membuka halaman galeri
+           * sendiri: galeri berisi satu ubin menyisakan sebagian besar
+           * halaman kosong — persis "halaman yang tidak mengatakan apa-apa"
+           * yang sudah dua kali diminta owner untuk dibuang. Galeri baru
+           * muncul mulai foto KETIGA.
+           */
+          const second = r.photos[1];
+          const gallery = r.photos.slice(2);
           return (
             <div key={`p-${r.line.productId}`}>
               {/* SATU halaman per produk, bukan dua. Versi sebelumnya memisah
@@ -510,6 +518,10 @@ export default function ProposalDocument({
                   </div>
 
                   <Photo src={r.photos[0]} alt={r.line.name} className={styles.prodPhoto} />
+
+                  {second && (
+                    <Photo src={second} alt={r.line.name} className={styles.prodPhoto2} />
+                  )}
 
                   <div className={styles.prodText}>
                     {desc && (

@@ -218,6 +218,11 @@
 .prodPhoto { grid-area: photo; background: var(--ivory); overflow: hidden; }
 .prodPhoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .prodText { grid-area: text; }
+.prodPhoto2 {
+  grid-area: photo2; background: var(--ivory); overflow: hidden;
+  aspect-ratio: 3 / 1; padding: 4mm;
+}
+.prodPhoto2 img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .heroDesc { color: var(--warm); font-size: 14px; line-height: 1.75; margin: 8px 0 0; max-width: 62ch; }
 .prodSpec { grid-area: spec; align-self: start; }
 
@@ -230,14 +235,14 @@
 /* 01 — foto memimpin: selebar halaman di atas, teks dua kolom di bawah. */
 .layoutHero {
   grid-template-columns: 1fr 250px;
-  grid-template-areas: "head head" "photo photo" "text spec";
+  grid-template-areas: "head head" "photo photo" "text spec" "photo2 photo2";
 }
 .layoutHero .prodPhoto { aspect-ratio: 16 / 9; padding: 4mm; }
 
 /* 02 — terbelah: foto tegak di kiri, seluruh teks menumpuk di kanan. */
 .layoutSplit {
   grid-template-columns: 1fr 1fr;
-  grid-template-areas: "photo head" "photo text" "photo spec";
+  grid-template-areas: "photo head" "photo text" "photo spec" "photo2 photo2";
 }
 .layoutSplit .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
 .layoutSplit .prodHead { grid-template-columns: 56px 1fr; }
@@ -247,7 +252,7 @@
    jadi pita selebar halaman di dasar. */
 .layoutStory {
   grid-template-columns: 1fr 1fr;
-  grid-template-areas: "head photo" "text photo" "spec spec";
+  grid-template-areas: "head photo" "text photo" "spec spec" "photo2 photo2";
 }
 .layoutStory .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
 .layoutStory .prodTitle { font-size: 44px; }
@@ -262,14 +267,14 @@
    dari 01. */
 .layoutHeroEnd {
   grid-template-columns: 1fr 250px;
-  grid-template-areas: "head head" "text spec" "photo photo";
+  grid-template-areas: "head head" "text spec" "photo photo" "photo2 photo2";
 }
 .layoutHeroEnd .prodPhoto { aspect-ratio: 16 / 9; padding: 4mm; }
 
 /* 05 — cermin dari 02. */
 .layoutSplitMirror {
   grid-template-columns: 1fr 1fr;
-  grid-template-areas: "head photo" "text photo" "spec photo";
+  grid-template-areas: "head photo" "text photo" "spec photo" "photo2 photo2";
 }
 .layoutSplitMirror .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
 .layoutSplitMirror .prodHead { grid-template-columns: 56px 1fr; }
@@ -278,7 +283,7 @@
 /* 06 — cermin dari 03. */
 .layoutStoryMirror {
   grid-template-columns: 1fr 1fr;
-  grid-template-areas: "photo head" "photo text" "spec spec";
+  grid-template-areas: "photo head" "photo text" "spec spec" "photo2 photo2";
 }
 .layoutStoryMirror .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
 .layoutStoryMirror .prodTitle { font-size: 44px; }
@@ -366,7 +371,7 @@
   .layoutHero, .layoutSplit, .layoutStory,
   .layoutHeroEnd, .layoutSplitMirror, .layoutStoryMirror {
     grid-template-columns: 1fr;
-    grid-template-areas: "head" "photo" "text" "spec";
+    grid-template-areas: "head" "photo" "text" "spec" "photo2";
   }
   .layoutSplit .prodPhoto, .layoutStory .prodPhoto,
   .layoutSplitMirror .prodPhoto, .layoutStoryMirror .prodPhoto {
