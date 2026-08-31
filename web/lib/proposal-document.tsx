@@ -391,11 +391,25 @@ export default function ProposalDocument({
               </div>
               <p className={styles.sumNote}>{m.proposalFootnote}</p>
             </div>
-            <Photo
-              src={heroPhotos[1] ?? heroPhotos[0]}
-              alt={rows[0]?.line.name ?? lh.brand}
-              className={styles.sumImage}
-            />
+            {/* Dulu di sini ada SATU foto produk sebagai hiasan. Pada cetakan
+                sungguhan itu berbahaya: angka besar di sebelah satu foto
+                terbaca sebagai harga FOTO ITU — pelanggan bisa mengira
+                Rp 133 juta adalah harga meja makannya. Diganti daftar
+                SELURUH produk yang dijumlahkan, jadi totalnya jelas milik
+                siapa. */}
+            <div className={styles.sumList}>
+              <p className={styles.eyebrow}>{m.proposalSummaryOfLabel}</p>
+              {rows.map((r) => (
+                <div className={styles.sumLine} key={`s-${r.line.productId}`}>
+                  <Photo src={r.photos[0]} alt={r.line.name} className={styles.sumLineArt} />
+                  <div>
+                    <div className={styles.sumLineName}>{r.line.name}</div>
+                    {r.line.code && <p className={styles.selCode}>{r.line.code}</p>}
+                  </div>
+                  <span className={`${styles.sumLineQty} ${styles.num}`}>× {r.line.qty}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </Sheet>
 
@@ -481,18 +495,14 @@ export default function ProposalDocument({
             <div>
               <p className={styles.eyebrow}>{m.proposalFinalKicker}</p>
               <h2 className={styles.finalTitle}>{m.proposalFinalTitle}</h2>
-              <p className={styles.finalPriceLabel}>{m.proposalFinalPrice}</p>
+              {/* Label menyebut JUMLAH PRODUKNYA, bukan cuma "harga akhir":
+                  angka sebesar ini harus mustahil dibaca sebagai harga satu
+                  barang. Rincian subtotal/diskon TIDAK diulang di sini —
+                  tempatnya di halaman Ringkasan Harga. */}
+              <p className={styles.finalPriceLabel}>
+                {m.proposalFinalForCount.replace("{n}", String(rows.length))}
+              </p>
               <p className={`${styles.finalPrice} ${styles.num}`}>{formatIDR(handoff.finalAmount)}</p>
-              <div className={styles.metaStack} style={{ maxWidth: 430 }}>
-                <div className={styles.moneyRow}>
-                  <span className={styles.micro}>{m.proposalMetaCount}</span>
-                  <strong className={styles.num}>{rows.length}</strong>
-                </div>
-                <div className={styles.moneyRow}>
-                  <span className={styles.micro}>{m.proposalSubtotal}</span>
-                  <strong className={styles.num}>{formatIDR(handoff.subtotal)}</strong>
-                </div>
-              </div>
               <div className={styles.thanks}>
                 <h3>{m.proposalThanksTitle}</h3>
                 <p>{m.proposalThanksBody}</p>
@@ -503,18 +513,13 @@ export default function ProposalDocument({
                   </div>
                   <div>
                     <p className={styles.eyebrow}>{m.proposalContactLabel}</p>
-                    <p className={styles.contactValue}>
+                    <p className={`${styles.contactValue} ${styles.contactPhone}`}>
                       {lh.phone ? `WhatsApp · ${lh.phone}` : lh.website}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-            <Photo
-              src={heroPhotos[2] ?? heroPhotos[0]}
-              alt={rows[0]?.line.name ?? lh.brand}
-              className={styles.finalImage}
-            />
           </div>
         </Sheet>
 
