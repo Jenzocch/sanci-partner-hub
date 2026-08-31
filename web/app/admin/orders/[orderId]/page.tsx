@@ -16,6 +16,7 @@ import CorrectAttributionButton, { type BranchOption } from "./correct-attributi
 import MarkArrivedButton from "./mark-arrived-button";
 import InternalNoteForm from "./internal-note-form";
 import OrderOfferForm from "./order-offer-form";
+import CustomerPaymentSection, { type PaymentCardData } from "./customer-payment-section";
 import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
 import OrderProposalButton from "@/lib/order-proposal-button";
 import DocumentsSection, { type OrderDocumentListRow } from "./documents-section";
@@ -383,6 +384,43 @@ async function fetchCustomerPo(
   return { status: "ok", data: (data as { customer_po: string | null } | null)?.customer_po ?? null };
 }
 
+/**
+ * Fitur D (migrasi 0026) — kolom pembayaran pelanggan pada partner_orders,
+ * dibaca TERPISAH dari query utama (LESSONS #12: menambah kolom ini ke
+ * SELECT utama akan 42703-gagalkan SELURUH halaman selama 0026 belum
+ * jalan) — pola sama dengan fetchShippingAddress/fetchCustomerPo di atas.
+ */
+async function fetchCustomerPaymentCard(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<ColumnFetch<PaymentCardData>> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("customer_total_amount, customer_paid_amount, customer_dp_paid_at, customer_settled_at, expedition, confirm_status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  const row = data as {
+    customer_total_amount: number | string | null;
+    customer_paid_amount: number | string | null;
+    customer_dp_paid_at: string | null;
+    customer_settled_at: string | null;
+    expedition: string | null;
+    confirm_status: string | null;
+  } | null;
+  return {
+    status: "ok",
+    data: {
+      total: row?.customer_total_amount == null ? null : Number(row.customer_total_amount),
+      paid: Number(row?.customer_paid_amount ?? 0),
+      dpPaidAt: row?.customer_dp_paid_at ?? null,
+      settledAt: row?.customer_settled_at ?? null,
+      expedition: row?.expedition ?? null,
+      confirmStatus: row?.confirm_status ?? null,
+    },
+  };
+}
+
 type AuditRow = {
   id: number;
   action: string;
@@ -461,6 +499,7 @@ export default async function AdminOrderDetailPage({
     partnerBranchesResult,
     auditResult,
     customerLinkResult,
+    paymentResult,
   ] = await Promise.all([
     order.status === "CANCELLED"
       ? fetchCancelInfo(supabase, order.id)
@@ -494,6 +533,7 @@ export default async function AdminOrderDetailPage({
       .order("created_at", { ascending: false })
       .limit(100),
     fetchCustomerLink(supabase, order.id),
+    fetchCustomerPaymentCard(supabase, order.id),
   ]);
 
   // packageDetail dan invoiceUrl BENAR-BENAR bergantung pada hasil di atas
@@ -846,6 +886,28 @@ export default async function AdminOrderDetailPage({
           </>
         )}
       </div>
+
+      {/* Fitur D (0026) — lihat catatan tiga-keadaan di fetchCustomerPaymentCard. */}
+      {paymentResult.status === "ok" && (
+        <CustomerPaymentSection orderId={order.id} payment={paymentResult.data} />
+      )}
+      {paymentResult.status === "missing-column" && (
+        <div className="card">
+          <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.common.customerPaymentCardTitle}</h3>
+          <div className="emptybox">{m.admin.customerPaymentFeatureOff}</div>
+        </div>
+      )}
+      {paymentResult.status === "error" && (
+        <div className="card">
+          <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.common.customerPaymentCardTitle}</h3>
+          <div style={{ marginTop: 10 }}>
+            <span className="err">{m.common.errorSection}</span>{" "}
+            <Link href={`/admin/orders/${order.id}`} className="btn sm">
+              {m.common.retry}
+            </Link>
+          </div>
+        </div>
+      )}
 
       {itemsResult.unavailable ? (
         <div className="card">

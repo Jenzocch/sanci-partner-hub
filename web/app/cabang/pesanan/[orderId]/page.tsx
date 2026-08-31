@@ -22,6 +22,7 @@ import InvoiceSection from "./invoice-section";
 import OrderItemsSection, { type OrderItemRow } from "./order-items-section";
 import OrderProposalButton from "@/lib/order-proposal-button";
 import OfferSection from "./offer-section";
+import CustomerPaymentSection, { type PaymentCardData } from "./customer-payment-section";
 
 export const dynamic = "force-dynamic";
 
@@ -209,6 +210,51 @@ async function fetchCustomerLink(
   const row = data as { customer_view_token: string | null; delivered_at: string | null } | null;
   if (!row?.customer_view_token) return { status: "missing-column" };
   return { status: "ok", token: row.customer_view_token, deliveredAt: row.delivered_at };
+}
+
+/**
+ * Fitur D (migrasi 0026) — kolom pembayaran pelanggan pada partner_orders,
+ * dibaca TERPISAH dari query utama (LESSONS #12: menambah kolom ini ke
+ * SELECT utama akan 42703-gagalkan SELURUH halaman selama 0026 belum
+ * jalan). TIGA keadaan (bukan dua, LESSONS #10): "missing-column" = migrasi
+ * memang belum jalan (kartu tampil "fitur belum aktif", bukan hilang begitu
+ * saja); "error" = query GAGAL untuk sebab lain (kartu error + coba lagi);
+ * "ok" = data terbaca, termasuk kalau semua kolomnya masih null (pesanan
+ * belum dicatat pembayarannya — beda dari "gagal dimuat").
+ */
+type CustomerPaymentFetchState =
+  | { status: "ok"; data: PaymentCardData }
+  | { status: "missing-column" }
+  | { status: "error" };
+async function fetchCustomerPaymentCard(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string
+): Promise<CustomerPaymentFetchState> {
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select("customer_total_amount, customer_paid_amount, customer_dp_paid_at, customer_settled_at, expedition, confirm_status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
+  const row = data as {
+    customer_total_amount: number | string | null;
+    customer_paid_amount: number | string | null;
+    customer_dp_paid_at: string | null;
+    customer_settled_at: string | null;
+    expedition: string | null;
+    confirm_status: string | null;
+  } | null;
+  return {
+    status: "ok",
+    data: {
+      total: row?.customer_total_amount == null ? null : Number(row.customer_total_amount),
+      paid: Number(row?.customer_paid_amount ?? 0),
+      dpPaidAt: row?.customer_dp_paid_at ?? null,
+      settledAt: row?.customer_settled_at ?? null,
+      expedition: row?.expedition ?? null,
+      confirmStatus: row?.confirm_status ?? null,
+    },
+  };
 }
 
 /**
@@ -462,6 +508,7 @@ export default async function PesananDetailPage({
     offerData,
     currentPackageId,
     customerLinkResult,
+    paymentResult,
   ] = await Promise.all([
     fetchOrderExtras(supabase, order.id),
     // Staf untuk dropdown Sales/PIC diambil dari CABANG PESANAN (bisa beda dari
@@ -493,6 +540,7 @@ export default async function PesananDetailPage({
     // cabang lain — melihat isi package tidak mengubah apa pun.
     fetchOrderPackageId(supabase, order.id),
     fetchCustomerLink(supabase, order.id),
+    fetchCustomerPaymentCard(supabase, order.id),
   ]);
 
   const { extras, state: extrasState } = extrasResult;
@@ -687,6 +735,23 @@ export default async function PesananDetailPage({
             canDiscount={canEditBranch && offerFlags.canDiscount}
             offer={offerData}
           />
+        )}
+
+        {/* Fitur D (0026) — lihat catatan tiga-keadaan di fetchCustomerPaymentCard. */}
+        {paymentResult.status === "ok" && (
+          <CustomerPaymentSection orderId={order.id} payment={paymentResult.data} canManage={canManage} />
+        )}
+        {paymentResult.status === "missing-column" && (
+          <div className="card">
+            <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.common.customerPaymentCardTitle}</h3>
+            <div className="banner warn">{m.cabang.errFeatureInactive}</div>
+          </div>
+        )}
+        {paymentResult.status === "error" && (
+          <div className="card">
+            <h3 style={{ fontSize: 17, marginBottom: 4 }}>{m.common.customerPaymentCardTitle}</h3>
+            <div className="err">{m.common.errorSection}</div>
+          </div>
         )}
 
         {/* Kartu "Link untuk Pelanggan" — hanya untuk pesanan yang MASIH

@@ -81,6 +81,15 @@ export interface SanciProductRow {
   photo_url: string | null;
   stock_status: StockStatus;
   status: ProductStatus;
+  /**
+   * Fitur B (migrasi 0025) — apakah produk ini punya pilihan warna (dipilih
+   * lewat product_colors, Fitur A/C). OPSIONAL secara TIPE: kolomnya bisa
+   * belum ada di database (LESSONS #12) — setiap SELECT yang membacanya
+   * WAJIB fallback wide/narrow (lihat app/admin/catalog-actions.ts /
+   * app/admin/produk/page.tsx), dan pemanggil yang tidak memintanya (mis.
+   * grid /cabang/produk) memang tidak pernah mengisi field ini sama sekali.
+   */
+  has_color_options?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -1113,3 +1113,136 @@ export async function sendCustomerLinkViaCompanyAdmin(
   if (!result.ok) return { error: { message: result.error } };
   return { data: { detail: result.detail } };
 }
+
+/* ------------------------------------------------------------------ *
+ * Fitur D (admin) — kartu "Pembayaran Pelanggan" (partner_orders.customer_
+ * total_amount/customer_paid_amount/customer_dp_paid_at/customer_settled_at/
+ * expedition/confirm_status, migrasi 0026). Mirror kembarannya di
+ * app/cabang/pesanan/actions.ts (SENGAJA action terpisah — doktrin di
+ * kepala app/admin/proposal/actions.ts). Rumus status: lib/payment-shared.ts.
+ * ------------------------------------------------------------------ */
+
+export type CustomerPaymentSnapshot = {
+  total: number | null;
+  paid: number;
+  dpPaidAt: string | null;
+  /** Server-stamped oleh trigger DB (LESSONS #11) — TAMPIL saja, tidak pernah ditulis dari sini. */
+  settledAt: string | null;
+  expedition: string | null;
+  confirmStatus: string | null;
+};
+
+const PAYMENT_COLS =
+  "customer_total_amount, customer_paid_amount, customer_dp_paid_at, customer_settled_at, expedition, confirm_status";
+
+type PaymentRowRaw = {
+  customer_total_amount: number | string | null;
+  customer_paid_amount: number | string | null;
+  customer_dp_paid_at: string | null;
+  customer_settled_at: string | null;
+  expedition: string | null;
+  confirm_status: string | null;
+};
+
+function toPaymentSnapshot(row: PaymentRowRaw): CustomerPaymentSnapshot {
+  return {
+    total: row.customer_total_amount == null ? null : Number(row.customer_total_amount),
+    paid: Number(row.customer_paid_amount ?? 0),
+    dpPaidAt: row.customer_dp_paid_at,
+    settledAt: row.customer_settled_at,
+    expedition: row.expedition,
+    confirmStatus: row.confirm_status,
+  };
+}
+
+/** Baca nilai pembayaran BERLAKU SEKARANG — dipakai modal Ubah setiap kali
+ *  dibuka (pola sama dengan getOrderOffer: prop halaman hanya potret render
+ *  pertama, LESSONS #7). Gerbangnya RLS admin-all pada partner_orders. */
+export type CustomerPaymentLoadOutcome =
+  | { status: "ok"; data: CustomerPaymentSnapshot }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+export async function getCustomerPaymentAdmin(orderId: string): Promise<CustomerPaymentLoadOutcome> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select(PAYMENT_COLS)
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) {
+    return isMissingColumnError(error.code) ? { status: "unavailable" } : { status: "error" };
+  }
+  if (!data) return { status: "error" };
+  return { status: "ok", data: toPaymentSnapshot(data as PaymentRowRaw) };
+}
+
+const MAX_PAYMENT_AMOUNT = 99_999_999_999_999;
+const MAX_EXPEDITION_LEN = 120;
+const MAX_CONFIRM_STATUS_LEN = 200;
+
+export async function setCustomerPaymentAdmin(
+  orderId: string,
+  totalRaw: string,
+  paidRaw: string,
+  dpDateRaw: string,
+  expeditionRaw: string,
+  confirmStatusRaw: string
+): Promise<ActionResult<CustomerPaymentSnapshot>> {
+  const m = await getAdminMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+
+  const gate = await requireAdminHere(supabase);
+  if (gate.status !== "ok") {
+    return {
+      error: { message: gate.status === "load-error" ? m.admin.userPermCheckFailed : m.admin.userNotAuthorized },
+    };
+  }
+
+  const totalTrimmed = totalRaw.trim();
+  const total = totalTrimmed === "" ? null : parseIDRInput(totalTrimmed);
+  if (totalTrimmed !== "" && (total === null || total > MAX_PAYMENT_AMOUNT)) {
+    return { error: { field: "customer_total_amount", message: m.admin.customerPaymentInvalidAmount } };
+  }
+  const paidTrimmed = paidRaw.trim();
+  const paid = paidTrimmed === "" ? 0 : parseIDRInput(paidTrimmed);
+  if (paid === null || paid > MAX_PAYMENT_AMOUNT) {
+    return { error: { field: "customer_paid_amount", message: m.admin.customerPaymentInvalidAmount } };
+  }
+  const dpDateTrimmed = dpDateRaw.trim();
+  if (dpDateTrimmed !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(dpDateTrimmed)) {
+    return { error: { field: "customer_dp_paid_at", message: m.admin.customerPaymentInvalidDate } };
+  }
+  const dpDate = dpDateTrimmed === "" ? null : dpDateTrimmed;
+  const expedition = expeditionRaw.trim().slice(0, MAX_EXPEDITION_LEN) || null;
+  const confirmStatus = confirmStatusRaw.trim().slice(0, MAX_CONFIRM_STATUS_LEN) || null;
+
+  const written = await safeWrite(
+    supabase
+      .from("partner_orders")
+      .update({
+        customer_total_amount: total,
+        customer_paid_amount: paid,
+        customer_dp_paid_at: dpDate,
+        expedition,
+        confirm_status: confirmStatus,
+        // customer_settled_at SENGAJA TIDAK dikirim — server-stamped oleh
+        // trigger DB (LESSONS #11).
+      })
+      .eq("id", orderId)
+      .select(PAYMENT_COLS)
+      .single()
+  );
+  if (!written.ok) {
+    if (written.reason === "unconfirmed") return { error: { message: PESAN.belumPastiUbah } };
+    if (isMissingColumnError(written.code)) return { error: { message: m.admin.customerPaymentFeatureOff } };
+    if (written.detail === "no row returned" || written.code === "42501") {
+      return { error: { message: m.admin.orderNotFound } };
+    }
+    return { error: { message: PESAN.serverSibuk } };
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  return { data: toPaymentSnapshot(written.data as PaymentRowRaw) };
+}

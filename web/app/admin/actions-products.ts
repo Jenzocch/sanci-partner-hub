@@ -30,6 +30,16 @@ function isMissingTable(code: string | undefined): boolean {
   return code === "42P01";
 }
 
+/**
+ * `sanci_products.has_color_options` (Fitur B, migrasi 0025) BISA belum ada
+ * di database — kalau kolomnya belum ada, Postgres menjawab 42703
+ * (undefined_column), BUKAN 42P01 (tabel hilang). Pola sama dengan
+ * cabang/pesanan/actions.ts::isMissingColumnError.
+ */
+function isMissingColumn(code: string | undefined): boolean {
+  return code === "42703";
+}
+
 export async function createProduct(input: {
   name: string;
   code?: string;
@@ -168,6 +178,35 @@ export async function updateProduct(
     return { error: { message: PESAN.belumPastiUbah } };
   }
 
+  revalidatePath("/admin/produk");
+  return { data: true };
+}
+
+/**
+ * Fitur B (migrasi 0025) — "Produk ini punya pilihan warna". SENGAJA
+ * penulisan TERPISAH dari updateProduct di atas (bukan satu kolom tambahan
+ * di update() itu), pola yang sama dengan setProductBasePrice/setProductPhoto:
+ * kalau kolom ini digabung ke UPDATE utama, migrasi 0025 yang belum jalan
+ * akan membuat SELURUH penyimpanan produk gagal (42703 pada satu kolom
+ * menjatuhkan name/code/category/size yang sebetulnya sehat) — persis yang
+ * LESSONS #12 larang. Dipanggil pemanggil SETELAH updateProduct dipastikan
+ * sukses (lihat product-actions.tsx), best-effort seperti Harga Dasar SANCI.
+ */
+export async function setProductHasColorOptions(id: string, hasColorOptions: boolean): Promise<ActionResult<true>> {
+  const m = await getAdminMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+  const saved = await safeWrite(
+    supabase.from("sanci_products").update({ has_color_options: hasColorOptions }).eq("id", id).select("id").single()
+  );
+  if (!saved.ok) {
+    if (saved.reason === "db") {
+      if (isMissingTable(saved.code)) return { error: { message: m.admin.catalogMigrationMsg } };
+      if (isMissingColumn(saved.code)) return { error: { message: m.admin.productColorOptionFeatureOff } };
+      return { error: { message: PESAN.serverSibuk } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
   revalidatePath("/admin/produk");
   return { data: true };
 }

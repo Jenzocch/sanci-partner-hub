@@ -1851,3 +1851,188 @@ export async function sendCustomerLinkViaCompany(
   if (!result.ok) return { error: { message: result.error } };
   return { data: { detail: result.detail } };
 }
+
+/* ------------------------------------------------------------------ *
+ * Fitur C (cabang) — pemilih warna di modal Isi Pesanan.
+ *
+ * SENGAJA action TERSENDIRI dari kembarannya di app/admin/actions-colors.ts
+ * (listActiveColors) — doktrin di kepala app/admin/proposal/actions.ts: satu
+ * fungsi yang memilih gerbang dari argumen pemanggil adalah persis bentuk
+ * yang bisa dilewati dengan mengarang argumen. Di sini TIDAK ADA gerbang
+ * tambahan (LESSONS #5: RLS adalah batasnya) — pola sama dengan
+ * getOrderSummary di atas: sesi partner yang sedang login, RLS product_colors
+ * (baca-saja, authenticated) + sp_partner_read/fn_catalog_enabled pada
+ * sanci_products yang menegakkan visibilitas sebenarnya.
+ * ------------------------------------------------------------------ */
+
+export type ColorRow = { id: string; code: string; name: string | null; photo_url: string | null };
+
+export type ListActiveColorsOutcome =
+  | { status: "ok"; hasColorOptions: boolean; colors: ColorRow[] }
+  /** Migrasi 0025 belum jalan — turun diam-diam ke input teks bebas, TANPA catatan (LESSONS #12). */
+  | { status: "unavailable" }
+  /** Kolom/tabel ADA tapi query gagal — catatan kecil, bukan "produk ini tidak punya warna" (LESSONS #10). */
+  | { status: "error" };
+
+export async function listActiveColorsCabang(productId: string): Promise<ListActiveColorsOutcome> {
+  const supabase = await createClient();
+
+  const { data: product, error: productError } = await supabase
+    .from("sanci_products")
+    .select("has_color_options")
+    .eq("id", productId)
+    .maybeSingle();
+  if (productError) {
+    return isMissingColumnError(productError) ? { status: "unavailable" } : { status: "error" };
+  }
+  const hasColorOptions = (product as { has_color_options: boolean | null } | null)?.has_color_options ?? false;
+  if (!hasColorOptions) return { status: "ok", hasColorOptions: false, colors: [] };
+
+  const { data: colors, error: colorsError } = await supabase
+    .from("product_colors")
+    .select("id, code, name, photo_url")
+    .eq("status", "ACTIVE")
+    .order("sort_order")
+    .order("code");
+  if (colorsError) {
+    return isMissingTableError(colorsError) ? { status: "unavailable" } : { status: "error" };
+  }
+
+  return { status: "ok", hasColorOptions: true, colors: (colors ?? []) as ColorRow[] };
+}
+
+/* ------------------------------------------------------------------ *
+ * Fitur D (cabang) — kartu "Pembayaran Pelanggan" (partner_orders.customer_
+ * total_amount/customer_paid_amount/customer_dp_paid_at/customer_settled_at/
+ * expedition/confirm_status, migrasi 0026). Rumus status ada di
+ * lib/payment-shared.ts (satu-satunya sumber kebenaran, dipakai kartu DAN
+ * modal ubah).
+ * ------------------------------------------------------------------ */
+
+export type CustomerPaymentSnapshot = {
+  total: number | null;
+  paid: number;
+  dpPaidAt: string | null;
+  /** Server-stamped oleh trigger DB (LESSONS #11) — TAMPIL saja, tidak pernah ditulis dari sini. */
+  settledAt: string | null;
+  expedition: string | null;
+  confirmStatus: string | null;
+};
+
+const PAYMENT_COLS =
+  "customer_total_amount, customer_paid_amount, customer_dp_paid_at, customer_settled_at, expedition, confirm_status";
+
+type PaymentRowRaw = {
+  customer_total_amount: number | string | null;
+  customer_paid_amount: number | string | null;
+  customer_dp_paid_at: string | null;
+  customer_settled_at: string | null;
+  expedition: string | null;
+  confirm_status: string | null;
+};
+
+function toPaymentSnapshot(row: PaymentRowRaw): CustomerPaymentSnapshot {
+  return {
+    total: row.customer_total_amount == null ? null : Number(row.customer_total_amount),
+    paid: Number(row.customer_paid_amount ?? 0),
+    dpPaidAt: row.customer_dp_paid_at,
+    settledAt: row.customer_settled_at,
+    expedition: row.expedition,
+    confirmStatus: row.confirm_status,
+  };
+}
+
+/**
+ * Baca nilai pembayaran pelanggan yang BERLAKU SEKARANG untuk satu pesanan —
+ * dipakai modal "Ubah Pembayaran" SETIAP KALI dibuka (pola sama dengan
+ * getOrderOffer sisi admin: propnya halaman hanya potret render pertama,
+ * angka uang wajib dimuat segar tiap pembukaan — LESSONS #7).
+ */
+export type CustomerPaymentLoadOutcome =
+  | { status: "ok"; data: CustomerPaymentSnapshot }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+export async function getCustomerPayment(orderId: string): Promise<CustomerPaymentLoadOutcome> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("partner_orders")
+    .select(PAYMENT_COLS)
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) {
+    return isMissingColumnError(error) ? { status: "unavailable" } : { status: "error" };
+  }
+  if (!data) return { status: "error" };
+  return { status: "ok", data: toPaymentSnapshot(data as PaymentRowRaw) };
+}
+
+const MAX_PAYMENT_AMOUNT = 99_999_999_999_999;
+const MAX_EXPEDITION_LEN = 120;
+const MAX_CONFIRM_STATUS_LEN = 200;
+
+export async function setCustomerPayment(
+  orderId: string,
+  totalRaw: string,
+  paidRaw: string,
+  dpDateRaw: string,
+  expeditionRaw: string,
+  confirmStatusRaw: string
+): Promise<ActionResult<CustomerPaymentSnapshot>> {
+  const m = await getCabangMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+  const idOutcome = await getIdentity(supabase);
+  if (idOutcome.status !== "ok") return { error: { message: identityErrorMessage(m, idOutcome) } };
+
+  const totalTrimmed = totalRaw.trim();
+  const total = totalTrimmed === "" ? null : parseIDRInput(totalTrimmed);
+  if (totalTrimmed !== "" && (total === null || total > MAX_PAYMENT_AMOUNT)) {
+    return { error: { field: "customer_total_amount", message: m.cabang.customerPaymentInvalidAmount } };
+  }
+  const paidTrimmed = paidRaw.trim();
+  const paid = paidTrimmed === "" ? 0 : parseIDRInput(paidTrimmed);
+  if (paid === null || paid > MAX_PAYMENT_AMOUNT) {
+    return { error: { field: "customer_paid_amount", message: m.cabang.customerPaymentInvalidAmount } };
+  }
+  const dpDateTrimmed = dpDateRaw.trim();
+  // <input type="date"> selalu mengirim "YYYY-MM-DD" atau string kosong —
+  // server tetap memvalidasi BENTUKNYA, tidak percaya begitu saja (LESSONS #6).
+  if (dpDateTrimmed !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(dpDateTrimmed)) {
+    return { error: { field: "customer_dp_paid_at", message: m.cabang.customerPaymentInvalidDate } };
+  }
+  const dpDate = dpDateTrimmed === "" ? null : dpDateTrimmed;
+  const expedition = expeditionRaw.trim().slice(0, MAX_EXPEDITION_LEN) || null;
+  const confirmStatus = confirmStatusRaw.trim().slice(0, MAX_CONFIRM_STATUS_LEN) || null;
+
+  const written = await safeWrite(
+    supabase
+      .from("partner_orders")
+      .update({
+        customer_total_amount: total,
+        customer_paid_amount: paid,
+        customer_dp_paid_at: dpDate,
+        expedition,
+        confirm_status: confirmStatus,
+        // customer_settled_at SENGAJA TIDAK dikirim — server-stamped oleh
+        // trigger DB (LESSONS #11); nilai apa pun dari sini akan ditimpa.
+      })
+      .eq("id", orderId)
+      .select(PAYMENT_COLS)
+      .single()
+  );
+  if (!written.ok) {
+    if (written.reason === "unconfirmed") return { error: { message: PESAN.belumPastiUbah } };
+    if (isMissingColumnError({ code: written.code })) return { error: { message: m.cabang.errFeatureInactive } };
+    // RLS UPDATE (row invisible under USING) → "no row returned" lewat
+    // safeWrite; RLS WITH CHECK gagal → 42501 (insufficient_privilege) —
+    // sama pola dengan setOrderOfferBranch.
+    if (written.detail === "no row returned" || written.code === "42501") {
+      return { error: { message: m.cabang.customerPaymentNoPermissionEdit } };
+    }
+    return { error: { message: PESAN.serverSibuk } };
+  }
+
+  revalidatePath(`/cabang/pesanan/${orderId}`);
+  return { data: toPaymentSnapshot(written.data as PaymentRowRaw) };
+}

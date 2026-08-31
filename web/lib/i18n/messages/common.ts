@@ -490,6 +490,22 @@ const id = {
   calcPhotoViewAria: "Perbesar foto {name}",
   calcFooterItemCount: "{n} barang",
   calcFooterAria: "{n} barang, total {amount} — ketuk untuk buka keranjang",
+
+  // Fitur D (migrasi 0026) — kartu "Pembayaran Pelanggan", dipakai sisi
+  // cabang DAN admin (satu kartu, dua Server Action — lihat lib/payment-shared.ts).
+  customerPaymentCardTitle: "Pembayaran Pelanggan",
+  customerPaymentTotal: "Total",
+  customerPaymentPaid: "Sudah Dibayar",
+  customerPaymentRemaining: "Sisa",
+  customerPaymentStatus: "Status Pembayaran",
+  customerPaymentStatusUnknown: "Belum dicatat",
+  customerPaymentStatusBelum: "Belum Bayar",
+  customerPaymentStatusDp: "DP",
+  customerPaymentStatusLunas: "Lunas",
+  customerPaymentDpDate: "Tgl DP",
+  customerPaymentSettledDate: "Tgl Lunas",
+  expeditionLabel: "Ekspedisi",
+  confirmStatusLabel: "Status Konfirmasi",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -853,6 +869,20 @@ const en = {
   calcPhotoViewAria: "Enlarge photo of {name}",
   calcFooterItemCount: "{n} items",
   calcFooterAria: "{n} items, total {amount} — tap to open the cart",
+
+  customerPaymentCardTitle: "Customer Payment",
+  customerPaymentTotal: "Total",
+  customerPaymentPaid: "Amount Paid",
+  customerPaymentRemaining: "Remaining",
+  customerPaymentStatus: "Payment Status",
+  customerPaymentStatusUnknown: "Not recorded yet",
+  customerPaymentStatusBelum: "Not Paid",
+  customerPaymentStatusDp: "Down Payment",
+  customerPaymentStatusLunas: "Paid Off",
+  customerPaymentDpDate: "DP Date",
+  customerPaymentSettledDate: "Paid-off Date",
+  expeditionLabel: "Expedition",
+  confirmStatusLabel: "Confirm Status",
 } satisfies Shape;
 
 const zh = {
@@ -1205,6 +1235,20 @@ const zh = {
   calcPhotoViewAria: "放大{name}的照片",
   calcFooterItemCount: "{n}件",
   calcFooterAria: "{n}件,总计{amount} —— 点击打开购物车",
+
+  customerPaymentCardTitle: "客户付款",
+  customerPaymentTotal: "总额",
+  customerPaymentPaid: "已付款",
+  customerPaymentRemaining: "剩余",
+  customerPaymentStatus: "付款状态",
+  customerPaymentStatusUnknown: "尚未记录",
+  customerPaymentStatusBelum: "未付款",
+  customerPaymentStatusDp: "订金",
+  customerPaymentStatusLunas: "已付清",
+  customerPaymentDpDate: "订金日期",
+  customerPaymentSettledDate: "付清日期",
+  expeditionLabel: "物流",
+  confirmStatusLabel: "确认状态",
 } satisfies Shape;
 
 export const common = { id, en, zh };

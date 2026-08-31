@@ -7,6 +7,7 @@ import { submitSafely } from "@/lib/safe-write";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import { getOrderItem, addOrderItem, updateOrderItem, deleteOrderItem } from "../../actions-orders";
+import { listActiveColors, type ColorRow } from "../../actions-colors";
 
 export type OrderItemRow = {
   id: string;
@@ -164,6 +165,20 @@ function ItemModal({
     itemId ? { status: "loading" } : { status: "ready", row: null }
   );
 
+  // Fitur C — pemilih warna. `colorText` adalah SUMBER KEBENARAN tunggal
+  // untuk kolom color_code (tetap input teks bebas yang sama seperti
+  // sebelumnya, name="color_code" tidak berubah — server action tidak
+  // berubah); <select> di bawah HANYA mengetikkan kode ke sini, bukan
+  // pengganti input. Kegagalan/migrasi belum jalan/produk tanpa pilihan
+  // warna semuanya turun ke `status:"idle"` — TANPA catatan, silent
+  // fallback (pola prefill fetchEffectivePrices, LESSONS #12); hanya
+  // kegagalan SUNGGUHAN ("error") yang menampilkan catatan kecil (LESSONS
+  // #10: beda "produk ini tidak punya warna" dari "gagal memuat warna").
+  const [colorText, setColorText] = useState("");
+  const [colorLoad, setColorLoad] = useState<
+    { status: "idle" } | { status: "error" } | { status: "ready"; colors: ColorRow[] }
+  >({ status: "idle" });
+
   // "Coba Lagi" bisa ditekan dua kali; hanya pemuatan TERBARU yang boleh
   // menulis state, supaya respons lama tidak mendarat belakangan dan
   // menampilkan keadaan yang sudah tidak berlaku.
@@ -190,6 +205,44 @@ function ItemModal({
   useEffect(() => {
     void loadFresh();
   }, [loadFresh]);
+
+  // Sinkron colorText dari baris yang baru dimuat/dibuat — SEKALI per
+  // pemuatan (transisi `load`), bukan tiap render, supaya ketikan pengguna
+  // di dalam modal tidak ditimpa ulang oleh state loadnya sendiri.
+  useEffect(() => {
+    if (load.status === "ready") setColorText(load.row?.color_code ?? "");
+  }, [load]);
+
+  // Muat daftar warna aktif HANYA kalau baris punya product_id (modus Ubah;
+  // modus Tambah selalu ketik manual, tidak ada product_id untuk dicek) —
+  // dimuat malas begitu baris siap, bukan saat modal dibuka (product_id
+  // belum diketahui sebelum itu).
+  const productId = load.status === "ready" ? load.row?.product_id ?? null : null;
+  useEffect(() => {
+    if (!productId) {
+      setColorLoad({ status: "idle" });
+      return;
+    }
+    let alive = true;
+    listActiveColors(productId)
+      .then((res) => {
+        if (!alive) return;
+        if (res.status !== "ok" || !res.hasColorOptions || res.colors.length === 0) {
+          setColorLoad({ status: res.status === "error" ? "error" : "idle" });
+          return;
+        }
+        setColorLoad({ status: "ready", colors: res.colors });
+      })
+      .catch(() => {
+        if (alive) setColorLoad({ status: "error" });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [productId]);
+
+  const selectedColor =
+    colorLoad.status === "ready" ? colorLoad.colors.find((c) => c.code === colorText) : undefined;
 
   function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
     const n = parseIDRInput(e.target.value);
@@ -342,7 +395,33 @@ function ItemModal({
             </div>
             <div className="field">
               <label htmlFor="oi_color">{m.admin.orderItemColorFieldLabel}</label>
-              <input id="oi_color" name="color_code" type="text" defaultValue={fresh?.color_code ?? ""} />
+              {colorLoad.status === "ready" && (
+                <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 6 }}>
+                  <select
+                    value={colorLoad.colors.some((c) => c.code === colorText) ? colorText : ""}
+                    onChange={(e) => setColorText(e.target.value)}
+                    style={{ flex: 1 }}
+                    aria-label={m.admin.orderItemColorPickerAria}
+                  >
+                    <option value="">{m.admin.orderItemColorPickerPlaceholder}</option>
+                    {colorLoad.colors.map((c) => (
+                      <option key={c.id} value={c.code}>
+                        {c.name ? `${c.code} — ${c.name}` : c.code}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedColor?.photo_url && (
+                    // eslint-disable-next-line @next/next/no-img-element -- lihat catatan di lib/catalog-shared.ts
+                    <img
+                      src={selectedColor.photo_url}
+                      alt=""
+                      style={{ width: 28, height: 28, borderRadius: "var(--r-sm)", objectFit: "cover", border: "1px solid var(--line)", flex: "none" }}
+                    />
+                  )}
+                </div>
+              )}
+              <input id="oi_color" name="color_code" type="text" value={colorText} onChange={(e) => setColorText(e.target.value)} />
+              {colorLoad.status === "error" && <div className="hint">{m.admin.orderItemColorLoadFailedNote}</div>}
             </div>
             <div className="field">
               <label htmlFor="oi_size">{m.admin.orderItemSizeFieldLabel}</label>

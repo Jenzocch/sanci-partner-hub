@@ -147,6 +147,8 @@ export type AdminProdukRow = {
    * kolom ini hanya untuk tampilan kartu.
    */
   display_price?: number | null;
+  /** Fitur B (migrasi 0025) — lihat catatan opsional di lib/catalog-shared.ts. */
+  has_color_options?: boolean;
 };
 
 export type AdminProdukPageInput = CatalogPageInput & { stock?: "ALL" | StockStatus };
@@ -155,6 +157,34 @@ export type AdminProdukPageOutcome =
   | { status: "ok"; products: AdminProdukRow[]; hasMore: boolean }
   | { status: "module_inactive" }
   | { status: "error" };
+
+const PRODUK_COLS_NARROW = "id, name, code, category, description, size, photo_url, stock_status, status";
+// Fitur B (0025) — has_color_options ditambahkan lewat select LEBAR
+// terpisah, BUKAN ditulis permanen di PRODUK_COLS_NARROW: kolomnya bisa
+// belum ada (LESSONS #12), dan 42703 pada satu kolom TIDAK BOLEH menjatuhkan
+// seluruh pencarian /admin/produk (yang sudah berjalan sebelum 0025 ada).
+const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options`;
+
+function isMissingColumnErr(err: { code?: string } | null): boolean {
+  return !!err && err.code === "42703";
+}
+
+function buildProdukQuery(
+  supabase: SupabaseServerClient,
+  selectCols: string,
+  norm: ReturnType<typeof normalizeCatalogPageInput>,
+  stock: "ALL" | StockStatus
+) {
+  let query = supabase.from("sanci_products").select(selectCols);
+  // Pencarian layar ini meniru memo lamanya: nama ATAU kode saja (placeholder
+  // admin memang lebih sempit dari versi cabang — lihat catatan di common.ts).
+  const orFilter = catalogIlikeOrFilter(norm.q, ["name", "code"]);
+  if (orFilter) query = query.or(orFilter);
+  if (norm.category) query = query.eq("category", norm.category);
+  if (stock !== "ALL") query = query.eq("stock_status", stock);
+  const range = catalogPageRange(norm.offset);
+  return query.order("name").order("id").range(range.from, range.to);
+}
 
 export async function getProdukPageAdmin(input: AdminProdukPageInput): Promise<AdminProdukPageOutcome> {
   const supabase = await createClient();
@@ -166,25 +196,19 @@ export async function getProdukPageAdmin(input: AdminProdukPageInput): Promise<A
       ? input.stock
       : "ALL";
 
-  let query = supabase
-    .from("sanci_products")
-    .select("id, name, code, category, description, size, photo_url, stock_status, status");
-  // Pencarian layar ini meniru memo lamanya: nama ATAU kode saja (placeholder
-  // admin memang lebih sempit dari versi cabang — lihat catatan di common.ts).
-  const orFilter = catalogIlikeOrFilter(norm.q, ["name", "code"]);
-  if (orFilter) query = query.or(orFilter);
-  if (norm.category) query = query.eq("category", norm.category);
-  if (stock !== "ALL") query = query.eq("stock_status", stock);
-  const range = catalogPageRange(norm.offset);
-  const { data: products, error } = await query
-    .order("name")
-    .order("id")
-    .range(range.from, range.to);
+  let { data: products, error } = await buildProdukQuery(supabase, PRODUK_COLS_WIDE, norm, stock);
+  if (error && isMissingColumnErr(error)) {
+    ({ data: products, error } = await buildProdukQuery(supabase, PRODUK_COLS_NARROW, norm, stock));
+  }
   if (error) {
     return isMissingTableError(error) ? { status: "module_inactive" } : { status: "error" };
   }
 
-  const page = finishCatalogPage((products ?? []) as AdminProdukRow[]);
+  // `selectCols` di buildProdukQuery adalah `string` biasa (bukan literal
+  // template) — supabase-js jatuh ke overload generik yang tidak bisa
+  // menyimpulkan bentuk baris dari sana. `unknown` dulu supaya konversi ke
+  // AdminProdukRow[] eksplisit, bukan dianggap kekeliruan tipe.
+  const page = finishCatalogPage((products ?? []) as unknown as AdminProdukRow[]);
   return {
     status: "ok",
     products: await attachDisplayPrices(supabase, page.products, null),

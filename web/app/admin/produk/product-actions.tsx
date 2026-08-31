@@ -12,6 +12,7 @@ import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import {
   getProductBasePrice,
   setProductBasePrice,
+  setProductHasColorOptions,
   setProductStatus,
   setProductStockStatus,
   updateProduct,
@@ -157,6 +158,18 @@ export default function ProductActions({
       const priceRes = await setProductBasePrice(product.id, basePrice.value);
       if ("error" in priceRes) setPriceMsg(m.admin.productBasePriceSaveFailed);
       else onSaved({ display_price: parseIDRInput(basePrice.value) }); // harga kartu ikut nilai tersimpan
+    }
+
+    // Fitur B (0025) — "Produk ini punya pilihan warna". Penulisan TERPISAH
+    // dari updateProduct di atas (lihat catatan setProductHasColorOptions):
+    // hanya ditulis kalau nilainya MEMANG berubah, dan kegagalannya cuma
+    // peringatan (best-effort, sama pola dengan Harga Dasar SANCI) — tidak
+    // membatalkan data produk yang sudah tersimpan.
+    const hasColorOptions = fd.get("has_color_options") === "on";
+    if (hasColorOptions !== (product.has_color_options ?? false)) {
+      const colorRes = await setProductHasColorOptions(product.id, hasColorOptions);
+      if ("error" in colorRes) setPriceMsg(colorRes.error.message);
+      else onSaved({ has_color_options: hasColorOptions });
     }
 
     // Foto diurus PALING AKHIR, sesudah data produk dipastikan tersimpan
@@ -311,6 +324,20 @@ export default function ProductActions({
                   defaultValue={product.size || ""}
                 />
                 <div className="hint">{m.admin.productSizeFieldHint}</div>
+              </div>
+              {/* Fitur B (0025). Prefill dari baris daftar AMAN sama alasannya
+                  dengan size di atas: onSaved({ has_color_options }) di atas
+                  menjaga baris daftar tetap segar (LESSONS #45). */}
+              <div className="field">
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+                  <input
+                    type="checkbox"
+                    name="has_color_options"
+                    defaultChecked={product.has_color_options ?? false}
+                  />
+                  {m.admin.productHasColorOptionsLabel}
+                </label>
+                <div className="hint">{m.admin.productHasColorOptionsHint}</div>
               </div>
               <div className="field">
                 <label htmlFor={`ep_desc_${product.id}`}>{m.common.description}</label>

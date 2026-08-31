@@ -15,12 +15,13 @@
  * Yang skrip ini TIDAK lakukan (disengaja, lihat README.md):
  *   - Tidak pernah menulis balik ke sistem. Suntingan di lembar TIDAK naik.
  *   - Tidak pernah menghapus baris. Pesanan batal hanya berubah statusnya.
- *   - Tidak pernah menyentuh kolom U dan seterusnya — itu milik catatan manual
- *     (batas ini bergeser dari L → O → T → U → AF seiring migrasi 0014/0015/0020 dan
- *     penambahan arsip 2026-08-31 menambah kolom, lihat README.md §2
+ *   - Tidak pernah menyentuh kolom setelah Diubah — itu milik catatan manual
+ *     (batas ini bergeser dari L → O → T → U → AF → AO seiring migrasi
+ *     0014/0015/0020, penambahan arsip 2026-08-31, dan data pembayaran
+ *     pelanggan + PIC 2026-08-31 (babak kedua), lihat README.md §2
  *     "⚠️ Perubahan cakupan kolom").
- *   - Tab "Item Pesanan" dan "Pelanggan" adalah ARSIP: ditulis ULANG penuh
- *     tiap run, jadi JANGAN menulis catatan apa pun di kedua tab itu.
+ *   - Tab "Item Pesanan", "Pelanggan", dan "Warna" adalah ARSIP: ditulis ULANG
+ *     penuh tiap run, jadi JANGAN menulis catatan apa pun di tab-tab itu.
  */
 
 // ── Konfigurasi tetap ───────────────────────────────────────
@@ -31,18 +32,19 @@ var TRIGGER_HANDLER = 'syncNow';   // nama fungsi yang dipasang time-driven
 var TRIGGER_EVERY_MINUTES = 15;
 
 /**
- * Kolom A..T (migrasi 0020 — sebelumnya A..S sejak 0015, A..N sejak 0014,
- * lihat README.md §2/§8 untuk penjelasan kenapa kontraknya terus berubah).
- * Jangan mengubah URUTAN tanpa mengubah buildRow_(). B ("No. PO Pelanggan")
- * adalah kolom BARU 0020, sengaja diletakkan TEPAT SETELAH Nomor Pesanan
- * (bukan di ujung sebelum Dibuat/Diubah seperti 0014/0015) karena kedua nomor
- * ini dibaca berdampingan; ini menggeser SEMUA kolom C dan seterusnya satu
- * huruf ke kanan dibanding versi sebelumnya — README.md §"⚠️ Perubahan
- * cakupan kolom" menjelaskan kenapa pergeseran ini tidak berbeda risikonya
- * dari penambahan di ujung (headerMatches_ menolak SELURUH tab lama sama
- * saja, apa pun posisi kolom barunya). Kolom SETELAH Diubah (U dan
- * seterusnya) tetap milik catatan manual pengguna, tidak pernah disentuh
- * skrip ini (lihat COL_COUNT di bawah).
+ * Kolom A..AN (data pembayaran pelanggan + PIC, 2026-08-31 babak kedua —
+ * sebelumnya A..AE sejak arsip 2026-08-31 babak pertama, A..T sejak 0020,
+ * A..S sejak 0015, A..N sejak 0014; lihat README.md §2/§8 untuk penjelasan
+ * kenapa kontraknya terus berubah). Jangan mengubah URUTAN tanpa mengubah
+ * buildRow_(). Kali ini SENGAJA ditambah di UJUNG (APPEND-ONLY): 9 kolom baru
+ * disisipkan SETELAH 'Alasan Batal' dan SEBELUM 'Dibuat', jadi A..AC persis
+ * sama seperti sebelumnya dan hanya Dibuat/Diubah yang bergeser (dari AD/AE
+ * ke AM/AN) — berbeda dari 0020 (B) yang menyisipkan di TENGAH. Baik
+ * penambahan di ujung maupun di tengah sama-sama membuat headerMatches_
+ * menolak SELURUH tab lama (kecocokannya posisi demi posisi), jadi risikonya
+ * tidak berbeda — README.md §"⚠️ Perubahan cakupan kolom" menjelaskannya.
+ * Kolom SETELAH Diubah (AO dan seterusnya) tetap milik catatan manual
+ * pengguna, tidak pernah disentuh skrip ini (lihat COL_COUNT di bawah).
  */
 var HEADERS = [
   'Nomor Pesanan',
@@ -74,13 +76,28 @@ var HEADERS = [
   'Tgl Invoice',
   'Tgl Terima Pelanggan',
   'Alasan Batal',
+  // ── 9 kolom baru 2026-08-31 (babak kedua) — data pembayaran PELANGGAN
+  // (beda dari Uang Muka/Harga Akhir di atas yang mengalir dari Penawaran
+  // SANCI = uang antara SANCI dan PARTNER) plus Nama PIC dan info kirim.
+  // Kantor menyebut 'Nama PIC' sebagai "Nama Admin" — istilah lokal mereka,
+  // sumbernya tetap partner_pic_staff_id lewat peta staffNames yang sama
+  // dipakai untuk Nama Sales.
+  'Nama PIC',
+  'Total Pelanggan (IDR)',
+  'Sudah Bayar (IDR)',
+  'Sisa Pelanggan (IDR)',
+  'Status Bayar',
+  'Tgl DP Pelanggan',
+  'Tgl Lunas',
+  'Ekspedisi',
+  'Status Confirm',
   'Dibuat',
   'Diubah'
 ];
-var COL_COUNT = HEADERS.length;    // 31
+var COL_COUNT = HEADERS.length;    // 40
 var KEY_COL = 1;                   // Nomor Pesanan ada di kolom A
-/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3, migrasi 0020: 3 → 4, arsip 2026-08-31: 4 → 5). */
-var HEADER_VERSION = 5;
+/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3, migrasi 0020: 3 → 4, arsip 2026-08-31 babak pertama: 4 → 5, data pembayaran pelanggan + PIC 2026-08-31 babak kedua: 5 → 6). */
+var HEADER_VERSION = 6;
 
 /** Nilai enum internal tetap Inggris di basis data; label mengikuti glosarium. */
 var STATUS_LABEL = {
@@ -163,6 +180,7 @@ function runSync_() {
   var coverage = docs.available
     ? fetchDoCoverage_(cfg, token, docs.doDocIds)
     : { covered: {}, available: false };
+  var colorsFetch = fetchProductColors_(cfg, token);   // {} kalau 0025 belum jalan
 
   var itemsByOrder = {};
   for (var it = 0; it < itemsFetch.rows.length; it++) {
@@ -239,6 +257,18 @@ function runSync_() {
     archiveFailed++;
     Logger.log('TAB "' + CUSTOMERS_TAB_NAME + '" GAGAL: ' + errCust);
   }
+  if (colorsFetch.available) {
+    try {
+      writeColorsTab_(ss, colorsFetch.rows);
+      archiveTabs++;
+    } catch (errColors) {
+      archiveFailed++;
+      Logger.log('TAB "' + COLORS_TAB_NAME + '" GAGAL: ' + errColors);
+    }
+  }
+  // colorsFetch.available === false: TIDAK dihitung sebagai archiveFailed —
+  // itu bukan kegagalan, hanya migrasi 0025 yang belum jalan (log sudah
+  // ditulis oleh fetchProductColors_ di atas).
 
   var seconds = ((new Date()).getTime() - startedAt.getTime()) / 1000;
   Logger.log('SANCI Sync selesai: ' + orders.length + ' pesanan, ' +
@@ -247,6 +277,7 @@ function runSync_() {
     'penawaran: ' + countKeys_(offers) + ' baris, ' +
     'dokumen: ' + (docs.available ? countKeys_(docs.byOrder) + ' pesanan berdokumen' : 'belum dimigrasikan') + ', ' +
     'item: ' + itemsFetch.rows.length + ' baris, ' +
+    'warna: ' + (colorsFetch.available ? colorsFetch.rows.length + ' baris' : 'belum dimigrasikan') + ', ' +
     'tab arsip: ' + archiveTabs + ' OK / ' + archiveFailed + ' gagal, ' +
     seconds.toFixed(1) + ' detik. Zona waktu lembar: ' + tz + '.');
 }
@@ -330,10 +361,16 @@ function restHeaders_(cfg, token, extra) {
  * kelak ditambahkan cukup didaftarkan di sini (LESSONS #12).
  */
 var OPTIONAL_ORDER_COLS = [
-  'customer_po',          // 0020
-  'shipping_address',     // 0014
-  'delivered_at',         // 0023
-  'cancellation_reason'   // 0005
+  'customer_po',              // 0020
+  'shipping_address',         // 0014
+  'delivered_at',             // 0023
+  'cancellation_reason',      // 0005
+  'customer_total_amount',    // 0026 — Total Pelanggan
+  'customer_paid_amount',     // 0026 — Sudah Bayar (default 0 begitu 0026 jalan)
+  'customer_dp_paid_at',      // 0026 — Tgl DP Pelanggan
+  'customer_settled_at',      // 0026 — Tgl Lunas
+  'expedition',                // 0026 — Ekspedisi
+  'confirm_status'             // 0026 — Status Confirm
 ];
 
 /** Kolom customers yang boleh hilang (customer_code: 0017/0018/0019). */
@@ -345,8 +382,11 @@ var OPTIONAL_CUSTOMER_COLS = ['customer_code'];
  * tidak ada.
  */
 function ordersSelect_(dropped) {
+  // partner_pic_staff_id (0004) selalu ada — BUKAN kolom opsional seperti
+  // yang di bawah, jadi ikut di select WAJIB, bukan lewat OPTIONAL_ORDER_COLS.
   var cols = ['id', 'order_number', 'package_name', 'status', 'fulfillment_path',
-    'partner_purchase_amount', 'partner_sales_staff_id', 'created_at', 'updated_at'];
+    'partner_purchase_amount', 'partner_sales_staff_id', 'partner_pic_staff_id',
+    'created_at', 'updated_at'];
   for (var i = 0; i < OPTIONAL_ORDER_COLS.length; i++) {
     var c = OPTIONAL_ORDER_COLS[i];
     if (!dropped[c]) cols.push(c);
@@ -938,6 +978,51 @@ function writeCustomersTab_(ss, orders) {
   writeArchiveTab_(ss, CUSTOMERS_TAB_NAME, CUSTOMERS_HEADERS, rows);
 }
 
+// ── Tab arsip: Warna ─────────────────────────────────────────
+//
+// KENAPA ADA (product_colors, migrasi 0025): tab "Item Pesanan" punya kolom
+// L "Warna" berisi KODE warna (mis. "C01"), bukan foto — menaruh URL foto di
+// setiap baris item akan menduplikasinya ke ribuan baris. Tab ini adalah
+// SUMBER lookup-nya: kantor memakai ARRAYFORMULA/VLOOKUP di tab "Item
+// Pesanan" untuk mencari nama & foto dari kode warna itu (contoh rumus ada
+// di README.md §"Warna"). Sama seperti "Item Pesanan"/"Pelanggan": ditulis
+// ULANG penuh tiap run, JANGAN menulis catatan apa pun di sini.
+
+var COLORS_TAB_NAME = 'Warna';
+var COLORS_HEADERS = ['Kode Warna', 'Nama', 'Foto (URL)', 'Status', 'Urutan'];
+var COLOR_STATUS_LABEL = { ACTIVE: 'Aktif', INACTIVE: 'Nonaktif' };
+
+/**
+ * product_colors (migrasi 0025) — SELURUH tabel, tidak per-partner. Kalau
+ * tabelnya belum ada (0025 belum dijalankan), `available` false dan tab
+ * "Warna" TIDAK dibuat/ditulis sama sekali (bukan dibuat kosong) — pola yang
+ * sama dengan fetchOrderItems_/fetchDocsByOrderId_ untuk kolom opsional.
+ */
+function fetchProductColors_(cfg, token) {
+  var res = fetchTableAll_(cfg, token, 'product_colors',
+    'id,code,name,photo_url,status,sort_order', 'sort_order.asc,code.asc');
+  if (res.status === 'missing-table') {
+    Logger.log('Tabel "product_colors" belum ada (migrasi 0025 belum dijalankan) — ' +
+      'tab "' + COLORS_TAB_NAME + '" dilewati (tidak dibuat/ditulis).');
+  }
+  return { rows: res.rows, available: res.status !== 'missing-table' };
+}
+
+function writeColorsTab_(ss, colors) {
+  var rows = [];
+  for (var i = 0; i < colors.length; i++) {
+    var c = colors[i];
+    rows.push([
+      c.code || '',
+      c.name || '',
+      c.photo_url || '',
+      COLOR_STATUS_LABEL[c.status] || c.status || '',
+      toNumberOrBlank_(c.sort_order)
+    ]);
+  }
+  writeArchiveTab_(ss, COLORS_TAB_NAME, COLORS_HEADERS, rows);
+}
+
 // ── Menulis satu tab partner ────────────────────────────────
 
 function writePartnerTab_(ss, partnerName, orders, ctx) {
@@ -982,8 +1067,8 @@ function writePartnerTab_(ss, partnerName, orders, ctx) {
       block.push(updates[next].values);
       next++;
     }
-    // HANYA kolom 1..COL_COUNT (A..T). Kolom U dan seterusnya — catatan manual
-    // yang ditulis orang di lembar ini — tidak pernah ikut tersentuh.
+    // HANYA kolom 1..COL_COUNT (A..AN). Kolom AO dan seterusnya — catatan
+    // manual yang ditulis orang di lembar ini — tidak pernah ikut tersentuh.
     sheet.getRange(startRow, 1, block.length, COL_COUNT).setValues(block);
     g = next;
   }
@@ -991,8 +1076,8 @@ function writePartnerTab_(ss, partnerName, orders, ctx) {
   // Ditambahkan tepat di bawah baris berkunci TERAKHIR, bukan di bawah
   // getLastRow(). Bedanya muncul kalau seseorang menulis catatan manual jauh di
   // bawah tabel: getLastRow() akan melompati lubang itu dan tabel pesanannya
-  // pecah menjadi dua bagian yang makin lama makin jauh. Kolom U dan seterusnya
-  // tetap tidak tersentuh — yang ditulis di sini hanya A..T.
+  // pecah menjadi dua bagian yang makin lama makin jauh. Kolom AO dan
+  // seterusnya tetap tidak tersentuh — yang ditulis di sini hanya A..AN.
   if (appends.length) {
     sheet.getRange(lastKeyRow + 1, 1, appends.length, COL_COUNT).setValues(appends);
   }
@@ -1004,18 +1089,21 @@ function writePartnerTab_(ss, partnerName, orders, ctx) {
  * Deteksi format lama (migrasi 0014 menambah 3 kolom, A..K → A..N; migrasi
  * 0015 menambah 5 kolom lagi, A..N → A..S; migrasi 0020 menyisipkan 1 kolom
  * BARU di posisi B, A..S → A..T, menggeser SEMUA kolom C dst satu huruf ke
- * kanan — README.md §2/§8 dulu menjanjikan "hanya menulis A..K" lalu
- * "hanya menulis A..N", janji-janji itu SENGAJA dilanggar berturut-turut
- * karena bentuk datanya sendiri berubah). Tab lama dengan header versi
- * MANAPUN sebelum yang sekarang (11/14/19 kolom, atau 20 kolom tapi urutan
- * lama) TIDAK ditimpa diam-diam — perbandingan HEADERS di bawah adalah
- * kecocokan PERSIS posisi demi posisi, jadi pergeseran satu huruf gara-gara
- * kolom baru disisipkan di tengah (bukan di ujung) tertangkap sama pastinya
- * dengan penambahan di ujung. Kalau ditimpa diam-diam, kolom lama (catatan
- * manual pengguna, dijamin README "tidak pernah disentuh") akan tertimpa
- * data yang salah tanpa peringatan. Lebih baik REFUSE dengan pesan jelas
- * daripada salah tulis (LESSONS #16 turunan: gagal dengan jelas lebih baik
- * daripada berhasil dengan salah).
+ * kanan; arsip 2026-08-31 babak pertama menambah 11 kolom, A..T → A..AE;
+ * data pembayaran pelanggan + PIC 2026-08-31 babak kedua menambah 9 kolom
+ * lagi SEBELUM Dibuat/Diubah, A..AE → A..AN — README.md §2/§8 dulu
+ * menjanjikan "hanya menulis A..K" lalu "hanya menulis A..N", janji-janji itu
+ * SENGAJA dilanggar berturut-turut karena bentuk datanya sendiri berubah).
+ * Tab lama dengan header versi MANAPUN sebelum yang sekarang (11/14/19/20/31
+ * kolom, atau kolom yang sama tapi urutan lama) TIDAK ditimpa diam-diam —
+ * perbandingan HEADERS di bawah adalah kecocokan PERSIS posisi demi posisi,
+ * jadi pergeseran satu huruf gara-gara kolom baru disisipkan di tengah
+ * (bukan di ujung) tertangkap sama pastinya dengan penambahan di ujung.
+ * Kalau ditimpa diam-diam, kolom lama (catatan manual pengguna, dijamin
+ * README "tidak pernah disentuh") akan tertimpa data yang salah tanpa
+ * peringatan. Lebih baik REFUSE dengan pesan jelas daripada salah tulis
+ * (LESSONS #16 turunan: gagal dengan jelas lebih baik daripada berhasil
+ * dengan salah).
  */
 function headerMatches_(sheet) {
   if (sheet.getLastRow() === 0) return true;   // tab kosong — aman ditulis header baru
@@ -1045,13 +1133,13 @@ function ensureSheet_(ss, partnerName) {
   if (!headerMatches_(sheet)) {
     throw new Error(
       'Format lama terdeteksi di tab "' + name + '" (header tidak cocok dengan versi ' +
-      'terbaru). Versi 2026-08-31 menambah 11 kolom: Kode Pelanggan, Nama Sales, Status Kirim, ' +
-      'No./Tgl SO, No./Tgl DO, No./Tgl Invoice, Tgl Terima Pelanggan, dan Alasan Batal — ' +
-      'jumlahnya menjadi 31 kolom (A..AE), sehingga catatan manual Anda sekarang mulai dari ' +
-      'kolom AF. Skrip ini TIDAK menimpa tab ini secara otomatis supaya catatan manual Anda di ' +
-      'kolom lama tidak salah tertulis. Ganti nama tab ini (mis. tambahkan " (lama)") atau ' +
-      'arsipkan ke lembar lain, lalu jalankan Sync sekarang lagi — tab baru dengan format ' +
-      'terbaru akan dibuat otomatis.'
+      'terbaru). Versi 2026-08-31 (babak kedua) menambah 9 kolom lagi setelah Alasan Batal: ' +
+      'Nama PIC, Total Pelanggan, Sudah Bayar, Sisa Pelanggan, Status Bayar, Tgl DP Pelanggan, ' +
+      'Tgl Lunas, Ekspedisi, dan Status Confirm — jumlahnya menjadi 40 kolom (A..AN), sehingga ' +
+      'catatan manual Anda sekarang mulai dari kolom AO. Skrip ini TIDAK menimpa tab ini secara ' +
+      'otomatis supaya catatan manual Anda di kolom lama tidak salah tertulis. Ganti nama tab ' +
+      'ini (mis. tambahkan " (lama)") atau arsipkan ke lembar lain, lalu jalankan Sync sekarang ' +
+      'lagi — tab baru dengan format terbaru akan dibuat otomatis.'
     );
   }
   return sheet;
@@ -1076,6 +1164,70 @@ function discountChainForSheet_(discountPcts) {
   return discountPcts.join('+');
 }
 
+/**
+ * ATURAN SEMANTIK UANG (berlaku di SELURUH skrip ini, bukan cuma fungsi di
+ * bawah): nilai uang yang NULL/tidak ada berarti KOSONG di sel, TIDAK PERNAH
+ * ditulis sebagai 0 — 0 hanya boleh muncul kalau memang itu nilai yang
+ * SUNGGUHAN tercatat (mis. promo Rp 0, atau DP yang benar-benar belum masuk
+ * padahal Total-nya sudah ada). Menulis 0 untuk "belum ada data" akan salah
+ * dibaca sebagai "tercatat 0", dan warehouse staff bisa mengambil keputusan
+ * dari angka yang sebenarnya tidak pernah ada. toNumberOrBlank_() sudah
+ * menjaga ini untuk kolom uang biasa; tiga fungsi di bawah menjaga hal yang
+ * sama untuk kolom Sudah Bayar/Sisa Pelanggan/Status Bayar yang punya
+ * kombinasi total+paid, bukan satu nilai tunggal.
+ */
+
+/**
+ * Sudah Bayar (IDR): customer_paid_amount — TAPI kosong (bukan 0) khusus
+ * ketika Total Pelanggan null/undefined DAN paid juga 0/kosong: itu artinya
+ * TIDAK ADA APA PUN yang tercatat untuk pesanan ini (mis. 0026 belum
+ * dijalankan, atau baru dibuat dan belum ada transaksi pelanggan), bukan
+ * "tercatat belum bayar". Begitu Total sudah ada nilainya (termasuk 0),
+ * paid=0 adalah nilai SUNGGUHAN (DP memang belum masuk) dan ditulis 0.
+ */
+function customerPaidForSheet_(total, paid) {
+  var totalMissing = total === null || total === undefined;
+  var paidNum = (paid === null || paid === undefined) ? 0 : Number(paid);
+  if (totalMissing && (paidNum === 0 || isNaN(paidNum))) return '';
+  return toNumberOrBlank_(paid);
+}
+
+/**
+ * Sisa Pelanggan (IDR) = Total Pelanggan − Sudah Bayar, angka MATI (dihitung
+ * di sini, bukan rumus lembar — sama alasannya dengan Total Baris di tab
+ * "Item Pesanan": rumus akan tertimpa tiap kali tab ditulis ulang/diperbarui).
+ * Kosong kalau Total-nya sendiri null/undefined — tidak ada Total berarti
+ * tidak ada "sisa" yang bisa dihitung sama sekali, beda dari Sudah Bayar yang
+ * masih boleh 0 walau Total kosong.
+ */
+function remainingCustomerForSheet_(total, paid) {
+  if (total === null || total === undefined) return '';
+  var t = Number(total);
+  if (isNaN(t)) return '';
+  var p = (paid === null || paid === undefined) ? 0 : Number(paid);
+  if (isNaN(p)) p = 0;
+  return t - p;
+}
+
+/**
+ * Status Bayar — MENCERMINKAN PERSIS formula kanonik di web/lib/payment-shared.ts
+ * (jangan menyimpang, ini satu-satunya definisi "lunas" yang boleh dipakai di
+ * mana pun sistem ini muncul): Total null/undefined → '' (belum ada apa pun
+ * yang bisa dinilai); paid ≥ total → 'Lunas' (termasuk total=0: promo yang
+ * totalnya memang 0 otomatis lunas); paid > 0 (tapi < total) → 'DP'; sisanya
+ * (paid = 0, total > 0) → 'Belum Bayar'.
+ */
+function customerPaymentStatusForSheet_(total, paid) {
+  if (total === null || total === undefined) return '';
+  var t = Number(total);
+  if (isNaN(t)) return '';
+  var p = (paid === null || paid === undefined) ? 0 : Number(paid);
+  if (isNaN(p)) p = 0;
+  if (p >= t) return 'Lunas';
+  if (p > 0) return 'DP';
+  return 'Belum Bayar';
+}
+
 function buildRow_(o, ctx) {
   var customer = pickOne_(o.customers);
   var branch = pickOne_(o.partner_branches);
@@ -1089,6 +1241,14 @@ function buildRow_(o, ctx) {
   var remaining = hasFinal ? Number(offer.final) - Number(offer.dp || 0) : '';
 
   var docs = (ctx.docsByOrder && ctx.docsByOrder[o.id]) || { SO: null, DO: null, INVOICE: null };
+
+  // Data pembayaran PELANGGAN (0026) — beda dari offer di atas (uang antara
+  // SANCI dan PARTNER): o.customer_total_amount/o.customer_paid_amount bisa
+  // `undefined` (0026 belum jalan) ATAU `null` (kolom ada, belum diisi);
+  // ketiga fungsi di atas memperlakukan keduanya sama, jadi tidak perlu
+  // dibedakan di sini.
+  var custTotal = o.customer_total_amount;
+  var custPaid = o.customer_paid_amount;
 
   return [
     o.order_number || '',
@@ -1123,6 +1283,15 @@ function buildRow_(o, ctx) {
     docLastDate_(docs.INVOICE),
     toDateOrBlank_(o.delivered_at),
     o.cancellation_reason || '',
+    (ctx.staffNames && ctx.staffNames[o.partner_pic_staff_id]) || '',
+    toNumberOrBlank_(custTotal),
+    customerPaidForSheet_(custTotal, custPaid),
+    remainingCustomerForSheet_(custTotal, custPaid),
+    customerPaymentStatusForSheet_(custTotal, custPaid),
+    toDateOrBlank_(o.customer_dp_paid_at),
+    toDateOrBlank_(o.customer_settled_at),
+    o.expedition || '',
+    o.confirm_status || '',
     toDateOrBlank_(o.created_at),
     toDateOrBlank_(o.updated_at)
   ];

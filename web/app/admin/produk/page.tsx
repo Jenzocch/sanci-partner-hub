@@ -10,6 +10,17 @@ export const dynamic = "force-dynamic";
 function isMissingTableErr(err: { code?: string } | null): boolean {
   return !!err && err.code === "42P01";
 }
+function isMissingColumnErr(err: { code?: string } | null): boolean {
+  return !!err && err.code === "42703";
+}
+
+// Fitur B (migrasi 0025) — has_color_options ditambahkan sebagai select
+// LEBAR terpisah dari select sempit di bawah: kolomnya bisa belum ada
+// (LESSONS #12), dan 42703 pada satu kolom TIDAK BOLEH menjatuhkan SELURUH
+// batch pertama halaman ini (yang sudah berjalan sebelum 0025 ada) — sama
+// pola dengan app/admin/catalog-actions.ts::getProdukPageAdmin.
+const PRODUK_COLS_NARROW = "id, name, code, category, description, size, photo_url, stock_status, status";
+const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options`;
 
 /**
  * /admin/produk — sejak 2026-08-26 pencarian & filter dieksekusi DATABASE
@@ -31,15 +42,32 @@ export default async function ProdukPage() {
   // Batch pertama + daftar kategori lengkap dalam satu gelombang (pola audit
   // kecepatan 2026-08-22 #6/#7). Kegagalan query kategori = dropdown kategori
   // tidak tampil (degradasi kosmetik, lihat fetchCatalogCategories).
-  const [{ data: products, error }, categories] = await Promise.all([
+  const [{ data: productsWide, error: errorWide }, categories] = await Promise.all([
     supabase
       .from("sanci_products")
-      .select("id, name, code, category, description, size, photo_url, stock_status, status")
+      .select(PRODUK_COLS_WIDE)
       .order("name")
       .order("id")
       .range(0, CATALOG_PAGE_SIZE),
     fetchCatalogCategories(supabase),
   ]);
+  // `PRODUK_COLS_WIDE`/`PRODUK_COLS_NARROW` adalah `string` biasa (bukan
+  // literal template), jadi kedua select di atas jatuh ke overload generik
+  // supabase-js — `unknown` di sini menyerap perbedaan bentuk baris antara
+  // percobaan lebar dan sempit sebelum di-cast eksplisit ke AdminProdukRow[]
+  // di bawah (`(products ?? []) as AdminProdukRow[]`).
+  let products: unknown = productsWide;
+  let error = errorWide;
+  if (error && isMissingColumnErr(error)) {
+    const narrow = await supabase
+      .from("sanci_products")
+      .select(PRODUK_COLS_NARROW)
+      .order("name")
+      .order("id")
+      .range(0, CATALOG_PAGE_SIZE);
+    products = narrow.data;
+    error = narrow.error;
+  }
 
   // sanci_products bisa saja belum ada (migrasi 0010 dijalankan terpisah dari
   // kode — LESSONS #12). Ini menggantikan SELURUH isi halaman, bukan cuma

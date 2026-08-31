@@ -950,6 +950,45 @@ const id = {
   orderCreateInvoiceUploadFailed: "Invoice gagal diunggah — data pesanan tetap tersimpan.",
   orderCreateInvoiceWrongType: "Format invoice harus PNG, JPG, WebP, atau PDF.",
   orderCreateInvoiceTooLarge: "Ukuran invoice maksimal 5 MB. Pilih berkas yang lebih kecil.",
+
+  // Fitur A (migrasi 0025) — /admin/warna, katalog warna GLOBAL.
+  navColors: "Warna",
+  colorMigrationMsg: "Fitur katalog warna belum aktif — migrasi 0025 belum dijalankan.",
+  colorEmpty: "Belum ada warna. Tambahkan warna pertama lewat tombol di atas.",
+  colorFootnote: "Warna yang dinonaktifkan tetap tersimpan di riwayat pesanan lama — hanya disembunyikan dari pemilih warna baru.",
+  colorAddBtn: "Tambah Warna",
+  colorAddModalTitle: "Tambah Warna",
+  colorCodeFieldLabel: "Kode Warna",
+  colorNameFieldLabel: "Nama Warna",
+  colorPhotoFieldLabel: "Foto",
+  colorPhotoRequired: "Foto wajib diisi.",
+  colorCodeRequired: "Kode warna wajib diisi.",
+  colorCodeTooLong: "Kode warna maksimal 40 karakter.",
+  colorCodeTaken: "Kode warna sudah ada.",
+  colorStatusInvalid: "Status tidak valid.",
+  colorStatusChangeFailed: "Status warna gagal diubah.",
+  colorMoveFailed: "Urutan warna gagal diubah — coba lagi.",
+  colorMoveUpAria: "Naikkan urutan",
+  colorMoveDownAria: "Turunkan urutan",
+
+  // Fitur B (migrasi 0025) — checkbox "punya pilihan warna" di modal Ubah Produk.
+  productHasColorOptionsLabel: "Produk ini punya pilihan warna",
+  productHasColorOptionsHint: "Kalau dicentang, staf cabang bisa memilih warna dari katalog warna saat mengisi pesanan (kelola daftar warna di menu Warna).",
+  productColorOptionFeatureOff: "Fitur pilihan warna produk belum aktif — migrasi database belum dijalankan.",
+
+  // Fitur C (migrasi 0025) — pemilih warna di modal Isi Pesanan.
+  orderItemColorPickerAria: "Pilih warna",
+  orderItemColorPickerPlaceholder: "— Pilih warna —",
+  orderItemColorLoadFailedNote: "Daftar warna gagal dimuat — ketik kode warna manual di bawah.",
+
+  // Fitur D (migrasi 0026) — kartu "Pembayaran Pelanggan".
+  customerPaymentFeatureOff: "Fitur pembayaran pelanggan belum aktif — migrasi database belum dijalankan.",
+  customerPaymentInvalidAmount: "Jumlah tidak valid.",
+  customerPaymentInvalidDate: "Tanggal tidak valid.",
+  customerPaymentEditBtn: "Ubah Pembayaran",
+  customerPaymentModalTitle: "Ubah Pembayaran Pelanggan",
+  customerPaymentSaveBtn: "Simpan Pembayaran",
+  customerPaymentLoadFailed: "Data pembayaran gagal dimuat.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -1799,6 +1838,41 @@ const en = {
   orderCreateInvoiceUploadFailed: "The invoice failed to upload — the order was still saved.",
   orderCreateInvoiceWrongType: "The invoice must be PNG, JPG, WebP, or PDF.",
   orderCreateInvoiceTooLarge: "The invoice can be at most 5 MB. Choose a smaller file.",
+
+  navColors: "Colours",
+  colorMigrationMsg: "The colour catalogue feature is not active yet — migration 0025 has not been run.",
+  colorEmpty: "No colours yet. Add the first one using the button above.",
+  colorFootnote: "Deactivated colours stay attached to past orders — they're only hidden from the colour picker.",
+  colorAddBtn: "Add Colour",
+  colorAddModalTitle: "Add Colour",
+  colorCodeFieldLabel: "Colour Code",
+  colorNameFieldLabel: "Colour Name",
+  colorPhotoFieldLabel: "Photo",
+  colorPhotoRequired: "A photo is required.",
+  colorCodeRequired: "Colour code is required.",
+  colorCodeTooLong: "Colour code can be at most 40 characters.",
+  colorCodeTaken: "That colour code already exists.",
+  colorStatusInvalid: "Invalid status.",
+  colorStatusChangeFailed: "Failed to change the colour's status.",
+  colorMoveFailed: "Failed to reorder the colour — try again.",
+  colorMoveUpAria: "Move up",
+  colorMoveDownAria: "Move down",
+
+  productHasColorOptionsLabel: "This product has colour options",
+  productHasColorOptionsHint: "When checked, branch staff can pick a colour from the colour catalogue while filling in an order (manage the colour list under the Colours menu).",
+  productColorOptionFeatureOff: "The product colour options feature is not active yet — the migration has not been run.",
+
+  orderItemColorPickerAria: "Select a colour",
+  orderItemColorPickerPlaceholder: "— Select a colour —",
+  orderItemColorLoadFailedNote: "The colour list failed to load — type the colour code manually below.",
+
+  customerPaymentFeatureOff: "The customer payment feature is not active yet — the migration has not been run.",
+  customerPaymentInvalidAmount: "Invalid amount.",
+  customerPaymentInvalidDate: "Invalid date.",
+  customerPaymentEditBtn: "Edit Payment",
+  customerPaymentModalTitle: "Edit Customer Payment",
+  customerPaymentSaveBtn: "Save Payment",
+  customerPaymentLoadFailed: "The payment data failed to load.",
 } satisfies Shape;
 
 const zh = {
@@ -2563,6 +2637,41 @@ const zh = {
   orderCreateInvoiceUploadFailed: "Invoice 上传失败 —— 订单数据已经保存。",
   orderCreateInvoiceWrongType: "Invoice 格式必须是 PNG、JPG、WebP 或 PDF。",
   orderCreateInvoiceTooLarge: "Invoice 最大 5 MB,请选择小一点的文件。",
+
+  navColors: "颜色",
+  colorMigrationMsg: "颜色目录功能尚未启用 —— 0025 迁移脚本还没有执行。",
+  colorEmpty: "还没有颜色。请用上方按钮新增第一个。",
+  colorFootnote: "已停用的颜色仍会保留在过去的订单记录里 —— 只是不会出现在新的颜色选单中。",
+  colorAddBtn: "新增颜色",
+  colorAddModalTitle: "新增颜色",
+  colorCodeFieldLabel: "颜色代码",
+  colorNameFieldLabel: "颜色名称",
+  colorPhotoFieldLabel: "照片",
+  colorPhotoRequired: "照片为必填项。",
+  colorCodeRequired: "颜色代码为必填项。",
+  colorCodeTooLong: "颜色代码最多 40 个字符。",
+  colorCodeTaken: "这个颜色代码已经存在。",
+  colorStatusInvalid: "状态无效。",
+  colorStatusChangeFailed: "颜色状态修改失败。",
+  colorMoveFailed: "颜色排序修改失败 —— 请重试。",
+  colorMoveUpAria: "上移",
+  colorMoveDownAria: "下移",
+
+  productHasColorOptionsLabel: "此产品有颜色选项",
+  productHasColorOptionsHint: "勾选后,门店员工在填写订单时可以从颜色目录中选颜色(在\"颜色\"菜单管理颜色列表)。",
+  productColorOptionFeatureOff: "产品颜色选项功能尚未启用 —— 迁移脚本还没有执行。",
+
+  orderItemColorPickerAria: "选择颜色",
+  orderItemColorPickerPlaceholder: "—— 选择颜色 ——",
+  orderItemColorLoadFailedNote: "颜色列表加载失败 —— 请在下方手动输入颜色代码。",
+
+  customerPaymentFeatureOff: "客户付款功能尚未启用 —— 迁移脚本还没有执行。",
+  customerPaymentInvalidAmount: "金额无效。",
+  customerPaymentInvalidDate: "日期无效。",
+  customerPaymentEditBtn: "修改付款",
+  customerPaymentModalTitle: "修改客户付款",
+  customerPaymentSaveBtn: "保存付款",
+  customerPaymentLoadFailed: "付款数据加载失败。",
 } satisfies Shape;
 
 export const admin = { id, en, zh };

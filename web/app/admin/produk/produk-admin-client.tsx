@@ -190,6 +190,10 @@ export default function ProdukAdminClient({
                   <span className={`chip ${p.status}`}>
                     {p.status === "ACTIVE" ? m.common.statusActive : m.common.statusInactive}
                   </span>
+                  {/* Fitur B (0025) — kosmetik murni: menandai produk yang
+                      punya pilihan warna, tidak mempengaruhi apa pun selain
+                      tampilan kartu. */}
+                  {p.has_color_options && <span className="chip accent">{m.admin.navColors}</span>}
                 </div>
                 {/* marginTop:auto menjepit blok kendali (Status stok + tombol)
                     ke DASAR kartu — semua kartu sebaris menaruh kendalinya di

@@ -28,6 +28,7 @@ export default function AdminNav() {
   const isOrders = pathname.startsWith("/admin/orders");
   const isAnalytics = pathname.startsWith("/admin/analisis");
   const isProducts = pathname.startsWith("/admin/produk");
+  const isColors = pathname.startsWith("/admin/warna");
   const isCalculator = pathname.startsWith("/admin/kalkulator");
   const isCustomers = pathname.startsWith("/admin/pelanggan");
 
@@ -59,6 +60,12 @@ export default function AdminNav() {
       </Link>
       <Link href="/admin/produk" className={`navlink${isProducts ? " on" : ""}`}>
         {m.admin.navProducts}
+      </Link>
+      {/* Warna (Fitur A, migrasi 0025) — palet warna GLOBAL, rujukan yang
+          sama sifatnya dengan katalog produk di atasnya, jadi ditaruh
+          bersebelahan. */}
+      <Link href="/admin/warna" className={`navlink${isColors ? " on" : ""}`}>
+        {m.admin.navColors}
       </Link>
       <Link href="/admin/pelanggan" className={`navlink${isCustomers ? " on" : ""}`}>
         {m.admin.navCustomers}

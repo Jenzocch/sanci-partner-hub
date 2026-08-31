@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { submitSafely } from "@/lib/safe-write";
 import { useCabangMessages } from "@/lib/i18n/provider";
-import { updateOrderItemFields, deleteOrderItemCabang } from "../actions";
+import { updateOrderItemFields, deleteOrderItemCabang, listActiveColorsCabang, type ColorRow } from "../actions";
 
 export type OrderItemRow = {
   id: string;
@@ -116,6 +116,44 @@ function EditItemModal({
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Fitur C — pemilih warna. Pola sama dengan order-items-section.tsx admin
+  // (lihat catatan lengkap di sana): `colorText` tetap satu-satunya sumber
+  // untuk name="color_code" (server action tidak berubah); silent fallback
+  // ke "idle" untuk migrasi belum jalan / produk tanpa pilihan warna, catatan
+  // kecil hanya untuk kegagalan SUNGGUHAN (LESSONS #10/#12). Modal ini hanya
+  // pernah mengedit baris yang SUDAH ADA, jadi product_id tersedia langsung
+  // dari prop `item` — tidak perlu menunggu pemuatan baris seperti sisi admin.
+  const [colorText, setColorText] = useState(item.color_code ?? "");
+  const [colorLoad, setColorLoad] = useState<
+    { status: "idle" } | { status: "error" } | { status: "ready"; colors: ColorRow[] }
+  >({ status: "idle" });
+
+  useEffect(() => {
+    if (!item.product_id) {
+      setColorLoad({ status: "idle" });
+      return;
+    }
+    let alive = true;
+    listActiveColorsCabang(item.product_id)
+      .then((res) => {
+        if (!alive) return;
+        if (res.status !== "ok" || !res.hasColorOptions || res.colors.length === 0) {
+          setColorLoad({ status: res.status === "error" ? "error" : "idle" });
+          return;
+        }
+        setColorLoad({ status: "ready", colors: res.colors });
+      })
+      .catch(() => {
+        if (alive) setColorLoad({ status: "error" });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [item.product_id]);
+
+  const selectedColor =
+    colorLoad.status === "ready" ? colorLoad.colors.find((c) => c.code === colorText) : undefined;
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!begin()) return;
@@ -190,7 +228,33 @@ function EditItemModal({
           </div>
           <div className="field">
             <label htmlFor="ei_color">{m.cabang.orderItemColorFieldLabel}</label>
-            <input id="ei_color" name="color_code" type="text" defaultValue={item.color_code ?? ""} />
+            {colorLoad.status === "ready" && (
+              <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 6 }}>
+                <select
+                  value={colorLoad.colors.some((c) => c.code === colorText) ? colorText : ""}
+                  onChange={(e) => setColorText(e.target.value)}
+                  style={{ flex: 1 }}
+                  aria-label={m.cabang.orderItemColorPickerAria}
+                >
+                  <option value="">{m.cabang.orderItemColorPickerPlaceholder}</option>
+                  {colorLoad.colors.map((c) => (
+                    <option key={c.id} value={c.code}>
+                      {c.name ? `${c.code} — ${c.name}` : c.code}
+                    </option>
+                  ))}
+                </select>
+                {selectedColor?.photo_url && (
+                  // eslint-disable-next-line @next/next/no-img-element -- lihat catatan di lib/catalog-shared.ts
+                  <img
+                    src={selectedColor.photo_url}
+                    alt=""
+                    style={{ width: 28, height: 28, borderRadius: "var(--r-sm)", objectFit: "cover", border: "1px solid var(--line)", flex: "none" }}
+                  />
+                )}
+              </div>
+            )}
+            <input id="ei_color" name="color_code" type="text" value={colorText} onChange={(e) => setColorText(e.target.value)} />
+            {colorLoad.status === "error" && <div className="hint">{m.cabang.orderItemColorLoadFailedNote}</div>}
           </div>
           <div className="field">
             <label htmlFor="ei_size">{m.cabang.orderItemSizeFieldLabel}</label>

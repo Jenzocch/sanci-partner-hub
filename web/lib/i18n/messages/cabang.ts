@@ -450,6 +450,21 @@ const id = {
   formItemsAppliedFailed:
     "Pesanan berhasil dibuat, tapi produk yang dipilih belum bisa otomatis ditambahkan — tambahkan manual di " +
     "Isi Pesanan.",
+
+  // Fitur C (migrasi 0025) — pemilih warna di modal Isi Pesanan.
+  orderItemColorPickerAria: "Pilih warna",
+  orderItemColorPickerPlaceholder: "— Pilih warna —",
+  orderItemColorLoadFailedNote: "Daftar warna gagal dimuat — ketik kode warna manual di bawah.",
+
+  // Fitur D (migrasi 0026) — kartu "Pembayaran Pelanggan".
+  customerPaymentInvalidAmount: "Jumlah tidak valid.",
+  customerPaymentInvalidDate: "Tanggal tidak valid.",
+  customerPaymentNoPermissionEdit: "Anda tidak memiliki izin mengubah pembayaran pesanan ini.",
+  customerPaymentEditBtn: "Ubah Pembayaran",
+  customerPaymentModalTitle: "Ubah Pembayaran Pelanggan",
+  customerPaymentSaveBtn: "Simpan Pembayaran",
+  customerPaymentLoadFailed: "Data pembayaran gagal dimuat.",
+  customerPaymentReadOnlyNote: "Anda hanya bisa melihat, tidak bisa mengubah pembayaran pesanan ini.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -805,6 +820,19 @@ const en = {
   formItemsAppliedFailed:
     "The order was created, but the selected products couldn't be added automatically — add them manually in " +
     "Order Items.",
+
+  orderItemColorPickerAria: "Select a colour",
+  orderItemColorPickerPlaceholder: "— Select a colour —",
+  orderItemColorLoadFailedNote: "The colour list failed to load — type the colour code manually below.",
+
+  customerPaymentInvalidAmount: "Invalid amount.",
+  customerPaymentInvalidDate: "Invalid date.",
+  customerPaymentNoPermissionEdit: "You don't have permission to edit this order's payment.",
+  customerPaymentEditBtn: "Edit Payment",
+  customerPaymentModalTitle: "Edit Customer Payment",
+  customerPaymentSaveBtn: "Save Payment",
+  customerPaymentLoadFailed: "The payment data failed to load.",
+  customerPaymentReadOnlyNote: "You can only view this order's payment, not edit it.",
 } satisfies Shape;
 
 const zh = {
@@ -1130,6 +1158,19 @@ const zh = {
   formItemsAppliedPartial:
     "{total} 件产品中,{n} 件已成功加入这笔订单;其余失败了 —— 请到订单明细查看,需要的话手动补上。",
   formItemsAppliedFailed: "订单已经创建成功,但选中的产品无法自动加入 —— 请到订单明细手动补上。",
+
+  orderItemColorPickerAria: "选择颜色",
+  orderItemColorPickerPlaceholder: "—— 选择颜色 ——",
+  orderItemColorLoadFailedNote: "颜色列表加载失败 —— 请在下方手动输入颜色代码。",
+
+  customerPaymentInvalidAmount: "金额无效。",
+  customerPaymentInvalidDate: "日期无效。",
+  customerPaymentNoPermissionEdit: "您没有权限修改这笔订单的付款信息。",
+  customerPaymentEditBtn: "修改付款",
+  customerPaymentModalTitle: "修改客户付款",
+  customerPaymentSaveBtn: "保存付款",
+  customerPaymentLoadFailed: "付款数据加载失败。",
+  customerPaymentReadOnlyNote: "您只能查看这笔订单的付款信息,无法修改。",
 } satisfies Shape;
 
 export const cabang = { id, en, zh };

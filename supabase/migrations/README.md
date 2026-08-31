@@ -30,12 +30,15 @@ tanpa perlu membaca SQL-nya.
 | 0021 | `0021_partner_price_list.sql` | Irisan keenam belas: Daftar Harga Partner ("每家店不同價格——按 Partner 設價目表，但是依照sanci為主，分店可以編輯", owner 2026-08-26) — tabel BARU `product_prices`: satu baris = satu harga; `partner_id` NULL = **Harga Dasar SANCI** (hanya admin yang menulis, dipaku index parsial UNIQUE), terisi = **Harga Normal** partner itu (override, unique per (product_id, partner_id)). `price` BIGINT rupiah bulat CHECK >= 0; `updated_at`/`updated_by` DIPAKSA trigger BARU `fn_price_stamp` (EXECUTE dicabut sejak lahir, LESSONS #26). RLS: admin penuh; partner BACA baris dasar + miliknya sendiri dan TULIS hanya miliknya sendiri — SEMUANYA di belakang gerbang `fn_catalog_enabled()` (katalog belum dibuka = NOL baris, harga dasar termasuk — keputusan owner B). `sanci_products` TIDAK disentuh SATU KOLOM PUN — asersi 0010 `PRODUCT_NO_PRICE_COLUMN=0` DIULANG di blok verifikasi dengan query persis sama; layar jelajah katalog tetap bebas harga. Mendefinisikan ULANG `fn_audit_row` (salinan UTUH versi 0018 + SATU baris pemetaan `product_prices` → 'PRODUCT_PRICE' — di-diff langsung, satu-satunya perbedaan). Perilaku dibuktikan `supabase/test-harness/90_behavior_0021.sql` (22 PASS). |
 | 0022 | `0022_product_photos.sql` | Irisan ketujuh belas: Galeri Foto Produk + halaman publik per produk — tabel BARU `product_photos` (foto TAMBAHAN, DI LUAR `sanci_products.photo_url` sampul milik 0010; FK `product_id` **ON DELETE RESTRICT**, beda sengaja dari `product_prices` yang CASCADE — pola LESSONS #4). RLS: admin penuh; partner baca sama persis gerbang `sp_partner_read` (produk ACTIVE + `fn_catalog_enabled()`); **BARU**: policy `ph_anon_read`/`sp_anon_read` untuk sesi TANPA LOGIN (`auth.uid() is null`) — satu-satunya alasan berkas ini menyentuh RLS `sanci_products` sama sekali, untuk halaman publik `/p/[productId]` (root-level route, tanpa gerbang katalog partner). Bucket storage `product-photos` (0010) DIPAKAI APA ADANYA (path baru `<product_id>/gallery/<id acak>.webp`, tidak ada perubahan bucket/RLS storage). Mendefinisikan ULANG `fn_audit_row` (salinan UTUH versi 0021 + SATU baris pemetaan `product_photos` → 'PRODUCT_PHOTO'). Blok verifikasi Bagian B genuinely `SET ROLE anon` (bukan sekadar membaca teks policy) untuk membuktikan `ANON_PRICES_ZERO`/`ANON_ORDERS_ZERO`/`ANON_CATALOG_ACCESS_ZERO` = 0 sungguhan. Perilaku dibuktikan `supabase/test-harness/100_behavior_0022.sql` (17 PASS, termasuk bukti partner login dengan katalog tertutup tetap 0 baris). |
 | 0023 | `0023_customer_order_link.sql` | Irisan kedelapan belas: Tautan Pesanan untuk Pelanggan (halaman `/lihat/<token>` tanpa login) — `partner_orders` dapat 3 kolom BARU: `customer_view_token` (text NOT NULL UNIQUE, DEFAULT acak 64 hex; baris lama terisi lewat **table-rewrite `ADD COLUMN`** — diukur di PG16: DEFAULT volatile dievaluasi per baris DAN nol row-trigger dipicu, jadi tidak ada banjir audit dan tidak tertolak penjaga CANCELLED 0005), `delivered_at`/`delivered_by` (nullable, DIPAKSA server oleh trigger BARU `fn_guard_order_customer_link` — token beku bagi non-admin, penandaan tidak bisa dibatalkan cabang, penandaan ulang = no-op). Tabel BARU `customer_view_attempts` (rem penebak nomor HP: 5× salah → kunci 15 menit) dengan **RLS aktif dan NOL policy** — tertutup untuk semua peran PostgREST, hanya RPC yang menyentuhnya (pola 0009 §3). Dua RPC SECURITY DEFINER untuk anon+authenticated: `fn_customer_order_view(text)` (DAFTAR PUTIH kolom disusun satu per satu — TANPA telepon, alamat lengkap, alasan pembatalan, atau uuid apa pun) dan `fn_customer_reveal_address(text,text)`. **`fn_audit_row` TIDAK didefinisikan ulang** (garis merah penugasan): penandaan `delivered_at` tercatat lewat cabang generik `ORDER_UPDATED` yang sudah ada, dibuktikan T8. NOL policy anon di tabel mana pun. Perilaku dibuktikan `supabase/test-harness/95_behavior_0023.sql` (27 PASS). |
+| 0024 | `0024_product_size.sql` | Irisan kesembilan belas: `sanci_products.size` — SATU kolom text nullable, TEKS BEBAS (bukan angka terstruktur — data nyata memuat "180*200*30", "(1200-1550)*1200", "60*36*9/7"), SENGAJA TANPA CHECK. Owner: "把 Description 跟 size 放進去" (2026-08-28) — ukuran adalah spesifikasi PERTAMA yang ditanyakan pembeli, sekarang tampil di halaman detail cabang & halaman publik produk (0022). TIDAK menyentuh RLS `sanci_products` (kolom baru otomatis ikut ketiga policy 0010+0022 — ukuran ikut terbaca ANON, DISENGAJA: spesifikasi produk, bukan rahasia). TIDAK mendefinisikan ulang `fn_audit_row` (kolom baru otomatis ikut lewat `to_jsonb`, preseden 0014 `shipping_address`/0020 `customer_po`). TIDAK mengisi data — pengisian dilakukan terpisah lewat skrip UPDATE yang diberikan ke owner. **Catatan dokumentasi**: berkas ini sudah ada di repo sejak commit yang sama dengan fitur lain, tapi baru mendapat baris di README ini pada 2026-08-31 (ditemukan saat menulis 0025/0026) — tidak ada perilaku yang berubah, murni dokumentasi yang tertinggal. |
+| 0025 | `0025_product_colors.sql` | Irisan kesembilan belas: Katalog Warna Global — tabel BARU `product_colors` (kode warna GLOBAL C01/C02/… lintas SEMUA produk; `code` UNIQUE TOTAL, bukan partial — LESSONS #36 dihindari sengaja karena `order_items.color_code`, 0014, menunjuk kode ini SELAMANYA sebagai teks bebas; `status` ACTIVE/INACTIVE deactivate-don't-delete LESSONS #4; foto di bucket `product-photos` 0010 DIPAKAI APA ADANYA, path baru `colors/<uuid acak>.webp`) + kolom BARU `sanci_products.has_color_options` (boolean NOT NULL DEFAULT false — LESSONS #8, default paling aman secara bisnis). RLS: admin penuh (`pc_admin_all`); cabang BACA SAJA lewat `fn_catalog_enabled() AND status='ACTIVE'` (gerbang setara `ph_partner_read` 0022, disesuaikan bentuknya karena warna GLOBAL tidak menunjuk satu produk); TIDAK ADA policy anon (halaman publik belum menampilkan pilihan warna — batas sadar, bukan luput). TIDAK ADA foreign key dari `order_items.color_code` ke tabel ini (katalog ini bantuan PILIH untuk UI, bukan batasan integritas referensial atas riwayat pesanan lama). Mendefinisikan ULANG `fn_audit_row` (salinan UTUH versi 0022 + SATU baris pemetaan `product_colors` → 'PRODUCT_COLOR'). |
+| 0026 | `0026_customer_payment_shipping.sql` | Irisan kedua puluh: Pembayaran Pelanggan (pelanggan → CABANG — angka KETIGA yang berbeda dari `partner_purchase_amount` 0009 dan `order_sanci_offers.final_amount` 0015/0009) + Ekspedisi + Status Confirm — ENAM kolom BARU nullable/default aman di `partner_orders`: `customer_total_amount`, `customer_paid_amount` (NOT NULL DEFAULT 0), `customer_dp_paid_at`, `customer_settled_at` (dipaksa server), `expedition`, `confirm_status`. "Nama Admin" pada lembar kerja manual TIDAK mendapat kolom — `partner_orders.partner_pic_staff_id` (0004) sudah menjalankan peran itu. Trigger BARU `fn_guard_customer_payment`: `customer_settled_at` DIHITUNG ULANG dari nol pada SETIAP tulisan (nilai client TIDAK PERNAH dipercaya, LESSONS #11), IDEMPOTEN (tidak men-cap ulang kalau sudah lunas) dan SELF-REVOKING (paid dikoreksi turun di bawah total → cap tercabut otomatis); syarat stamping SEJAJAR PERSIS rumus tampilan kanonik (`web/lib/payment-shared.ts` + sinkronisasi Sheets) `customer_total_amount IS NOT NULL AND customer_paid_amount >= customer_total_amount` — TERMASUK total=0 eksplisit. TIDAK ADA policy RLS baru — menumpang `o_partner_update` (0005), diverifikasi (bukan diasumsikan) lewat replay dengan akun cabang SUNGGUHAN. `fn_audit_row` TIDAK didefinisikan ulang (keenam kolom baru otomatis ikut lewat `to_jsonb`, pola 0014/0020/0024). |
 
 ## ATURAN BESI
 
 > **Setiap kali sebuah berkas LAMA dijalankan ulang, SEMUA berkas sesudahnya
 > WAJIB dijalankan ulang juga, dalam urutan
-> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022 → 0023`.**
+> `0001 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022 → 0023 → 0024 → 0025 → 0026`.**
 
 Kenapa: beberapa berkas mendefinisikan ULANG fungsi/policy milik berkas
 sebelumnya (`fn_audit_row`, `fn_check_order_refs`, `c_partner_read`,
@@ -67,6 +70,9 @@ Yang benar-benar terjadi kalau aturan ini dilanggar — sudah diukur, bukan duga
 | 0021 | **BARU sejak 0022**: 0021 bukan lagi berkas terakhir, tapi menjalankan ulangnya sendirian tetap tidak kehilangan struktur apa pun miliknya sendiri (tabel `product_prices`, RLS/policy/trigger-nya utuh — 0022 tidak menyentuhnya). Yang HILANG hanyalah pemetaan `fn_audit_row` yang lahir SESUDAH 0021 — yaitu `PRODUCT_PHOTO` (0022) — karena `fn_audit_row` kembali ke versi 0021 (diukur: `AUDIT_PRODUCT_PHOTO` 1→0, `AUDIT_PRODUCT_PRICE` tetap 1). Pemulihan: jalankan ulang **0022** sekali lagi. Idempotensi 0021 sendiri tidak berubah (3× di atas rantai penuh, nol diff, ke-39 angka identik). |
 | 0022 | tidak ada — **BARU sejak 0023**: 0022 bukan lagi berkas terakhir, tapi menjalankan ulangnya sendirian TETAP tidak kehilangan apa pun, termasuk milik 0023 (0023 tidak mendefinisikan ulang satu pun objek 0022, dan 0022 tidak menyebut satu pun objek 0023 — keduanya berdiri sendiri). 0022 JUGA TETAP pemulih `fn_audit_row` sesudah 0023 lahir, justru KARENA 0023 sengaja tidak mendefinisikan ulang fungsi itu (garis merah penugasannya) — jadi versi 0022 tetap yang paling akhir. Idempotensi diukur; idempotensi diukur (3× di atas rantai penuh `0001→…→0021→0022`, nol diff `pg_dump -s` tersaring, ke-39 angka verifikasi Bagian A identik di run ke-3). Lebih penting: 0022 kini **pemulih `fn_audit_row`** — versinya memuat SELURUH perilaku 0004+0005+0008+0009+0010+0012+0013+0014+0016+0018+0021 plus `PRODUCT_PHOTO` (salinan utuh 0021 + satu baris pemetaan, di-diff langsung), dan TERUKUR: setelah 0001 dijalankan ulang di atas rantai penuh (prosrc kehilangan `PRODUCT_PHOTO`, `PRODUCT_PRICE`, DAN `CUSTOMER_SOURCE` sekaligus), SATU kali re-run 0022 mengembalikan ketiganya (plus `ORDER_DOCUMENT`) sekaligus. Guard §0-nya sengaja memeriksa KEBERADAAN objek 0021 (`product_prices`/`fn_price_stamp`, bukan versi aktif `fn_audit_row`) supaya jalur pemulihan ini tidak terkunci oleh guard-nya sendiri (pola LESSONS #41, sama dengan 0021 §0). Yang TIDAK dipulihkan 0022: semua yang bukan `fn_audit_row` (policy `c_partner_read`/`s_partner_read` 0007, `fn_check_order_refs` 0011, constraint `dp_le_*` 0015, `fn_set_customer_code` 0019 — pemulihnya tetap berkas masing-masing seperti baris-baris di atas). **⚠️ Catatan cakupan**: baris 0001–0020 di tabel ini (di atas) masih menyebut "0021" sebagai pemulih `fn_audit_row` saat ini — sejak 0022 lahir itu SUDAH BASI, pemulihnya sekarang selalu **0022** (yang memuat seluruh isi 0021). Prosa detail tiap baris BELUM ditulis ulang satu-satu (di luar cakupan irisan ini) — kalau ragu, patokan tunggalnya: **fn_audit_row yang aktif sekarang selalu dipulihkan dengan menjalankan ulang berkas BERNOMOR TERBESAR yang mendefinisikan ulang fungsi itu** (saat ini 0022; 0015/0017/0019/0020 TIDAK mendefinisikan ulang fungsi ini sama sekali, lihat baris masing-masing). |
 | 0023 | tidak ada — 0023 **TIDAK mendefinisikan ulang `fn_audit_row`** (garis merah penugasannya) dan tidak mendefinisikan ulang satu pun fungsi/policy/constraint milik berkas lain, jadi menjalankan ulangnya tidak pernah mencabut hasil kerja berkas mana pun. Sebaliknya juga aman: menjalankan ulang berkas LAMA tidak menghapus apa pun milik 0023 (kolom, index unik, tabel, kedua RPC, dan `trg_order_customer_link` semuanya bernama SENDIRI dan tidak disebut berkas lain). Idempotensi DIUKUR: 3× dijalankan ulang di atas rantai penuh `0001→…→0021→0022→0023`, nol diff `pg_dump -s` (penyaring `\restrict` LESSONS #33), ke-35 angka verifikasi identik. Satu hal yang PERLU diperhatikan kalau `ADD COLUMN` pernah gagal separuh jalan: blok jaring pengaman §1 mengisi token yang NULL dengan `alter table … disable trigger user` di sekelilingnya — itu disengaja (tanpa itu, pesanan berstatus CANCELLED ditolak `fn_guard_order_status_flow` 0005 dan migrasinya gagal di tengah), dan seluruh berkas berjalan dalam satu transaksi sehingga kegagalan mengembalikan trigger bersama sisanya. |
+| 0024 | tidak ada — 0024 tidak mendefinisikan ulang fungsi/policy/constraint milik berkas mana pun (hanya `ALTER TABLE … ADD COLUMN IF NOT EXISTS size`), jadi ia juga TIDAK PERNAH menjadi korban pola "berkas lama menimpa berkas baru" — kolom `size` yang sudah ada tidak bisa ditimpa oleh re-run berkas lama mana pun (`add column if not exists` no-op total). Pemulih `fn_audit_row` tetap **0022 pada saat 0024 ditulis, sekarang 0025** (0024 tidak pernah menyentuhnya). Idempotensi diukur: dijalankan ulang 3× di atas rantai penuh `0001→…→0023→0024`, dan diukur ULANG di atas rantai penuh `0001→…→0026`, nol diff `pg_dump -s` tersaring (LESSONS #33) di kedua kondisi, dan kedelapan angka verifikasinya (`SIZE_COLUMN_EXISTS`…`AUDIT_UNTOUCHED_0021`) identik di setiap run. |
+| 0025 | **BARU sejak 0025**: 0025 bukan lagi berkas terakhir yang mendefinisikan ulang `fn_audit_row`, tapi menjalankan ulangnya sendirian tetap TIDAK kehilangan struktur apa pun miliknya sendiri (tabel `product_colors`, RLS/policy/trigger-nya, kolom `sanci_products.has_color_options` — 0026 tidak menyentuh satu pun objek ini). Yang HILANG kalau berkas LAMA (0001/0004/0005/0008/0009/0010/0012/0013/0014/0016/0018/0021/0022) dijalankan ulang SETELAH 0025: pemetaan `PRODUCT_COLOR` (layar Aktivitas menampilkan kode mentah `PRODUCT_COLORS_CREATED`). Pemulihan: jalankan ulang **0025** sekali lagi — salinan UTUH versi 0022 + satu baris pemetaan berarti 0025 memulihkan SELURUH perilaku pendahulunya sekaligus (pola identik 0021→0022). Guard §0-nya memeriksa KEBERADAAN objek 0022 (`product_photos`), BUKAN versi aktif `fn_audit_row` — pola LESSONS #41, sama dengan 0021/0022 §0. Idempotensi diukur: 3× di atas rantai penuh `0001→…→0024→0025`, dan diukur ULANG di atas rantai penuh `0001→…→0026`, nol diff `pg_dump -s` tersaring, ke-32 angka Bagian A + ke-3 angka Bagian B identik di setiap run. **⚠️ Catatan cakupan**: baris 0001–0022 di tabel ini (di atas) masih menyebut "0022" sebagai pemulih `fn_audit_row` saat ini — sejak 0025 lahir itu SUDAH BASI, pemulihnya sekarang selalu **0025** (yang memuat seluruh isi 0022). Patokan tunggal tetap sama seperti dicatat di baris 0022: **fn_audit_row yang aktif sekarang selalu dipulihkan dengan menjalankan ulang berkas BERNOMOR TERBESAR yang mendefinisikan ulang fungsi itu** (saat ini 0025; 0023/0024/0026 TIDAK mendefinisikan ulang fungsi ini sama sekali). |
+| 0026 | tidak ada — 0026 **TIDAK mendefinisikan ulang `fn_audit_row`** dan tidak mendefinisikan ulang satu pun fungsi/policy/constraint milik berkas lain (keenam kolom baru, keempat constraint, fungsi trigger `fn_guard_customer_payment`, dan trigger `trg_order_customer_payment` semuanya bernama SENDIRI dan tidak disebut berkas lain), jadi menjalankan ulangnya tidak pernah mencabut hasil kerja berkas mana pun, dan menjalankan ulang berkas LAMA tidak menghapus apa pun milik 0026. Pemulih `fn_audit_row` tetap **0025** (0026 tidak menyentuhnya). Idempotensi DIUKUR: 3× dijalankan ulang di atas rantai penuh `0001→…→0025→0026` (dengan fixture `supabase/test-harness/10_fixtures.sql` terpasang), nol diff `pg_dump -s` (penyaring `\restrict` LESSONS #33), ke-25 angka Bagian A + ke-10 angka Bagian B identik di setiap run, dan baris fixture `partner_orders` tidak membawa residu dari pengujian CHECK constraint (diperiksa langsung). |
 
 Khusus lubang P2 (`fn_check_order_refs` tanpa pemeriksaan pelanggan): ia TIDAK
 menghasilkan satu pun pesan error atau gejala di layar. Yang terjadi hanyalah
@@ -1039,6 +1045,159 @@ harness ini sama-sama tidak pernah mempercayai role PG mentah, keduanya
 membaca identitas dari `auth.uid()`. Bagian B di kepala berkas migrasi
 (`SET ROLE anon` sungguhan lewat SQL Editor) tetap disimpan sebagai lapis
 verifikasi KEDUA yang independen dari asumsi ini.
+
+### 0024
+
+| Cek | nilai |
+|---|---|
+| SIZE_COLUMN_EXISTS | 1 |
+| SIZE_IS_TEXT | 1 |
+| SIZE_IS_NULLABLE | 1 |
+| SIZE_NO_CHECK | **0** ← WAJIB 0: sengaja tanpa CHECK (teks bebas, lihat kepala berkas) |
+| PRODUCT_NO_PRICE_COLUMN | **0** ← WAJIB 0: aturan 0010 diulang lagi |
+| PRODUCT_POLICIES | **3** ← WAJIB TETAP 3 sejak 0022: berkas ini tidak menyentuh RLS |
+| AUDIT_UNTOUCHED_0022 | 1 |
+| AUDIT_UNTOUCHED_0021 | 1 |
+
+8 baris total, semua sudah diukur di Postgres 16 lokal (bukan diperkirakan;
+replay penuh `0001→…→0023→0024`, dan diukur ULANG di atas rantai penuh
+`0001→…→0026`, angka identik di kedua kondisi) — lihat blok verifikasi
+lengkap di kepala berkas `0024_product_size.sql` §2. Idempotensi
+diverifikasi terpisah: 0024 dijalankan ulang 3× di atas rantai penuh,
+`pg_dump -s` (disaring noise `\restrict`, LESSONS #33) menghasilkan **nol
+diff** setiap kali, dan kedelapan angka di atas tetap sama persis pada
+percobaan ke-3.
+
+**Catatan dokumentasi**: berkas ini SEBELUMNYA tidak pernah punya baris di
+tabel Berkas maupun bagian ini — ditemukan dan diperbaiki 2026-08-31 saat
+menulis 0025/0026. Tidak ada perilaku sistem yang berubah; ini murni
+dokumentasi yang tertinggal saat 0024 pertama ditulis.
+
+### 0025
+
+| Cek | nilai |
+|---|---|
+| COLOR_TABLE | 1 |
+| COLOR_CODE_UNIQUE | **1** ← UNIQUE TOTAL, bukan partial — LESSONS #36 dihindari sengaja |
+| COLOR_CODE_CHECK | 1 |
+| COLOR_STATUS_CHECK | 1 |
+| COLOR_STATUS_DEFAULT_ACTIVE | 1 |
+| COLOR_PHOTO_URL_NOT_NULL | 1 |
+| COLOR_NO_UPDATED_AT | **0** ← WAJIB 0, keputusan desain sengaja (§1 kepala berkas) |
+| COLOR_INDEX | 1 |
+| COLOR_RLS | 1 |
+| COLOR_POLICIES | **2** ← pc_admin_all + pc_partner_read |
+| COLOR_NONADMIN_WRITE | **0** ← WAJIB 0 (asersi negatif inti) |
+| COLOR_PARTNER_READ_GATED | 1 |
+| COLOR_ANON_POLICY_COUNT | **0** ← WAJIB 0: TIDAK ADA policy anon (batas sadar, beda dari `product_photos` 0022) |
+| COLOR_TRIGGERS | 2 |
+| HAS_COLOR_OPTIONS_COLUMN / _DEFAULT_FALSE / _NOT_NULL | 1 / 1 / 1 |
+| PRODUCT_POLICIES_AFTER_0025 | **3** ← WAJIB TETAP 3: berkas ini tidak menyentuh RLS `sanci_products` |
+| PRODUCT_NO_PRICE_COLUMN | **0** ← WAJIB 0 |
+| AUDIT_PRODUCT_COLOR | 1 |
+| AUDIT_KEEP_0022_PHOTO | **1** ← BARU: membuktikan pemetaan 0022 selamat masuk ke salinan ini |
+| AUDIT_KEEP_0021_PRICE / _0018_SOURCE / _0018_SALES | 1 / 1 / 1 |
+| AUDIT_KEEP_0016_DOC / _0016_DOC_ITEM | 1 / 1 |
+| AUDIT_KEEP_0014_ITEM / _0013_OFFER | 1 / 1 |
+| AUDIT_KEEP_0012_PKG_ITEM | 1 |
+| AUDIT_KEEP_0010_CATALOG | 1 |
+| AUDIT_KEEP_0009_NOTE | 1 |
+| REFS_CHECK_CUSTOMER | 1 |
+
+32 baris Bagian A total, semua sudah diukur di Postgres 16 lokal (bukan
+diperkirakan; replay penuh `0001→…→0024→0025`) — lihat blok verifikasi di
+kepala berkas `0025_product_colors.sql` §7. Sebelas angka
+`AUDIT_KEEP_*`/`REFS_CHECK_CUSTOMER` adalah PERSIS sepuluh awalan yang
+diminta penugasan (`PRODUCT_PHOTO`,`PRODUCT_PRICE`,`ORDER_DOCUMENT`,
+`CUSTOMER_SOURCE`,`SALES_STAFF`,`ORDER_ITEM`,`ORDER_OFFER`,`PACKAGE_ITEM`,
+`CATALOG_ACCESS`,`ORDER_INTERNAL_NOTE`) + `AUDIT_PRODUCT_COLOR`.
+
+**Bagian B (§8)**: `ANON_COLORS_ZERO` **0** (SET ROLE anon sungguhan, bukan
+cuma baca teks policy — pola 0022 §8), `STATUS_CHECK_REJECTED` **1** (nilai
+di luar ACTIVE/INACTIVE ditolak, diuji lewat INSERT sungguhan dalam blok
+`BEGIN…EXCEPTION` yang membatalkan dirinya sendiri, nol residu),
+`DUP_CODE_REJECTED` **1** (kode ganda ditolak 23505, mekanisme sama).
+
+Idempotensi diverifikasi terpisah: 0025 dijalankan ulang 3× di atas rantai
+penuh (termasuk sekali di atas `0001→…→0026`), `pg_dump -s` (disaring noise
+`\restrict`, LESSONS #33) menghasilkan **nol diff** setiap kali, dan ke-32
+angka Bagian A + ke-3 angka Bagian B identik pada percobaan ke-3. Tidak ada
+baris `ZZTEST-0025-*` yang tersisa di `product_colors` setelah blok
+verifikasi dijalankan berapa kali pun (diperiksa langsung).
+
+Angka blok verifikasi berkas 0001 setelah 0025 — SUDAH DIUKUR (bukan
+diperkirakan, dibandingkan dengan baseline setelah 0023): `RLS_ENABLED`
+naik ke **28** (+1: `product_colors`), `POLICIES` naik ke **61** (+2:
+`pc_admin_all`+`pc_partner_read`), `TRIGGERS` (hanya tabel berawalan
+`partner%`) TIDAK berubah dari nilai setelah 0023 (`product_colors` tidak
+diawali `partner%`, tidak ikut terhitung — pola sama dengan
+`sanci_products`/`product_prices`/`product_photos`).
+
+### 0026
+
+| Cek | nilai |
+|---|---|
+| TOTAL_COLUMN / TOTAL_IS_NUMERIC_NULLABLE | 1 / 1 |
+| TOTAL_NO_DEFAULT | **0** ← WAJIB 0: TIDAK ada DEFAULT |
+| PAID_COLUMN / PAID_NOT_NULL_DEFAULT_0 | 1 / 1 |
+| DP_PAID_AT_COLUMN / DP_PAID_AT_NULLABLE | 1 / 1 |
+| SETTLED_AT_COLUMN / SETTLED_AT_NULLABLE_NO_DEFAULT | 1 / **1** ← dipaksa TRIGGER, bukan DEFAULT |
+| EXPEDITION_COLUMN | 1 |
+| CONFIRM_STATUS_COLUMN | **1** ← "Status Confirm" lembar manual, TERMASUK (lihat kepala berkas) |
+| CHECK_TOTAL_NONNEGATIVE / CHECK_PAID_NONNEGATIVE | 1 / 1 |
+| CHECK_EXPEDITION_LENGTH / CHECK_CONFIRM_STATUS_LENGTH | 1 / 1 |
+| GUARD_FN / GUARD_TRIGGER | 1 / 1 |
+| GUARD_INSERT_AND_UPDATE | **1** ← WAJIB 1: berlaku INSERT DAN UPDATE |
+| GUARD_RECOMPUTES_SETTLED | 1 |
+| GUARD_EXEC_PUBLIC / _ANON / _AUTHENTICATED | **0** / **0** / **0** ← LESSONS #26 |
+| O_PARTNER_UPDATE_EXISTS | **1** ← policy 0005 masih ada apa adanya |
+| ORDER_POLICIES_UNCHANGED | **4** ← WAJIB TETAP 4: berkas ini NOL create/drop policy |
+| AUDIT_ROW_UNTOUCHED_MARKER | 1 |
+
+25 baris Bagian A total, semua sudah diukur di Postgres 16 lokal (bukan
+diperkirakan; replay penuh `0001→…→0025→0026`) — lihat blok verifikasi di
+kepala berkas `0026_customer_payment_shipping.sql` §5.
+
+**Bagian B (§7) — dua teknik TANPA fixture pesanan (penugasan SQL-only, tidak
+menambah berkas test-harness baru)**:
+- **Tabel bayangan** (`v0026_payment_shadow`, tiga kolom bernama sama)
+  dengan `fn_guard_customer_payment()` — OBJEK FUNGSI PRODUKSI YANG SAMA —
+  dipasang sebagai trigger BEFORE-nya: `SHADOW_T1_UNPAID_NULL` …
+  `SHADOW_T6_NULL_TOTAL_UNSETTLED` dan `SHADOW_T_ZERO_TOTAL_STAMPED`
+  semuanya **true**. Idempotensi (T3→T4) dan self-revoking (T5) diuji
+  lintas TRANSAKSI TERPISAH (`BEGIN`/`COMMIT` eksplisit + `pg_sleep(1)` di
+  antaranya) — BUKAN satu blok `DO`, karena `now()` PL/pgSQL konstan
+  sepanjang satu transaksi (lihat kepala berkas §6 untuk penjelasan
+  lengkap kenapa itu wajib).
+- **CHECK constraint pada `partner_orders` sungguhan**, lewat "bogus
+  update" (`BEGIN…EXCEPTION`, savepoint implisit membatalkan dirinya
+  sendiri): diukur DUA KALI — pada database KOSONG
+  (`CHECK_PAID_REJECTS_NEGATIVE`/`CHECK_EXPEDITION_REJECTS_TOOLONG`
+  melaporkan jujur "TIDAK DIUJI: tidak ada baris…") dan SETELAH
+  `supabase/test-harness/10_fixtures.sql` dimuat (keduanya **1**, nol
+  residu pada baris fixture setelahnya — diperiksa langsung).
+- **Validasi tambahan di luar blok migrasi** (sesi replay yang sama):
+  UPDATE sungguhan sebagai pengguna CABANG (`set role authenticated` +
+  sesi login staf Branch A1) berhasil mengisi
+  `customer_total_amount`/`customer_paid_amount`/`expedition` lewat
+  `o_partner_update` (0005) TANPA policy baru, `customer_settled_at`
+  ter-stamp SERVER, dan tercatat di `audit_logs` sebagai `ORDER_UPDATED`
+  biasa — membuktikan §3/§4 kepala berkas SUNGGUHAN, bukan diasumsikan.
+  UPDATE lanjutan `customer_total_amount=0, customer_paid_amount=0` pada
+  baris fixture yang SAMA menghasilkan `customer_settled_at` TERISI (bukan
+  NULL) — bukti langsung kasus batas total=0 sekarang LUNAS, sejalan
+  rumus tampilan kanonik.
+
+Idempotensi diverifikasi terpisah: 0026 dijalankan ulang 3× di atas rantai
+penuh (dengan fixture terpasang), `pg_dump -s` (disaring noise `\restrict`,
+LESSONS #33) menghasilkan **nol diff** setiap kali, dan ke-25 angka Bagian A
++ ke-10 angka Bagian B identik pada percobaan ke-3; baris fixture
+`partner_orders` tidak membawa residu dari pengujian CHECK.
+
+Angka blok verifikasi berkas 0001 setelah 0026 — SUDAH DIUKUR: `RLS_ENABLED`
+TETAP **28** (0026 tidak membuat tabel baru), `POLICIES` TETAP **61** (nol
+create/drop policy), `TRIGGERS` (tabel berawalan `partner%`) naik ke **29**
+(+1: `trg_order_customer_payment` pada `partner_orders`).
 
 ## Batas yang diketahui (bukan bug baru, tapi jangan dilupakan)
 

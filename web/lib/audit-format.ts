@@ -1,5 +1,5 @@
 import type { AdminMessages } from "./i18n/messages";
-import { formatIDR, formatDateTimeWIB } from "./orders-shared";
+import { formatIDR, formatDateTimeWIB, formatCalendarDate } from "./orders-shared";
 
 /**
  * Layar Aktivitas dalam tiga bahasa.
@@ -114,6 +114,22 @@ function fieldLabel(m: AdminMessages, key: string): string | undefined {
     // ORDER_UPDATED generik — lihat catatan panjang di SKIP di bawah).
     // Nilainya dirender sebagai waktu WIB lewat cabang khusus di asLabel().
     delivered_at: c.deliveredAt,
+    // Fitur B (migrasi 0025) — sanci_products.has_color_options. Nilai boolean
+    // sudah ditangani generik di asLabel() (typeof v === "boolean" → Ya/Tidak),
+    // ini HANYA judul kolomnya — tanpa baris ini nama kolom mentah bahasa
+    // Inggris bocor ke layar Aktivitas (LESSONS #13/#28).
+    has_color_options: m.admin.productHasColorOptionsLabel,
+    // Fitur D (migrasi 0026) — kolom pembayaran pelanggan pada partner_orders.
+    // customer_settled_at TIDAK PERNAH ditulis dari app (server-stamped oleh
+    // trigger DB, LESSONS #11) tapi TETAP diberi label di sini: baris audit
+    // yang mencatat perubahannya (dari trigger itu sendiri) harus tetap
+    // terbaca manusia, bukan tampil sebagai kode kolom mentah.
+    customer_total_amount: c.customerPaymentTotal,
+    customer_paid_amount: c.customerPaymentPaid,
+    customer_dp_paid_at: c.customerPaymentDpDate,
+    customer_settled_at: c.customerPaymentSettledDate,
+    expedition: c.expeditionLabel,
+    confirm_status: c.confirmStatusLabel,
   };
   return map[key];
 }
@@ -190,6 +206,17 @@ function asLabel(m: AdminMessages, key: string, v: unknown): string {
   if (key === "delivered_at" && typeof v === "string") {
     return formatDateTimeWIB(v, m.common.dateLocale);
   }
+  // Fitur D (0026) — customer_settled_at adalah timestamptz (pola sama
+  // dengan delivered_at); customer_dp_paid_at adalah `date` MURNI (BUKAN
+  // titik waktu — pola sama dengan doc_date, lihat formatCalendarDate di
+  // lib/orders-shared.ts): jangan diperlakukan seperti timestamptz atau
+  // angkanya bisa bergeser sehari tergantung zona server.
+  if (key === "customer_settled_at" && typeof v === "string") {
+    return formatDateTimeWIB(v, m.common.dateLocale);
+  }
+  if (key === "customer_dp_paid_at" && typeof v === "string") {
+    return formatCalendarDate(v, m.common.dateLocale);
+  }
   // Uang tetap harus lewat formatIDR — angka mentah ("1500000") tidak
   // terbaca sebagai Rupiah oleh staf non-teknis (item H audit round 2).
   // Rupiah tetap format id-ID di ketiga bahasa: itu mata uang nyatanya.
@@ -212,7 +239,11 @@ function asLabel(m: AdminMessages, key: string, v: unknown): string {
       key === "line_discount" ||
       key === "cash_discount" ||
       key === "final_amount" ||
-      key === "price") &&
+      key === "price" ||
+      // Fitur D (0026) — numeric(15,2), Rupiah bulat sungguhan, pola sama
+      // dengan amount/final_amount/price di atas.
+      key === "customer_total_amount" ||
+      key === "customer_paid_amount") &&
     typeof v === "number"
   ) {
     return formatIDR(v);
