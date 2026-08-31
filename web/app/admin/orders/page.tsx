@@ -30,6 +30,13 @@ const ORDER_ITEMS_SCAN_LIMIT = 200;
  *  supaya tidak ada query tanpa batas atas (LESSONS #6, input tak dipercaya). */
 const STAFF_MATCH_SCAN_LIMIT = 200;
 
+/**
+ * Batas pindaian nomor dokumen (SO/DO/Invoice) — pola sama dengan
+ * ORDER_ITEMS_SCAN_LIMIT: cari dokumennya dulu, lalu ambil pesanannya lewat
+ * order_id, bukan menarik semua pesanan lalu menyaring di memori.
+ */
+const DOC_NUMBER_SCAN_LIMIT = 200;
+
 const ORDER_COLS =
   "id, order_number, customer_id, partner_id, branch_id, partner_sales_staff_id, package_name, status, created_at";
 
@@ -119,7 +126,13 @@ export default async function AdminOrdersPage({
   //           pencarian (LESSONS #12).
   //        4) order_items.name_snapshot/code_snapshot cocok → order_id
   //        5) partner_staff.full_name cocok → partner_sales_staff_id
-  //      Jalur 3/4/5 adalah PERLUASAN cakupan pencarian di atas jalur 1/2
+  //        6) order_documents.doc_number cocok → order_id (2026-08-31).
+  //           ALUR NYATA owner: Kalkulator → Proposal → SO, lalu DO menyusul
+  //           beberapa hari kemudian dan Invoice setelahnya. Yang dipegang
+  //           orang kantor di hari kedua adalah SELEMBAR SO — dan nomor SO
+  //           tidak pernah dicetak bersama order_number, jadi tanpa jalur ini
+  //           tidak ada jalan kembali dari kertas itu ke pesanannya.
+  //      Jalur 3/4/5/6 adalah PERLUASAN cakupan pencarian di atas jalur 1/2
   //      yang sudah ada — kegagalan salah satunya (RLS, tabel belum siap,
   //      dst.) TIDAK menggagalkan seluruh pencarian, hanya jalur itu yang
   //      diam-diam tidak menyumbang baris. Jalur 1/2 tetap mempertahankan
@@ -168,8 +181,8 @@ export default async function AdminOrdersPage({
       .limit(ORDER_ITEMS_SCAN_LIMIT);
     if (itemsOrFilter) itemsQuery = itemsQuery.or(itemsOrFilter);
 
-    // ── Gelombang A: lima pencarian yang TIDAK saling bergantung.
-    const [custRes, orderNumberRes, poRes, itemsRes, staffRes] = await Promise.all([
+    // ── Gelombang A: enam pencarian yang TIDAK saling bergantung.
+    const [custRes, orderNumberRes, poRes, itemsRes, staffRes, docsRes] = await Promise.all([
       normalizedPhone
         ? custQuery.eq("phone_normalized", normalizedPhone).limit(LIST_LIMIT)
         : custQuery.ilike("full_name", likePattern).limit(LIST_LIMIT),
@@ -180,6 +193,15 @@ export default async function AdminOrdersPage({
       itemsQuery,
       // Jalur 5, langkah A: partner_staff.full_name → id staf.
       supabase.from("partner_staff").select("id").ilike("full_name", likePattern).limit(STAFF_MATCH_SCAN_LIMIT),
+      // Jalur 6, langkah A: order_documents.doc_number → order_id. Toleran
+      // seperti jalur 3/4/5 — kalau 0016 belum jalan di suatu env (42P01)
+      // atau RLS menolak, jalur ini diam-diam tidak menyumbang baris dan
+      // pencarian lain tetap utuh (LESSONS #12).
+      supabase
+        .from("order_documents")
+        .select("order_id")
+        .ilike("doc_number", likePattern)
+        .limit(DOC_NUMBER_SCAN_LIMIT),
     ]);
 
     // Urutan pemeriksaan error dipertahankan seperti versi berurutan:
@@ -197,13 +219,19 @@ export default async function AdminOrdersPage({
         productMatchCapped = itemRows.length >= ORDER_ITEMS_SCAN_LIMIT;
         orderIdsFromItems = Array.from(new Set(itemRows.map((r) => r.order_id)));
       }
+      const orderIdsFromDocs = docsRes.error
+        ? []
+        : Array.from(
+            new Set((docsRes.data ?? []).map((r: { order_id: string }) => r.order_id))
+          );
+
       const staffIdsMatched = staffRes.error
         ? []
         : (staffRes.data ?? []).map((r: { id: string }) => r.id);
 
-      // ── Gelombang B: tiga lanjutan "id → pesanan". Saling independen —
+      // ── Gelombang B: empat lanjutan "id → pesanan". Saling independen —
       //    dulu jalur 4 dan 5 di-await berurutan tanpa alasan.
-      const [byCustomerRes, byItemsRes, byStaffRes] = await Promise.all([
+      const [byCustomerRes, byItemsRes, byStaffRes, byDocsRes] = await Promise.all([
         matchedCustomerIds.length > 0
           ? ordersQuery().in("customer_id", matchedCustomerIds).limit(LIST_LIMIT)
           : null,
@@ -211,6 +239,7 @@ export default async function AdminOrdersPage({
         staffIdsMatched.length > 0
           ? ordersQuery().in("partner_sales_staff_id", staffIdsMatched).limit(LIST_LIMIT)
           : null,
+        orderIdsFromDocs.length > 0 ? ordersQuery().in("id", orderIdsFromDocs).limit(LIST_LIMIT) : null,
       ]);
 
       // Jalur 2 tetap "gagal = seluruh pencarian gagal" (perilaku lama).
@@ -229,6 +258,7 @@ export default async function AdminOrdersPage({
         if (!poRes.error) merge((poRes.data ?? []) as OrderListRow[]);
         if (byItemsRes && !byItemsRes.error) merge((byItemsRes.data ?? []) as OrderListRow[]);
         if (byStaffRes && !byStaffRes.error) merge((byStaffRes.data ?? []) as OrderListRow[]);
+        if (byDocsRes && !byDocsRes.error) merge((byDocsRes.data ?? []) as OrderListRow[]);
 
         orderRows = Array.from(byId.values())
           .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))

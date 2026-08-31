@@ -549,7 +549,7 @@ const id = {
 
   // ---- Pesanan Partner — daftar (orders/page.tsx) ----
   ordersFeatureOff: "Fitur pesanan belum aktif — migration database belum dijalankan.",
-  ordersSearchPlaceholder: "Cari nomor pesanan / customer / telepon / no. PO / produk / sales…",
+  ordersSearchPlaceholder: "Cari no. pesanan / SO / DO / Invoice / customer / telepon / no. PO / produk / sales…",
   filterFulfillmentAll: "Jalur: semua",
   ordersEmpty: "Belum ada pesanan.",
   ordersEmptyFiltered: 'Tidak ada pesanan yang cocok dengan "{q}".',
@@ -1415,7 +1415,7 @@ const en = {
   productGalleryMoveFailed: "The photo order failed to save.",
 
   ordersFeatureOff: "The orders feature is not active yet — the database migration has not been run.",
-  ordersSearchPlaceholder: "Search order number / customer / phone / PO no. / product / sales…",
+  ordersSearchPlaceholder: "Search order / SO / DO / Invoice no. / customer / phone / PO no. / product / sales…",
   filterFulfillmentAll: "Fulfillment: all",
   ordersEmpty: "No orders yet.",
   ordersEmptyFiltered: 'No orders match "{q}".',
@@ -2194,7 +2194,7 @@ const zh = {
   productGalleryMoveFailed: "照片顺序保存失败。",
 
   ordersFeatureOff: "订单功能尚未启用 —— 数据库迁移脚本还没有执行。",
-  ordersSearchPlaceholder: "搜索订单编号 / 客户 / 电话 / PO 号 / 产品 / 销售员…",
+  ordersSearchPlaceholder: "搜索订单编号 / SO / DO / 发票号 / 客户 / 电话 / PO 号 / 产品 / 销售员…",
   filterFulfillmentAll: "交付方式：全部",
   ordersEmpty: "暂无订单。",
   ordersEmptyFiltered: "没有符合“{q}”的订单。",

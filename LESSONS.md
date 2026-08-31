@@ -287,3 +287,10 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法兩件事，缺一不可**：①所有響應式斷點加 `screen and`，讓它們永遠不碰紙；②明確宣告 `@page { size: A4 portrait; margin: 0 }`——不宣告就是交給瀏覽器預設邊界，而預設值會讓 page box 落進斷點區間。`margin: 0` 必須跟「`.sheet` 寬 210mm ＋ 內層 padding 16mm 當安全區」成套使用；若給 `@page` 非零 margin，210mm 的 sheet 反而比內容框寬，右緣會被裁掉。
 - **測試方法的陷阱（這條比 bug 本身重要）**：用 Playwright `emulateMedia({media:'print'})` **抓不到這個問題**——媒體查詢此時仍比對 viewport 寬度，所以在 1400px viewport 下量出來一切正常。必須**真的產生 PDF**（`page.pdf({format:'A4'})` 數頁數），或把 viewport 寬度設成 page box 寬度再讀 `getComputedStyle().gridTemplateColumns`。**「我測過了」要看測的是不是真的那條路徑**：第一輪測試全綠，實際上量的是螢幕版面。
 - **同場加映**：固定欄寬的表格要拿 A4 內容寬回去驗算，不能憑感覺。`grid-template-columns` 的固定欄合計 712px 放進 673px 的內容框，平常看不出來（欄位內容短），一遇到 `Rp 1.287.500.000` 這種長字串就整片推出紙外被裁掉。
+
+### 49. 外部清單倒進「以 id 當身分」的 state 模型之前，一定要先合併同 id——不合併的話，改一列會改到兩列，而且沒有任何錯誤〔本專案 2026-08-31，audit 抓到〕
+- **機制**：一個 state 模型如果所有寫入都用 `x.id === id` 比對（`map`/`filter`/`findIndex`），那「每個 id 只有一列」就是它的**隱形不變量**。這個不變量不寫在型別裡、tsc 抓不到、build 不會壞。任何從外部（DB 查詢、localStorage、另一個畫面的 hand-off）倒進來的清單，只要允許同 id 重複，倒進去的那一刻不變量就破了。
+- **本專案的實例**：計算器購物車 `CalcLine[]` 全部用 `productId` 當身分（`addToCart` 累加、`removeLine` 用 `filter`、`setLineQty`/`setLineUnitPrice` 用 `map`）。但 `order_items` **沒有** `(order_id, product_id)` unique constraint，而且 `color_code`/`custom_size` 這兩欄存在的目的就是讓「沙發米色 2 張」和「沙發深灰 3 張」變成兩列——同 id 重複是**設計上正常的資料**，不是髒資料。訂單頁的「Buat Proposal」把這些列原樣倒進購物車，結果：改其中一列數量，**兩列一起變**（2+3 變成 3+3，小計多算一整件），刪其中一列**兩列一起消失**，React key 也重複。錯的金額會一路印到客人手上的提案冊，全程零錯誤訊息。
+- **怎麼發現的**：不是靠測試，是靠**追問「這個 id 在來源端真的唯一嗎」**。查了三個地方才確定它不唯一：(1) 建表 SQL 有沒有 unique constraint；(2) 有沒有欄位的存在目的就是區分同一個 id 的多列（`color_code`/`custom_size`）；(3) idempotency 的 key 空間是不是分開的（`:item:` 給 Package 複製、`:calc-item:` 給計算器——刻意兩個命名空間，所以同一張訂單兩者都有是正常的）。三個問題任一個答「不唯一」，就必須合併。
+- **修法**：在**倒進去的邊界**合併，不是在下游每個寫入處各補一次防禦。而且合併了幾列要**說出來**（banner），不能默默加總——店員手上的紙本訂單是 5 列，畫面只剩 3 列而沒解釋，看起來就像系統吃掉了東西。專案裡已經有對的範本：`lib/order-item-picker.tsx` 的 `mergeLinesFromHandoff`。
+- **通用檢查**：看到 `setXxx(外部來的陣列)` 而下游用 id 比對，就停下來問那個 id 唯一不唯一。grep 線索：`setLines(`、`onLinesChange(`、任何 `useState<T[]>` 而 T 有 id 且更新函式用 `.map(x => x.id === ...)`。
