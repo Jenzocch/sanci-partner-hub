@@ -66,10 +66,6 @@
   padding: var(--py) var(--px);
   position: relative;
 }
-.dark { background: var(--charcoal); color: var(--paper); }
-.dark .eyebrow, .dark .micro { color: #beb7ab; }
-.dark .pgNo, .dark .pgBrand { color: #a8a196; }
-
 .eyebrow {
   font-size: 11px; line-height: 1.2; letter-spacing: .16em;
   text-transform: uppercase; color: var(--muted); margin: 0;
@@ -105,8 +101,13 @@
 .coverMeta { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 360px; }
 .coverName { margin-top: 5px; font-family: var(--serif); font-size: 20px; overflow-wrap: anywhere; }
 .coverDate { margin-top: 7px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
-.coverImage { min-height: 100%; background: var(--stone); overflow: hidden; }
-.coverImage img { width: 100%; height: 100%; min-height: 100%; object-fit: cover; display: block; }
+/* `contain`, BUKAN `cover`: foto produk SANCI adalah gambar potong berlatar
+   putih, sebagiannya dengan nama produk tercetak di dalam gambar. `cover`
+   memotong tulisan itu di tengah kata dan memenggal perabotnya. Latarnya
+   gading, senada dengan kertas, supaya sisa ruangnya tidak terbaca sebagai
+   kotak abu-abu. */
+.coverImage { min-height: 100%; background: var(--ivory); overflow: hidden; padding: 12mm; }
+.coverImage img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* ── Pengantar ──────────────────────────────────────────────────── */
 .introGrid {
@@ -166,8 +167,8 @@
 }
 .sumCopy { max-width: 450px; }
 .sumTitle { font-family: var(--serif); font-size: 60px; line-height: .92; font-weight: 500; margin: 12px 0 28px; }
-.sumImage { aspect-ratio: 4 / 3; overflow: hidden; background: var(--ivory); }
-.sumImage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sumImage { aspect-ratio: 4 / 3; overflow: hidden; background: var(--ivory); padding: 8mm; }
+.sumImage img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .sumNote { margin-top: 30px; color: var(--warm); max-width: 420px; font-size: 13px; line-height: 1.7; }
 
 /* ── Halaman pembuka produk ─────────────────────────────────────── */
@@ -182,20 +183,17 @@
 .heroPhoto { margin-top: 18mm; height: 142mm; background: var(--ivory); overflow: hidden; }
 .heroPhoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .heroMeta { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; margin-top: 12mm; flex-wrap: wrap; }
+/* Kaki halaman produk gabungan: cerita di kiri (kolom baca ~62 karakter),
+   spesifikasi di kanan sebagai daftar tipis. Keduanya rata-atas supaya
+   deskripsi yang panjang tidak menyeret label spesifikasi ke bawah. */
+.prodFoot { display: grid; grid-template-columns: 1fr 260px; gap: 16mm; align-items: start; margin-top: 12mm; }
+.prodAbout p { margin: 6px 0 0; }
+.prodFoot .detailBlock { margin-top: 0; }
 .heroDesc { max-width: 500px; color: var(--warm); font-size: 14px; margin: 6px 0 0; }
 .dimension { text-align: right; }
 .dimensionValue { margin: 3px 0 0; font-family: var(--serif); font-size: 23px; overflow-wrap: anywhere; }
 
 /* ── Halaman rincian ────────────────────────────────────────────── */
-.edGrid {
-  display: grid; grid-template-columns: 1.05fr .95fr; gap: 16mm;
-  min-height: calc(var(--ph) - 32mm); align-items: center;
-}
-.edImage { aspect-ratio: 4 / 5; overflow: hidden; background: var(--ivory); }
-.edImage img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.edTitle { font-family: var(--serif); font-size: 42px; line-height: 1; font-weight: 500; margin: 10px 0 18px; }
-.edCopy p { max-width: 450px; color: var(--warm); font-size: 14px; margin: 0 0 14px; }
-.edCopy p:last-of-type { margin-bottom: 0; }
 .detailBlock { margin-top: 32px; }
 .detailRow { display: grid; grid-template-columns: 125px 1fr; gap: 20px; padding: 12px 0; border-top: 1px solid var(--line); }
 .detailRow:last-child { border-bottom: 1px solid var(--line); }
@@ -206,8 +204,8 @@
 .galHead { margin-bottom: 16mm; }
 .galTitle { font-family: var(--serif); font-size: 50px; line-height: .95; font-weight: 500; margin: 8px 0 0; }
 .gallery { display: grid; gap: 7mm; }
-.galItem { background: var(--ivory); overflow: hidden; }
-.galItem img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.galItem { background: var(--ivory); overflow: hidden; padding: 6mm; }
+.galItem img { width: 100%; height: 100%; object-fit: contain; display: block; }
 /* Bentuk grid mengikuti JUMLAH foto — bukan satu grid tetap yang memaksa
    foto ketiga jadi lubang kosong ketika produk cuma punya dua. */
 .gal1 { grid-template-columns: 1fr; height: 215mm; }
@@ -230,8 +228,8 @@
   font-size: 53px; line-height: 1; font-variant-numeric: tabular-nums;
   margin: 7px 0 25px; white-space: nowrap;
 }
-.finalImage { aspect-ratio: 3 / 4; background: var(--stone); overflow: hidden; }
-.finalImage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.finalImage { aspect-ratio: 3 / 4; background: var(--ivory); overflow: hidden; padding: 8mm; }
+.finalImage img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .thanks { margin-top: 45mm; max-width: 450px; }
 .thanks h3 { font-family: var(--serif); font-size: 35px; font-weight: 500; margin: 0 0 12px; }
 .thanks p { color: var(--warm); font-size: 14px; margin: 0; }
@@ -239,11 +237,6 @@
 .contactValue { margin: 6px 0 0; color: var(--warm); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 
 /* ── Spread editorial gelap ─────────────────────────────────────── */
-.darkHero { min-height: calc(var(--ph) - 32mm); display: flex; flex-direction: column; justify-content: space-between; }
-.darkTitle { font-family: var(--serif); font-size: 68px; line-height: .9; font-weight: 500; max-width: 650px; margin: 13mm 0 0; overflow-wrap: anywhere; }
-.darkImage { height: 166mm; margin-top: 12mm; background: #383631; overflow: hidden; }
-.darkImage img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
 /* ── Placeholder foto (produk tanpa foto) ───────────────────────── */
 /* Bukan gambar rusak dan bukan tulisan "tidak ada foto": bidang gading
    tenang yang tidak menarik perhatian ke sesuatu yang tidak ada. */
@@ -288,8 +281,8 @@
 @media screen and (max-width: 1100px) {
   .sheet { width: min(100%, 900px); min-height: auto; }
   .inner { min-height: auto; }
-  .coverGrid, .introGrid, .sumLayout, .edGrid, .finalLayout { grid-template-columns: 1fr; }
-  .coverGrid, .introGrid, .sumLayout, .edGrid, .finalLayout, .prodHero, .darkHero { min-height: 0; }
+  .coverGrid, .introGrid, .sumLayout,  .finalLayout { grid-template-columns: 1fr; }
+  .coverGrid, .introGrid, .sumLayout, .finalLayout, .prodHero { min-height: 0; }
   .coverImage { min-height: 480px; }
   .prodTitle { font-size: 48px; }
   .heroPhoto { height: 520px; }
@@ -298,7 +291,6 @@
   .gal3 .galItem:first-child, .gal4 .galItem:first-child, .gal5 .galItem:first-child { grid-row: auto; grid-column: 1 / 3; min-height: 480px; }
   .galItem { min-height: 250px; }
   .finalImage { max-height: 560px; }
-  .darkImage { height: 420px; }
 }
 @media screen and (max-width: 720px) {
   .wrap { background: var(--paper); }
@@ -331,7 +323,6 @@
   .galItem { min-height: 250px; }
   .finalTitle { font-size: 50px; }
   .finalPrice { font-size: 39px; }
-  .darkTitle { font-size: 44px; }
   .contact { grid-template-columns: 1fr; }
 }
 /* Diikat ke .wrap: CSS Module menolak selektor global seperti `*`, dan
@@ -362,5 +353,4 @@
   .selRow, .metaRow, .detailRow, .galItem, .heroPhoto, .moneyFinal, .thanks {
     break-inside: avoid; page-break-inside: avoid;
   }
-  .dark { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

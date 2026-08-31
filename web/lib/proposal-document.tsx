@@ -53,17 +53,9 @@ type LoadState =
   | { phase: "error"; text: string };
 
 /** Satu lembar A4. `n` null = tanpa nomor halaman (sampul). */
-function Sheet({
-  children,
-  n,
-  dark,
-}: {
-  children: React.ReactNode;
-  n: number | null;
-  dark?: boolean;
-}) {
+function Sheet({ children, n }: { children: React.ReactNode; n: number | null }) {
   return (
-    <section className={dark ? `${styles.sheet} ${styles.dark}` : styles.sheet}>
+    <section className={styles.sheet}>
       <div className={styles.inner}>
         {children}
         <span className={styles.pgBrand}>SANCI Proposal</span>
@@ -380,26 +372,6 @@ export default function ProposalDocument({
           </div>
         </Sheet>
 
-        {/* ── Spread editorial gelap. Judulnya kalimat PENANDA BAGIAN,
-             bukan klaim tentang produk — dokumen ini tidak pernah
-             mengarang sifat produk. Hanya dirender kalau memang ada
-             foto yang layak memenuhi satu halaman penuh. ─────────── */}
-        {heroPhotos.length > 0 && (
-          <Sheet n={next()} dark>
-            <div className={styles.darkHero}>
-              <div>
-                <p className={styles.eyebrow}>{m.proposalCollectionKicker}</p>
-                <h2 className={styles.darkTitle}>{m.proposalCollectionTitle}</h2>
-              </div>
-              <Photo
-                src={heroPhotos[heroPhotos.length - 1]}
-                alt={rows[rows.length - 1]?.line.name ?? lh.brand}
-                className={styles.darkImage}
-              />
-            </div>
-          </Sheet>
-        )}
-
         {/* ── Tiap produk: pembuka, rincian, galeri ──────────────── */}
         {rows.map((r, i) => {
           const p = r.product;
@@ -407,6 +379,13 @@ export default function ProposalDocument({
           const gallery = r.photos.slice(1);
           return (
             <div key={`p-${r.line.productId}`}>
+              {/* SATU halaman per produk, bukan dua. Versi sebelumnya memisah
+                  "pembuka" dan "rincian", dan hasilnya pada data sungguhan:
+                  nama produk tercetak tiga kali (judul pembuka, kicker
+                  rincian, judul rincian), ukuran/kode/kategori tercetak dua
+                  kali, dan halaman rincian yang isinya pendek menyisakan
+                  sekitar enam per sepuluh halaman kosong. Digabung, tiap
+                  keterangan muncul TEPAT SEKALI dan halamannya terisi. */}
               <Sheet n={next()}>
                 <div className={styles.prodHero}>
                   <div className={styles.prodHead}>
@@ -416,65 +395,35 @@ export default function ProposalDocument({
                       {r.line.code && <p className={styles.prodCode}>{r.line.code}</p>}
                     </div>
                   </div>
+
                   <Photo src={r.photos[0]} alt={r.line.name} className={styles.heroPhoto} />
-                  <div className={styles.heroMeta}>
+
+                  <div className={styles.prodFoot}>
                     {desc && (
-                      <div>
+                      <div className={styles.prodAbout}>
                         <p className={styles.eyebrow}>{m.proposalAboutLabel}</p>
                         <p className={styles.heroDesc}>{desc}</p>
                       </div>
                     )}
-                    {p?.size && (
-                      <div className={styles.dimension}>
-                        <p className={styles.eyebrow}>{m.proposalSpecSize}</p>
-                        <p className={`${styles.dimensionValue} ${styles.num}`}>{p.size}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Sheet>
-
-              {/* Halaman rincian hanya kalau ada yang bisa dirinci — halaman
-                  berisi tiga label kosong lebih buruk daripada tidak ada
-                  halaman sama sekali. */}
-              {(desc || p?.size || p?.category) && (
-                <Sheet n={next()}>
-                  <div className={styles.edGrid}>
-                    <Photo
-                      src={r.photos[1] ?? r.photos[0]}
-                      alt={r.line.name}
-                      className={styles.edImage}
-                    />
-                    <div className={styles.edCopy}>
-                      <p className={styles.eyebrow}>
-                        {m.proposalDetailKicker.replace("{name}", r.line.name)}
-                      </p>
-                      <h2 className={styles.edTitle}>{r.line.name}</h2>
-                      {desc && <p>{desc}</p>}
-                      <div className={styles.detailBlock}>
+                    {(p?.size || p?.category) && (
+                      <dl className={styles.detailBlock}>
                         {p?.size && (
                           <div className={styles.detailRow}>
-                            <p className={styles.detailLabel}>{m.proposalSpecSize}</p>
-                            <p className={`${styles.detailValue} ${styles.num}`}>{p.size}</p>
-                          </div>
-                        )}
-                        {r.line.code && (
-                          <div className={styles.detailRow}>
-                            <p className={styles.detailLabel}>{m.proposalSpecCode}</p>
-                            <p className={styles.detailValue}>{r.line.code}</p>
+                            <dt className={styles.detailLabel}>{m.proposalSpecSize}</dt>
+                            <dd className={`${styles.detailValue} ${styles.num}`}>{p.size}</dd>
                           </div>
                         )}
                         {p?.category && (
                           <div className={styles.detailRow}>
-                            <p className={styles.detailLabel}>{m.proposalSpecCategory}</p>
-                            <p className={styles.detailValue}>{p.category}</p>
+                            <dt className={styles.detailLabel}>{m.proposalSpecCategory}</dt>
+                            <dd className={styles.detailValue}>{p.category}</dd>
                           </div>
                         )}
-                      </div>
-                    </div>
+                      </dl>
+                    )}
                   </div>
-                </Sheet>
-              )}
+                </div>
+              </Sheet>
 
               {/* Galeri hanya kalau ada foto SELAIN foto pembuka. */}
               {gallery.length > 0 && (
