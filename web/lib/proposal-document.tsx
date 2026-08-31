@@ -48,6 +48,17 @@ import styles from "./proposal-document.module.css";
 
 const LOGO = "/brand/sanci-logo.png";
 
+/**
+ * Tiga susunan halaman produk yang dipakai bergiliran. Bukan hiasan: tiga
+ * halaman berturut-turut yang identik membuat dokumen terbaca sebagai daftar
+ * yang panjang, dan mata berhenti memperhatikan. Isinya sama di ketiganya.
+ *   layoutHero   — foto selebar halaman di atas, teks dua kolom di bawah
+ *   layoutSplit  — foto tegak di kiri, seluruh teks menumpuk di kanan
+ *   layoutStory  — teks memimpin di kiri, foto tinggi di kanan, spesifikasi
+ *                  jadi pita selebar halaman di dasar
+ */
+const LAYOUTS = [styles.layoutHero, styles.layoutSplit, styles.layoutStory];
+
 type LoadState =
   | { phase: "loading" }
   | { phase: "ready"; products: ProposalProduct[] }
@@ -210,6 +221,22 @@ export default function ProposalDocument({
   });
   const who = customerName.trim();
   const heroPhotos = rows.flatMap((r) => r.photos);
+  /**
+   * Foto sampul: foto pertama dari baris BERNILAI TERTINGGI, bukan baris
+   * pertama. Urutan keranjang cuma mencatat produk mana yang kebetulan
+   * ditambahkan staf lebih dulu — memakai itu berarti sampulnya ditentukan
+   * kebetulan. Barang termahal biasanya pusat ruangannya (ranjang, sofa) dan
+   * hal yang paling ingin dilihat pelanggan lebih dulu. Kalau baris termahal
+   * belum berfoto, mundur ke foto pertama yang ADA supaya sampulnya tidak
+   * kosong hanya karena satu produk belum difoto.
+   */
+  const coverPhoto =
+    rows
+      .filter((r) => r.photos.length > 0)
+      .reduce<(typeof rows)[number] | null>(
+        (best, r) => (!best || r.amount > best.amount ? r : best),
+        null
+      )?.photos[0] ?? heroPhotos[0];
 
   // Nomor halaman dihitung sambil menyusun: sampul tidak bernomor, sisanya
   // berurutan berapa pun jumlah produk dan fotonya.
@@ -289,7 +316,7 @@ export default function ProposalDocument({
           <p className={styles.coverSub}>{m.proposalCoverSub}</p>
 
           <Photo
-            src={heroPhotos[0]}
+            src={coverPhoto}
             alt={rows[0]?.line.name ?? lh.brand}
             className={styles.coverImage}
             eager
@@ -452,7 +479,14 @@ export default function ProposalDocument({
                   sekitar enam per sepuluh halaman kosong. Digabung, tiap
                   keterangan muncul TEPAT SEKALI dan halamannya terisi. */}
               <Sheet n={next()}>
-                <div className={styles.prodHero}>
+                {/* Tata letak BERGANTI tiap produk (arahan owner 2026-08-31,
+                    dan §36 spesifikasi aslinya): tiga produk berturut-turut
+                    dengan susunan identik terbaca sebagai tabel, bukan
+                    majalah. Ketiganya memakai bahan yang sama persis —
+                    nomor, nama, kode, foto, deskripsi, spesifikasi — hanya
+                    susunannya yang berbeda, jadi tidak ada produk yang
+                    mendapat keterangan lebih sedikit daripada yang lain. */}
+                <div className={`${styles.prodPage} ${LAYOUTS[i % LAYOUTS.length]}`}>
                   <div className={styles.prodHead}>
                     <span className={styles.prodNo}>{String(i + 1).padStart(2, "0")}</span>
                     <div>
@@ -461,32 +495,33 @@ export default function ProposalDocument({
                     </div>
                   </div>
 
-                  <Photo src={r.photos[0]} alt={r.line.name} className={styles.heroPhoto} />
+                  <Photo src={r.photos[0]} alt={r.line.name} className={styles.prodPhoto} />
 
-                  <div className={styles.prodFoot}>
+                  <div className={styles.prodText}>
                     {desc && (
-                      <div className={styles.prodAbout}>
+                      <>
                         <p className={styles.eyebrow}>{m.proposalAboutLabel}</p>
                         <p className={styles.heroDesc}>{desc}</p>
-                      </div>
-                    )}
-                    {(p?.size || p?.category) && (
-                      <dl className={styles.detailBlock}>
-                        {p?.size && (
-                          <div className={styles.detailRow}>
-                            <dt className={styles.detailLabel}>{m.proposalSpecSize}</dt>
-                            <dd className={`${styles.detailValue} ${styles.num}`}>{p.size}</dd>
-                          </div>
-                        )}
-                        {p?.category && (
-                          <div className={styles.detailRow}>
-                            <dt className={styles.detailLabel}>{m.proposalSpecCategory}</dt>
-                            <dd className={styles.detailValue}>{p.category}</dd>
-                          </div>
-                        )}
-                      </dl>
+                      </>
                     )}
                   </div>
+
+                  {(p?.size || p?.category) && (
+                    <dl className={styles.prodSpec}>
+                      {p?.size && (
+                        <div className={styles.detailRow}>
+                          <dt className={styles.detailLabel}>{m.proposalSpecSize}</dt>
+                          <dd className={`${styles.detailValue} ${styles.num}`}>{p.size}</dd>
+                        </div>
+                      )}
+                      {p?.category && (
+                        <div className={styles.detailRow}>
+                          <dt className={styles.detailLabel}>{m.proposalSpecCategory}</dt>
+                          <dd className={styles.detailValue}>{p.category}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
                 </div>
               </Sheet>
 
@@ -499,7 +534,7 @@ export default function ProposalDocument({
                     </p>
                     <h2 className={styles.galTitle}>{m.proposalGalleryTitle}</h2>
                   </div>
-                  <div className={`${styles.gallery} ${galleryShape(gallery.length)}`}>
+                  <div className={`${styles.gallery} ${galleryShape(gallery.length)}${i % 2 ? ` ${styles.galMirror}` : ""}`}>
                     {gallery.map((url) => (
                       <div className={styles.galItem} key={url}>
                         {/* eslint-disable-next-line @next/next/no-img-element -- URL publik Supabase Storage */}

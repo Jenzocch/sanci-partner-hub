@@ -198,27 +198,59 @@
 
 .sumNote { margin-top: 30px; color: var(--warm); max-width: 420px; font-size: 13px; line-height: 1.7; }
 
-/* ── Halaman pembuka produk ─────────────────────────────────────── */
-.prodHero { display: grid; grid-template-columns: 1fr; min-height: calc(var(--ph) - 32mm); }
-.prodHead { padding-top: 4mm; display: grid; grid-template-columns: 80px 1fr; gap: 14px; }
+/* ── Halaman produk: TIGA susunan bergiliran ────────────────────── */
+/* Bahannya identik di ketiganya (kepala, foto, teks, spesifikasi); yang
+   berbeda hanya penempatannya lewat grid-template-areas. Tiga halaman
+   berturut-turut yang sama persis terbaca sebagai tabel — mata berhenti
+   memperhatikan, dan itu kebalikan dari yang diminta dokumen ini. */
+.prodPage {
+  display: grid; gap: 10mm 14mm;
+  min-height: calc(var(--ph) - 32mm);
+  align-content: start;
+}
+.prodHead { display: grid; grid-template-columns: 80px 1fr; gap: 14px; grid-area: head; }
 .prodNo { font-family: var(--serif); font-size: 27px; line-height: 1; }
 .prodTitle {
-  font-family: var(--serif); font-size: 59px; line-height: .92; font-weight: 500;
-  letter-spacing: -.025em; margin: 0; overflow-wrap: anywhere;
+  font-family: var(--serif); font-size: 52px; line-height: .94; font-weight: 500;
+  letter-spacing: -.02em; margin: 0; overflow-wrap: anywhere;
 }
 .prodCode { margin: 9px 0 0; font-size: 11px; color: var(--muted); letter-spacing: .09em; }
-.heroPhoto { margin-top: 18mm; height: 142mm; background: var(--ivory); overflow: hidden; }
-.heroPhoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.heroMeta { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; margin-top: 12mm; flex-wrap: wrap; }
-/* Kaki halaman produk gabungan: cerita di kiri (kolom baca ~62 karakter),
-   spesifikasi di kanan sebagai daftar tipis. Keduanya rata-atas supaya
-   deskripsi yang panjang tidak menyeret label spesifikasi ke bawah. */
-.prodFoot { display: grid; grid-template-columns: 1fr 260px; gap: 16mm; align-items: start; margin-top: 12mm; }
-.prodAbout p { margin: 6px 0 0; }
-.prodFoot .detailBlock { margin-top: 0; }
-.heroDesc { max-width: 500px; color: var(--warm); font-size: 14px; margin: 6px 0 0; }
-.dimension { text-align: right; }
-.dimensionValue { margin: 3px 0 0; font-family: var(--serif); font-size: 23px; overflow-wrap: anywhere; }
+.prodPhoto { grid-area: photo; background: var(--ivory); overflow: hidden; }
+.prodPhoto img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.prodText { grid-area: text; }
+.heroDesc { color: var(--warm); font-size: 14px; line-height: 1.75; margin: 8px 0 0; max-width: 62ch; }
+.prodSpec { grid-area: spec; align-self: start; }
+
+/* 01 — foto memimpin: selebar halaman, teks dua kolom di bawahnya. */
+.layoutHero {
+  grid-template-columns: 1fr 250px;
+  grid-template-areas: "head head" "photo photo" "text spec";
+}
+.layoutHero .prodPhoto { aspect-ratio: 16 / 9; padding: 4mm; }
+
+/* 02 — terbelah: foto tegak di kiri, seluruh teks menumpuk di kanan. */
+.layoutSplit {
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "photo head" "photo text" "photo spec";
+  align-content: start;
+}
+.layoutSplit .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
+.layoutSplit .prodHead { grid-template-columns: 56px 1fr; }
+.layoutSplit .prodTitle { font-size: 42px; }
+
+/* 03 — teks memimpin: judul dan cerita di kiri, foto tinggi di kanan,
+   spesifikasi jadi pita selebar halaman di dasar. */
+.layoutStory {
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "head photo" "text photo" "spec spec";
+}
+.layoutStory .prodPhoto { padding: 6mm; align-self: stretch; height: 100%; min-height: 120mm; }
+.layoutStory .prodTitle { font-size: 44px; }
+.layoutStory .prodSpec {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0 24px; border-top: 1px solid var(--line); padding-top: 4px;
+}
+.layoutStory .detailRow:last-child { border-bottom: none; }
 
 /* ── Halaman rincian ────────────────────────────────────────────── */
 .detailBlock { margin-top: 32px; }
@@ -233,6 +265,10 @@
 .gallery { display: grid; gap: 7mm; }
 .galItem { background: var(--ivory); overflow: hidden; padding: 6mm; }
 .galItem img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Sisi tile besar berganti tiap produk — dua galeri berurutan dengan jumlah
+   foto sama tidak lagi kembar. */
+.galMirror { direction: rtl; }
+.galMirror > * { direction: ltr; }
 /* Bentuk grid mengikuti JUMLAH foto — bukan satu grid tetap yang memaksa
    foto ketiga jadi lubang kosong ketika produk cuma punya dua. */
 .gal1 { grid-template-columns: 1fr; height: 215mm; }
@@ -294,9 +330,16 @@
   .sheet { width: min(100%, 900px); min-height: auto; }
   .inner { min-height: auto; }
   .introGrid, .sumLayout { grid-template-columns: 1fr; }
-  .introGrid, .sumLayout, .prodHero { min-height: 0; }
+  .introGrid, .sumLayout, .prodPage { min-height: 0; }
+  /* Ketiga susunan runtuh jadi satu kolom dengan urutan baca yang sama.
+     Mempertahankan asimetri di layar sempit membuat kolomnya jadi terlalu
+     kurus untuk dibaca — di ponsel keterbacaan menang atas ritme. */
+  .layoutHero, .layoutSplit, .layoutStory {
+    grid-template-columns: 1fr;
+    grid-template-areas: "head" "photo" "text" "spec";
+  }
+  .layoutSplit .prodPhoto, .layoutStory .prodPhoto { aspect-ratio: 16 / 10; }
   .prodTitle { font-size: 48px; }
-  .heroPhoto { height: 520px; }
   .gallery { height: auto; }
   .gal3, .gal4, .gal5 { grid-template-columns: 1fr 1fr; grid-template-rows: none; }
   .gal3 .galItem:first-child, .gal4 .galItem:first-child, .gal5 .galItem:first-child { grid-row: auto; grid-column: 1 / 3; min-height: 480px; }
@@ -324,9 +367,6 @@
   .sumImage { order: -1; }
   .prodHead { grid-template-columns: 46px 1fr; }
   .prodTitle { font-size: 44px; }
-  .heroPhoto { height: 410px; margin-top: 42px; }
-  .heroMeta { align-items: flex-start; flex-direction: column; }
-  .dimension { text-align: left; }
   .gal2, .gal3, .gal4, .gal5 { grid-template-columns: 1fr; }
   .gal3 .galItem:first-child, .gal4 .galItem:first-child, .gal5 .galItem:first-child { grid-column: auto; min-height: 340px; }
   .galItem { min-height: 250px; }
@@ -356,7 +396,7 @@
   .inner { min-height: 297mm; }
   /* Blok yang tidak boleh terbelah kalau isinya membuat lembar tumbuh
      melewati satu halaman (deskripsi produk sungguhan panjangnya bebas). */
-  .selRow, .metaRow, .detailRow, .galItem, .heroPhoto, .moneyFinal, .coverFoot {
+  .selRow, .metaRow, .detailRow, .galItem, .prodPhoto, .moneyFinal, .coverFoot {
     break-inside: avoid; page-break-inside: avoid;
   }
 }
