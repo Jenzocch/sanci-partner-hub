@@ -42,6 +42,27 @@ const ORDER_COLS =
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * Filter "Status Kirim" (2026-08-31). Tiga nilai, bukan lima seperti kolom
+ * Status Kirim di lembar Google Sheets: membedakan "DO sebagian" dari "sudah
+ * DO penuh" menuntut kuantitas order_items DAN order_document_items untuk
+ * setiap pesanan yang tampil — beban query yang tidak sepadan untuk sebuah
+ * DAFTAR. Pertanyaan operasional sehari-hari ("mana yang belum dikirim")
+ * sudah terjawab oleh tiga nilai ini; rinciannya ada di lembar Sheets.
+ */
+type ShippingFilter = "ALL" | "BELUM_DO" | "SUDAH_DO" | "DITERIMA";
+
+/**
+ * Batas pindaian filter kirim. Filternya dikerjakan DI MEMORI karena
+ * "pesanan yang TIDAK punya DO" bukan sesuatu yang bisa ditanyakan lintas
+ * tabel ke PostgREST tanpa view/RPC baru (dan daftar `in.(...)` berisi ribuan
+ * UUID melebihi panjang URL yang wajar). Konsekuensinya dibatasi dan
+ * DIKATAKAN: kalau salah satu batas ini tersentuh, catatan kaki muncul di
+ * bawah daftar — bukan hasil terpotong yang terlihat lengkap (LESSONS #10).
+ */
+const SHIPPING_DOC_SCAN_LIMIT = 3000;
+const SHIPPING_ORDER_SCAN_LIMIT = LIST_LIMIT * 6;
+
 type OrderListRow = {
   id: string;
   order_number: string;
@@ -59,7 +80,7 @@ type QueryErr = { code?: string; message?: string } | null;
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; jalur?: string; dateFrom?: string; dateTo?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; jalur?: string; kirim?: string; dateFrom?: string; dateTo?: string }>;
 }) {
   const m = await getAdminMessages();
   const STATUS_OPTIONS: { value: "ALL" | OrderStatus; label: string }[] = [
@@ -72,8 +93,16 @@ export default async function AdminOrdersPage({
     { value: "DIRECT_DELIVERY", label: m.common.fulfillmentDirect },
     { value: "SHOWROOM_VISIT", label: m.common.fulfillmentShowroom },
   ];
+  const KIRIM_OPTIONS: { value: ShippingFilter; label: string }[] = [
+    { value: "ALL", label: m.admin.filterShippingAll },
+    { value: "BELUM_DO", label: m.admin.filterShippingBelumDo },
+    { value: "SUDAH_DO", label: m.admin.filterShippingSudahDo },
+    { value: "DITERIMA", label: m.admin.filterShippingDiterima },
+  ];
   const sp = await searchParams;
   const q = (sp.q || "").trim();
+  const kirimFilter: ShippingFilter =
+    sp.kirim === "BELUM_DO" || sp.kirim === "SUDAH_DO" || sp.kirim === "DITERIMA" ? sp.kirim : "ALL";
   const statusFilter: "ALL" | OrderStatus =
     sp.status === "REGISTERED" || sp.status === "CANCELLED" ? sp.status : "ALL";
   const jalurFilter: "ALL" | FulfillmentPath =
@@ -157,7 +186,12 @@ export default async function AdminOrdersPage({
   let productMatchCapped = false;
 
   if (!q) {
-    const { data, error } = await ordersQuery().limit(LIST_LIMIT);
+    // Filter kirim menyaring DI MEMORI (lihat SHIPPING_ORDER_SCAN_LIMIT), jadi
+    // jendela yang diambil harus lebih lebar dari yang ditampilkan — kalau
+    // tidak, menyaring 50 baris teratas bisa menyisakan 3 baris dan
+    // menyembunyikan pesanan yang memenuhi syarat tepat di bawahnya.
+    const fetchLimit = kirimFilter === "ALL" ? LIST_LIMIT : SHIPPING_ORDER_SCAN_LIMIT;
+    const { data, error } = await ordersQuery().limit(fetchLimit);
     if (error) queryErr = error;
     else orderRows = (data ?? []) as OrderListRow[];
   } else {
@@ -265,6 +299,49 @@ export default async function AdminOrdersPage({
           .slice(0, LIST_LIMIT);
       }
     }
+  }
+
+  // ── 2b. Filter "Status Kirim" (2026-08-31) ──────────────────
+  //
+  // Dua himpunan id diambil terpisah, keduanya TOLERAN (LESSONS #12):
+  //   - pesanan yang punya minimal satu DO  → order_documents (0016)
+  //   - pesanan yang sudah diterima         → delivered_at (0023)
+  // Kalau salah satu migrasinya belum jalan, filternya TIDAK diam-diam
+  // mengosongkan daftar: ia dimatikan dan catatan kaki menjelaskannya.
+  let shippingUnavailable = false;
+  let shippingCapped = false;
+  if (kirimFilter !== "ALL" && !queryErr) {
+    const [doRes, deliveredRes] = await Promise.all([
+      supabase
+        .from("order_documents")
+        .select("order_id")
+        .eq("doc_type", "DO")
+        .limit(SHIPPING_DOC_SCAN_LIMIT),
+      supabase
+        .from("partner_orders")
+        .select("id")
+        .not("delivered_at", "is", null)
+        .limit(SHIPPING_DOC_SCAN_LIMIT),
+    ]);
+
+    if (doRes.error || deliveredRes.error) {
+      shippingUnavailable = true;
+    } else {
+      const doRows = (doRes.data ?? []) as { order_id: string }[];
+      const deliveredRows = (deliveredRes.data ?? []) as { id: string }[];
+      shippingCapped =
+        doRows.length >= SHIPPING_DOC_SCAN_LIMIT ||
+        deliveredRows.length >= SHIPPING_DOC_SCAN_LIMIT ||
+        orderRows.length >= SHIPPING_ORDER_SCAN_LIMIT;
+      const hasDo = new Set(doRows.map((r) => r.order_id));
+      const delivered = new Set(deliveredRows.map((r) => r.id));
+      orderRows = orderRows.filter((r) => {
+        if (delivered.has(r.id)) return kirimFilter === "DITERIMA";
+        if (hasDo.has(r.id)) return kirimFilter === "SUDAH_DO";
+        return kirimFilter === "BELUM_DO";
+      });
+    }
+    orderRows = orderRows.slice(0, LIST_LIMIT);
   }
 
   // ── 3. Ambil nama Partner / Cabang / Sales / Customer untuk baris yang
@@ -401,6 +478,16 @@ export default async function AdminOrdersPage({
             ))}
           </select>
         )}
+        {/* Status kirim — "mana yang belum dikirim hari ini" adalah pertanyaan
+            harian, jadi filternya berdiri sejajar dengan Status dan Jalur,
+            bukan bersembunyi di balik kata kunci. */}
+        <select name="kirim" defaultValue={kirimFilter} className="filter-select">
+          {KIRIM_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
         <label className="small muted">
           {m.admin.ordersDateFromLabel + " "}
           <input type="date" name="dateFrom" defaultValue={dateFrom} className="filter-select" />
@@ -499,6 +586,14 @@ export default async function AdminOrdersPage({
               .replace("{cap}", orderRows.length === LIST_LIMIT ? m.admin.ordersShowingCap : "")}
           </div>
           {q && productMatchCapped && <div className="footnote">{m.admin.ordersProductMatchCapped}</div>}
+          {/* Batas pindaian filter kirim DIKATAKAN, bukan hasil terpotong yang
+              terlihat lengkap (LESSONS #10). */}
+          {kirimFilter !== "ALL" && shippingCapped && (
+            <div className="footnote">{m.admin.ordersShippingCapped}</div>
+          )}
+          {kirimFilter !== "ALL" && shippingUnavailable && (
+            <div className="footnote">{m.admin.ordersShippingUnavailable}</div>
+          )}
         </div>
       )}
     </div>
