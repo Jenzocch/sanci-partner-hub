@@ -20,12 +20,56 @@
 | 分頁 | 內容 | 誰在寫 |
 |---|---|---|
 | 合作商名稱（每家一個） | 一列一筆訂單，**31 欄（A..AE）** | 就地更新／新單追加 |
-| **Item Pesanan** | 一列一個品項——查「這個型號賣給誰過」 | 每次整頁重寫 |
+| **Item Pesanan** | 一列一個品項，**24 欄**——查「這個型號賣給誰過」 | 每次整頁重寫 |
 | **Pelanggan** | 一列一個客戶——查「這個客戶買過幾次」 | 每次整頁重寫 |
 
 > ⚠️ **Item Pesanan 和 Pelanggan 兩個分頁每次同步都會整頁重寫**，所以
 > **不要在這兩個分頁裡寫任何備註**，會被蓋掉。要寫備註請寫在合作商分頁的
 > **AF 欄以後**（那裡永遠不會被碰）。
+
+### Item Pesanan 分頁欄位（24 欄）
+
+**欄位順序刻意照著你們手工的「Laporan Penjualan-Sanci」排**，兩份表可以並排
+對照，眼睛不用跳來跳去。**串起兩份表的鑰匙是 `No. SO`**——手工報表是用 SO 號碼
+認的，不是系統訂單編號。
+
+| 欄 | 標題 | 對應手工報表 |
+|---|---|---|
+| A | Nomor Pesanan | （系統獨有） |
+| B | Tanggal Pesanan | （系統獨有） |
+| C | **No. SO** | No. SO ⭐ |
+| D | **Tgl SO** | Tanggal SO |
+| E | Partner | — |
+| F | Cabang | — |
+| G | Pelanggan | Nama Customer |
+| H | **Telepon** | No. Telefon |
+| I | Kode Produk | Code |
+| J | Nama Produk | Type / UKURAN |
+| K | Ukuran | Ukuran |
+| L | Warna | Code Warna ⚠️ |
+| M | Jumlah | Qty |
+| N | **Harga Satuan (IDR)** | Price/Unit |
+| O | **Total Baris (IDR)** | Total Amount |
+| P | **Diskon Baris (IDR)** | Disc Amount |
+| Q | **Catatan** | — |
+| R | **Nama Sales** | Nama sales |
+| S | Status Kirim | （系統獨有，見下） |
+| T | Sudah DO (jumlah) | （系統獨有） |
+| U | **No. DO** | — |
+| V | **Tgl DO** | Tanggal Delivery |
+| W | **Tgl Terima Pelanggan** | Tanggal Kirim |
+| X | **Alamat Kirim** | Alamat Pengiriman |
+
+⚠️ **L 欄「Warna」現在多半是空的**，這不是同步壞掉：系統**建立品項時不收集顏色**
+（計算器、Package 複製都不寫），只有在訂單詳情頁點開某個品項按「修改」手動打字
+才會有值。要讓它自動有值，得改建立流程——跟我說一聲。
+
+**手工報表還有 6 欄系統目前沒有**：Status Payment、Tanggal DP、Tanggal Pelunasan、
+Ekspedisi、Nama Admin、Status Confirm。這些要加資料庫欄位（migration），是另一件
+工作。**PHOTO 和 Foto Warna 做不到**——圖片沒辦法同步進試算表格子。
+
+**沒填的金額是空白格，不是 Rp 0。** 0 是一個合法的價格（促銷品），跟「還沒填」
+意思完全不同，所以絕不互相假裝。
 
 ### 訂單分頁欄位（A..AE 共 31 欄）
 

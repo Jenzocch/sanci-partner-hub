@@ -668,7 +668,7 @@ function fetchDocsByOrderId_(cfg, token) {
 /** Semua baris order_items (dipakai tab "Item Pesanan" DAN status kirim). */
 function fetchOrderItems_(cfg, token) {
   var res = fetchTableAll_(cfg, token, 'order_items',
-    'id,order_id,product_id,name_snapshot,code_snapshot,quantity,color_code,custom_size,created_at',
+    'id,order_id,product_id,name_snapshot,code_snapshot,quantity,color_code,custom_size,note,unit_price,line_discount,created_at',
     'created_at.asc,id.asc');
   return { rows: res.rows, available: res.status !== 'missing-table' };
 }
@@ -762,19 +762,41 @@ function fetchStaffNames_(cfg, token) {
 // terpotong — tab ini memuat SEMUANYA, tanpa batas itu.
 
 var ITEMS_TAB_NAME = 'Item Pesanan';
+/**
+ * Urutannya sengaja mengikuti cara "Laporan Penjualan-Sanci" (lembar manual
+ * yang dipakai kantor) dibaca dari kiri ke kanan: nomor & tanggal SO dulu,
+ * lalu pelanggan, lalu barang, lalu uang, lalu pengiriman. Tujuannya supaya
+ * kedua lembar bisa ditaruh berdampingan tanpa mata harus melompat-lompat.
+ *
+ * KUNCI YANG MENYAMBUNGKAN KEDUANYA ADALAH "No. SO": laporan manual itu
+ * dikenali per nomor SO, bukan per nomor pesanan sistem — tanpa kolom ini
+ * kedua lembar tidak punya satu pun kolom yang sama untuk dicocokkan.
+ */
 var ITEMS_HEADERS = [
   'Nomor Pesanan',
   'Tanggal Pesanan',
+  'No. SO',
+  'Tgl SO',
   'Partner',
   'Cabang',
   'Pelanggan',
+  'Telepon',
   'Kode Produk',
   'Nama Produk',
-  'Jumlah',
-  'Warna',
   'Ukuran',
+  'Warna',
+  'Jumlah',
+  'Harga Satuan (IDR)',
+  'Total Baris (IDR)',
+  'Diskon Baris (IDR)',
+  'Catatan',
+  'Nama Sales',
   'Status Kirim',
-  'Sudah DO (jumlah)'
+  'Sudah DO (jumlah)',
+  'No. DO',
+  'Tgl DO',
+  'Tgl Terima Pelanggan',
+  'Alamat Kirim'
 ];
 
 var CUSTOMERS_TAB_NAME = 'Pelanggan';
@@ -832,19 +854,38 @@ function writeItemsTab_(ss, items, orders, ctx) {
     if (!o) continue;
     var customer = pickOne_(o.customers);
     var branch = pickOne_(o.partner_branches);
+    var docs = (ctx.docsByOrder && ctx.docsByOrder[o.id]) || { SO: null, DO: null, INVOICE: null };
+    // Total baris dihitung DI SINI, bukan ditinggalkan sebagai rumus di
+    // lembar: rumus yang ditulis skrip akan tertimpa tiap kali tab arsip
+    // ditulis ulang, dan rumus yang ditulis manusia akan hilang bersamanya.
+    // Angka mati selalu benar untuk baris yang sedang disalin ini.
+    var unit = it.unit_price === null || it.unit_price === undefined ? null : Number(it.unit_price);
+    var qty = Number(it.quantity || 0);
     rows.push([
       o.order_number || '',
       toDateOrBlank_(o.created_at),
+      docNumbers_(docs.SO),
+      docLastDate_(docs.SO),
       pickName_(o.partners) || '',
       (branch && branch.name) || '',
       (customer && customer.full_name) || '',
+      customerPhone_(customer),
       it.code_snapshot || '',
       it.name_snapshot || '',
-      toNumberOrBlank_(it.quantity),
-      it.color_code || '',
       it.custom_size || '',
+      it.color_code || '',
+      toNumberOrBlank_(it.quantity),
+      toNumberOrBlank_(it.unit_price),
+      unit === null || isNaN(unit) ? '' : unit * qty,
+      toNumberOrBlank_(it.line_discount),
+      it.note || '',
+      (ctx.staffNames && ctx.staffNames[o.partner_sales_staff_id]) || '',
       shippingStatus_(o, ctx),
-      toNumberOrBlank_(ctx.doCovered[it.id] || 0)
+      toNumberOrBlank_(ctx.doCovered[it.id] || 0),
+      docNumbers_(docs.DO),
+      docLastDate_(docs.DO),
+      toDateOrBlank_(o.delivered_at),
+      o.shipping_address || ''
     ]);
   }
   writeArchiveTab_(ss, ITEMS_TAB_NAME, ITEMS_HEADERS, rows);
