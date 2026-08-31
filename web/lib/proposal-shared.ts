@@ -133,3 +133,14 @@ export type ProposalProduct = {
   /** Foto sampul + galeri (0022), sudah berurutan, sampul selalu pertama. */
   photos: string[];
 };
+
+/**
+ * Hasil pemuatan profil produk. Bentuknya milik kontrak ini, BUKAN milik
+ * salah satu Server Action, karena dua area punya action-nya sendiri dengan
+ * gerbang berbeda — cabang lewat sanci_catalog_access, admin lewat RLS
+ * admin — dan lib/proposal-document.tsx menerima action mana pun sebagai
+ * prop selama bentuk hasilnya ini.
+ */
+export type ProposalLoadResult =
+  | { ok: true; products: ProposalProduct[] }
+  | { ok: false; reason: "no-account" | "catalog-closed" | "failed" };
