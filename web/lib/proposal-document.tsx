@@ -272,36 +272,60 @@ export default function ProposalDocument({
       <main className={styles.doc} ref={docRef}>
         {/* ── Sampul ─────────────────────────────────────────────── */}
         <Sheet n={null}>
-          <div className={styles.coverGrid}>
-            <div className={styles.coverCopy}>
-              <span className={styles.wordmark}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- aset merek publik */}
-                <img src={LOGO} alt={lh.brand} />
-              </span>
+          {/* Susunan TEGAK, bukan dua kolom. Foto katalog SANCI adalah
+              gambar potong yang LEBAR; ditaruh di kolom kanan setinggi
+              halaman ia cuma mengisi sepertiga tingginya dan sisanya
+              menganga — persis "tengahnya kosong" yang dikeluhkan owner.
+              Selebar halaman, ia mengisi ruangnya sendiri. */}
+          <div className={styles.coverTop}>
+            <span className={styles.wordmark}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- aset merek publik */}
+              <img src={LOGO} alt={lh.brand} />
+            </span>
+            <p className={styles.eyebrow}>{m.proposalCoverKicker}</p>
+          </div>
+
+          <h1 className={styles.coverTitle}>{m.proposalTitle}</h1>
+          <p className={styles.coverSub}>{m.proposalCoverSub}</p>
+
+          <Photo
+            src={heroPhotos[0]}
+            alt={rows[0]?.line.name ?? lh.brand}
+            className={styles.coverImage}
+            eager
+          />
+
+          <div className={styles.coverMeta}>
+            {who && (
               <div>
-                <p className={styles.eyebrow}>{m.proposalCoverKicker}</p>
-                <h1 className={styles.coverTitle}>{m.proposalTitle}</h1>
-                <p className={styles.coverSub}>{m.proposalCoverSub}</p>
+                <p className={styles.eyebrow}>{m.proposalForLabel}</p>
+                <p className={styles.coverName}>{who}</p>
               </div>
-              <div className={styles.coverMeta}>
-                {who && (
-                  <div>
-                    <p className={styles.eyebrow}>{m.proposalForLabel}</p>
-                    <p className={styles.coverName}>{who}</p>
-                  </div>
-                )}
-                <div>
-                  <p className={styles.eyebrow}>{m.proposalMetaDate}</p>
-                  <p className={styles.coverDate}>{dateText}</p>
-                </div>
-              </div>
+            )}
+            <div>
+              <p className={styles.eyebrow}>{m.proposalMetaDate}</p>
+              <p className={styles.coverDate}>{dateText}</p>
             </div>
-            <Photo
-              src={heroPhotos[0]}
-              alt={rows[0]?.line.name ?? lh.brand}
-              className={styles.coverImage}
-              eager
-            />
+          </div>
+
+          {/* Kontak pindah ke SAMPUL, dan halaman penutup dihapus (arahan
+              owner 2026-08-31: penutupnya terlalu kosong dan sampulnya juga
+              setengah kosong — dua halaman setengah isi digabung jadi satu
+              yang penuh). Ada untungnya juga: pelanggan melihat cara
+              menghubungi toko begitu membuka dokumen, bukan sesudah membalik
+              sembilan halaman. */}
+          <div className={styles.coverFoot}>
+            <div>
+              <p className={styles.eyebrow}>{m.proposalContactShowroom}</p>
+              <p className={styles.coverFootValue}>{lh.name}</p>
+            </div>
+            <div>
+              <p className={styles.eyebrow}>{m.proposalContactLabel}</p>
+              <p className={`${styles.coverFootValue} ${styles.contactPhone}`}>
+                {lh.phone ? `WhatsApp · ${lh.phone}` : lh.website}
+              </p>
+            </div>
+            <p className={styles.coverFootThanks}>{m.proposalThanksBody}</p>
           </div>
         </Sheet>
 
@@ -488,37 +512,6 @@ export default function ProposalDocument({
             </div>
           );
         })}
-
-        {/* ── Halaman akhir ──────────────────────────────────────── */}
-        <Sheet n={next()}>
-          <div className={styles.finalLayout}>
-            {/* Halaman penutup, TANPA angka (arahan owner 2026-08-31). Harga
-                hidup di satu tempat saja: halaman Ringkasan Harga, di sebelah
-                daftar produk yang dijumlahkannya. Mengulangnya di sini cuma
-                menambah satu tempat lagi untuk salah baca — dan pernah persis
-                begitu: total di sebelah satu foto terbaca sebagai harga foto
-                itu. */}
-            <div>
-              <p className={styles.eyebrow}>{m.proposalFinalKicker}</p>
-              <div className={styles.thanks}>
-                <h2 className={styles.finalTitle}>{m.proposalThanksTitle}</h2>
-                <p className={styles.thanksBody}>{m.proposalThanksBody}</p>
-                <div className={styles.contact}>
-                  <div>
-                    <p className={styles.eyebrow}>{m.proposalContactShowroom}</p>
-                    <p className={styles.contactValue}>{lh.name}</p>
-                  </div>
-                  <div>
-                    <p className={styles.eyebrow}>{m.proposalContactLabel}</p>
-                    <p className={`${styles.contactValue} ${styles.contactPhone}`}>
-                      {lh.phone ? `WhatsApp · ${lh.phone}` : lh.website}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Sheet>
 
         {load.phase === "error" && (
           <div className="banner bad noprint" style={{ maxWidth: 900, margin: "0 auto 34px" }}>
