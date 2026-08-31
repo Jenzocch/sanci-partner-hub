@@ -32,7 +32,7 @@
  *     berasal dari kolom description milik katalog.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useCommonMessages } from "@/lib/i18n/provider";
 import { formatIDR } from "@/lib/orders-shared";
@@ -43,6 +43,7 @@ import {
   type ProposalLoadResult,
   type ProposalProduct,
 } from "@/lib/proposal-shared";
+import { shrinkPhotosForPrint } from "@/lib/shrink-photos-for-print";
 import styles from "./proposal-document.module.css";
 
 const LOGO = "/brand/sanci-logo.png";
@@ -103,6 +104,31 @@ export default function ProposalDocument({
   const [ready, setReady] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [load, setLoad] = useState<LoadState>({ phase: "loading" });
+  /** Sedang menyiapkan cetakan (menurunkan resolusi foto) — tombol dikunci. */
+  const [printing, setPrinting] = useState(false);
+  const docRef = useRef<HTMLElement | null>(null);
+
+  /**
+   * Foto diturunkan resolusinya seukuran cetak, baru dialog cetak dibuka,
+   * lalu dikembalikan. Alasannya diukur, bukan dikira: Chrome menanam gambar
+   * pada resolusi ASLI berapa pun ukuran tampilnya (lihat
+   * lib/shrink-photos-for-print.ts). Kegagalan apa pun di jalur ini TIDAK
+   * boleh menghalangi mencetak — paling buruk berkasnya lebih besar.
+   */
+  async function handlePrint() {
+    if (printing) return;
+    setPrinting(true);
+    let undo: (() => void) | null = null;
+    try {
+      if (docRef.current) undo = await shrinkPhotosForPrint(docRef.current);
+      window.print();
+    } catch {
+      window.print();
+    } finally {
+      undo?.();
+      setPrinting(false);
+    }
+  }
 
   // localStorage hanya ada di browser — dibaca sesudah hidrasi, bukan saat
   // render pertama (server tidak punya nilainya; menebaknya = hydration mismatch).
@@ -236,13 +262,14 @@ export default function ProposalDocument({
         <button
           type="button"
           className={`${styles.tool} ${styles.toolPrimary}`}
-          onClick={() => window.print()}
+          disabled={printing}
+          onClick={handlePrint}
         >
-          {m.proposalPrintCta}
+          {printing ? m.proposalPrintPreparing : m.proposalPrintCta}
         </button>
       </header>
 
-      <main className={styles.doc}>
+      <main className={styles.doc} ref={docRef}>
         {/* ── Sampul ─────────────────────────────────────────────── */}
         <Sheet n={null}>
           <div className={styles.coverGrid}>
