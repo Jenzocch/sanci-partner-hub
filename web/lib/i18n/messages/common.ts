@@ -24,8 +24,8 @@
 import { offline } from "./offline";
 
 const id = {
+  proposalFinalPrice: "Harga akhir",
   proposalSummaryOfLabel: "Total untuk produk berikut",
-  proposalFinalForCount: "Harga akhir untuk {n} produk",
   proposalPrintPreparing: "Menyiapkan…",
   calcPrefillBanner: "{n} produk dibawa dari pesanan ini. Harga satuan sengaja kosong — isi harga yang Anda jual ke pelanggan, lalu tekan \"Buat Proposal\".",
   calcPrefillSkipped: "{n} baris pesanan tidak bisa dibawa karena tidak terhubung ke produk katalog — tambahkan sendiri di tab Produk kalau perlu.",
@@ -48,8 +48,6 @@ const id = {
   proposalGalleryKicker: "{name} / Galeri",
   proposalGalleryTitle: "Detail Produk",
   proposalFinalKicker: "04 / Akhir",
-  proposalFinalTitle: "Pilihan Anda.",
-  proposalFinalPrice: "Harga akhir",
   proposalThanksTitle: "Terima kasih.",
   proposalThanksBody: "Kami menantikan kesempatan membantu Anda menciptakan rumah yang terasa tepat.",
   proposalContactShowroom: "Showroom",
@@ -491,8 +489,8 @@ const id = {
 type Shape = Record<keyof typeof id, string>;
 
 const en = {
+  proposalFinalPrice: "Final price",
   proposalSummaryOfLabel: "Total for the following products",
-  proposalFinalForCount: "Final price for {n} products",
   proposalPrintPreparing: "Preparing…",
   calcPrefillBanner: "{n} products carried over from this order. Unit prices are deliberately empty — enter what you sell them for, then press \"Create Proposal\".",
   calcPrefillSkipped: "{n} order lines could not be carried over because they are not linked to a catalogue product — add them yourself in the Products tab if needed.",
@@ -515,8 +513,6 @@ const en = {
   proposalGalleryKicker: "{name} / Gallery",
   proposalGalleryTitle: "Product Details",
   proposalFinalKicker: "04 / Final",
-  proposalFinalTitle: "Your selection.",
-  proposalFinalPrice: "Final price",
   proposalThanksTitle: "Thank you.",
   proposalThanksBody: "We look forward to helping you create a home that feels right for you.",
   proposalContactShowroom: "Showroom",
@@ -848,8 +844,8 @@ const en = {
 } satisfies Shape;
 
 const zh = {
+  proposalFinalPrice: "最终价格",
   proposalSummaryOfLabel: "以下产品的总计",
-  proposalFinalForCount: "{n} 件产品的最终价格",
   proposalPrintPreparing: "准备中…",
   calcPrefillBanner: "已从这笔订单带入 {n} 件产品。单价刻意留空 —— 请填入您卖给客户的价格,再按\"制作提案\"。",
   calcPrefillSkipped: "有 {n} 行订单项目无法带入,因为没有连结到目录产品 —— 需要的话请到产品分页自行加入。",
@@ -872,8 +868,6 @@ const zh = {
   proposalGalleryKicker: "{name} / 图集",
   proposalGalleryTitle: "产品细节",
   proposalFinalKicker: "04 / 最终",
-  proposalFinalTitle: "您的选择。",
-  proposalFinalPrice: "最终价格",
   proposalThanksTitle: "谢谢您。",
   proposalThanksBody: "期待能协助您打造一个真正合适的家。",
   proposalContactShowroom: "展厅",

@@ -235,14 +235,10 @@
 /* Satu kolom sejak foto hiasan dibuang — tidak ada lagi kolom kanan. */
 .finalLayout { min-height: calc(var(--ph) - 32mm); display: flex; flex-direction: column; justify-content: flex-end; }
 .finalTitle { font-family: var(--serif); font-size: 64px; line-height: .9; font-weight: 500; margin: 10px 0 30px; }
-.finalPriceLabel { font-size: 10px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin: 0; }
-.finalPrice {
-  font-size: 53px; line-height: 1; font-variant-numeric: tabular-nums;
-  margin: 7px 0 25px; white-space: nowrap;
-}
 .thanks { margin-top: 40mm; max-width: 560px; }
 .thanks h3 { font-family: var(--serif); font-size: 35px; font-weight: 500; margin: 0 0 12px; }
 .thanks p { color: var(--warm); font-size: 14px; margin: 0; }
+.thanksBody { font-size: 15px !important; line-height: 1.7; max-width: 46ch; }
 /* auto-fit, bukan 1fr 1fr: dua kolom tetap di dalam .thanks yang lebarnya
    450px menyisakan ~215px per kolom, dan "WhatsApp · 0851-3318-5168" patah
    di tengah nomor. Sekarang kolom kedua turun ke bawah kalau tidak muat. */
@@ -340,7 +336,6 @@
   .gal3 .galItem:first-child, .gal4 .galItem:first-child, .gal5 .galItem:first-child { grid-column: auto; min-height: 340px; }
   .galItem { min-height: 250px; }
   .finalTitle { font-size: 50px; }
-  .finalPrice { font-size: 39px; }
   .contact { grid-template-columns: 1fr; }
 }
 /* Diikat ke .wrap: CSS Module menolak selektor global seperti `*`, dan

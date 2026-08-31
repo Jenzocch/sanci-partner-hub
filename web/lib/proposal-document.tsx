@@ -492,20 +492,17 @@ export default function ProposalDocument({
         {/* ── Halaman akhir ──────────────────────────────────────── */}
         <Sheet n={next()}>
           <div className={styles.finalLayout}>
+            {/* Halaman penutup, TANPA angka (arahan owner 2026-08-31). Harga
+                hidup di satu tempat saja: halaman Ringkasan Harga, di sebelah
+                daftar produk yang dijumlahkannya. Mengulangnya di sini cuma
+                menambah satu tempat lagi untuk salah baca — dan pernah persis
+                begitu: total di sebelah satu foto terbaca sebagai harga foto
+                itu. */}
             <div>
               <p className={styles.eyebrow}>{m.proposalFinalKicker}</p>
-              <h2 className={styles.finalTitle}>{m.proposalFinalTitle}</h2>
-              {/* Label menyebut JUMLAH PRODUKNYA, bukan cuma "harga akhir":
-                  angka sebesar ini harus mustahil dibaca sebagai harga satu
-                  barang. Rincian subtotal/diskon TIDAK diulang di sini —
-                  tempatnya di halaman Ringkasan Harga. */}
-              <p className={styles.finalPriceLabel}>
-                {m.proposalFinalForCount.replace("{n}", String(rows.length))}
-              </p>
-              <p className={`${styles.finalPrice} ${styles.num}`}>{formatIDR(handoff.finalAmount)}</p>
               <div className={styles.thanks}>
-                <h3>{m.proposalThanksTitle}</h3>
-                <p>{m.proposalThanksBody}</p>
+                <h2 className={styles.finalTitle}>{m.proposalThanksTitle}</h2>
+                <p className={styles.thanksBody}>{m.proposalThanksBody}</p>
                 <div className={styles.contact}>
                   <div>
                     <p className={styles.eyebrow}>{m.proposalContactShowroom}</p>
