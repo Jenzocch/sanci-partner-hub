@@ -205,9 +205,46 @@ export default function ProposalDocument({
         product,
         amount: line.unitPrice * line.qty,
         photos: product?.photos ?? [],
+        // Kunci React WAJIB (productId, colorCode), bukan productId saja:
+        // sejak keranjang bisa memuat "sofa Cream" dan "sofa Abu" sebagai
+        // dua baris, productId tidak lagi unik di dalam daftar ini.
+        key: `${line.productId}::${line.colorCode ?? ""}`,
       };
     });
   }, [handoff, load]);
+
+  /**
+   * Halaman profil produk — SATU per produk BERBEDA, bukan satu per baris.
+   *
+   * Kenapa dipisah dari `rows`: dua warna dari sofa yang sama adalah DUA
+   * pilihan (dan memang dua baris di daftar pilihan + dua baris harga), tapi
+   * profilnya SATU — foto, deskripsi, ukuran, dan kategorinya identik.
+   * Mencetaknya dua kali menghasilkan dua lembar A4 yang sama persis di
+   * dalam buku yang dipegang pelanggan; itu terbaca sebagai kesalahan cetak,
+   * bukan sebagai kelengkapan.
+   *
+   * `no` diambil dari nomor baris PERTAMA produk itu di daftar pilihan
+   * supaya nomor 01/02/03 di halaman produk tetap merujuk ke daftar yang
+   * sama seperti sebelumnya. `colors` mengumpulkan SEMUA warna yang dipilih
+   * untuk produk itu (urut kemunculan, tanpa duplikat) — di situlah pembaca
+   * halaman ini melihat bahwa dua pilihannya sama-sama tercakup.
+   */
+  const productPages = useMemo(() => {
+    const byProduct = new Map<
+      string,
+      { row: (typeof rows)[number]; no: number; colors: string[] }
+    >();
+    rows.forEach((r, i) => {
+      const existing = byProduct.get(r.line.productId);
+      const color = r.line.colorCode;
+      if (!existing) {
+        byProduct.set(r.line.productId, { row: r, no: i + 1, colors: color ? [color] : [] });
+        return;
+      }
+      if (color && !existing.colors.includes(color)) existing.colors.push(color);
+    });
+    return Array.from(byProduct.values());
+  }, [rows]);
 
   /**
    * Produk yang BERHASIL dimuat tapi profilnya tidak ikut pulang (audit
@@ -230,8 +267,11 @@ export default function ProposalDocument({
    * layar mengatakan produk mana yang kehilangan halaman profil — di banner
    * `noprint`, jadi tidak pernah ikut tercetak (LESSONS #10).
    */
+  // Diturunkan dari productPages, BUKAN rows: satu produk yang dipilih dalam
+  // dua warna kehilangan SATU halaman profil, bukan dua, dan menyebut namanya
+  // dua kali di banner hanya membuat staf mengira ada dua masalah.
   const missingProfiles =
-    load.phase === "ready" ? rows.filter((r) => !r.product).map((r) => r.line.name) : [];
+    load.phase === "ready" ? productPages.filter((pg) => !pg.row.product).map((pg) => pg.row.line.name) : [];
 
   if (!ready) return null;
 
@@ -434,12 +474,22 @@ export default function ProposalDocument({
 
           <div className={styles.selList}>
             {rows.map((r, i) => (
-              <article className={styles.selRow} key={r.line.productId}>
+              <article className={styles.selRow} key={r.key}>
                 <span className={styles.selNo}>{String(i + 1).padStart(2, "0")}</span>
                 <Photo src={r.photos[0]} alt={r.line.name} className={styles.selPhoto} />
                 <div>
                   <div className={styles.selName}>{r.line.name}</div>
                   {r.line.code && <p className={styles.selCode}>{r.line.code}</p>}
+                  {/* Warna ditaruh di baris SENDIRI, bukan disambung ke nama:
+                      dua baris yang hanya berbeda warna harus bisa dibedakan
+                      sekilas oleh pelanggan yang memegang kertas ini. Bidang
+                      kosong tetap disembunyikan seluruhnya (aturan dokumen
+                      ini) — produk tanpa warna tidak mendapat baris kosong. */}
+                  {r.line.colorCode && (
+                    <p className={styles.selCode}>
+                      {m.proposalLineColor}: {r.line.colorCode}
+                    </p>
+                  )}
                   {r.product?.size && <p className={styles.selSize}>{r.product.size}</p>}
                 </div>
                 <div>
@@ -489,11 +539,19 @@ export default function ProposalDocument({
             <div className={styles.sumList}>
               <p className={styles.eyebrow}>{m.proposalSummaryOfLabel}</p>
               {rows.map((r) => (
-                <div className={styles.sumLine} key={`s-${r.line.productId}`}>
+                <div className={styles.sumLine} key={`s-${r.key}`}>
                   <Photo src={r.photos[0]} alt={r.line.name} className={styles.sumLineArt} />
                   <div>
                     <div className={styles.sumLineName}>{r.line.name}</div>
                     {r.line.code && <p className={styles.selCode}>{r.line.code}</p>}
+                    {/* Tanpa ini, "sofa ×2" dan "sofa ×3" di daftar yang
+                        dijumlahkan terbaca sebagai satu produk yang tercetak
+                        dua kali karena salah. */}
+                    {r.line.colorCode && (
+                      <p className={styles.selCode}>
+                        {m.proposalLineColor}: {r.line.colorCode}
+                      </p>
+                    )}
                   </div>
                   <span className={`${styles.sumLineQty} ${styles.num}`}>× {r.line.qty}</span>
                 </div>
@@ -503,12 +561,16 @@ export default function ProposalDocument({
         </Sheet>
 
         {/* ── Tiap produk: pembuka, rincian, galeri ──────────────── */}
-        {rows.map((r, i) => {
+        {productPages.map((page, i) => {
+          const r = page.row;
           const p = r.product;
           // Profil tidak ikut pulang = TIDAK ada halaman produk (lihat
-          // missingProfiles di atas). `i` tetap dihitung dari rows PENUH —
-          // nomor 01/02/03 di halaman produk harus tetap cocok dengan nomor
-          // yang sama di daftar pilihan halaman 2.
+          // missingProfiles di atas). Nomor yang DICETAK adalah `page.no`
+          // (nomor baris pertama produk itu di daftar pilihan), BUKAN `i` —
+          // `i` di sini menghitung halaman produk yang benar-benar disusun,
+          // dan sejak halaman didedupe per produk keduanya tidak lagi sama.
+          // `i` tetap dipakai untuk memutar tata letak dan cermin galeri,
+          // yang memang soal irama halaman, bukan penomoran.
           if (!p) return null;
           const desc = p?.description?.trim();
           /**
@@ -521,7 +583,7 @@ export default function ProposalDocument({
           const second = r.photos[1];
           const gallery = r.photos.slice(2);
           return (
-            <div key={`p-${r.line.productId}`}>
+            <div key={`p-${r.line.productId}`} /* productId sudah unik di productPages */>
               {/* SATU halaman per produk, bukan dua. Versi sebelumnya memisah
                   "pembuka" dan "rincian", dan hasilnya pada data sungguhan:
                   nama produk tercetak tiga kali (judul pembuka, kicker
@@ -539,7 +601,7 @@ export default function ProposalDocument({
                     mendapat keterangan lebih sedikit daripada yang lain. */}
                 <div className={`${styles.prodPage} ${LAYOUTS[i % LAYOUTS.length]}`}>
                   <div className={styles.prodHead}>
-                    <span className={styles.prodNo}>{String(i + 1).padStart(2, "0")}</span>
+                    <span className={styles.prodNo}>{String(page.no).padStart(2, "0")}</span>
                     <div>
                       <h2 className={styles.prodTitle}>{r.line.name}</h2>
                       {r.line.code && <p className={styles.prodCode}>{r.line.code}</p>}
@@ -561,7 +623,7 @@ export default function ProposalDocument({
                     )}
                   </div>
 
-                  {(p?.size || p?.category) && (
+                  {(p?.size || p?.category || page.colors.length > 0) && (
                     <dl className={styles.prodSpec}>
                       {p?.size && (
                         <div className={styles.detailRow}>
@@ -573,6 +635,17 @@ export default function ProposalDocument({
                         <div className={styles.detailRow}>
                           <dt className={styles.detailLabel}>{m.proposalSpecCategory}</dt>
                           <dd className={styles.detailValue}>{p.category}</dd>
+                        </div>
+                      )}
+                      {/* Di sinilah halaman yang SATU ini mengatakan bahwa
+                          kedua pilihan warna pelanggan tercakup — tanpa baris
+                          ini, dedupe halaman akan terbaca sebagai "warna
+                          keduanya hilang". Kosong = tidak dicetak sama
+                          sekali, seperti bidang lain di dokumen ini. */}
+                      {page.colors.length > 0 && (
+                        <div className={styles.detailRow}>
+                          <dt className={styles.detailLabel}>{m.proposalSpecColorsChosen}</dt>
+                          <dd className={styles.detailValue}>{page.colors.join(" · ")}</dd>
                         </div>
                       )}
                     </dl>

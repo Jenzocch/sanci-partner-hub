@@ -35,6 +35,18 @@ export type ProposalLine = {
   code: string | null;
   unitPrice: number;
   qty: number;
+  /**
+   * Kode warna yang dipilih pelanggan (2026-09-01), `null` kalau produknya
+   * memang tidak punya pilihan warna ATAU staf belum memilih.
+   *
+   * IDENTITAS SATU BARIS DI DOKUMEN INI ADALAH (productId, colorCode), bukan
+   * productId saja — sama seperti keranjang Kalkulator yang mengisinya
+   * (lib/calculator-shared.ts). Sejak keranjang bisa memuat "sofa Cream ×2"
+   * DAN "sofa Abu ×3" sebagai dua baris, productId TIDAK lagi unik di
+   * `lines`, dan apa pun di lib/proposal-document.tsx yang memakainya
+   * sebagai kunci React akan bertabrakan.
+   */
+  colorCode: string | null;
 };
 
 export type ProposalHandoff = {
@@ -68,7 +80,14 @@ function isValidLine(v: unknown): v is ProposalLine {
     typeof l.name === "string" &&
     (l.code === null || typeof l.code === "string") &&
     typeof l.unitPrice === "number" &&
-    typeof l.qty === "number"
+    typeof l.qty === "number" &&
+    // `undefined` DITERIMA, bukan ditolak: hand-off yang sudah tersimpan di
+    // localStorage staf SEBELUM kolom warna ada tidak punya field ini, dan
+    // menolaknya berarti proposal yang sedang dibuka staf tiba-tiba menjadi
+    // "kosong" hanya karena aplikasinya baru di-deploy. Nilainya
+    // dinormalkan ke null di readProposalHandoff (pola sama dengan
+    // isValidHandoffLine di lib/calculator-shared.ts).
+    (l.colorCode === null || l.colorCode === undefined || typeof l.colorCode === "string")
   );
 }
 
@@ -94,7 +113,10 @@ export function readProposalHandoff(): ProposalHandoff | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ProposalHandoff>;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.lines)) return null;
-    const lines = parsed.lines.filter(isValidLine);
+    // Normalisasi setelah penyaringan: baris dari hand-off lama lolos
+    // isValidLine dengan colorCode `undefined`, dan sisa aplikasi berhak
+    // menganggap field ini SELALU `string | null`.
+    const lines = parsed.lines.filter(isValidLine).map((l) => ({ ...l, colorCode: l.colorCode ?? null }));
     if (lines.length === 0) return null;
     return {
       savedAt: parsed.savedAt,

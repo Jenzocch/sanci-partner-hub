@@ -78,6 +78,12 @@ const id = {
   proposalGrandTotal: "Total",
   proposalSpecSize: "Ukuran",
   proposalSpecCategory: "Kategori",
+  // Warna yang dipilih pelanggan (2026-09-01). DUA kunci karena dua
+  // tempat yang berbeda: satu label singkat di baris daftar pilihan, satu
+  // baris spesifikasi di halaman produk yang mendaftar SEMUA warna yang
+  // dipilih untuk produk itu (bisa lebih dari satu).
+  proposalLineColor: "Warna",
+  proposalSpecColorsChosen: "Warna dipilih",
   proposalFootnote:
     "Harga dalam Rupiah dan belum termasuk ongkos kirim serta pemasangan, kecuali disebutkan lain. " +
     "Ketersediaan barang dikonfirmasi ulang saat pesanan dibuat.",
@@ -603,6 +609,8 @@ const en = {
   proposalGrandTotal: "Total",
   proposalSpecSize: "Size",
   proposalSpecCategory: "Category",
+  proposalLineColor: "Colour",
+  proposalSpecColorsChosen: "Colours chosen",
   proposalFootnote:
     "Prices are in Rupiah and exclude delivery and installation unless stated otherwise. " +
     "Availability is reconfirmed when the order is placed.",
@@ -1003,6 +1011,8 @@ const zh = {
   proposalGrandTotal: "总计",
   proposalSpecSize: "尺寸",
   proposalSpecCategory: "类别",
+  proposalLineColor: "颜色",
+  proposalSpecColorsChosen: "已选颜色",
   proposalFootnote:
     "价格以印尼盾计算,除另行说明外不含运费与安装费。备货情况于下单时再次确认。",
   proposalEmptyTitle: "还没有可以列印的内容",

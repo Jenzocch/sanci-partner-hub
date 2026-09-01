@@ -605,6 +605,13 @@ export default function KalkulatorClient({
         code: l.code,
         unitPrice: l.unitPrice,
         qty: l.qty,
+        // Warna IKUT ke dokumen (2026-09-01). Sebelumnya sengaja tidak
+        // dibawa, dan itu meninggalkan DUA masalah sekaligus: pelanggan
+        // memegang kertas yang tidak menyebut warna yang baru saja ia pilih,
+        // DAN dua baris warna dari produk yang sama tiba di dokumen sebagai
+        // dua baris ber-productId identik — tabrakan kunci React di
+        // lib/proposal-document.tsx.
+        colorCode: l.colorCode,
       })),
     });
     // Penyimpanan penuh/diblokir: berpindah halaman sekarang berarti dokumen
