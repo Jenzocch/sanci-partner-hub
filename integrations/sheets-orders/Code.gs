@@ -29,7 +29,7 @@
 var PAGE_SIZE = 1000;              // PostgREST: satu halaman per permintaan
 var LOCK_WAIT_MS = 30000;          // tunggu 30 detik kalau ada run lain
 var TRIGGER_HANDLER = 'syncNow';   // nama fungsi yang dipasang time-driven
-var TRIGGER_EVERY_MINUTES = 15;
+var TRIGGER_EVERY_MINUTES = 30;   // 2026-09-01: diubah dari 15 -> 30 menit atas permintaan owner (sync manual tetap tersedia lewat menu SANCI Sync kapan pun perlu segera)
 
 /**
  * Kolom A..AN (data pembayaran pelanggan + PIC, 2026-08-31 babak kedua —
