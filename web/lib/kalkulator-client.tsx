@@ -176,7 +176,11 @@ export default function KalkulatorClient({
         // dan "sofa abu 3" menjadi DUA baris. Sufiks idempotency-nya juga
         // dua ruang nama yang sengaja terpisah (`:item:` salinan Package vs
         // `:calc-item:` isi kalkulator), jadi satu pesanan bisa punya
-        // keduanya untuk produk yang sama.
+        // keduanya untuk produk yang sama. Keduanya kini memakai kunci yang
+        // unik BERDASARKAN KONSTRUKSI di ruangnya masing-masing: Package
+        // memakai id baris paketnya (primary key), kalkulator memakai
+        // (productId, colorCode) yang dijaga unik oleh penggabungan
+        // keranjang di berkas ini.
         //
         // Sementara itu SELURUH model keranjang kalkulator memakai pasangan
         // (productId, colorCode) sebagai identitas baris: addToCart

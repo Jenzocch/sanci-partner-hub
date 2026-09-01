@@ -32,7 +32,8 @@
  *     0019 — validasi staf yang gagal tidak boleh meninggalkan pelanggan
  *     yatim; attributed_staff_id harus staf yang SUDAH terbukti sah).
  *   - Idempotency: client_request_id dasar + sufiks `:customer` / `:order` /
- *     `:item:{product_id}` yang identik, safeWrite + confirmByRequestId +
+ *     `:item:{partner_package_items.id}` yang identik, safeWrite +
+ *     confirmByRequestId +
  *     isRequestIdConflict (LESSONS #2/#3/#21).
  *   - Pelaporan partial yang jujur: pelanggan tersimpan + order gagal TIDAK
  *     pernah disamarkan jadi sukses penuh (SPEC §70), dan sukses diklaim

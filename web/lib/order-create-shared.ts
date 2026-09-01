@@ -65,8 +65,37 @@ export async function verifyActiveStaffInBranch(
  * code_snapshot dari cabang selanjutnya).
  *
  * client_request_id per baris DETERMINISTIK (`{orderClientRequestId}:item:
- * {product_id}`) — retry (respons hilang, submitSafely mengulang) tidak
- * pernah menggandakan baris (LESSONS #3/#21).
+ * {partner_package_items.id}`) — retry (respons hilang, submitSafely
+ * mengulang) tidak pernah menggandakan baris (LESSONS #3/#21).
+ *
+ * KENAPA id BARIS PAKET, BUKAN product_id (diperbaiki 2026-09-01, LESSONS
+ * #49): keduanya sama-sama stabil lintas percobaan, tapi hanya yang pertama
+ * UNIK BERDASARKAN KONSTRUKSI. Versi lama memakai `:item:{product_id}` dan
+ * itu benar HANYA selama `unique (package_id, product_id)` (0012) masih
+ * berdiri — constraint yang isinya keputusan PRODUK ("satu produk paling
+ * banyak sekali per paket; unit kedua = naikkan quantity"), bukan janji
+ * teknis kepada berkas ini. Begitu paket boleh memuat produk yang sama dua
+ * kali (mis. dua warna, kasus yang sudah muncul di keranjang Kalkulator),
+ * baris kedua akan punya client_request_id yang SAMA dengan baris pertama
+ * dan DITELAN DIAM-DIAM oleh `ignoreDuplicates: true` — pesanan kekurangan
+ * satu baris tanpa satu pun error di mana pun. `partner_package_items.id`
+ * adalah primary key: dua baris berbeda TIDAK PERNAH bisa berbagi nilainya,
+ * apa pun yang terjadi pada constraint lain.
+ *
+ * KONSEKUENSI PERUBAHAN FORMAT yang disadari: sebuah percobaan tulis yang
+ * responsnya hilang TEPAT saat deploy ini naik, lalu di-retry sesudahnya,
+ * akan memakai kunci format BARU dan karena itu tidak mengenali baris lama
+ * — jendelanya beberapa detik, dan akibat terburuknya baris ganda pada satu
+ * pesanan (kelihatan, bisa dihapus), bukan baris hilang (tidak kelihatan).
+ * Ditukar sadar: arah kegagalan yang lebih aman.
+ *
+ * WARNA: baris hasil salinan Package SELALU lahir tanpa color_code —
+ * `partner_package_items` memang tidak punya konsep warna (paket adalah
+ * daftar produk, bukan daftar produk-berwarna). Itu BUKAN kehilangan data:
+ * staf memilih warnanya di "Ubah" pada halaman pesanan sesudah pesanan
+ * berdiri, jalur yang sama untuk kedua sisi. Menambahkan warna ke tabel
+ * paket adalah keputusan produk tersendiri (kolom + layar editor paket),
+ * sengaja TIDAK diselundupkan lewat perbaikan kunci ini.
  *
  * SATU round trip, bukan N×(SELECT+INSERT) berurutan (audit 2026-08-21,
  * item #1 "只回報、沒有動手" di FEATURES.md): seluruh baris dibangun dulu,
@@ -123,12 +152,12 @@ export async function copyPackageItemsToOrder(
 ): Promise<{ ok: true } | { ok: false }> {
   const { data: items, error } = await supabase
     .from("partner_package_items")
-    .select("product_id, quantity, sanci_products:product_id(name, code)")
+    .select("id, product_id, quantity, sanci_products:product_id(name, code)")
     .eq("package_id", packageId);
   if (error || !items) return { ok: false };
   if (items.length === 0) return { ok: true };
 
-  type Item = { product_id: string; quantity: number; sanci_products: { name: string; code: string | null } | { name: string; code: string | null }[] | null };
+  type Item = { id: string; product_id: string; quantity: number; sanci_products: { name: string; code: string | null } | { name: string; code: string | null }[] | null };
 
   // Produk yang join-nya gagal (product null) TETAP menandai anyFailed —
   // sama seperti sebelumnya — tapi TIDAK masuk batch (tidak ada nama untuk
@@ -148,7 +177,7 @@ export async function copyPackageItemsToOrder(
       name_snapshot: product.name,
       code_snapshot: product.code,
       quantity: it.quantity,
-      client_request_id: `${orderClientRequestId}:item:${it.product_id}`,
+      client_request_id: `${orderClientRequestId}:item:${it.id}`,
     });
   }
   if (rows.length === 0) return anyFailed ? { ok: false } : { ok: true };

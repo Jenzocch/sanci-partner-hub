@@ -294,3 +294,11 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **怎麼發現的**：不是靠測試，是靠**追問「這個 id 在來源端真的唯一嗎」**。查了三個地方才確定它不唯一：(1) 建表 SQL 有沒有 unique constraint；(2) 有沒有欄位的存在目的就是區分同一個 id 的多列（`color_code`/`custom_size`）；(3) idempotency 的 key 空間是不是分開的（`:item:` 給 Package 複製、`:calc-item:` 給計算器——刻意兩個命名空間，所以同一張訂單兩者都有是正常的）。三個問題任一個答「不唯一」，就必須合併。
 - **修法**：在**倒進去的邊界**合併，不是在下游每個寫入處各補一次防禦。而且合併了幾列要**說出來**（banner），不能默默加總——店員手上的紙本訂單是 5 列，畫面只剩 3 列而沒解釋，看起來就像系統吃掉了東西。專案裡已經有對的範本：`lib/order-item-picker.tsx` 的 `mergeLinesFromHandoff`。
 - **通用檢查**：看到 `setXxx(外部來的陣列)` 而下游用 id 比對，就停下來問那個 id 唯一不唯一。grep 線索：`setLines(`、`onLinesChange(`、任何 `useState<T[]>` 而 T 有 id 且更新函式用 `.map(x => x.id === ...)`。
+
+### 50. idempotency key 必須「憑構造唯一」，不能靠一條隨時可能被改掉的 unique constraint 撐著〔本專案 2026-09-01，補 #49 留下的同類漏洞〕
+- **機制**：`ON CONFLICT (client_request_id) DO NOTHING` 是**逐列**求值的。批次裡兩列如果算出同一個 key，第二列會被靜默丟掉——`.upsert()` 回傳成功、沒有 error code、沒有 exception、UI 一切正常，只是訂單少一列。這個失敗方向最糟：**資料少了而且看不見**（相對地，key 太散只會造成重複列，看得見也刪得掉）。
+- **本專案的實例**：`copyPackageItemsToOrder` 用 `{rid}:item:{product_id}`。它「唯一」完全靠 `partner_package_items` 的 `unique (package_id, product_id)`（0012）。但那條 constraint 記的是**產品決策**（「同一產品一個套裝最多一列，第二件請加 quantity」），不是給複製程式的技術承諾。哪天套裝要支援「同款米色＋灰色」（購物車已經走到這一步了），constraint 一放寬，第二列當場被吞。
+- **判準（跟 #49 的三問互補）**：問「這個 key 的唯一性是**憑構造**還是**憑約定**？」primary key、`gen_random_uuid()`、(自然鍵 × 你自己在同一份程式碼裡維持的合併不變量) 算憑構造；「因為現在有一條 unique constraint」「因為目前 UI 不讓使用者這樣做」算憑約定——約定會被改，而改的人不會知道有段程式碼靠它活著。
+- **修法**：改用來源列自己的 primary key（`partner_package_items.id`）。同樣跨重試穩定（同一列在重試時 id 不變），但唯一性不再依賴任何別的 constraint。計算機那條 `:calc-item:{productId}:{colorCode}` 保持不變是對的——它的唯一性由同一個檔案裡的購物車合併函式維持，屬於「憑構造」，而且比 array index 更耐重試（使用者在兩次嘗試之間調整列序，index 會錯，語意鍵不會）。
+- **改 key 格式的代價要講清楚**：舊格式已落地的列，新格式認不得。暴露窗口只有「送出失敗且剛好跨越部署」那幾秒，最壞結果是重複列（看得見）。用「更安全的失敗方向」換掉「靜默吞資料」，值得。
+- **驗證要真的驗**：`supabase/test-harness/130_behavior_package_item_key.sql` 在 rollback 交易裡把那條 constraint 拿掉、塞兩列同產品，量出**舊 key 存 1 列、新 key 存 2 列、重試仍 2 列**。T1 是斷言不是示範——哪天舊 key 變安全了，它會 fail 並告訴你這條修正的前提沒了。

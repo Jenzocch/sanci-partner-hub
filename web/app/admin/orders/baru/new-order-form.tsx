@@ -352,7 +352,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
    * area yang sudah terbukti aman, lihat catatan pada import di atas;
    * sufiks per barisnya tetap `{rid}:calc-item:{productId}` — karena hanya
    * ada SATU jalur tulis, satu ruang nama sufiks ini cukup dan tidak pernah
-   * bentrok dengan `:item:{productId}` milik salinan Package dari
+   * bentrok dengan `:item:{packageItemId}` milik salinan Package dari
    * createOrderForBranch). Best-effort independen dari rantai diskon:
    * kegagalan TIDAK membatalkan pesanan, dilaporkan lewat banner-nya
    * sendiri (LESSONS #10).
