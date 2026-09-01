@@ -89,15 +89,16 @@ var HEADERS = [
   'Status Bayar',
   'Tgl DP Pelanggan',
   'Tgl Lunas',
+  'Tgl Lunas Sungguhan',
   'Ekspedisi',
   'Status Confirm',
   'Dibuat',
   'Diubah'
 ];
-var COL_COUNT = HEADERS.length;    // 40
+var COL_COUNT = HEADERS.length;    // 41
 var KEY_COL = 1;                   // Nomor Pesanan ada di kolom A
-/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3, migrasi 0020: 3 → 4, arsip 2026-08-31 babak pertama: 4 → 5, data pembayaran pelanggan + PIC 2026-08-31 babak kedua: 5 → 6). */
-var HEADER_VERSION = 6;
+/** Versi header — dinaikkan setiap kali bentuk HEADERS berubah (migrasi 0014: 1 → 2, migrasi 0015: 2 → 3, migrasi 0020: 3 → 4, arsip 2026-08-31 babak pertama: 4 → 5, data pembayaran pelanggan + PIC 2026-08-31 babak kedua: 5 → 6, Tgl Lunas Sungguhan / migrasi 0027 2026-09-01: 6 → 7). */
+var HEADER_VERSION = 7;
 
 /** Nilai enum internal tetap Inggris di basis data; label mengikuti glosarium. */
 var STATUS_LABEL = {
@@ -368,7 +369,8 @@ var OPTIONAL_ORDER_COLS = [
   'customer_total_amount',    // 0026 — Total Pelanggan
   'customer_paid_amount',     // 0026 — Sudah Bayar (default 0 begitu 0026 jalan)
   'customer_dp_paid_at',      // 0026 — Tgl DP Pelanggan
-  'customer_settled_at',      // 0026 — Tgl Lunas
+  'customer_settled_at',      // 0026 — Tgl Lunas (cap sistem)
+  'customer_settled_on',      // 0027 — Tgl Lunas Sungguhan (isi tangan)
   'expedition',                // 0026 — Ekspedisi
   'confirm_status'             // 0026 — Status Confirm
 ];
@@ -1133,10 +1135,12 @@ function ensureSheet_(ss, partnerName) {
   if (!headerMatches_(sheet)) {
     throw new Error(
       'Format lama terdeteksi di tab "' + name + '" (header tidak cocok dengan versi ' +
-      'terbaru). Versi 2026-08-31 (babak kedua) menambah 9 kolom lagi setelah Alasan Batal: ' +
+      'terbaru). Versi 2026-08-31 (babak kedua) menambah 9 kolom setelah Alasan Batal: ' +
       'Nama PIC, Total Pelanggan, Sudah Bayar, Sisa Pelanggan, Status Bayar, Tgl DP Pelanggan, ' +
-      'Tgl Lunas, Ekspedisi, dan Status Confirm — jumlahnya menjadi 40 kolom (A..AN), sehingga ' +
-      'catatan manual Anda sekarang mulai dari kolom AO. Skrip ini TIDAK menimpa tab ini secara ' +
+      'Tgl Lunas, Ekspedisi, dan Status Confirm; versi 2026-09-01 menambah SATU kolom lagi, ' +
+      '"Tgl Lunas Sungguhan", tepat di sebelah kanan Tgl Lunas — jumlahnya menjadi 41 kolom ' +
+      '(A..AO), sehingga catatan manual Anda sekarang mulai dari kolom AP. Skrip ini TIDAK ' +
+      'menimpa tab ini secara ' +
       'otomatis supaya catatan manual Anda di kolom lama tidak salah tertulis. Ganti nama tab ' +
       'ini (mis. tambahkan " (lama)") atau arsipkan ke lembar lain, lalu jalankan Sync sekarang ' +
       'lagi — tab baru dengan format terbaru akan dibuat otomatis.'
@@ -1290,6 +1294,10 @@ function buildRow_(o, ctx) {
     customerPaymentStatusForSheet_(custTotal, custPaid),
     toDateOrBlank_(o.customer_dp_paid_at),
     toDateOrBlank_(o.customer_settled_at),
+    // 0027: tanggal lunas yang diketik kantor untuk pesanan lama. Sengaja
+    // kolom SENDIRI di sebelah cap sistem, bukan menimpanya — dua kolom
+    // menjawab dua pertanyaan berbeda (lihat kepala migrasi 0027).
+    toDateOrBlank_(o.customer_settled_on),
     o.expedition || '',
     o.confirm_status || '',
     toDateOrBlank_(o.created_at),

@@ -128,6 +128,11 @@ function fieldLabel(m: AdminMessages, key: string): string | undefined {
     customer_paid_amount: c.customerPaymentPaid,
     customer_dp_paid_at: c.customerPaymentDpDate,
     customer_settled_at: c.customerPaymentSettledDate,
+    // Fitur D lanjutan (migrasi 0027) — kebalikan dari customer_settled_at
+    // tepat di atasnya: kolom ini SATU-SATUNYA tanggal lunas yang memang
+    // diketik manusia, jadi perubahannya adalah tindakan staf yang WAJIB
+    // terbaca di layar Aktivitas, bukan kode kolom mentah (LESSONS #28).
+    customer_settled_on: c.customerPaymentSettledOnDate,
     expedition: c.expeditionLabel,
     confirm_status: c.confirmStatusLabel,
   };
@@ -215,6 +220,12 @@ function asLabel(m: AdminMessages, key: string, v: unknown): string {
     return formatDateTimeWIB(v, m.common.dateLocale);
   }
   if (key === "customer_dp_paid_at" && typeof v === "string") {
+    return formatCalendarDate(v, m.common.dateLocale);
+  }
+  // customer_settled_on (0027) ikut cabang `date` MURNI ini, BUKAN cabang
+  // timestamptz di atas — kalau tertukar, tanggal yang ditulis staf bisa
+  // tampil bergeser sehari tergantung zona server.
+  if (key === "customer_settled_on" && typeof v === "string") {
     return formatCalendarDate(v, m.common.dateLocale);
   }
   // Uang tetap harus lewat formatIDR — angka mentah ("1500000") tidak

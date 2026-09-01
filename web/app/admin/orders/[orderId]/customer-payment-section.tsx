@@ -26,6 +26,9 @@ export type PaymentCardData = {
   paid: number;
   dpPaidAt: string | null;
   settledAt: string | null;
+  /** Tanggal lunas SUNGGUHAN, isi tangan (0027) — beda dari settledAt
+   *  di atas yang dicap server dan tidak bisa diketik. */
+  settledOn: string | null;
   expedition: string | null;
   confirmStatus: string | null;
 };
@@ -118,7 +121,8 @@ export default function CustomerPaymentSection({
           String(fd.get("customer_paid_amount") || ""),
           String(fd.get("customer_dp_paid_at") || ""),
           String(fd.get("expedition") || ""),
-          String(fd.get("confirm_status") || "")
+          String(fd.get("confirm_status") || ""),
+          String(fd.get("customer_settled_on") || "")
         ),
       messages: m,
       buttonLabel: m.admin.customerPaymentSaveBtn,
@@ -165,6 +169,16 @@ export default function CustomerPaymentSection({
           <>
             <dt>{m.common.customerPaymentSettledDate}</dt>
             <dd>{formatDateTimeWIB(payment.settledAt, m.common.dateLocale)}</dd>
+          </>
+        )}
+        {/* Tanggal lunas sungguhan (0027) — ditampilkan TEPAT di bawah cap
+            sistem supaya keduanya terbaca sebagai pasangan, bukan sebagai
+            dua tanggal yang saling bersaing. `date` MURNI, jadi lewat
+            formatCalendarDate seperti Tgl DP, BUKAN formatDateTimeWIB. */}
+        {payment.settledOn && (
+          <>
+            <dt>{m.common.customerPaymentSettledOnDate}</dt>
+            <dd>{formatCalendarDate(payment.settledOn, m.common.dateLocale)}</dd>
           </>
         )}
         {payment.expedition && (
@@ -253,6 +267,18 @@ export default function CustomerPaymentSection({
                     type="date"
                     defaultValue={snapshot?.dpPaidAt ?? ""}
                   />
+                </div>
+                <div className="field" style={{ marginBottom: 10 }}>
+                  <label htmlFor="customer_settled_on">{m.common.customerPaymentSettledOnDate}</label>
+                  <input
+                    id="customer_settled_on"
+                    name="customer_settled_on"
+                    type="date"
+                    defaultValue={snapshot?.settledOn ?? ""}
+                  />
+                  {/* Keterangan WAJIB ada: dua tanggal lunas yang berdampingan
+                      tanpa penjelasan adalah undangan salah isi. */}
+                  <p className="footnote">{m.common.customerPaymentSettledOnHint}</p>
                 </div>
                 <div className="field" style={{ marginBottom: 10 }}>
                   <label htmlFor="expedition">{m.common.expeditionLabel}</label>

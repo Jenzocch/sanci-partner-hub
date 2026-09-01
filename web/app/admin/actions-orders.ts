@@ -1128,18 +1128,26 @@ export type CustomerPaymentSnapshot = {
   dpPaidAt: string | null;
   /** Server-stamped oleh trigger DB (LESSONS #11) — TAMPIL saja, tidak pernah ditulis dari sini. */
   settledAt: string | null;
+  /** Tanggal lunas SUNGGUHAN, isi tangan (0027) — KEBALIKAN settledAt di
+   *  atas: ini satu-satunya tanggal lunas yang memang diketik staf, untuk
+   *  pesanan lama yang dilunasi sebelum sistem ini ada. `date` MURNI. */
+  settledOn: string | null;
   expedition: string | null;
   confirmStatus: string | null;
 };
 
+// SATU literal string, sengaja panjang dan TIDAK dipecah dengan `+`:
+// supabase-js menyimpulkan tipe baris dari literal select ini, dan
+// ekspresi gabungan membuatnya jatuh ke GenericStringError.
 const PAYMENT_COLS =
-  "customer_total_amount, customer_paid_amount, customer_dp_paid_at, customer_settled_at, expedition, confirm_status";
+  "customer_total_amount, customer_paid_amount, customer_dp_paid_at, customer_settled_at, customer_settled_on, expedition, confirm_status";
 
 type PaymentRowRaw = {
   customer_total_amount: number | string | null;
   customer_paid_amount: number | string | null;
   customer_dp_paid_at: string | null;
   customer_settled_at: string | null;
+  customer_settled_on: string | null;
   expedition: string | null;
   confirm_status: string | null;
 };
@@ -1150,6 +1158,7 @@ function toPaymentSnapshot(row: PaymentRowRaw): CustomerPaymentSnapshot {
     paid: Number(row.customer_paid_amount ?? 0),
     dpPaidAt: row.customer_dp_paid_at,
     settledAt: row.customer_settled_at,
+    settledOn: row.customer_settled_on,
     expedition: row.expedition,
     confirmStatus: row.confirm_status,
   };
@@ -1189,7 +1198,8 @@ export async function setCustomerPaymentAdmin(
   paidRaw: string,
   dpDateRaw: string,
   expeditionRaw: string,
-  confirmStatusRaw: string
+  confirmStatusRaw: string,
+  settledOnRaw: string
 ): Promise<ActionResult<CustomerPaymentSnapshot>> {
   const m = await getAdminMessages();
   const PESAN = pesan(m);
@@ -1217,6 +1227,15 @@ export async function setCustomerPaymentAdmin(
     return { error: { field: "customer_dp_paid_at", message: m.admin.customerPaymentInvalidDate } };
   }
   const dpDate = dpDateTrimmed === "" ? null : dpDateTrimmed;
+  // Tanggal lunas sungguhan (0027) — bentuknya divalidasi dengan aturan yang
+  // sama persis seperti tanggal DP. TIDAK diperiksa terhadap status lunas:
+  // pesanan pindahan yang angkanya belum lengkap justru yang paling butuh
+  // kolom ini (alasan lengkap di kepala migrasi 0027).
+  const settledOnTrimmed = settledOnRaw.trim();
+  if (settledOnTrimmed !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(settledOnTrimmed)) {
+    return { error: { field: "customer_settled_on", message: m.admin.customerPaymentInvalidDate } };
+  }
+  const settledOn = settledOnTrimmed === "" ? null : settledOnTrimmed;
   const expedition = expeditionRaw.trim().slice(0, MAX_EXPEDITION_LEN) || null;
   const confirmStatus = confirmStatusRaw.trim().slice(0, MAX_CONFIRM_STATUS_LEN) || null;
 
@@ -1227,10 +1246,12 @@ export async function setCustomerPaymentAdmin(
         customer_total_amount: total,
         customer_paid_amount: paid,
         customer_dp_paid_at: dpDate,
+        customer_settled_on: settledOn,
         expedition,
         confirm_status: confirmStatus,
         // customer_settled_at SENGAJA TIDAK dikirim — server-stamped oleh
-        // trigger DB (LESSONS #11).
+        // trigger DB (LESSONS #11). customer_settled_on (di atas) justru
+        // KEBALIKANNYA: memang dikirim, karena isi tangan (0027).
       })
       .eq("id", orderId)
       .select(PAYMENT_COLS)

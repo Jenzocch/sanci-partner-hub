@@ -511,6 +511,13 @@ const id = {
   customerPaymentStatusLunas: "Lunas",
   customerPaymentDpDate: "Tgl DP",
   customerPaymentSettledDate: "Tgl Lunas",
+  // Fitur D lanjutan (migrasi 0027) — tanggal lunas SUNGGUHAN, isi tangan,
+  // berdampingan dengan cap sistem di atas. Dua label ini WAJIB terbaca
+  // berbeda pada pandangan pertama: keduanya duduk bersebelahan di kartu
+  // yang sama dan salah membacanya berarti salah mengisi.
+  customerPaymentSettledOnDate: "Tgl Lunas Sungguhan",
+  customerPaymentSettledOnHint:
+    "Diisi tangan untuk pesanan lama: tanggal pelanggan BENAR-BENAR melunasi. \"Tgl Lunas\" dicap sistem sendiri dan tidak bisa diketik.",
   expeditionLabel: "Ekspedisi",
   confirmStatusLabel: "Status Konfirmasi",
 
@@ -921,6 +928,9 @@ const en = {
   customerPaymentStatusLunas: "Paid Off",
   customerPaymentDpDate: "DP Date",
   customerPaymentSettledDate: "Paid-off Date",
+  customerPaymentSettledOnDate: "Actual Paid-off Date",
+  customerPaymentSettledOnHint:
+    "Typed in by hand for older orders: the date the customer ACTUALLY paid off. \"Paid-off Date\" is stamped by the system itself and cannot be typed.",
   expeditionLabel: "Expedition",
   confirmStatusLabel: "Confirm Status",
 
@@ -1309,6 +1319,9 @@ const zh = {
   customerPaymentStatusLunas: "已付清",
   customerPaymentDpDate: "订金日期",
   customerPaymentSettledDate: "付清日期",
+  customerPaymentSettledOnDate: "实际付清日期",
+  customerPaymentSettledOnHint:
+    "旧订单手动填写：客户真正付清的那一天。上面的“付清日期”由系统自动盖章，不能手动输入。",
   expeditionLabel: "物流",
   confirmStatusLabel: "确认状态",
 

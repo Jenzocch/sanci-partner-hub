@@ -396,7 +396,7 @@ async function fetchCustomerPaymentCard(
 ): Promise<ColumnFetch<PaymentCardData>> {
   const { data, error } = await supabase
     .from("partner_orders")
-    .select("customer_total_amount, customer_paid_amount, customer_dp_paid_at, customer_settled_at, expedition, confirm_status")
+    .select("customer_total_amount, customer_paid_amount, customer_dp_paid_at, customer_settled_at, customer_settled_on, expedition, confirm_status")
     .eq("id", orderId)
     .maybeSingle();
   if (error) return { status: error.code === "42703" ? "missing-column" : "error" };
@@ -405,6 +405,7 @@ async function fetchCustomerPaymentCard(
     customer_paid_amount: number | string | null;
     customer_dp_paid_at: string | null;
     customer_settled_at: string | null;
+    customer_settled_on: string | null;
     expedition: string | null;
     confirm_status: string | null;
   } | null;
@@ -415,6 +416,7 @@ async function fetchCustomerPaymentCard(
       paid: Number(row?.customer_paid_amount ?? 0),
       dpPaidAt: row?.customer_dp_paid_at ?? null,
       settledAt: row?.customer_settled_at ?? null,
+      settledOn: row?.customer_settled_on ?? null,
       expedition: row?.expedition ?? null,
       confirmStatus: row?.confirm_status ?? null,
     },
