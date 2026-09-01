@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatIDR, isMissingTableError, wibDayBoundsToIso } from "@/lib/orders-shared";
 import { getAdminMessages } from "@/lib/i18n";
+import AnalisisTabs from "./tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -181,6 +182,7 @@ export default async function AdminAnalyticsPage({
         <div className="worktop">
           <h1>{m.admin.navAnalytics}</h1>
         </div>
+        <AnalisisTabs active="terlaris" m={m} />
         <div className="card emptybox">{m.admin.analyticsFeatureOff}</div>
       </div>
     );
@@ -191,6 +193,7 @@ export default async function AdminAnalyticsPage({
       <div className="worktop">
         <h1>{m.admin.navAnalytics}</h1>
       </div>
+      <AnalisisTabs active="terlaris" m={m} />
 
       <form className="searchrow wide" action="/admin/analisis" method="GET">
         <label className="small muted">

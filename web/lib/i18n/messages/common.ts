@@ -82,7 +82,6 @@ const id = {
   // tempat yang berbeda: satu label singkat di baris daftar pilihan, satu
   // baris spesifikasi di halaman produk yang mendaftar SEMUA warna yang
   // dipilih untuk produk itu (bisa lebih dari satu).
-  proposalLineColor: "Warna",
   proposalSpecColorsChosen: "Warna dipilih",
   proposalFootnote:
     "Harga dalam Rupiah dan belum termasuk ongkos kirim serta pemasangan, kecuali disebutkan lain. " +
@@ -189,6 +188,7 @@ const id = {
   // Status stok (dipakai lib/catalog-shared.ts)
   stockStatus: "Status Stok",
   quantity: "Jumlah",
+  color: "Warna",
   stockAvailable: "Tersedia",
   stockLimited: "Terbatas",
   stockOutOfStock: "Habis",
@@ -609,7 +609,6 @@ const en = {
   proposalGrandTotal: "Total",
   proposalSpecSize: "Size",
   proposalSpecCategory: "Category",
-  proposalLineColor: "Colour",
   proposalSpecColorsChosen: "Colours chosen",
   proposalFootnote:
     "Prices are in Rupiah and exclude delivery and installation unless stated otherwise. " +
@@ -697,6 +696,7 @@ const en = {
     "The customer will come to SANCI to see / pick a product",
   stockStatus: "Stock status",
   quantity: "Quantity",
+  color: "Colour",
   stockAvailable: "Available",
   stockLimited: "Limited",
   stockOutOfStock: "Out of stock",
@@ -1011,7 +1011,6 @@ const zh = {
   proposalGrandTotal: "总计",
   proposalSpecSize: "尺寸",
   proposalSpecCategory: "类别",
-  proposalLineColor: "颜色",
   proposalSpecColorsChosen: "已选颜色",
   proposalFootnote:
     "价格以印尼盾计算,除另行说明外不含运费与安装费。备货情况于下单时再次确认。",
@@ -1095,6 +1094,7 @@ const zh = {
   fulfillmentShowroomDesc: "客户会到 SANCI 门店看货、挑选产品",
   stockStatus: "库存状态",
   quantity: "数量",
+  color: "颜色",
   stockAvailable: "有货",
   stockLimited: "库存少",
   stockOutOfStock: "缺货",

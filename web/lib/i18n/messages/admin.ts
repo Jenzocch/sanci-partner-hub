@@ -580,8 +580,22 @@ const id = {
   analyticsShowingCount: "Menampilkan {n} produk teratas.",
   analyticsScanCapNote:
     "Data melebihi batas pemindaian — hanya {n} baris item pesanan terbaru yang dihitung. Produk lama di luar batas ini mungkin tidak ikut terhitung.",
-  analyticsUnpricedNote:
+   analyticsUnpricedNote:
     "{n} baris item tidak punya harga terisi — dihitung sebagai Rp 0 dalam total nominal.",
+
+  // Dua tab /admin/analisis (2026-09-01) — dua pertanyaan berbeda atas data
+  // yang sama; lihat kepala app/admin/analisis/tabs.tsx.
+  analyticsTabTopProducts: "Produk Terlaris",
+  analyticsTabBuyers: "Siapa yang Beli",
+  buyersSearchPlaceholder: "Ketik nama atau kode produk, mis. Sofa Milano atau SF-021…",
+  buyersPrompt:
+    "Ketik nama atau kode produk di atas untuk melihat siapa saja yang pernah membelinya.",
+  buyersEmpty: 'Belum ada pembelian yang cocok dengan "{q}".',
+  buyersSummary:
+    '{buyers} pelanggan, total {qty} unit, untuk pencarian "{q}". Pesanan yang dibatalkan ikut ditampilkan dengan penanda statusnya.',
+  buyersShowingCount: "Menampilkan {n} baris pembelian.",
+  buyersScanCapNote:
+    "Data melebihi batas pemindaian — hanya {n} baris item pesanan terbaru yang diperiksa. Pembelian yang lebih lama mungkin tidak tampil.",
 
   // ---- Detail Pesanan (orders/[orderId]/page.tsx) ----
   orderFeatureOff: "Modul Pesanan belum aktif di database (migrasi belum dijalankan).",
@@ -1485,8 +1499,19 @@ const en = {
   analyticsShowingCount: "Showing the top {n} products.",
   analyticsScanCapNote:
     "Data exceeds the scan limit — only the {n} most recent order item rows were counted. Older products beyond this limit may be missing.",
-  analyticsUnpricedNote:
+   analyticsUnpricedNote:
     "{n} item row(s) have no price filled in — counted as Rp 0 in the revenue total.",
+
+  analyticsTabTopProducts: "Best Sellers",
+  analyticsTabBuyers: "Who Bought It",
+  buyersSearchPlaceholder: "Type a product name or code, e.g. Sofa Milano or SF-021…",
+  buyersPrompt: "Type a product name or code above to see everyone who has bought it.",
+  buyersEmpty: 'No purchases match "{q}" yet.',
+  buyersSummary:
+    '{buyers} customers, {qty} units in total, for "{q}". Cancelled orders are included and marked with their status.',
+  buyersShowingCount: "Showing {n} purchase lines.",
+  buyersScanCapNote:
+    "The data exceeds the scan limit — only the {n} most recent order item rows were checked. Older purchases may not appear.",
 
   orderFeatureOff: "The Orders module is not active in the database yet (the migration has not been run).",
   orderDetailLoadFailed: "Failed to load the order detail.",
@@ -2299,7 +2324,18 @@ const zh = {
   analyticsEmpty: "这个日期范围内还没有销售记录。",
   analyticsShowingCount: "显示前 {n} 项产品。",
   analyticsScanCapNote: "数据量超过扫描上限 —— 仅统计最新 {n} 条订单品项。超出范围的旧产品可能没有被计入。",
-  analyticsUnpricedNote: "{n} 条品项没有填写价格 —— 在金额合计中以 0 元计算。",
+   analyticsUnpricedNote: "{n} 条品项没有填写价格 —— 在金额合计中以 0 元计算。",
+
+  analyticsTabTopProducts: "热销产品",
+  analyticsTabBuyers: "卖给过谁",
+  buyersSearchPlaceholder: "输入产品名称或编号，例如 Sofa Milano 或 SF-021…",
+  buyersPrompt: "在上方输入产品名称或编号，即可查看有哪些客户买过它。",
+  buyersEmpty: "还没有符合“{q}”的购买记录。",
+  buyersSummary:
+    "“{q}”共有 {buyers} 位客户、合计 {qty} 件。已取消的订单也会显示，并标注其状态。",
+  buyersShowingCount: "显示 {n} 条购买记录。",
+  buyersScanCapNote:
+    "数据超过扫描上限 —— 只检查了最近 {n} 条订单品项。更早的购买记录可能不会显示。",
 
   orderFeatureOff: "订单模块在数据库中尚未启用（迁移脚本还没有执行）。",
   orderDetailLoadFailed: "订单详情加载失败。",

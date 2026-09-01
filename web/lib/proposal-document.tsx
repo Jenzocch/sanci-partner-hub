@@ -487,7 +487,7 @@ export default function ProposalDocument({
                       ini) — produk tanpa warna tidak mendapat baris kosong. */}
                   {r.line.colorCode && (
                     <p className={styles.selCode}>
-                      {m.proposalLineColor}: {r.line.colorCode}
+                      {m.color}: {r.line.colorCode}
                     </p>
                   )}
                   {r.product?.size && <p className={styles.selSize}>{r.product.size}</p>}
@@ -549,7 +549,7 @@ export default function ProposalDocument({
                         dua kali karena salah. */}
                     {r.line.colorCode && (
                       <p className={styles.selCode}>
-                        {m.proposalLineColor}: {r.line.colorCode}
+                        {m.color}: {r.line.colorCode}
                       </p>
                     )}
                   </div>
