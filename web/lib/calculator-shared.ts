@@ -60,6 +60,17 @@ export type CalcLine = {
   /** Harga satuan diketik MANUAL oleh staf — katalog produk tidak punya harga (0010). */
   unitPrice: number;
   qty: number;
+  /**
+   * Kode warna (product_colors.code, migrasi 0025) — atau `null` untuk baris
+   * "belum dipilih warnanya". IDENTITAS BARIS di seluruh berkas ini bukan lagi
+   * `productId` sendirian, melainkan pasangan `(productId, colorCode)` —
+   * produk yang sama dengan warna berbeda adalah DUA baris (audit 2026-09-01:
+   * sebelum ini, satu produk hanya bisa dipilih satu kali sama sekali,
+   * walaupun order_items.color_code sudah lama menyediakan tempat untuk
+   * "sofa krem 2 + sofa abu 3"). Produk tanpa pilihan warna selalu punya
+   * `colorCode: null` dan berperilaku identik dengan sebelum perubahan ini.
+   */
+  colorCode: string | null;
 };
 
 export type CalcCartState = {
@@ -72,6 +83,31 @@ export type CalcCartState = {
 
 export const CALC_MAX_DISCOUNT_SLOTS = 6;
 export const CALC_MAX_QTY = 999_999;
+
+/* ------------------------------------------------------------------ *
+ * Kontrak pemuat warna (product_colors, migrasi 0025) — dipakai kalkulator
+ * DAN picker Isi Pesanan (lib/order-item-picker.tsx). Tipe LOKAL yang
+ * cocok secara STRUKTURAL dengan `ListActiveColorsOutcome`/`ColorRow` milik
+ * masing-masing area (app/admin/actions-colors.ts,
+ * app/cabang/pesanan/actions.ts::listActiveColorsCabang) — berkas ini
+ * SENGAJA tidak mengimpor salah satu dari keduanya (pola yang sama dengan
+ * `KalkulatorFetchMessages`/`PickerLoadResult`: komponen bersama dua area
+ * tidak boleh terikat pada action milik satu area).
+ * ------------------------------------------------------------------ */
+
+export type ColorOptionRow = {
+  id: string;
+  code: string;
+  name: string | null;
+  photo_url: string | null;
+};
+
+export type FetchColorsResult =
+  | { status: "ok"; hasColorOptions: boolean; colors: ColorOptionRow[] }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+export type FetchColorsFn = (productId: string) => Promise<FetchColorsResult>;
 
 export function emptyCartState(): CalcCartState {
   return { lines: [], discountSlots: [""], markup: "", cash: "" };
@@ -127,8 +163,18 @@ function isValidLine(v: unknown): v is CalcLine {
     (l.code === null || typeof l.code === "string") &&
     (l.photoUrl === null || typeof l.photoUrl === "string") &&
     typeof l.unitPrice === "number" &&
-    typeof l.qty === "number"
+    typeof l.qty === "number" &&
+    // colorCode BOLEH tidak ada sama sekali — draf lama (sebelum kolom ini
+    // ada) tetap harus terbaca valid, bukan dibuang seluruhnya (LESSONS #1:
+    // draf pengguna tidak boleh hilang gara-gara skema berubah). Undefined
+    // dinormalkan jadi null di bawah, bukan di sini.
+    (l.colorCode === undefined || l.colorCode === null || typeof l.colorCode === "string")
   );
+}
+
+/** Normalisasi `colorCode` yang mungkin `undefined` (draf sebelum kolom ini ada) menjadi `null`. */
+function normalizeColorCode(v: unknown): string | null {
+  return typeof v === "string" ? v : null;
 }
 
 export function readCalcDraft(area: CalcArea): CalcDraft | null {
@@ -139,7 +185,7 @@ export function readCalcDraft(area: CalcArea): CalcDraft | null {
     if (!parsed || typeof parsed.savedAt !== "number" || !parsed.state) return null;
     const s = parsed.state as Partial<CalcCartState>;
     if (!Array.isArray(s.lines) || !Array.isArray(s.discountSlots)) return null;
-    const lines = s.lines.filter(isValidLine);
+    const lines = s.lines.filter(isValidLine).map((l) => ({ ...l, colorCode: normalizeColorCode(l.colorCode) }));
     const discountSlots = s.discountSlots.filter((x): x is string => typeof x === "string");
     const state: CalcCartState = {
       lines,
@@ -224,6 +270,8 @@ export type CalcHandoffLine = {
   code: string | null;
   unitPrice: number;
   qty: number;
+  /** Lihat catatan `CalcLine.colorCode` — identitas baris pasangan (productId, colorCode). */
+  colorCode: string | null;
 };
 
 export type CalcHandoff = {
@@ -255,7 +303,9 @@ function isValidHandoffLine(v: unknown): v is CalcHandoffLine {
     typeof l.name === "string" &&
     (l.code === null || typeof l.code === "string") &&
     typeof l.unitPrice === "number" &&
-    typeof l.qty === "number"
+    typeof l.qty === "number" &&
+    // Lihat catatan sepadan di isValidLine — undefined = hand-off lama, valid.
+    (l.colorCode === undefined || l.colorCode === null || typeof l.colorCode === "string")
   );
 }
 
@@ -281,7 +331,9 @@ export function readCalcHandoff(area: CalcArea): CalcHandoff | null {
       markupPct: typeof parsed.markupPct === "number" ? parsed.markupPct : null,
       cashDiscount: typeof parsed.cashDiscount === "number" ? parsed.cashDiscount : 0,
       finalAmount: typeof parsed.finalAmount === "number" ? parsed.finalAmount : parsed.subtotal,
-      lines: Array.isArray(parsed.lines) ? parsed.lines.filter(isValidHandoffLine) : [],
+      lines: Array.isArray(parsed.lines)
+        ? parsed.lines.filter(isValidHandoffLine).map((l) => ({ ...l, colorCode: normalizeColorCode(l.colorCode) }))
+        : [],
     };
   } catch {
     return null;

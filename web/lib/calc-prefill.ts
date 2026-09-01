@@ -33,6 +33,8 @@ export type CalcPrefillLine = {
   name: string;
   code: string | null;
   qty: number;
+  /** order_items.color_code (0025) — lihat catatan identitas baris di CalcLine. */
+  colorCode: string | null;
 };
 
 export type CalcPrefill = {
@@ -66,7 +68,8 @@ function isValidLine(v: unknown): v is CalcPrefillLine {
     typeof l.name === "string" &&
     (l.code === null || typeof l.code === "string") &&
     typeof l.qty === "number" &&
-    l.qty > 0
+    l.qty > 0 &&
+    (l.colorCode === undefined || l.colorCode === null || typeof l.colorCode === "string")
   );
 }
 
@@ -92,7 +95,9 @@ export function takeCalcPrefill(area: CalcArea): CalcPrefill | null {
     window.localStorage.removeItem(KEYS[area]);
     const parsed = JSON.parse(raw) as Partial<CalcPrefill>;
     if (!parsed || !Array.isArray(parsed.lines)) return null;
-    const lines = parsed.lines.filter(isValidLine);
+    const lines = parsed.lines
+      .filter(isValidLine)
+      .map((l) => ({ ...l, colorCode: typeof l.colorCode === "string" ? l.colorCode : null }));
     if (lines.length === 0 && !parsed.skipped) return null;
     return {
       savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0,

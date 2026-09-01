@@ -1371,11 +1371,20 @@ export type CopyCalcItemsOutcome = {
  *     untuk diambil ulang — 0010, lihat catatan di calculator-shared.ts), dan
  *     quantity adalah pilihan staf, bukan data otorisasi.
  *   - client_request_id per baris DETERMINISTIK
- *     (`{orderClientRequestId}:calc-item:{product_id}`) — retry tidak pernah
- *     menggandakan baris (LESSONS #3/#21), lewat constraint unique yang sama
- *     dipakai copyPackageItemsToOrder. Produk yang sama tidak pernah muncul
- *     dua kali di satu keranjang (addToCart di kalkulator-client.tsx
- *     menggabungkan qty), jadi product_id aman dipakai sebagai kunci.
+ *     (`{orderClientRequestId}:calc-item:{product_id}` — DITAMBAH
+ *     `:{color_code}` kalau barisnya punya warna, audit 2026-09-01) — retry
+ *     tidak pernah menggandakan baris (LESSONS #3/#21), lewat constraint
+ *     unique yang sama dipakai copyPackageItemsToOrder. Produk yang sama
+ *     BOLEH muncul lebih dari sekali di satu keranjang SEKARANG kalau
+ *     warnanya berbeda (addToCart di kalkulator-client.tsx menggabungkan qty
+ *     HANYA untuk pasangan productId+colorCode yang sama) — makanya kunci
+ *     ini WAJIB ikut menyertakan warna, bukan cuma product_id: dua baris
+ *     warna berbeda dengan kunci yang sama akan membuat baris kedua DIBUANG
+ *     DIAM-DIAM oleh `ignoreDuplicates: true` (persis bug yang sedang
+ *     diperbaiki, hanya berpindah tempat dari keranjang ke sini). Baris
+ *     TANPA warna (colorCode null) memakai bentuk kunci LAMA apa adanya
+ *     (tanpa sufiks warna) — kompatibel mundur dengan mayoritas baris yang
+ *     tidak pernah dan tidak akan pernah punya warna.
  *   - BEST-EFFORT MURNI: dipanggil SETELAH pesanan sudah tersimpan sukses;
  *     kegagalan di sini TIDAK PERNAH melempar atau membatalkan pesanan itu
  *     (pola sama dengan lampiran invoice / copyPackageItemsToOrder).
@@ -1449,7 +1458,7 @@ export type CopyCalcItemsOutcome = {
 export async function copyCalcCartItemsToOrder(
   orderId: string,
   orderClientRequestId: string,
-  lines: { productId: string; unitPrice: number; qty: number }[]
+  lines: { productId: string; unitPrice: number; qty: number; colorCode?: string | null }[]
 ): Promise<CopyCalcItemsOutcome> {
   const supabase = await createClient();
   if (lines.length === 0) return { total: 0, created: 0, priceGuardDegraded: false };
@@ -1476,13 +1485,20 @@ export async function copyCalcCartItemsToOrder(
     if (!product) continue;
 
     const qty = Math.max(1, Math.min(MAX_ITEM_QTY, Math.round(line.qty) || 1));
+    const colorCode = line.colorCode ?? null;
     const basePayload: Record<string, unknown> = {
       order_id: orderId,
       product_id: line.productId,
       name_snapshot: product.name,
       code_snapshot: product.code,
       quantity: qty,
-      client_request_id: `${orderClientRequestId}:calc-item:${line.productId}`,
+      color_code: colorCode,
+      // TANPA warna: kunci LAMA apa adanya (kompatibilitas mundur). DENGAN
+      // warna: sufiks `:{colorCode}` supaya dua baris produk sama warna
+      // beda tidak saling bertabrakan lalu dibuang oleh ignoreDuplicates.
+      client_request_id: colorCode
+        ? `${orderClientRequestId}:calc-item:${line.productId}:${colorCode}`
+        : `${orderClientRequestId}:calc-item:${line.productId}`,
     };
     const includesPrice =
       Number.isFinite(line.unitPrice) && line.unitPrice > 0 && line.unitPrice <= MAX_CALC_ITEM_UNIT_PRICE;

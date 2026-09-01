@@ -56,6 +56,7 @@ import {
   type StaffOption,
 } from "../../actions-create-order";
 import { getCatalogPageAdmin } from "../../catalog-actions";
+import { listActiveColors } from "../../actions-colors";
 import OrderItemsSection, {
   mergeLinesFromHandoff,
   type PickedLine,
@@ -370,7 +371,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
         copyCalcCartItemsToOrder(
           orderId,
           orderClientRequestId,
-          itemLines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty }))
+          itemLines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty, colorCode: l.colorCode }))
         ),
     });
     if (itemsOut.status === "ok") {
@@ -874,6 +875,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
             lines={itemLines}
             onLinesChange={setItemLines}
             loadProducts={loadPickerProducts}
+            fetchColors={listActiveColors}
           />
 
           {staffState === "loading" && <div className="hint">{m.common.loading}</div>}

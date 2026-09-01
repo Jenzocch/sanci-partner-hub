@@ -32,7 +32,7 @@ const id = {
   calcMarkupOutOfRange:
     "Markup harus antara 0 dan 100. Angka di luar itu masih bisa dihitung dan dicetak di Proposal, tapi TIDAK bisa diterapkan saat keranjang ini dijadikan pesanan — penerapannya akan ditolak di langkah terakhir.",
   calcPrefillMerged:
-    "{n} baris pesanan digabung karena produknya sama — jumlahnya sudah dijumlahkan jadi satu baris. Warna/ukuran per baris tidak dibawa: kalkulator menghitung per produk.",
+    "{n} baris pesanan digabung karena produk DAN warnanya sama — jumlahnya sudah dijumlahkan jadi satu baris. Warna yang berbeda tetap dipisah menjadi baris tersendiri.",
   proposalCoverKicker: "Proposal Produk Pelanggan",
   proposalCoverSub: "Pilihan furnitur yang kami siapkan khusus untuk rumah Anda.",
   proposalIntroTitle: "Sebuah proposal untuk rumah Anda.",
@@ -468,6 +468,13 @@ const id = {
   calcQtyLabel: "Jumlah",
   calcRemoveLineCta: "Hapus",
   calcRemoveLineAria: "Hapus {name} dari keranjang",
+  calcColorFieldLabel: "Warna",
+  calcColorPickerPlaceholder: "— pilih warna —",
+  calcColorPickerAria: "Pilih warna untuk {name}",
+  calcColorLoadFailedNote: "Daftar warna gagal dimuat — bisa tetap dilanjutkan tanpa warna.",
+  calcColorMergedNote: "Digabung dengan baris {name} warna yang sama.",
+  calcAddColorVariantCta: "+ Tambah warna lain",
+  calcAddColorVariantAria: "Tambah baris warna lain untuk {name}",
   calcDiscountSectionTitle: "Diskon, Markup & Potongan Tunai",
   calcDiscountHint:
     "Setiap diskon dihitung berurutan dari subtotal (bukan dijumlahkan). Markup dihitung setelah semua diskon. " +
@@ -519,7 +526,7 @@ const en = {
   calcMarkupOutOfRange:
     "Markup must be between 0 and 100. A value outside that range can still be calculated and printed on the Proposal, but it CANNOT be applied when this cart becomes an order — it will be rejected at the last step.",
   calcPrefillMerged:
-    "{n} order lines were merged because they are the same product — their quantities are now one line. Per-line colour/size is not carried over: the calculator works per product.",
+    "{n} order lines were merged because they are the same product AND colour — their quantities are now one line. Different colours stay as separate lines.",
   proposalCoverKicker: "Customer Product Proposal",
   proposalCoverSub: "A curated selection of furniture prepared for your home.",
   proposalIntroTitle: "A proposal made for your home.",
@@ -847,6 +854,13 @@ const en = {
   calcQtyLabel: "Quantity",
   calcRemoveLineCta: "Remove",
   calcRemoveLineAria: "Remove {name} from cart",
+  calcColorFieldLabel: "Colour",
+  calcColorPickerPlaceholder: "— choose colour —",
+  calcColorPickerAria: "Choose colour for {name}",
+  calcColorLoadFailedNote: "Colour list failed to load — you can still continue without a colour.",
+  calcColorMergedNote: "Merged into the {name} line with the same colour.",
+  calcAddColorVariantCta: "+ Add another colour",
+  calcAddColorVariantAria: "Add another colour line for {name}",
   calcDiscountSectionTitle: "Discount, Markup & Cash Discount",
   calcDiscountHint:
     "Each discount is applied in order from the subtotal (not added together). Markup is applied after all " +
@@ -894,7 +908,7 @@ const zh = {
   calcMarkupOutOfRange:
     "加成必须介于 0 到 100 之间。超出范围的数字仍然可以计算、也可以印在提案册上,但在把这个购物车转成订单时无法套用 —— 会在最后一步被拒绝。",
   calcPrefillMerged:
-    "有 {n} 行订单项目因为是同一件产品而合并 —— 数量已经加总成一行。每行的颜色/尺寸不会带入:计算器是以产品为单位计算的。",
+    "有 {n} 行订单项目因为产品和颜色都相同而合并 —— 数量已经加总成一行。颜色不同的仍然各自保留成单独一行。",
   proposalCoverKicker: "客户产品提案",
   proposalCoverSub: "为您的家精心挑选的家具。",
   proposalIntroTitle: "为您的家准备的提案。",
@@ -1215,6 +1229,13 @@ const zh = {
   calcQtyLabel: "数量",
   calcRemoveLineCta: "删除",
   calcRemoveLineAria: "从购物车删除{name}",
+  calcColorFieldLabel: "颜色",
+  calcColorPickerPlaceholder: "— 选择颜色 —",
+  calcColorPickerAria: "为{name}选择颜色",
+  calcColorLoadFailedNote: "颜色列表载入失败 —— 仍可不选颜色继续。",
+  calcColorMergedNote: "已合并到{name}同颜色的那一行。",
+  calcAddColorVariantCta: "+ 加另一个颜色",
+  calcAddColorVariantAria: "为{name}加另一行颜色",
   calcDiscountSectionTitle: "折扣、加成与现金折让",
   calcDiscountHint: "每笔折扣按顺序从小计开始计算(不是直接相加)。加成在所有折扣之后计算。现金折让最后扣除。",
   calcDiscountFieldLabel: "折扣 {n}(%)",

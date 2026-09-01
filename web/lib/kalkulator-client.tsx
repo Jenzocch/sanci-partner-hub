@@ -23,6 +23,8 @@ import {
   type CalcLine,
   type CalcCartState,
   type CalcDraft,
+  type ColorOptionRow,
+  type FetchColorsFn,
 } from "@/lib/calculator-shared";
 import { writeProposalHandoff } from "@/lib/proposal-shared";
 import { takeCalcPrefill } from "@/lib/calc-prefill";
@@ -103,6 +105,7 @@ export default function KalkulatorClient({
   area,
   convert,
   proposal = null,
+  fetchColors,
 }: {
   /** Batch pertama (60) hasil render server — halaman langsung terisi tanpa
    *  fetch client di paint pertama; batch berikut & pencarian lewat fetchPage. */
@@ -118,6 +121,9 @@ export default function KalkulatorClient({
   convert: KalkulatorConvert | null;
   /** Lihat KalkulatorProposal — `null`/tidak dikirim = tombolnya tidak ada. */
   proposal?: KalkulatorProposal | null;
+  /** Server Action per area untuk daftar warna aktif satu produk (Fitur C,
+   *  migrasi 0025) — sama kontraknya dengan lib/order-item-picker.tsx. */
+  fetchColors: FetchColorsFn;
 }) {
   const m = useCommonMessages();
   const router = useRouter();
@@ -160,7 +166,9 @@ export default function KalkulatorClient({
     const pre = takeCalcPrefill(area);
     if (pre) {
       if (pre.lines.length > 0) {
-        // GABUNGKAN baris dengan produk yang SAMA (audit 2026-08-31).
+        // GABUNGKAN baris dengan produk DAN WARNA yang SAMA (audit
+        // 2026-08-31, kunci gabungnya diperluas 2026-09-01 untuk ikut
+        // warna).
         //
         // Satu pesanan BOLEH memuat produk yang sama lebih dari sekali:
         // order_items tidak punya unique (order_id, product_id) — 0014 —
@@ -170,27 +178,32 @@ export default function KalkulatorClient({
         // `:calc-item:` isi kalkulator), jadi satu pesanan bisa punya
         // keduanya untuk produk yang sama.
         //
-        // Sementara itu SELURUH model keranjang kalkulator memakai productId
-        // sebagai identitas baris: addToCart menambah qty ke baris yang
-        // sudah ada, dan removeLine/setLineQty/setLineUnitPrice semuanya
-        // mencocokkan productId. Menuang dua baris ber-productId sama ke
-        // dalamnya merusak keranjang DIAM-DIAM: mengubah qty satu baris
-        // mengubah KEDUANYA (2+3 jadi 3+3 — subtotal salah, dan salahnya
-        // ikut tercetak di proposal yang dibawa pulang pelanggan), dan
-        // menghapus satu menghapus keduanya.
+        // Sementara itu SELURUH model keranjang kalkulator memakai pasangan
+        // (productId, colorCode) sebagai identitas baris: addToCart
+        // menambah qty ke baris yang sudah ada, dan removeLine/setLineQty/
+        // setLineUnitPrice semuanya mencocokkan pasangan itu. Menuang dua
+        // baris ber-productId sama TAPI WARNA BEDA ke dalamnya sebagai SATU
+        // baris akan merusak keranjang DIAM-DIAM (2+3 jadi 3+3 — subtotal
+        // salah, dan salahnya ikut tercetak di proposal yang dibawa pulang
+        // pelanggan) — makanya kunci gabungnya WAJIB ikut warna, bukan
+        // sekadar productId (itulah persis regresi yang HAMPIR terjadi kalau
+        // baris ini dibiarkan seperti sebelum 2026-09-01: warna yang baru
+        // saja dibuat bisa dibedakan justru tergabung KEMBALI menjadi satu
+        // di titik masuk balik ini).
         //
-        // Kalkulator tidak punya konsep warna/ukuran, jadi jumlah yang benar
-        // untuk perhitungannya memang jumlah GABUNGAN. Tapi penggabungannya
-        // DIKATAKAN di banner, tidak pernah diam-diam (LESSONS #10).
+        // Baris dengan produk sama TAPI warna beda TETAP terpisah. Penggabungan
+        // yang sungguh terjadi (produk+warna sama) DIKATAKAN di banner, tidak
+        // pernah diam-diam (LESSONS #10).
         const merged: CalcLine[] = [];
         const at = new Map<string, number>();
         for (const l of pre.lines) {
-          const idx = at.get(l.productId);
+          const key = `${l.productId}::${l.colorCode ?? ""}`;
+          const idx = at.get(key);
           if (idx !== undefined) {
             merged[idx] = { ...merged[idx], qty: Math.min(CALC_MAX_QTY, merged[idx].qty + l.qty) };
             continue;
           }
-          at.set(l.productId, merged.length);
+          at.set(key, merged.length);
           merged.push({
             productId: l.productId,
             name: l.name,
@@ -198,6 +211,7 @@ export default function KalkulatorClient({
             photoUrl: null,
             unitPrice: 0,
             qty: Math.min(CALC_MAX_QTY, l.qty),
+            colorCode: l.colorCode,
           });
         }
         setLines(merged);
@@ -316,18 +330,69 @@ export default function KalkulatorClient({
     [katalog.categories, m.dateLocale]
   );
 
+  // HANYA baris "belum dipilih warnanya" (colorCode null) yang dihitung —
+  // itulah baris yang disasar stepper +/- di kartu produk (lihat addToCart/
+  // decLineOnCard). Sama persis dengan qtyByProduct di order-item-picker.tsx
+  // (audit 2026-09-01) — dua tempat, satu aturan.
   const cartQtyByProduct = useMemo(() => {
     const map = new Map<string, number>();
-    lines.forEach((l) => map.set(l.productId, l.qty));
+    lines.forEach((l) => {
+      if (l.colorCode === null) map.set(l.productId, l.qty);
+    });
     return map;
   }, [lines]);
 
+  // Daftar warna per produk — dimuat MALAS per productId yang MUNCUL di
+  // `lines`, di-cache untuk umur komponen ini. Pola identik dengan
+  // order-item-picker.tsx (satu peta untuk banyak baris keranjang sekaligus).
+  type ColorLoadState = { status: "loading" } | { status: "idle" } | { status: "error" } | { status: "ready"; colors: ColorOptionRow[] };
+  const [colorLoads, setColorLoads] = useState<Map<string, ColorLoadState>>(new Map());
+  const colorFetchedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const productIds = Array.from(new Set(lines.map((l) => l.productId)));
+    const toFetch = productIds.filter((id) => !colorFetchedRef.current.has(id));
+    if (toFetch.length === 0) return;
+    toFetch.forEach((id) => colorFetchedRef.current.add(id));
+    setColorLoads((prev) => {
+      const next = new Map(prev);
+      toFetch.forEach((id) => next.set(id, { status: "loading" }));
+      return next;
+    });
+    toFetch.forEach((id) => {
+      fetchColors(id)
+        .then((res) => {
+          setColorLoads((prev) => {
+            const next = new Map(prev);
+            if (res.status !== "ok" || !res.hasColorOptions || res.colors.length === 0) {
+              next.set(id, { status: res.status === "error" ? "error" : "idle" });
+            } else {
+              next.set(id, { status: "ready", colors: res.colors });
+            }
+            return next;
+          });
+        })
+        .catch(() => {
+          setColorLoads((prev) => new Map(prev).set(id, { status: "error" }));
+        });
+    });
+  }, [lines, fetchColors]);
+
+  /**
+   * Qty 1; duplikat digabung dengan menjumlah qty — TAPI hanya kalau
+   * WARNANYA JUGA SAMA (audit 2026-09-01, sebelumnya satu produk hanya bisa
+   * dipilih SATU KALI sama sekali walau order_items.color_code sudah lama
+   * menyediakan tempat untuk "sofa krem 2 + sofa abu 3"). Menyasar baris
+   * "belum berwarna" produk ini (bikin baru kalau belum ada) — memberi
+   * warna pada baris itu lewat pemilih warna di keranjang membebaskan slot
+   * "belum berwarna" untuk baris berikutnya, jadi menekan produk ini lagi
+   * otomatis memulai varian warna kedua/ketiga.
+   */
   function addToCart(p: KalkulatorProduct) {
     // Mulai mengisi keranjang baru = tawaran "Kembalikan" hasil pengosongan
     // sebelumnya tidak relevan lagi (memulihkannya justru MENIMPA isian baru).
     setClearedSnapshot(null);
     setLines((prev) => {
-      const idx = prev.findIndex((l) => l.productId === p.id);
+      const idx = prev.findIndex((l) => l.productId === p.id && l.colorCode === null);
       if (idx >= 0) {
         const next = [...prev];
         next[idx] = { ...next[idx], qty: Math.min(CALC_MAX_QTY, next[idx].qty + 1) };
@@ -338,22 +403,26 @@ export default function KalkulatorClient({
       // harga di daftar → 0, persis perilaku lama.
       return [
         ...prev,
-        { productId: p.id, name: p.name, code: p.code, photoUrl: p.photoUrl, unitPrice: p.price ?? 0, qty: 1 },
+        { productId: p.id, name: p.name, code: p.code, photoUrl: p.photoUrl, unitPrice: p.price ?? 0, qty: 1, colorCode: null },
       ];
     });
   }
-  function removeLine(productId: string) {
-    setLines((prev) => prev.filter((l) => l.productId !== productId));
+  function removeLine(productId: string, colorCode: string | null) {
+    setLines((prev) => prev.filter((l) => !(l.productId === productId && l.colorCode === colorCode)));
   }
   /**
    * Stepper "−" di KARTU produk: qty 1 → baris DIHAPUS (kembali ke keadaan
    * belum dipilih), bukan macet di 1 seperti setLineQty (yang melayani input
-   * angka di keranjang, di mana "hapus" punya tombolnya sendiri).
+   * angka di keranjang, di mana "hapus" punya tombolnya sendiri). Menyasar
+   * HANYA baris "belum berwarna" — simetris dengan addToCart di atas; kalau
+   * seluruh qty produk ini sudah dipindah ke baris berwarna, stepper kartu
+   * tidak punya target dan tidak melakukan apa pun (baris berwarna diedit
+   * lewat keranjang, bukan dari kartu produk).
    */
   function decLineOnCard(productId: string) {
     setLines((prev) =>
       prev
-        .map((l) => (l.productId === productId ? { ...l, qty: l.qty - 1 } : l))
+        .map((l) => (l.productId === productId && l.colorCode === null ? { ...l, qty: l.qty - 1 } : l))
         .filter((l) => l.qty > 0)
     );
   }
@@ -366,13 +435,58 @@ export default function KalkulatorClient({
     setTab("keranjang");
     window.scrollTo({ top: 0 });
   }
-  function setLineUnitPrice(productId: string, raw: string) {
+  function setLineUnitPrice(productId: string, colorCode: string | null, raw: string) {
     const n = parseIDRInput(raw);
-    setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, unitPrice: n ?? 0 } : l)));
+    setLines((prev) =>
+      prev.map((l) => (l.productId === productId && l.colorCode === colorCode ? { ...l, unitPrice: n ?? 0 } : l))
+    );
   }
-  function setLineQty(productId: string, qty: number) {
+  function setLineQty(productId: string, colorCode: string | null, qty: number) {
     const clamped = Math.max(1, Math.min(CALC_MAX_QTY, Math.round(qty) || 1));
-    setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, qty: clamped } : l)));
+    setLines((prev) =>
+      prev.map((l) => (l.productId === productId && l.colorCode === colorCode ? { ...l, qty: clamped } : l))
+    );
+  }
+
+  /**
+   * Ganti warna satu baris. Kalau baris LAIN untuk produk yang sama dan
+   * warna BARU itu sudah ada, GABUNGKAN (jumlahkan qty, baris ini lenyap) —
+   * identitas baris (productId, colorCode) harus tetap unik. Pola identik
+   * dengan order-item-picker.tsx::setLineColor.
+   */
+  function setLineColor(productId: string, oldColorCode: string | null, newColorCode: string | null) {
+    if (oldColorCode === newColorCode) return;
+    setLines((prev) => {
+      const collideIdx = prev.findIndex((l) => l.productId === productId && l.colorCode === newColorCode);
+      if (collideIdx >= 0) {
+        const movingIdx = prev.findIndex((l) => l.productId === productId && l.colorCode === oldColorCode);
+        if (movingIdx < 0) return prev;
+        const moving = prev[movingIdx];
+        const target = prev[collideIdx];
+        const merged = { ...target, qty: Math.min(CALC_MAX_QTY, target.qty + moving.qty) };
+        return prev.filter((_, i) => i !== movingIdx && i !== collideIdx).concat(merged);
+      }
+      return prev.map((l) =>
+        l.productId === productId && l.colorCode === oldColorCode ? { ...l, colorCode: newColorCode } : l
+      );
+    });
+  }
+
+  /** Tombol "+ Tambah warna lain" pada satu baris keranjang. Pola identik
+   *  dengan order-item-picker.tsx::addColorVariant. */
+  function addColorVariant(productId: string, fromLine: CalcLine) {
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l.productId === productId && l.colorCode === null);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], qty: Math.min(CALC_MAX_QTY, next[idx].qty + 1) };
+        return next;
+      }
+      return [
+        ...prev,
+        { productId, name: fromLine.name, code: fromLine.code, photoUrl: fromLine.photoUrl, unitPrice: fromLine.unitPrice, qty: 1, colorCode: null },
+      ];
+    });
   }
 
   function addDiscountSlot() {
@@ -518,12 +632,17 @@ export default function KalkulatorClient({
       // name/code ikut untuk ringkasan banner saja — copyCalcCartItemsToOrder
       // mengambil ulang name_snapshot/code_snapshot dari sanci_products saat
       // benar-benar menulis (LESSONS #6), tidak mempercayai nilai ini.
+      // colorCode IKUT (audit 2026-09-01) — tanpa ini, dua baris warna
+      // berbeda yang sengaja dipisah di keranjang akan tergabung kembali
+      // begitu tiba di form pesanan (mergeLinesFromHandoff mencocokkan
+      // colorCode juga).
       lines: lines.map((l) => ({
         productId: l.productId,
         name: l.name,
         code: l.code,
         unitPrice: l.unitPrice,
         qty: l.qty,
+        colorCode: l.colorCode,
       })),
     });
     // Kalkulator sudah selesai dipakai untuk penawaran ini — draf lokalnya
@@ -760,85 +879,134 @@ export default function KalkulatorClient({
                 </div>
               </div>
             )}
-            {lines.map((line) => (
-              <div key={line.productId} className={styles.cartLine}>
-                {line.photoUrl ? (
-                  // Thumbnail kecil yang BISA diketuk untuk melihat foto besar
-                  // (permintaan owner 2026-08-22: keranjang cukup thumbnail
-                  // kecil, ketuk baru membesar).
-                  <button
-                    type="button"
-                    className={`${styles.lineThumb} ${styles.lineThumbBtn}`}
-                    onClick={() => setPhotoView({ name: line.name, url: line.photoUrl as string })}
-                    aria-label={m.calcPhotoViewAria.replace("{name}", line.name)}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal) */}
-                    <img src={line.photoUrl} alt={line.name} loading="lazy" />
-                  </button>
-                ) : (
-                  <div className={styles.lineThumb}>{m.noPhotoPlaceholder}</div>
-                )}
-                <div className={styles.lineBody}>
-                  <div className={styles.lineName}>
-                    {line.name} {line.code && <span className="code">{line.code}</span>}
-                  </div>
-                  <div className={styles.lineControls}>
-                    <div className={styles.priceField}>
-                      <label htmlFor={`price_${line.productId}`}>{m.calcUnitPriceLabel}</label>
-                      <input
-                        id={`price_${line.productId}`}
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Rp 0"
-                        value={line.unitPrice ? formatIDR(line.unitPrice) : ""}
-                        onChange={(e) => setLineUnitPrice(line.productId, e.target.value)}
-                      />
-                    </div>
-                    <div className={styles.qtyField}>
-                      <label htmlFor={`qty_${line.productId}`}>{m.calcQtyLabel}</label>
-                      <div className={styles.stepper}>
-                        <button
-                          type="button"
-                          className={styles.stepBtn}
-                          onClick={() => setLineQty(line.productId, line.qty - 1)}
-                          aria-label="−"
-                        >
-                          −
-                        </button>
-                        <input
-                          id={`qty_${line.productId}`}
-                          className={styles.qtyInput}
-                          type="number"
-                          min={1}
-                          max={CALC_MAX_QTY}
-                          value={line.qty}
-                          onChange={(e) => setLineQty(line.productId, Number(e.target.value))}
-                        />
-                        <button
-                          type="button"
-                          className={styles.stepBtn}
-                          onClick={() => setLineQty(line.productId, line.qty + 1)}
-                          aria-label="+"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className={styles.lineFooter}>
-                    <span className={styles.lineSubtotal}>{formatIDR(line.unitPrice * line.qty)}</span>
+            {lines.map((line) => {
+              const lineKey = `${line.productId}::${line.colorCode ?? ""}`;
+              const colorLoad = colorLoads.get(line.productId);
+              const colorReady = colorLoad?.status === "ready" ? colorLoad.colors : null;
+              const selectedColor = colorReady?.find((c) => c.code === line.colorCode);
+              return (
+                <div key={lineKey} className={styles.cartLine}>
+                  {line.photoUrl ? (
+                    // Thumbnail kecil yang BISA diketuk untuk melihat foto besar
+                    // (permintaan owner 2026-08-22: keranjang cukup thumbnail
+                    // kecil, ketuk baru membesar).
                     <button
                       type="button"
-                      className="btn sm"
-                      onClick={() => removeLine(line.productId)}
-                      aria-label={m.calcRemoveLineAria.replace("{name}", line.name)}
+                      className={`${styles.lineThumb} ${styles.lineThumbBtn}`}
+                      onClick={() => setPhotoView({ name: line.name, url: line.photoUrl as string })}
+                      aria-label={m.calcPhotoViewAria.replace("{name}", line.name)}
                     >
-                      {m.calcRemoveLineCta}
+                      {/* eslint-disable-next-line @next/next/no-img-element -- photo_url adalah URL publik dari SANCI (bukan aset lokal) */}
+                      <img src={line.photoUrl} alt={line.name} loading="lazy" />
                     </button>
+                  ) : (
+                    <div className={styles.lineThumb}>{m.noPhotoPlaceholder}</div>
+                  )}
+                  <div className={styles.lineBody}>
+                    <div className={styles.lineName}>
+                      {line.name} {line.code && <span className="code">{line.code}</span>}
+                    </div>
+                    {colorReady && (
+                      <div className="field" style={{ margin: "6px 0" }}>
+                        <label htmlFor={`color_${lineKey}`}>{m.calcColorFieldLabel}</label>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <select
+                            id={`color_${lineKey}`}
+                            value={line.colorCode ?? ""}
+                            onChange={(e) => setLineColor(line.productId, line.colorCode, e.target.value || null)}
+                            style={{ flex: 1 }}
+                            aria-label={m.calcColorPickerAria.replace("{name}", line.name)}
+                          >
+                            <option value="">{m.calcColorPickerPlaceholder}</option>
+                            {colorReady.map((c) => (
+                              <option key={c.id} value={c.code}>
+                                {c.name ? `${c.code} — ${c.name}` : c.code}
+                              </option>
+                            ))}
+                          </select>
+                          {selectedColor?.photo_url && (
+                            // eslint-disable-next-line @next/next/no-img-element -- lihat catatan di lib/catalog-shared.ts
+                            <img
+                              src={selectedColor.photo_url}
+                              alt=""
+                              style={{ width: 28, height: 28, borderRadius: "var(--r-sm)", objectFit: "cover", border: "1px solid var(--line)", flex: "none" }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {colorLoad?.status === "error" && (
+                      <div className="hint" style={{ marginBottom: 6 }}>{m.calcColorLoadFailedNote}</div>
+                    )}
+                    <div className={styles.lineControls}>
+                      <div className={styles.priceField}>
+                        <label htmlFor={`price_${lineKey}`}>{m.calcUnitPriceLabel}</label>
+                        <input
+                          id={`price_${lineKey}`}
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Rp 0"
+                          value={line.unitPrice ? formatIDR(line.unitPrice) : ""}
+                          onChange={(e) => setLineUnitPrice(line.productId, line.colorCode, e.target.value)}
+                        />
+                      </div>
+                      <div className={styles.qtyField}>
+                        <label htmlFor={`qty_${lineKey}`}>{m.calcQtyLabel}</label>
+                        <div className={styles.stepper}>
+                          <button
+                            type="button"
+                            className={styles.stepBtn}
+                            onClick={() => setLineQty(line.productId, line.colorCode, line.qty - 1)}
+                            aria-label="−"
+                          >
+                            −
+                          </button>
+                          <input
+                            id={`qty_${lineKey}`}
+                            className={styles.qtyInput}
+                            type="number"
+                            min={1}
+                            max={CALC_MAX_QTY}
+                            value={line.qty}
+                            onChange={(e) => setLineQty(line.productId, line.colorCode, Number(e.target.value))}
+                          />
+                          <button
+                            type="button"
+                            className={styles.stepBtn}
+                            onClick={() => setLineQty(line.productId, line.colorCode, line.qty + 1)}
+                            aria-label="+"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    {colorReady && (
+                      <button
+                        type="button"
+                        className="btn sm"
+                        style={{ marginTop: 8 }}
+                        onClick={() => addColorVariant(line.productId, line)}
+                        aria-label={m.calcAddColorVariantAria.replace("{name}", line.name)}
+                      >
+                        {m.calcAddColorVariantCta}
+                      </button>
+                    )}
+                    <div className={styles.lineFooter}>
+                      <span className={styles.lineSubtotal}>{formatIDR(line.unitPrice * line.qty)}</span>
+                      <button
+                        type="button"
+                        className="btn sm"
+                        onClick={() => removeLine(line.productId, line.colorCode)}
+                        aria-label={m.calcRemoveLineAria.replace("{name}", line.name)}
+                      >
+                        {m.calcRemoveLineCta}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="card">

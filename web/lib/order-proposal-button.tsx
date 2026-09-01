@@ -30,6 +30,8 @@ export type OrderProposalItem = {
   name_snapshot: string;
   code_snapshot: string | null;
   quantity: number;
+  /** Lihat catatan identitas baris di lib/calculator-shared.ts (CalcLine). */
+  color_code: string | null;
 };
 
 export default function OrderProposalButton({
@@ -70,6 +72,7 @@ export default function OrderProposalButton({
         name: i.name_snapshot,
         code: i.code_snapshot,
         qty: i.quantity,
+        colorCode: i.color_code,
       })),
     });
     if (!ok) {

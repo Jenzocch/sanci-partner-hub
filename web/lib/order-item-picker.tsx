@@ -41,12 +41,12 @@
  *     kata yang sudah ada di kedua slice.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { STOCK_STATUS_CHIP, stockStatusLabel, type StockStatus } from "@/lib/catalog-shared";
 import { useCatalogSearch, type CatalogFetchInput } from "@/lib/use-catalog-search";
 import { useCommonMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
-import { CALC_MAX_QTY, type CalcHandoffLine } from "@/lib/calculator-shared";
+import { CALC_MAX_QTY, type ColorOptionRow, type FetchColorsFn } from "@/lib/calculator-shared";
 
 export type PickerProduct = {
   id: string;
@@ -73,6 +73,8 @@ export type PickedLine = {
   /** Diketik bebas — katalog tidak punya harga (0010); 0 = tidak diisi. */
   unitPrice: number;
   qty: number;
+  /** Lihat catatan identitas baris di lib/calculator-shared.ts (CalcLine). */
+  colorCode: string | null;
 };
 
 /**
@@ -87,16 +89,37 @@ export type PickerLoadResult =
   | { ok: false; message: string };
 
 /**
- * Prefill baris dari hand-off Kalkulator ("Gunakan angka ini") — aturan
- * gabung yang SAMA dengan penambahan lewat picker: produk yang sudah ada di
- * daftar dijumlah qty-nya; harga baris yang sudah ada TIDAK ditimpa (kalau
+ * Baris hand-off generik yang bisa dituang lewat mergeLinesFromHandoff —
+ * dipenuhi baik oleh CalcHandoffLine (lib/calculator-shared.ts, hand-off
+ * Kalkulator) MAUPUN CatalogCartLine (lib/catalog-cart.ts, hand-off "Tambah
+ * ke Pesanan" dari grid katalog) — yang belakangan TIDAK punya konsep warna
+ * sama sekali, jadi `colorCode` di sini OPSIONAL (absen = null).
+ */
+type MergeableHandoffLine = {
+  productId: string;
+  name: string;
+  code: string | null;
+  unitPrice: number;
+  qty: number;
+  colorCode?: string | null;
+};
+
+/**
+ * Prefill baris dari hand-off Kalkulator ("Gunakan angka ini") ATAU dari
+ * hand-off katalog — aturan gabung yang SAMA dengan penambahan lewat picker:
+ * baris dengan produk DAN WARNA yang sama dijumlah qty-nya (audit
+ * 2026-09-01 — sebelumnya kunci gabungnya hanya productId, yang membuat dua
+ * baris warna BERBEDA dari order_items sungguhan bisa tertuang lagi ke sini
+ * dan tergabung KEMBALI menjadi satu, membalikkan perbaikan yang sama
+ * persis sedang dikerjakan); harga baris yang sudah ada TIDAK ditimpa (kalau
  * kosong/0, harga hand-off dipakai). Satu tempat untuk aturan ini supaya dua
  * form tidak menyimpang.
  */
-export function mergeLinesFromHandoff(prev: PickedLine[], handoffLines: CalcHandoffLine[]): PickedLine[] {
+export function mergeLinesFromHandoff(prev: PickedLine[], handoffLines: MergeableHandoffLine[]): PickedLine[] {
   const next = [...prev];
   for (const h of handoffLines) {
-    const idx = next.findIndex((l) => l.productId === h.productId);
+    const hColor = h.colorCode ?? null;
+    const idx = next.findIndex((l) => l.productId === h.productId && l.colorCode === hColor);
     if (idx >= 0) {
       const cur = next[idx];
       next[idx] = {
@@ -105,7 +128,7 @@ export function mergeLinesFromHandoff(prev: PickedLine[], handoffLines: CalcHand
         unitPrice: cur.unitPrice > 0 ? cur.unitPrice : h.unitPrice,
       };
     } else {
-      next.push({ productId: h.productId, name: h.name, code: h.code, unitPrice: h.unitPrice, qty: h.qty });
+      next.push({ productId: h.productId, name: h.name, code: h.code, unitPrice: h.unitPrice, qty: h.qty, colorCode: hColor });
     }
   }
   return next;
@@ -160,6 +183,7 @@ export default function OrderItemsSection({
   lines,
   onLinesChange,
   loadProducts,
+  fetchColors,
 }: {
   lines: PickedLine[];
   onLinesChange: (next: PickedLine[]) => void;
@@ -167,9 +191,51 @@ export default function OrderItemsSection({
    *  Pencocokan nama/kode/kategori kini terjadi di query action-nya —
    *  semantiknya sama dengan memo `filtered` lama (lib/catalog-query.ts). */
   loadProducts: (input: CatalogFetchInput) => Promise<PickerLoadResult>;
+  /** Server Action per area untuk daftar warna aktif satu produk (Fitur C,
+   *  migrasi 0025) — app/admin/actions-colors.ts::listActiveColors atau
+   *  app/cabang/pesanan/actions.ts::listActiveColorsCabang. */
+  fetchColors: FetchColorsFn;
 }) {
   const m = useCommonMessages();
   const [open, setOpen] = useState(false);
+
+  // Daftar warna per produk — dimuat MALAS per productId yang MUNCUL di
+  // `lines` (bukan di muka untuk semua produk katalog), dan di-cache untuk
+  // umur komponen ini (interaksi keranjang tidak butuh data segar terus-
+  // menerus). Pola sama dengan colorLoad di order-items-section.tsx, hanya
+  // di sini SATU peta untuk BANYAK baris sekaligus (keranjang bisa punya
+  // lebih dari satu produk), bukan satu state per modal.
+  type ColorLoadState = { status: "loading" } | { status: "idle" } | { status: "error" } | { status: "ready"; colors: ColorOptionRow[] };
+  const [colorLoads, setColorLoads] = useState<Map<string, ColorLoadState>>(new Map());
+  const fetchedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const productIds = Array.from(new Set(lines.map((l) => l.productId)));
+    const toFetch = productIds.filter((id) => !fetchedRef.current.has(id));
+    if (toFetch.length === 0) return;
+    toFetch.forEach((id) => fetchedRef.current.add(id));
+    setColorLoads((prev) => {
+      const next = new Map(prev);
+      toFetch.forEach((id) => next.set(id, { status: "loading" }));
+      return next;
+    });
+    toFetch.forEach((id) => {
+      fetchColors(id)
+        .then((res) => {
+          setColorLoads((prev) => {
+            const next = new Map(prev);
+            if (res.status !== "ok" || !res.hasColorOptions || res.colors.length === 0) {
+              next.set(id, { status: res.status === "error" ? "error" : "idle" });
+            } else {
+              next.set(id, { status: "ready", colors: res.colors });
+            }
+            return next;
+          });
+        })
+        .catch(() => {
+          setColorLoads((prev) => new Map(prev).set(id, { status: "error" }));
+        });
+    });
+  }, [lines, fetchColors]);
 
   // Mode MALAS (initial: null): fetch pertama saat picker dibuka; hasil
   // di-cache hook selama halaman hidup (buka-tutup modal tidak fetch ulang).
@@ -195,15 +261,30 @@ export default function OrderItemsSection({
   const initialLoading = !loadedOnce && searching;
   const initialError = !loadedOnce && !searching ? error : null;
 
+  // HANYA baris "belum dipilih warnanya" (colorCode null) yang dihitung —
+  // itulah baris yang ditambah/dikurangi tombol pada daftar produk (lihat
+  // addProduct). Baris yang sudah diberi warna tertentu tidak ikut angka
+  // ini; menekan "Tambah" lagi untuk produk yang SEMUA barisnya sudah
+  // berwarna akan memulai baris baru (belum berwarna) — begitulah cara
+  // menambah varian warna kedua/ketiga tanpa kontrol baru di daftar produk.
   const qtyByProduct = useMemo(() => {
     const map = new Map<string, number>();
-    lines.forEach((l) => map.set(l.productId, l.qty));
+    lines.forEach((l) => {
+      if (l.colorCode === null) map.set(l.productId, l.qty);
+    });
     return map;
   }, [lines]);
 
-  /** Qty 1; duplikat digabung dengan menjumlah qty (aturan addToCart kalkulator). */
+  /**
+   * Qty 1; duplikat digabung dengan menjumlah qty — TAPI hanya kalau
+   * WARNANYA JUGA SAMA (audit 2026-09-01). Menambah dari daftar produk
+   * selalu menyasar baris "belum berwarna" produk itu (bikin baru kalau
+   * belum ada) — memberi warna pada baris itu lewat pemilih warna di bawah
+   * membebaskan slot "belum berwarna" untuk baris kedua, jadi menekan
+   * "Tambah" lagi otomatis memulai varian warna berikutnya.
+   */
   function addProduct(p: PickerProduct) {
-    const idx = lines.findIndex((l) => l.productId === p.id);
+    const idx = lines.findIndex((l) => l.productId === p.id && l.colorCode === null);
     if (idx >= 0) {
       const next = [...lines];
       next[idx] = { ...next[idx], qty: Math.min(CALC_MAX_QTY, next[idx].qty + 1) };
@@ -211,19 +292,66 @@ export default function OrderItemsSection({
       return;
     }
     // Prefill harga efektif 0021 — nilai awal yang bisa diubah, bukan kunci.
-    onLinesChange([...lines, { productId: p.id, name: p.name, code: p.code, unitPrice: p.price ?? 0, qty: 1 }]);
+    onLinesChange([...lines, { productId: p.id, name: p.name, code: p.code, unitPrice: p.price ?? 0, qty: 1, colorCode: null }]);
   }
 
-  function removeLine(productId: string) {
-    onLinesChange(lines.filter((l) => l.productId !== productId));
+  function removeLine(productId: string, colorCode: string | null) {
+    onLinesChange(lines.filter((l) => !(l.productId === productId && l.colorCode === colorCode)));
   }
-  function setLineQty(productId: string, qty: number) {
+  function setLineQty(productId: string, colorCode: string | null, qty: number) {
     const clamped = Math.max(1, Math.min(CALC_MAX_QTY, Math.round(qty) || 1));
-    onLinesChange(lines.map((l) => (l.productId === productId ? { ...l, qty: clamped } : l)));
+    onLinesChange(
+      lines.map((l) => (l.productId === productId && l.colorCode === colorCode ? { ...l, qty: clamped } : l))
+    );
   }
-  function setLineUnitPrice(productId: string, raw: string) {
+  function setLineUnitPrice(productId: string, colorCode: string | null, raw: string) {
     const n = parseIDRInput(raw);
-    onLinesChange(lines.map((l) => (l.productId === productId ? { ...l, unitPrice: n ?? 0 } : l)));
+    onLinesChange(
+      lines.map((l) => (l.productId === productId && l.colorCode === colorCode ? { ...l, unitPrice: n ?? 0 } : l))
+    );
+  }
+
+  /**
+   * Ganti warna satu baris. Kalau baris LAIN untuk produk yang sama dan
+   * warna BARU itu sudah ada, GABUNGKAN (jumlahkan qty, baris ini lenyap)
+   * alih-alih membiarkan dua baris dengan identitas (productId, colorCode)
+   * yang sama hidup berdampingan — identitas baris HARUS tetap unik, sama
+   * seperti addProduct/addColorVariant di atas.
+   */
+  function setLineColor(productId: string, oldColorCode: string | null, newColorCode: string | null) {
+    if (oldColorCode === newColorCode) return;
+    const collideIdx = lines.findIndex((l) => l.productId === productId && l.colorCode === newColorCode);
+    if (collideIdx >= 0) {
+      const movingIdx = lines.findIndex((l) => l.productId === productId && l.colorCode === oldColorCode);
+      if (movingIdx < 0) return;
+      const moving = lines[movingIdx];
+      const target = lines[collideIdx];
+      const merged = { ...target, qty: Math.min(CALC_MAX_QTY, target.qty + moving.qty) };
+      onLinesChange(lines.filter((_, i) => i !== movingIdx && i !== collideIdx).concat(merged));
+      return;
+    }
+    onLinesChange(
+      lines.map((l) => (l.productId === productId && l.colorCode === oldColorCode ? { ...l, colorCode: newColorCode } : l))
+    );
+  }
+
+  /**
+   * Tombol "+ Tambah warna lain" pada satu baris. Kalau produk ini SUDAH
+   * punya baris "belum berwarna" (mis. baru saja ditekan sekali sebelum
+   * sempat diberi warna), tombol menambah qty baris itu — SAMA seperti
+   * menekan "Tambah" lagi di daftar produk (addProduct) — bukan diam-diam
+   * tidak melakukan apa pun (LESSONS #10). Kalau belum ada, baris baru qty
+   * 1 dibuat, harga sama dengan baris asal (nilai awal, tetap bisa diketik).
+   */
+  function addColorVariant(productId: string, fromLine: PickedLine) {
+    const idx = lines.findIndex((l) => l.productId === productId && l.colorCode === null);
+    if (idx >= 0) {
+      const next = [...lines];
+      next[idx] = { ...next[idx], qty: Math.min(CALC_MAX_QTY, next[idx].qty + 1) };
+      onLinesChange(next);
+      return;
+    }
+    onLinesChange([...lines, { productId, name: fromLine.name, code: fromLine.code, unitPrice: fromLine.unitPrice, qty: 1, colorCode: null }]);
   }
 
   // 44px ("var(--tap)") — bukan 34px seperti sebelumnya. Kontrol qty +/-
@@ -251,63 +379,124 @@ export default function OrderItemsSection({
           {m.pickerEmptyHint}
         </p>
       ) : (
-        lines.map((line) => (
-          <div
-            key={line.productId}
-            style={{
-              border: "1px solid var(--line)",
-              borderRadius: "var(--r-md)",
-              padding: "10px 12px",
-              marginBottom: 8,
-            }}
-          >
-            <div style={{ fontWeight: 600 }}>
-              {line.name} {line.code && <span className="code">{line.code}</span>}
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginTop: 8 }}>
-              <div className="field" style={{ margin: 0, flex: "1 1 150px", minWidth: 130 }}>
-                <label htmlFor={`oi_price_${line.productId}`}>{m.calcUnitPriceLabel}</label>
-                <input
-                  id={`oi_price_${line.productId}`}
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Rp 0"
-                  value={line.unitPrice ? formatIDR(line.unitPrice) : ""}
-                  onChange={(e) => setLineUnitPrice(line.productId, e.target.value)}
-                />
+        lines.map((line) => {
+          const lineKey = `${line.productId}::${line.colorCode ?? ""}`;
+          const colorLoad = colorLoads.get(line.productId);
+          const colorReady = colorLoad?.status === "ready" ? colorLoad.colors : null;
+          const selectedColor = colorReady?.find((c) => c.code === line.colorCode);
+          return (
+            <div
+              key={lineKey}
+              style={{
+                border: "1px solid var(--line)",
+                borderRadius: "var(--r-md)",
+                padding: "10px 12px",
+                marginBottom: 8,
+              }}
+            >
+              <div style={{ fontWeight: 600 }}>
+                {line.name} {line.code && <span className="code">{line.code}</span>}
               </div>
-              <div className="field" style={{ margin: 0 }}>
-                <label htmlFor={`oi_qty_${line.productId}`}>{m.calcQtyLabel}</label>
-                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                  <button type="button" style={stepBtn} onClick={() => setLineQty(line.productId, line.qty - 1)} aria-label="−">
-                    −
-                  </button>
+              {colorReady && (
+                <div className="field" style={{ margin: "8px 0 0" }}>
+                  <label htmlFor={`oi_color_${lineKey}`}>{m.calcColorFieldLabel}</label>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <select
+                      id={`oi_color_${lineKey}`}
+                      value={line.colorCode ?? ""}
+                      onChange={(e) => setLineColor(line.productId, line.colorCode, e.target.value || null)}
+                      style={{ flex: 1 }}
+                      aria-label={m.calcColorPickerAria.replace("{name}", line.name)}
+                    >
+                      <option value="">{m.calcColorPickerPlaceholder}</option>
+                      {colorReady.map((c) => (
+                        <option key={c.id} value={c.code}>
+                          {c.name ? `${c.code} — ${c.name}` : c.code}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedColor?.photo_url && (
+                      // eslint-disable-next-line @next/next/no-img-element -- lihat catatan di lib/catalog-shared.ts
+                      <img
+                        src={selectedColor.photo_url}
+                        alt=""
+                        style={{ width: 28, height: 28, borderRadius: "var(--r-sm)", objectFit: "cover", border: "1px solid var(--line)", flex: "none" }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+              {colorLoad?.status === "error" && <div className="hint" style={{ marginTop: 6 }}>{m.calcColorLoadFailedNote}</div>}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginTop: 8 }}>
+                <div className="field" style={{ margin: 0, flex: "1 1 150px", minWidth: 130 }}>
+                  <label htmlFor={`oi_price_${lineKey}`}>{m.calcUnitPriceLabel}</label>
                   <input
-                    id={`oi_qty_${line.productId}`}
-                    type="number"
-                    min={1}
-                    max={CALC_MAX_QTY}
-                    value={line.qty}
-                    onChange={(e) => setLineQty(line.productId, Number(e.target.value))}
-                    style={{ width: 64, textAlign: "center" }}
+                    id={`oi_price_${lineKey}`}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Rp 0"
+                    value={line.unitPrice ? formatIDR(line.unitPrice) : ""}
+                    onChange={(e) => setLineUnitPrice(line.productId, line.colorCode, e.target.value)}
                   />
-                  <button type="button" style={stepBtn} onClick={() => setLineQty(line.productId, line.qty + 1)} aria-label="+">
-                    +
+                </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <label htmlFor={`oi_qty_${lineKey}`}>{m.calcQtyLabel}</label>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <button
+                      type="button"
+                      style={stepBtn}
+                      onClick={() => setLineQty(line.productId, line.colorCode, line.qty - 1)}
+                      aria-label="−"
+                    >
+                      −
+                    </button>
+                    <input
+                      id={`oi_qty_${lineKey}`}
+                      type="number"
+                      min={1}
+                      max={CALC_MAX_QTY}
+                      value={line.qty}
+                      onChange={(e) => setLineQty(line.productId, line.colorCode, Number(e.target.value))}
+                      style={{ width: 64, textAlign: "center" }}
+                    />
+                    <button
+                      type="button"
+                      style={stepBtn}
+                      onClick={() => setLineQty(line.productId, line.colorCode, line.qty + 1)}
+                      aria-label="+"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn sm"
+                  style={{ marginLeft: "auto" }}
+                  onClick={() => removeLine(line.productId, line.colorCode)}
+                  aria-label={m.calcRemoveLineAria.replace("{name}", line.name)}
+                >
+                  {m.calcRemoveLineCta}
+                </button>
+              </div>
+              {/* Varian warna kedua/ketiga — hanya masuk akal kalau produknya
+                  memang punya pilihan warna (daftar berhasil dimuat DAN
+                  tidak kosong). */}
+              {colorReady && (
+                <div className="btnrow" style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn sm"
+                    onClick={() => addColorVariant(line.productId, line)}
+                    aria-label={m.calcAddColorVariantAria.replace("{name}", line.name)}
+                  >
+                    {m.calcAddColorVariantCta}
                   </button>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="btn sm"
-                style={{ marginLeft: "auto" }}
-                onClick={() => removeLine(line.productId)}
-                aria-label={m.calcRemoveLineAria.replace("{name}", line.name)}
-              >
-                {m.calcRemoveLineCta}
-              </button>
+              )}
             </div>
-          </div>
-        ))
+          );
+        })
       )}
 
       <button type="button" className="btn" onClick={handleOpen}>

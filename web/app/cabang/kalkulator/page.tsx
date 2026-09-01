@@ -8,6 +8,7 @@ import { fetchEffectivePrices } from "@/lib/price-query";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 import KalkulatorClient, { type KalkulatorProduct } from "@/lib/kalkulator-client";
 import { getCatalogPageBranch } from "@/app/cabang/catalog-actions";
+import { listActiveColorsCabang } from "@/app/cabang/pesanan/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -220,6 +221,7 @@ export default async function KalkulatorPage() {
           href: "/cabang/proposal",
           saveFailed: m.cabang.proposalSaveFailed,
         }}
+        fetchColors={listActiveColorsCabang}
       />
     </main>
   );

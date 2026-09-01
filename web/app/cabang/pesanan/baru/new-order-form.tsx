@@ -21,6 +21,7 @@ import {
   createCustomerAndOrder,
   createCustomerOnly,
   getOrderSummary,
+  listActiveColorsCabang,
   lookupCustomerRequestId,
   lookupOrderRequestId,
   searchCustomerByPhone,
@@ -317,7 +318,7 @@ export default function NewOrderForm({
         copyCalcCartItemsToOrder(
           orderId,
           orderClientRequestId,
-          itemLines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty }))
+          itemLines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty, colorCode: l.colorCode }))
         ),
     });
     if (itemsOut.status === "ok") {
@@ -872,7 +873,12 @@ export default function NewOrderForm({
           <h4 style={{ fontSize: "var(--fs-sec)", fontWeight: 600, margin: "0 0 7px" }}>
             {m.cabang.orderItemsCardTitle}
           </h4>
-          <OrderItemsSection lines={itemLines} onLinesChange={setItemLines} loadProducts={loadPickerProducts} />
+          <OrderItemsSection
+            lines={itemLines}
+            onLinesChange={setItemLines}
+            loadProducts={loadPickerProducts}
+            fetchColors={listActiveColorsCabang}
+          />
 
           <div className={`field${errs.sales_staff_id ? " invalid" : ""}`}>
             <label htmlFor="po_sales">{m.cabang.salesFieldLabel}</label>
