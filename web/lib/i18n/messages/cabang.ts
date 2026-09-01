@@ -91,8 +91,8 @@ const id = {
   // Detail Pelanggan
   errCustomerDetailLoadFailed: "Gagal memuat detail pelanggan.",
   customerOtherBranchNote: "Pelanggan ini dibuat oleh cabang lain — hanya bisa dilihat dari sini.",
-  orderHistoryTitle: "Riwayat Pesanan",
-  noOrdersForCustomer: "Belum ada pesanan untuk pelanggan ini.",
+  // orderHistoryTitle / noOrdersForCustomer PINDAH ke common.ts (2026-09-01)
+  // — halaman detail pelanggan sisi admin memakai kartu riwayat yang sama.
   orderUnknownCustomer: "Pelanggan tidak diketahui",
 
   // Ubah Pelanggan (modal)
@@ -106,7 +106,9 @@ const id = {
   // filterAll pindah ke common.ts (2026-08-22, dipakai kalkulator dua area).
   noOrdersYet: "Belum ada pesanan tercatat di cabang ini.",
   noOrdersMatchSearch: 'Tidak ada pesanan yang cocok dengan pencarian "{q}".',
-  noOrdersWithStatus: "Tidak ada pesanan dengan status ini.",
+  // Sejak 2026-09-01 daftar ini punya TIGA filter (status, kirim, bayar),
+  // jadi kalimatnya tidak lagi menyebut "status" saja.
+  noOrdersWithStatus: "Tidak ada pesanan yang cocok dengan filter ini.",
   orderListSalesLabel: "Sales {name}",
   orderListOtherBranchViewOnly: " · Cabang lain — hanya lihat",
   errOrderListLoadFailed: "Gagal memuat daftar pesanan.",
@@ -534,8 +536,6 @@ const en = {
 
   errCustomerDetailLoadFailed: "Could not load customer details.",
   customerOtherBranchNote: "This customer was created by another branch — you can only view them here.",
-  orderHistoryTitle: "Order history",
-  noOrdersForCustomer: "No orders for this customer yet.",
   orderUnknownCustomer: "Unknown customer",
 
   editCustomerModalTitle: "Edit customer",
@@ -546,7 +546,7 @@ const en = {
   orderSearchPlaceholder: "Search by name, phone, or order number...",
   noOrdersYet: "No orders recorded at this branch yet.",
   noOrdersMatchSearch: 'No orders match "{q}".',
-  noOrdersWithStatus: "No orders with this status.",
+  noOrdersWithStatus: "No orders match these filters.",
   orderListSalesLabel: "Sales {name}",
   orderListOtherBranchViewOnly: " · Other branch — view only",
   errOrderListLoadFailed: "Could not load the order list.",
@@ -896,8 +896,6 @@ const zh = {
 
   errCustomerDetailLoadFailed: "客户详情加载失败。",
   customerOtherBranchNote: "该客户由其他分店创建 —— 在这里只能查看。",
-  orderHistoryTitle: "订单记录",
-  noOrdersForCustomer: "该客户还没有订单。",
   orderUnknownCustomer: "未知客户",
 
   editCustomerModalTitle: "修改客户",
@@ -908,7 +906,7 @@ const zh = {
   orderSearchPlaceholder: "搜索姓名、电话或订单编号…",
   noOrdersYet: "本店还没有订单记录。",
   noOrdersMatchSearch: '没有符合"{q}"的订单。',
-  noOrdersWithStatus: "没有该状态的订单。",
+  noOrdersWithStatus: "没有符合这些筛选条件的订单。",
   orderListSalesLabel: "销售员 {name}",
   orderListOtherBranchViewOnly: " · 其他分店 —— 仅可查看",
   errOrderListLoadFailed: "订单列表加载失败。",

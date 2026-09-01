@@ -227,9 +227,9 @@ export default async function PelangganDetailPage({
         {!canEdit && <p className="footnote">{m.cabang.customerOtherBranchNote}</p>}
       </div>
 
-      <div className="overline">{m.cabang.orderHistoryTitle}</div>
+      <div className="overline">{m.common.orderHistoryTitle}</div>
       {orders.length === 0 ? (
-        <div className="card emptybox">{m.cabang.noOrdersForCustomer}</div>
+        <div className="card emptybox">{m.common.noOrdersForCustomer}</div>
       ) : (
         <div className="cardlist">
           {orders.map((o) => {

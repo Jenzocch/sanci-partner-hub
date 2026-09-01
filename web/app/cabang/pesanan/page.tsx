@@ -2,10 +2,37 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/orders-shared";
+import { customerPaymentStatus, shippingState, type CustomerPaymentStatus, type ShippingState } from "@/lib/payment-shared";
 import { getCabangMessages } from "@/lib/i18n";
 import OrderListClient, { type OrderListItem } from "./order-list-client";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Status kirim + status bayar untuk daftar ini (2026-09-01) — sisi cabang
+ * akhirnya mendapat kedua filter yang sudah lama ada di /admin/orders.
+ *
+ * BENTUKNYA BERBEDA dari sisi admin, dan itu disengaja:
+ *   - /admin/orders menyaring di SERVER (form GET + searchParams) karena
+ *     daftarnya bisa panjang dan pencariannya menempuh enam jalur query.
+ *   - Daftar ini sudah mengambil 100 baris sekaligus lalu menyaring di
+ *     MEMORI di klien (kata kunci + status pesanan berjalan begitu sejak
+ *     awal). Menambah dua filter berarti melengkapi baris yang SUDAH
+ *     diambil dengan dua keterangan, bukan membangun ulang halaman ini jadi
+ *     form GET — perubahan sebesar itu akan membuang persist jelajah
+ *     (use-browse-persist) dan mengubah alur staf tanpa diminta.
+ *
+ * Konsekuensinya: kedua filter di sini menyaring TEPAT 100 pesanan terbaru
+ * yang sudah tampil, tidak pernah lebih — tidak ada batas pindaian
+ * tersembunyi, dan karena itu tidak ada catatan kaki "terpotong" seperti di
+ * sisi admin. Yang tampil di layar persis himpunan yang disaring.
+ *
+ * Keduanya dibaca lewat query TERPISAH dan TOLERAN (LESSONS #12): kalau
+ * 0016/0023/0026 belum jalan, filter yang bersangkutan DIMATIKAN dan
+ * dikatakan — bukan semua baris diam-diam jatuh ke "Belum DO"/"Belum Bayar"
+ * (LESSONS #10).
+ */
+const ORDER_LIST_LIMIT = 100;
 
 
 type OrderRow = {
@@ -68,7 +95,7 @@ export default async function PesananListPage() {
         "id, order_number, package_name, status, created_at, branch_id, customers:customer_id(full_name, phone_normalized), partner_branches:branch_id(name), sales:partner_sales_staff_id(full_name)"
       )
       .order("created_at", { ascending: false })
-      .limit(100),
+      .limit(ORDER_LIST_LIMIT),
   ]);
   const crossBranchVisible = pol?.visibility_scope === "PARTNER_ALL_BRANCHES";
 
@@ -77,7 +104,56 @@ export default async function PesananListPage() {
     errorKind = isMissingTableError(error) ? "missing_table" : "other";
   }
 
-  const items: OrderListItem[] = (orders as OrderRow[] | null ?? []).map((o) => {
+  const orderRows = (orders as OrderRow[] | null) ?? [];
+  const orderIds = orderRows.map((o) => o.id);
+
+  // ── Keterangan kirim + bayar untuk baris yang BENAR-BENAR tampil ──
+  //
+  // Ketiga pembacaan saling bebas dan semuanya dibatasi `.in(orderIds)` —
+  // maksimal 100 id, jauh di bawah panjang URL yang wajar (sisi admin
+  // memindai global justru karena jendelanya bisa jauh lebih lebar).
+  // Dilewati sama sekali kalau daftarnya kosong/error: tidak ada baris yang
+  // perlu dilengkapi.
+  let shippingByOrder: Map<string, ShippingState> | null = null;
+  let paymentByOrder: Map<string, CustomerPaymentStatus> | null = null;
+  if (!errorKind && orderIds.length > 0) {
+    const [doRes, deliveredRes, payRes] = await Promise.all([
+      supabase.from("order_documents").select("order_id").eq("doc_type", "DO").in("order_id", orderIds),
+      supabase.from("partner_orders").select("id, delivered_at").in("id", orderIds),
+      supabase
+        .from("partner_orders")
+        .select("id, customer_total_amount, customer_paid_amount")
+        .in("id", orderIds),
+    ]);
+
+    // Kirim butuh KEDUA pembacaan: satu saja yang gagal sudah cukup membuat
+    // turunannya salah (mis. pesanan yang sudah diterima akan terbaca
+    // "Sudah DO" atau malah "Belum DO"), jadi filternya dimatikan utuh.
+    if (!doRes.error && !deliveredRes.error) {
+      const hasDo = new Set((doRes.data ?? []).map((r: { order_id: string }) => r.order_id));
+      const delivered = new Set(
+        ((deliveredRes.data ?? []) as { id: string; delivered_at: string | null }[])
+          .filter((r) => r.delivered_at !== null)
+          .map((r) => r.id)
+      );
+      shippingByOrder = new Map(orderIds.map((id) => [id, shippingState(id, hasDo, delivered)]));
+    }
+
+    if (!payRes.error) {
+      paymentByOrder = new Map(
+        ((payRes.data ?? []) as {
+          id: string;
+          customer_total_amount: number | null;
+          customer_paid_amount: number | null;
+        }[]).map((r) => [
+          r.id,
+          customerPaymentStatus(r.customer_total_amount, r.customer_paid_amount ?? 0),
+        ])
+      );
+    }
+  }
+
+  const items: OrderListItem[] = orderRows.map((o) => {
     const customer = one(o.customers);
     const branch = one(o.partner_branches);
     const sales = one(o.sales);
@@ -92,6 +168,11 @@ export default async function PesananListPage() {
       salesName: sales?.full_name ?? null,
       branchId: o.branch_id,
       branchName: branch?.name ?? "—",
+      // `null` di sini berarti TIDAK DIKETAHUI (pembacaannya gagal / migrasi
+      // belum jalan), bukan "belum DO"/"belum bayar" — klien memakai bedanya
+      // untuk menyembunyikan filternya, bukan menyaring semua baris habis.
+      shipping: shippingByOrder?.get(o.id) ?? null,
+      payment: paymentByOrder?.get(o.id) ?? null,
     };
   });
 
@@ -110,7 +191,14 @@ export default async function PesananListPage() {
           {m.cabang.homeNewOrder}
         </Link>
       </div>
-      <OrderListClient items={items} errorKind={errorKind} ownBranchId={pu.branch_id} crossBranchVisible={crossBranchVisible} />
+      <OrderListClient
+        items={items}
+        errorKind={errorKind}
+        ownBranchId={pu.branch_id}
+        crossBranchVisible={crossBranchVisible}
+        shippingAvailable={shippingByOrder !== null}
+        paymentAvailable={paymentByOrder !== null}
+      />
     </main>
   );
 }

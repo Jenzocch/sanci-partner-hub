@@ -551,14 +551,9 @@ const id = {
   ordersFeatureOff: "Fitur pesanan belum aktif — migration database belum dijalankan.",
   ordersSearchPlaceholder: "Cari no. pesanan / SO / DO / Invoice / customer / telepon / no. PO / produk / sales…",
   filterFulfillmentAll: "Jalur: semua",
-  filterShippingAll: "Kirim: semua",
-  filterShippingBelumDo: "Belum ada DO",
-  filterShippingSudahDo: "Sudah ada DO",
-  filterShippingDiterima: "Sudah diterima pelanggan",
-  ordersShippingCapped:
-    "Filter status kirim menyaring dari sebagian data terbaru — beberapa pesanan lama yang cocok mungkin tidak tampil.",
-  ordersShippingUnavailable:
-    "Filter status kirim belum bisa dipakai (fitur dokumen atau tanda terima belum aktif) — daftar ditampilkan tanpa filter itu.",
+  // Label + catatan kaki filter kirim PINDAH ke common.ts (2026-09-01):
+  // filter yang sama sekarang juga berdiri di /cabang/pesanan, dan satu
+  // konsep tidak boleh punya dua teks (ATURAN FILE PESAN #5).
   ordersEmpty: "Belum ada pesanan.",
   ordersEmptyFiltered: 'Tidak ada pesanan yang cocok dengan "{q}".',
   colCustomer: "Customer",
@@ -821,6 +816,8 @@ const id = {
   customerColSourceSales: "Sumber · Sales",
   customerColCreatedVia: "Dibuat Lewat",
   customerCodeMigrationMsg: "Fitur kode pelanggan otomatis belum aktif — migrasi belum dijalankan.",
+  customerHistoryCapped:
+    "Hanya 50 pesanan terbaru pelanggan ini yang ditampilkan — pesanan yang lebih lama tidak ada di daftar ini.",
 
   // ---- Tambah Pelanggan (add-customer-button.tsx) ----
   customerNameRequired: "Nama pelanggan wajib diisi.",
@@ -1464,14 +1461,6 @@ const en = {
   ordersFeatureOff: "The orders feature is not active yet — the database migration has not been run.",
   ordersSearchPlaceholder: "Search order / SO / DO / Invoice no. / customer / phone / PO no. / product / sales…",
   filterFulfillmentAll: "Fulfillment: all",
-  filterShippingAll: "Shipping: all",
-  filterShippingBelumDo: "No DO yet",
-  filterShippingSudahDo: "DO issued",
-  filterShippingDiterima: "Received by customer",
-  ordersShippingCapped:
-    "The shipping filter scans only part of the most recent data — some older matching orders may not appear.",
-  ordersShippingUnavailable:
-    "The shipping filter is unavailable (the documents or receipt feature is not active) — the list is shown without it.",
   ordersEmpty: "No orders yet.",
   ordersEmptyFiltered: 'No orders match "{q}".',
   colCustomer: "Customer",
@@ -1715,6 +1704,8 @@ const en = {
   customerColSourceSales: "Source · Sales",
   customerColCreatedVia: "Created Via",
   customerCodeMigrationMsg: "The automatic customer code feature is not active yet — the migration has not been run.",
+  customerHistoryCapped:
+    "Only this customer's 50 most recent orders are shown — older orders are not in this list.",
 
   // ---- Add Customer (add-customer-button.tsx) ----
   customerNameRequired: "Customer name is required.",
@@ -2286,14 +2277,6 @@ const zh = {
   ordersFeatureOff: "订单功能尚未启用 —— 数据库迁移脚本还没有执行。",
   ordersSearchPlaceholder: "搜索订单编号 / SO / DO / 发票号 / 客户 / 电话 / PO 号 / 产品 / 销售员…",
   filterFulfillmentAll: "交付方式：全部",
-  filterShippingAll: "发货：全部",
-  filterShippingBelumDo: "还没开 DO",
-  filterShippingSudahDo: "已开 DO",
-  filterShippingDiterima: "客户已签收",
-  ordersShippingCapped:
-    "发货状态筛选只扫描了最近的一部分数据 —— 部分较旧的符合订单可能不会显示。",
-  ordersShippingUnavailable:
-    "发货状态筛选暂时无法使用（文件或签收功能尚未启用）—— 列表不套用这个筛选。",
   ordersEmpty: "暂无订单。",
   ordersEmptyFiltered: "没有符合“{q}”的订单。",
   colCustomer: "客户",
@@ -2522,6 +2505,7 @@ const zh = {
   customerColSourceSales: "来源·销售员",
   customerColCreatedVia: "创建方式",
   customerCodeMigrationMsg: "客户代码自动生成功能尚未启用 —— 迁移脚本还没有执行。",
+  customerHistoryCapped: "只显示该客户最近的 50 笔订单 —— 更早的订单不在这份清单里。",
 
   // ---- 新增客户（add-customer-button.tsx） ----
   customerNameRequired: "客户姓名必须填写。",

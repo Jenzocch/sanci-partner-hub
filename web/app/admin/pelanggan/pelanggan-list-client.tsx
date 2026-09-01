@@ -31,6 +31,7 @@
  */
 
 import { useCallback, useMemo } from "react";
+import Link from "next/link";
 import { useCatalogSearch, type CatalogFetchResult } from "@/lib/use-catalog-search";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import { getPelangganPageAdmin, type AdminCustomerRow } from "../actions-customers";
@@ -135,7 +136,20 @@ export default function PelangganListClient({
                 const salesStaff = c.sales_staff_id ? salesById.get(c.sales_staff_id) : undefined;
                 return (
                   <tr key={c.id}>
-                    <td style={{ fontWeight: 650 }}>{c.full_name}</td>
+                    {/* prefetch=false: daftar ini bisa tumbuh sampai ratusan
+                        baris lewat "Muat Lebih Banyak" dan tujuannya
+                        force-dynamic — prefetch hanya membuang request
+                        (alasan yang sama dengan daftar pesanan). */}
+                    <td>
+                      <Link
+                        href={`/admin/pelanggan/${c.id}`}
+                        className="rowname"
+                        prefetch={false}
+                        style={{ fontWeight: 650 }}
+                      >
+                        {c.full_name}
+                      </Link>
+                    </td>
                     <td>{c.phone}</td>
                     <td>
                       {c.customer_code ? (

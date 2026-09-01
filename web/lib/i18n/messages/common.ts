@@ -513,6 +513,32 @@ const id = {
   customerPaymentSettledDate: "Tgl Lunas",
   expeditionLabel: "Ekspedisi",
   confirmStatusLabel: "Status Konfirmasi",
+
+  // Filter daftar pesanan — dipakai /admin/orders DAN /cabang/pesanan
+  // (2026-09-01). Tinggal di sini, bukan admin.ts, karena SATU konsep yang
+  // sama muncul di dua layar: label yang digandakan pasti melenceng (ATURAN
+  // FILE PESAN #5). Empat label kirim di bawah PINDAH dari admin.ts saat
+  // filter yang sama dipasang di sisi cabang — bukan kunci baru.
+  filterShippingAll: "Kirim: semua",
+  filterShippingBelumDo: "Belum ada DO",
+  filterShippingSudahDo: "Sudah ada DO",
+  filterShippingDiterima: "Sudah diterima pelanggan",
+  // Nilai filter bayarnya sendiri memakai customerPaymentStatus* di atas —
+  // TIDAK ada kata kedua untuk "Lunas" di aplikasi ini.
+  filterPaymentAll: "Bayar: semua",
+  // Batas pindaian / fitur belum aktif WAJIB dikatakan, bukan hasil
+  // terpotong yang terlihat lengkap (LESSONS #10, #12).
+  ordersShippingCapped:
+    "Filter kirim hanya memindai sebagian pesanan terbaru — bisa jadi ada pesanan lama yang cocok tapi tidak tampil di sini.",
+  ordersShippingUnavailable:
+    "Status kirim belum bisa dibaca (fitur dokumen belum aktif), jadi filter kirim tidak diterapkan.",
+  ordersPaymentUnavailable:
+    "Status bayar belum bisa dibaca (fitur pembayaran pelanggan belum aktif), jadi filter bayar tidak diterapkan.",
+
+  // Riwayat pesanan satu pelanggan — kartu yang sama dipakai halaman detail
+  // pelanggan sisi cabang DAN sisi admin (PINDAH dari cabang.ts 2026-09-01).
+  orderHistoryTitle: "Riwayat Pesanan",
+  noOrdersForCustomer: "Belum ada pesanan untuk pelanggan ini.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -897,6 +923,21 @@ const en = {
   customerPaymentSettledDate: "Paid-off Date",
   expeditionLabel: "Expedition",
   confirmStatusLabel: "Confirm Status",
+
+  filterShippingAll: "Shipping: all",
+  filterShippingBelumDo: "No DO yet",
+  filterShippingSudahDo: "DO issued",
+  filterShippingDiterima: "Received by customer",
+  filterPaymentAll: "Payment: all",
+  ordersShippingCapped:
+    "The shipping filter only scans part of the most recent orders — older matching orders may not appear here.",
+  ordersShippingUnavailable:
+    "Shipping status cannot be read yet (the documents feature is not active), so the shipping filter was not applied.",
+  ordersPaymentUnavailable:
+    "Payment status cannot be read yet (the customer payment feature is not active), so the payment filter was not applied.",
+
+  orderHistoryTitle: "Order history",
+  noOrdersForCustomer: "No orders for this customer yet.",
 } satisfies Shape;
 
 const zh = {
@@ -1270,6 +1311,21 @@ const zh = {
   customerPaymentSettledDate: "付清日期",
   expeditionLabel: "物流",
   confirmStatusLabel: "确认状态",
+
+  filterShippingAll: "发货：全部",
+  filterShippingBelumDo: "还没开 DO",
+  filterShippingSudahDo: "已开 DO",
+  filterShippingDiterima: "客户已签收",
+  filterPaymentAll: "付款：全部",
+  ordersShippingCapped:
+    "发货筛选只扫描了最近的一部分订单，可能有符合条件的旧订单没有显示出来。",
+  ordersShippingUnavailable:
+    "暂时读不到发货状态（单据功能还没启用），所以没有套用发货筛选。",
+  ordersPaymentUnavailable:
+    "暂时读不到付款状态（客户付款功能还没启用），所以没有套用付款筛选。",
+
+  orderHistoryTitle: "订单记录",
+  noOrdersForCustomer: "该客户还没有订单。",
 } satisfies Shape;
 
 export const common = { id, en, zh };

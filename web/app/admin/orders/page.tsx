@@ -13,6 +13,13 @@ import {
   type OrderStatus,
 } from "@/lib/orders-shared";
 import { likeEscape, catalogIlikeOrFilter } from "@/lib/catalog-query";
+import {
+  CUSTOMER_PAYMENT_STATUS_CHIP,
+  customerPaymentStatus,
+  customerPaymentStatusLabel,
+  shippingState,
+  type CustomerPaymentStatus,
+} from "@/lib/payment-shared";
 import { getAdminMessages } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -43,14 +50,27 @@ const ORDER_COLS =
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Filter "Status Kirim" (2026-08-31). Tiga nilai, bukan lima seperti kolom
- * Status Kirim di lembar Google Sheets: membedakan "DO sebagian" dari "sudah
- * DO penuh" menuntut kuantitas order_items DAN order_document_items untuk
- * setiap pesanan yang tampil — beban query yang tidak sepadan untuk sebuah
- * DAFTAR. Pertanyaan operasional sehari-hari ("mana yang belum dikirim")
- * sudah terjawab oleh tiga nilai ini; rinciannya ada di lembar Sheets.
+ * Filter "Status Kirim" (2026-08-31). Tiga nilai turunan — rumusnya sendiri
+ * dan alasan kenapa TIGA (bukan lima seperti lembar Sheets) ada di
+ * `shippingState` (lib/payment-shared.ts), dipakai identik oleh daftar sisi
+ * cabang sejak 2026-09-01.
  */
 type ShippingFilter = "ALL" | "BELUM_DO" | "SUDAH_DO" | "DITERIMA";
+
+/**
+ * Filter "Status Bayar" (2026-09-01) — nilainya PERSIS CustomerPaymentStatus
+ * (lib/payment-shared.ts), bukan himpunan sendiri: kalau daftar ini punya
+ * definisi "Lunas" yang berbeda dari kartu Pembayaran Pelanggan di halaman
+ * detail, dua layar akan menjawab beda untuk pesanan yang sama.
+ * "UNKNOWN" SENGAJA ikut jadi pilihan — "mana yang totalnya belum dicatat
+ * sama sekali" adalah pertanyaan kantor yang nyata, dan menyembunyikannya
+ * akan membuat pesanan itu tidak pernah muncul di filter mana pun.
+ */
+type PaymentFilter = "ALL" | CustomerPaymentStatus;
+
+function isPaymentFilter(v: string | undefined): v is CustomerPaymentStatus {
+  return v === "UNKNOWN" || v === "BELUM" || v === "DP" || v === "LUNAS";
+}
 
 /**
  * Batas pindaian filter kirim. Filternya dikerjakan DI MEMORI karena
@@ -62,6 +82,7 @@ type ShippingFilter = "ALL" | "BELUM_DO" | "SUDAH_DO" | "DITERIMA";
  */
 const SHIPPING_DOC_SCAN_LIMIT = 3000;
 const SHIPPING_ORDER_SCAN_LIMIT = LIST_LIMIT * 6;
+
 
 type OrderListRow = {
   id: string;
@@ -80,7 +101,15 @@ type QueryErr = { code?: string; message?: string } | null;
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; jalur?: string; kirim?: string; dateFrom?: string; dateTo?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    status?: string;
+    jalur?: string;
+    kirim?: string;
+    bayar?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }>;
 }) {
   const m = await getAdminMessages();
   const STATUS_OPTIONS: { value: "ALL" | OrderStatus; label: string }[] = [
@@ -94,15 +123,23 @@ export default async function AdminOrdersPage({
     { value: "SHOWROOM_VISIT", label: m.common.fulfillmentShowroom },
   ];
   const KIRIM_OPTIONS: { value: ShippingFilter; label: string }[] = [
-    { value: "ALL", label: m.admin.filterShippingAll },
-    { value: "BELUM_DO", label: m.admin.filterShippingBelumDo },
-    { value: "SUDAH_DO", label: m.admin.filterShippingSudahDo },
-    { value: "DITERIMA", label: m.admin.filterShippingDiterima },
+    { value: "ALL", label: m.common.filterShippingAll },
+    { value: "BELUM_DO", label: m.common.filterShippingBelumDo },
+    { value: "SUDAH_DO", label: m.common.filterShippingSudahDo },
+    { value: "DITERIMA", label: m.common.filterShippingDiterima },
+  ];
+  const BAYAR_OPTIONS: { value: PaymentFilter; label: string }[] = [
+    { value: "ALL", label: m.common.filterPaymentAll },
+    { value: "LUNAS", label: customerPaymentStatusLabel(m, "LUNAS") },
+    { value: "DP", label: customerPaymentStatusLabel(m, "DP") },
+    { value: "BELUM", label: customerPaymentStatusLabel(m, "BELUM") },
+    { value: "UNKNOWN", label: customerPaymentStatusLabel(m, "UNKNOWN") },
   ];
   const sp = await searchParams;
   const q = (sp.q || "").trim();
   const kirimFilter: ShippingFilter =
     sp.kirim === "BELUM_DO" || sp.kirim === "SUDAH_DO" || sp.kirim === "DITERIMA" ? sp.kirim : "ALL";
+  const bayarFilter: PaymentFilter = isPaymentFilter(sp.bayar) ? sp.bayar : "ALL";
   const statusFilter: "ALL" | OrderStatus =
     sp.status === "REGISTERED" || sp.status === "CANCELLED" ? sp.status : "ALL";
   const jalurFilter: "ALL" | FulfillmentPath =
@@ -128,6 +165,28 @@ export default async function AdminOrdersPage({
 
   let queryErr: QueryErr = null;
 
+  // ── Probe kolom 0026, HANYA saat filter bayar benar-benar dipakai ──
+  //
+  // Kalau 0026 belum dijalankan di suatu environment, menyebut kolomnya di
+  // dalam ordersQuery() akan membalas 42703 dan MENGGAGALKAN SELURUH daftar
+  // (LESSONS #12) — daftar pesanan yang tidak ada hubungannya dengan
+  // pembayaran tidak boleh mati karena fitur pembayaran belum aktif. Jadi:
+  // satu query kecil lebih dulu, dan kalau kolomnya belum ada, filter bayar
+  // DIMATIKAN dan catatan kakinya berkata begitu — bukan daftar kosong yang
+  // terlihat seperti "tidak ada pesanan lunas" (LESSONS #10).
+  //
+  // Biayanya hanya dibayar saat filternya aktif; `bayar=ALL` (kasus normal)
+  // tidak menambah satu pun perjalanan bolak-balik.
+  let paymentUnavailable = false;
+  if (bayarFilter !== "ALL") {
+    const probe = await supabase
+      .from("partner_orders")
+      .select("customer_settled_at, customer_total_amount, customer_paid_amount")
+      .limit(1);
+    if (probe.error) paymentUnavailable = true;
+  }
+  const applyBayar = bayarFilter !== "ALL" && !paymentUnavailable;
+
   /**
    * Satu bentuk query daftar pesanan: kolom + urutan + filter status/tanggal
    * yang IDENTIK untuk semua jalur pencarian. Dipakai lewat pemanggilan
@@ -139,6 +198,33 @@ export default async function AdminOrdersPage({
     if (statusFilter !== "ALL") qb = qb.eq("status", statusFilter);
     if (gteIso) qb = qb.gte("created_at", gteIso);
     if (lteIso) qb = qb.lte("created_at", lteIso);
+    // Filter bayar dikerjakan SERVER, bukan di memori seperti filter kirim.
+    // Bisa, karena `customer_settled_at` (0026 §2) SETARA PERSIS dengan
+    // cabang LUNAS pada customerPaymentStatus: triggernya menghitung ulang
+    // kolom itu pada SETIAP tulisan dengan syarat
+    // `total is not null AND paid >= total`, dan memaksanya NULL kalau
+    // tidak. Jadi keempat keadaan bisa ditanyakan langsung ke PostgREST
+    // tanpa perbandingan antar-kolom (yang memang tidak didukung):
+    //   UNKNOWN → total NULL
+    //   LUNAS   → settled NOT NULL
+    //   DP      → settled NULL, total ADA, paid > 0
+    //   BELUM   → settled NULL, total ADA, paid = 0
+    // (di bawah `settled NULL AND total ADA`, total PASTI > 0 — kalau
+    // total = 0 maka paid >= total sudah benar dan barisnya LUNAS.)
+    // KONSEKUENSI: rumusnya sekarang hidup di DUA tempat — di sini sebagai
+    // predikat SQL, dan di customerPaymentStatus sebagai JS. Keduanya
+    // diturunkan dari trigger yang sama; kalau syarat lunas 0026 berubah,
+    // KETIGANYA harus berubah bersamaan.
+    if (applyBayar) {
+      if (bayarFilter === "UNKNOWN") {
+        qb = qb.is("customer_total_amount", null);
+      } else if (bayarFilter === "LUNAS") {
+        qb = qb.not("customer_settled_at", "is", null);
+      } else {
+        qb = qb.is("customer_settled_at", null).not("customer_total_amount", "is", null);
+        qb = bayarFilter === "DP" ? qb.gt("customer_paid_amount", 0) : qb.eq("customer_paid_amount", 0);
+      }
+    }
     return qb.order("created_at", { ascending: false });
   };
 
@@ -189,7 +275,9 @@ export default async function AdminOrdersPage({
     // Filter kirim menyaring DI MEMORI (lihat SHIPPING_ORDER_SCAN_LIMIT), jadi
     // jendela yang diambil harus lebih lebar dari yang ditampilkan — kalau
     // tidak, menyaring 50 baris teratas bisa menyisakan 3 baris dan
-    // menyembunyikan pesanan yang memenuhi syarat tepat di bawahnya.
+    // menyembunyikan pesanan yang memenuhi syarat tepat di bawahnya. Filter
+    // bayar TIDAK butuh pelebaran ini: ia sudah dikerjakan server di dalam
+    // ordersQuery() (lihat catatan di sana).
     const fetchLimit = kirimFilter === "ALL" ? LIST_LIMIT : SHIPPING_ORDER_SCAN_LIMIT;
     const { data, error } = await ordersQuery().limit(fetchLimit);
     if (error) queryErr = error;
@@ -335,11 +423,9 @@ export default async function AdminOrdersPage({
         orderRows.length >= SHIPPING_ORDER_SCAN_LIMIT;
       const hasDo = new Set(doRows.map((r) => r.order_id));
       const delivered = new Set(deliveredRows.map((r) => r.id));
-      orderRows = orderRows.filter((r) => {
-        if (delivered.has(r.id)) return kirimFilter === "DITERIMA";
-        if (hasDo.has(r.id)) return kirimFilter === "SUDAH_DO";
-        return kirimFilter === "BELUM_DO";
-      });
+      // Rumus turunannya dipakai bersama daftar sisi cabang — satu fungsi,
+      // satu urutan pemeriksaan (lib/payment-shared.ts).
+      orderRows = orderRows.filter((r) => shippingState(r.id, hasDo, delivered) === kirimFilter);
     }
     orderRows = orderRows.slice(0, LIST_LIMIT);
   }
@@ -429,6 +515,36 @@ export default async function AdminOrdersPage({
     orderRows = orderRows.filter((r) => jalurMap.get(r.id) === jalurFilter);
   }
 
+  // ── 5. Kolom "Bayar" (0026) — pola PERSIS blok Jalur di atas: query
+  //      TERPISAH supaya kolom yang belum ada tidak menggagalkan daftar, dan
+  //      kalau gagal, kolomnya SAMA SEKALI tidak ditampilkan (bukan
+  //      ditampilkan kosong, yang akan terbaca sebagai "belum bayar" —
+  //      LESSONS #10). Berbeda dari Jalur, blok ini TIDAK menyaring apa pun:
+  //      penyaringan bayar sudah dikerjakan server di ordersQuery(). Ia hanya
+  //      memberi tahu staf status baris yang tampil, supaya filternya bukan
+  //      kotak hitam.
+  let bayarAvailable = false;
+  const bayarMap = new Map<string, CustomerPaymentStatus>();
+  if (!queryErr && orderRows.length > 0) {
+    const { data: payData, error: payErr } = await supabase
+      .from("partner_orders")
+      .select("id, customer_total_amount, customer_paid_amount")
+      .in("id", orderRows.map((r) => r.id));
+    if (!payErr) {
+      bayarAvailable = true;
+      for (const r of (payData ?? []) as {
+        id: string;
+        customer_total_amount: number | null;
+        customer_paid_amount: number | null;
+      }[]) {
+        // paid NOT NULL DEFAULT 0 di database (0026 §1), tapi `?? 0` tetap
+        // ditulis: kalau suatu saat kolomnya dilonggarkan, "null" TIDAK
+        // boleh diam-diam jadi NaN di rumus (LESSONS #8).
+        bayarMap.set(r.id, customerPaymentStatus(r.customer_total_amount, r.customer_paid_amount ?? 0));
+      }
+    }
+  }
+
   // ── Degradasi: tabel belum ada = migration belum jalan, bukan error biasa
   //    dan BUKAN "0 pesanan" (LESSONS #9, #12, #10).
   if (isMissingTableError(queryErr)) {
@@ -488,6 +604,20 @@ export default async function AdminOrdersPage({
             </option>
           ))}
         </select>
+        {/* Status bayar — "mana yang belum lunas" berdiri sejajar dengan
+            "mana yang belum dikirim": keduanya pertanyaan harian kantor.
+            SELALU ditampilkan (tidak digerbang bayarAvailable seperti Jalur):
+            gerbangnya akan menghilangkan pilihan yang barusan dipakai staf
+            hanya karena hasilnya nol baris, dan catatan kaki
+            ordersPaymentUnavailable sudah menjelaskan kalau fiturnya memang
+            belum aktif. */}
+        <select name="bayar" defaultValue={bayarFilter} className="filter-select">
+          {BAYAR_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
         <label className="small muted">
           {m.admin.ordersDateFromLabel + " "}
           <input type="date" name="dateFrom" defaultValue={dateFrom} className="filter-select" />
@@ -523,6 +653,7 @@ export default async function AdminOrdersPage({
                   <th>{m.admin.colSales}</th>
                   <th>{m.common.status}</th>
                   {jalurAvailable && <th>{m.admin.colFulfillment}</th>}
+                  {bayarAvailable && <th>{m.common.customerPaymentStatus}</th>}
                   <th>{m.common.createdAt}</th>
                   <th></th>
                 </tr>
@@ -531,6 +662,7 @@ export default async function AdminOrdersPage({
                 {orderRows.map((r) => {
                   const customer = customersMap.get(r.customer_id);
                   const jalurPath = jalurMap.get(r.id);
+                  const bayarStatus = bayarMap.get(r.id);
                   return (
                     <tr key={r.id}>
                       <td>
@@ -566,6 +698,17 @@ export default async function AdminOrdersPage({
                           )}
                         </td>
                       )}
+                      {bayarAvailable && (
+                        <td>
+                          {bayarStatus ? (
+                            <span className={CUSTOMER_PAYMENT_STATUS_CHIP[bayarStatus]}>
+                              {customerPaymentStatusLabel(m, bayarStatus)}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      )}
                       <td className="small muted">
                         {formatDateTimeWIB(r.created_at, m.common.dateLocale)}
                       </td>
@@ -589,11 +732,12 @@ export default async function AdminOrdersPage({
           {/* Batas pindaian filter kirim DIKATAKAN, bukan hasil terpotong yang
               terlihat lengkap (LESSONS #10). */}
           {kirimFilter !== "ALL" && shippingCapped && (
-            <div className="footnote">{m.admin.ordersShippingCapped}</div>
+            <div className="footnote">{m.common.ordersShippingCapped}</div>
           )}
           {kirimFilter !== "ALL" && shippingUnavailable && (
-            <div className="footnote">{m.admin.ordersShippingUnavailable}</div>
+            <div className="footnote">{m.common.ordersShippingUnavailable}</div>
           )}
+          {paymentUnavailable && <div className="footnote">{m.common.ordersPaymentUnavailable}</div>}
         </div>
       )}
     </div>
