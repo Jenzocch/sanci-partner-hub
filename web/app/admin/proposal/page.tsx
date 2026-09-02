@@ -1,22 +1,13 @@
-import ProposalDocument from "@/lib/proposal-document";
-import ProposalCustomerFlow from "@/lib/proposal-customer-flow";
+import ProposalEditorialDocument from "@/lib/proposal-editorial-document";
 import { loadProposalProductsAdmin } from "./actions";
 
 /**
- * Proposal sisi ADMIN — komponen dokumen yang SAMA dengan sisi cabang
- * (lib/proposal-document.tsx), cuma dengan pemuat produk dan tujuan tombol
- * kembali miliknya sendiri. Urutan customer-facing tetap sama:
- * sampul -> pilihan produk + jumlah/harga -> profil produk.
- *
- * Tanpa gerbang tambahan di sini: seluruh /admin/** memang bersandar pada
- * RLS admin seperti halaman admin lainnya (pola sama dengan admin/produk).
+ * Proposal sisi ADMIN — renderer yang SAMA dengan cabang, hanya pemuat
+ * produk dan tujuan tombol kembali yang berbeda. Urutan customer-facing:
+ * sampul -> pilihan produk + jumlah/harga -> editorial product stories.
  */
 export const dynamic = "force-dynamic";
 
 export default async function AdminProposalPage() {
-  return (
-    <ProposalCustomerFlow>
-      <ProposalDocument loadProducts={loadProposalProductsAdmin} backHref="/admin/kalkulator" />
-    </ProposalCustomerFlow>
-  );
+  return <ProposalEditorialDocument loadProducts={loadProposalProductsAdmin} backHref="/admin/kalkulator" />;
 }
