@@ -8,14 +8,45 @@ type Props = ComponentProps<typeof ProposalEditorialDocument>;
  * Owner review 2026-09-02 — Proposal product-story layout correction.
  *
  * Keep the existing renderer/data/print logic untouched. This layer only
- * corrects the editorial composition of the product-story section:
+ * corrects the editorial composition of the product-story section and the
+ * paper/photo palette:
  * - image + complete explanation column, alternating left/right by item;
  * - explanation text always reads left-to-right (never right aligned/justified);
  * - specs sit below the explanation instead of consuming a narrow third column;
  * - the wider title column, together with the renderer's non-breaking product
- *   code hyphens, avoids visually wrong product-name breaks.
+ *   code hyphens, avoids visually wrong product-name breaks;
+ * - most catalogue photos have a white baked-in background, so photo mounts
+ *   are pure white while the proposal paper is a slightly deeper warm stone.
  */
 const storyLayoutCss = `
+.${proposalStyles.wrap} {
+  --paper: #f2eee6;
+  --ivory: #ffffff;
+  --stone: #e6dfd4;
+  --desk: #e5e0d8;
+  --line: #d4ccc0;
+}
+
+.${proposalStyles.coverArt},
+.${proposalStyles.storyPhoto},
+.${proposalStyles.storyPhotoSecondary},
+.${proposalStyles.galleryItem} {
+  background: #ffffff;
+  border-color: rgba(178, 166, 149, 0.34);
+}
+
+.${proposalStyles.storyPhoto},
+.${proposalStyles.storyPhotoSecondary},
+.${proposalStyles.galleryItem} {
+  border: 1px solid rgba(178, 166, 149, 0.26);
+}
+
+.${proposalStyles.selectionPhoto} {
+  background: #ffffff;
+  border: 1px solid rgba(178, 166, 149, 0.22);
+  padding: 1.2mm;
+}
+
 .${proposalStyles.storyHeading} {
   min-width: 0;
 }
