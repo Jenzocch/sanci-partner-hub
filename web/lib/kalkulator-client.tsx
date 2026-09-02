@@ -310,9 +310,13 @@ export default function KalkulatorClient({
    * lima baris kosong bisa hidup bersamaan lalu diberi lima warna berbeda.
    */
   function addColorVariant(fromLine: CalcLine) {
-    setLines((prev) => [
-      ...prev,
-      {
+    // Baris varian baru DISISIPKAN tepat di bawah baris asalnya, bukan
+    // ditambahkan di dasar keranjang (owner 2026-09-02: "tambah warna lain,
+    // 結果是跑到最下面去"). Di ponsel dengan enam baris, "di dasar" berarti di
+    // luar layar: staf menekan tombol dan tidak melihat apa pun terjadi.
+    setLines((prev) => {
+      const at = prev.findIndex((l) => l.lineId === fromLine.lineId);
+      const variant: CalcLine = {
         lineId: newCalcLineId(),
         productId: fromLine.productId,
         name: fromLine.name,
@@ -321,8 +325,10 @@ export default function KalkulatorClient({
         unitPrice: fromLine.unitPrice,
         qty: 1,
         colorCode: null,
-      },
-    ]);
+      };
+      if (at < 0) return [...prev, variant];
+      return [...prev.slice(0, at + 1), variant, ...prev.slice(at + 1)];
+    });
   }
 
   function addDiscountSlot() {

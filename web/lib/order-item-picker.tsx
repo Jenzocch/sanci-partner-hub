@@ -251,18 +251,19 @@ export default function OrderItemsSection({
 
   /** Every tap creates exactly one new independent row with Qty 1. */
   function addColorVariant(fromLine: PickedLine) {
-    onLinesChange([
-      ...lines,
-      {
-        lineId: newCalcLineId(),
-        productId: fromLine.productId,
-        name: fromLine.name,
-        code: fromLine.code,
-        unitPrice: fromLine.unitPrice,
-        qty: 1,
-        colorCode: null,
-      },
-    ]);
+    // Disisipkan tepat di bawah baris asalnya — lihat catatan sepadan di
+    // lib/kalkulator-client.tsx::addColorVariant.
+    const at = lines.findIndex((l) => l.lineId === fromLine.lineId);
+    const variant: PickedLine = {
+      lineId: newCalcLineId(),
+      productId: fromLine.productId,
+      name: fromLine.name,
+      code: fromLine.code,
+      unitPrice: fromLine.unitPrice,
+      qty: 1,
+      colorCode: null,
+    };
+    onLinesChange(at < 0 ? [...lines, variant] : [...lines.slice(0, at + 1), variant, ...lines.slice(at + 1)]);
   }
 
   const stepBtn: React.CSSProperties = {
