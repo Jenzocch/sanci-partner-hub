@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCabangMessages } from "@/lib/i18n";
-import ProposalEditorialDocument from "@/lib/proposal-editorial-document";
+import ProposalEditorialLayout from "@/lib/proposal-editorial-layout";
 import { loadProposalProducts } from "./actions";
 
 /**
@@ -32,5 +32,5 @@ export default async function ProposalPage() {
   }
   if (!pu) redirect("/");
 
-  return <ProposalEditorialDocument loadProducts={loadProposalProducts} backHref="/cabang/kalkulator" />;
+  return <ProposalEditorialLayout loadProducts={loadProposalProducts} backHref="/cabang/kalkulator" />;
 }
