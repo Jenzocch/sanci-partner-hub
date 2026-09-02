@@ -14,7 +14,7 @@ import {
   fulfillmentLabel,
   type FulfillmentPath,
 } from "@/lib/orders-shared";
-import { readCalcHandoff, clearCalcHandoff, type CalcHandoff } from "@/lib/calculator-shared";
+import { readCalcHandoff, clearCalcHandoff, clearCalcDraft, type CalcHandoff } from "@/lib/calculator-shared";
 import { readCatalogHandoff, clearCatalogHandoff } from "@/lib/catalog-cart";
 import {
   copyCalcCartItemsToOrder,
@@ -441,6 +441,13 @@ export default function NewOrderForm({
     // diam-diam memakai angka kalkulator yang sudah dipakai untuk pesanan lain.
     setCalcHandoff(readCalcHandoff("cabang"));
     setCalcApply(false);
+    // Draf lokal Kalkulator dibersihkan DI SINI, bukan saat staf menekan
+    // "Buat Pesanan" (audit UI 2026-09-01): menghapusnya saat berpindah
+    // halaman berarti staf yang kembali — karena salah pilih cabang, atau
+    // refleks menekan tombol kembali — menemukan keranjangnya kosong.
+    // Pesanan yang SUDAH tersimpan adalah satu-satunya bukti bahwa
+    // penawaran itu memang selesai dipakai.
+    clearCalcDraft("cabang");
     requestIdRef.current = crypto.randomUUID();
     const form = draft.formRef.current;
     if (form) form.reset();

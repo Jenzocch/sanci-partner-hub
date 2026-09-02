@@ -35,7 +35,7 @@ import {
   type FulfillmentPath,
 } from "@/lib/orders-shared";
 import { useAdminMessages } from "@/lib/i18n/provider";
-import { readCalcHandoff, clearCalcHandoff, type CalcHandoff } from "@/lib/calculator-shared";
+import { readCalcHandoff, clearCalcHandoff, clearCalcDraft, type CalcHandoff } from "@/lib/calculator-shared";
 // Sengaja import lintas area: copyCalcCartItemsToOrder TIDAK bergantung
 // identitas cabang (tanpa getIdentity — menulis dengan client sesi pemanggil;
 // RLS oi_admin_all + short-circuit admin di trg_order_item_price_guard, 0014,
@@ -498,6 +498,10 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     // diam-diam memakai angka kalkulator yang sudah dipakai untuk pesanan lain.
     setCalcHandoff(readCalcHandoff("admin"));
     setCalcApply(false);
+    // Lihat catatan sepadan di form cabang: draf lokal Kalkulator dibersihkan
+    // SETELAH pesanan berhasil, bukan saat berpindah halaman (audit UI
+    // 2026-09-01).
+    clearCalcDraft("admin");
     requestIdRef.current = crypto.randomUUID();
     // Partner/cabang SENGAJA dipertahankan — admin yang membuat beberapa
     // pesanan untuk cabang yang sama tidak perlu memilih ulang dari nol.

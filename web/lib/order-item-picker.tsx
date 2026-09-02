@@ -256,6 +256,15 @@ export default function OrderItemsSection({
     [katalog.categories, m.dateLocale]
   );
 
+  /**
+   * Baris mana yang BARU SAJA menyerap baris lain karena warnanya bertabrakan
+   * (audit UI 2026-09-01) — alasan lengkap di lib/kalkulator-client.tsx pada
+   * state bernama sama. Di sini daftar barisnya milik pemanggil (props
+   * lines/onLinesChange), tapi catatan ini murni tampilan, jadi ia tinggal
+   * sebagai state LOKAL: form pesanan tidak perlu tahu apa pun tentangnya.
+   */
+  const [colorMergedNote, setColorMergedNote] = useState<{ key: string; name: string } | null>(null);
+
   /** Pemuatan pertama gagal total (belum ada daftar sehat) vs error susulan
    *  (daftar lama tetap tampil) — dua perlakuan berbeda di JSX bawah. */
   const initialLoading = !loadedOnce && searching;
@@ -321,15 +330,22 @@ export default function OrderItemsSection({
   function setLineColor(productId: string, oldColorCode: string | null, newColorCode: string | null) {
     if (oldColorCode === newColorCode) return;
     const collideIdx = lines.findIndex((l) => l.productId === productId && l.colorCode === newColorCode);
+    const movingIdx = lines.findIndex((l) => l.productId === productId && l.colorCode === oldColorCode);
+    if (movingIdx < 0) return;
+
     if (collideIdx >= 0) {
-      const movingIdx = lines.findIndex((l) => l.productId === productId && l.colorCode === oldColorCode);
-      if (movingIdx < 0) return;
-      const moving = lines[movingIdx];
-      const target = lines[collideIdx];
-      const merged = { ...target, qty: Math.min(CALC_MAX_QTY, target.qty + moving.qty) };
-      onLinesChange(lines.filter((_, i) => i !== movingIdx && i !== collideIdx).concat(merged));
+      const merged = {
+        ...lines[collideIdx],
+        qty: Math.min(CALC_MAX_QTY, lines[collideIdx].qty + lines[movingIdx].qty),
+      };
+      // DI TEMPAT, bukan .concat() ke dasar daftar — lihat catatan sepadan
+      // di lib/kalkulator-client.tsx::setLineColor.
+      onLinesChange(lines.map((l, i) => (i === collideIdx ? merged : l)).filter((_, i) => i !== movingIdx));
+      setColorMergedNote({ key: `${productId}::${newColorCode ?? ""}`, name: merged.name });
       return;
     }
+
+    setColorMergedNote(null);
     onLinesChange(
       lines.map((l) => (l.productId === productId && l.colorCode === oldColorCode ? { ...l, colorCode: newColorCode } : l))
     );
@@ -344,6 +360,7 @@ export default function OrderItemsSection({
    * 1 dibuat, harga sama dengan baris asal (nilai awal, tetap bisa diketik).
    */
   function addColorVariant(productId: string, fromLine: PickedLine) {
+    setColorMergedNote(null);
     const idx = lines.findIndex((l) => l.productId === productId && l.colorCode === null);
     if (idx >= 0) {
       const next = [...lines];
@@ -427,6 +444,13 @@ export default function OrderItemsSection({
                 </div>
               )}
               {colorLoad?.status === "error" && <div className="hint" style={{ marginTop: 6 }}>{m.calcColorLoadFailedNote}</div>}
+              {/* Penggabungan warna WAJIB dikatakan — lihat catatan sepadan di
+                  lib/kalkulator-client.tsx. */}
+              {colorMergedNote?.key === lineKey && (
+                <div className="banner info" style={{ marginTop: 6 }}>
+                  {m.calcColorMergedNote.replace("{name}", colorMergedNote.name)}
+                </div>
+              )}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginTop: 8 }}>
                 <div className="field" style={{ margin: 0, flex: "1 1 150px", minWidth: 130 }}>
                   <label htmlFor={`oi_price_${lineKey}`}>{m.calcUnitPriceLabel}</label>

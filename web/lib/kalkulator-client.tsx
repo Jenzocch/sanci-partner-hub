@@ -137,6 +137,16 @@ export default function KalkulatorClient({
 
   /** Kegagalan menulis hand-off proposal ke localStorage — lihat handleMakeProposal. */
   const [proposalErr, setProposalErr] = useState<string | null>(null);
+  /**
+   * Baris mana yang BARU SAJA menyerap baris lain karena warnanya bertabrakan
+   * (audit UI 2026-09-01). Tanpa ini penggabungan itu SEPENUHNYA senyap:
+   * baris yang jarinya baru menyentuh lenyap begitu saja dan staf menyimpulkan
+   * sistem memakannya, lalu menambah ulang — qty jadi salah dan harga yang
+   * dibacakan ke pelanggan ikut salah (LESSONS #10: jangan pernah menggabung
+   * diam-diam). `key` = identitas baris yang BERTAHAN; catatan ini otomatis
+   * lenyap saat baris itu tidak ada lagi karena render-nya dikunci ke key.
+   */
+  const [colorMergedNote, setColorMergedNote] = useState<{ key: string; name: string } | null>(null);
   /** Ringkasan isi pesanan yang baru saja dibawa masuk dari halaman pesanan. */
   const [prefill, setPrefill] = useState<{
     n: number;
@@ -460,25 +470,41 @@ export default function KalkulatorClient({
    */
   function setLineColor(productId: string, oldColorCode: string | null, newColorCode: string | null) {
     if (oldColorCode === newColorCode) return;
-    setLines((prev) => {
-      const collideIdx = prev.findIndex((l) => l.productId === productId && l.colorCode === newColorCode);
-      if (collideIdx >= 0) {
-        const movingIdx = prev.findIndex((l) => l.productId === productId && l.colorCode === oldColorCode);
-        if (movingIdx < 0) return prev;
-        const moving = prev[movingIdx];
-        const target = prev[collideIdx];
-        const merged = { ...target, qty: Math.min(CALC_MAX_QTY, target.qty + moving.qty) };
-        return prev.filter((_, i) => i !== movingIdx && i !== collideIdx).concat(merged);
-      }
-      return prev.map((l) =>
+    const collideIdx = lines.findIndex((l) => l.productId === productId && l.colorCode === newColorCode);
+    const movingIdx = lines.findIndex((l) => l.productId === productId && l.colorCode === oldColorCode);
+    if (movingIdx < 0) return;
+
+    if (collideIdx >= 0) {
+      const merged = {
+        ...lines[collideIdx],
+        qty: Math.min(CALC_MAX_QTY, lines[collideIdx].qty + lines[movingIdx].qty),
+      };
+      // Baris hasil gabungan tinggal DI TEMPAT baris yang bertahan — versi
+      // sebelumnya memakai .concat() sehingga ia melompat ke DASAR keranjang.
+      // Di layar ponsel itu berarti: baris yang disentuh hilang dari
+      // pandangan DAN hasilnya muncul di luar layar; dua kejadian yang
+      // masing-masing sudah membingungkan, digabung jadi "sistemnya makan
+      // barang saya".
+      setLines(lines.map((l, i) => (i === collideIdx ? merged : l)).filter((_, i) => i !== movingIdx));
+      setColorMergedNote({ key: `${productId}::${newColorCode ?? ""}`, name: merged.name });
+      return;
+    }
+
+    // Ganti warna biasa (tanpa tabrakan) membatalkan catatan lama: catatan
+    // itu menjelaskan tindakan SEBELUMNYA, dan membiarkannya tergantung
+    // membuat staf mengira penggabungan baru saja terjadi lagi.
+    setColorMergedNote(null);
+    setLines(
+      lines.map((l) =>
         l.productId === productId && l.colorCode === oldColorCode ? { ...l, colorCode: newColorCode } : l
-      );
-    });
+      )
+    );
   }
 
   /** Tombol "+ Tambah warna lain" pada satu baris keranjang. Pola identik
    *  dengan order-item-picker.tsx::addColorVariant. */
   function addColorVariant(productId: string, fromLine: CalcLine) {
+    setColorMergedNote(null);
     setLines((prev) => {
       const idx = prev.findIndex((l) => l.productId === productId && l.colorCode === null);
       if (idx >= 0) {
@@ -656,10 +682,21 @@ export default function KalkulatorClient({
         colorCode: l.colorCode,
       })),
     });
-    // Kalkulator sudah selesai dipakai untuk penawaran ini — draf lokalnya
-    // tidak perlu bertahan lagi (beda dari handoff, yang justru BARU ditulis
-    // di atas untuk dibaca new-order-form.tsx).
-    clearCalcDraft(area);
+    // DRAF SENGAJA TIDAK DIHAPUS DI SINI (audit UI 2026-09-01).
+    //
+    // Versi sebelumnya menghapusnya tepat sebelum router.push, dengan alasan
+    // "kalkulator sudah selesai dipakai". Alasan itu mengandaikan staf tidak
+    // pernah kembali — padahal jalur yang paling sering terjadi justru
+    // sebaliknya: sampai di form pesanan, sadar salah pilih cabang (atau
+    // menekan tombol kembali ponsel karena refleks), lalu menemukan
+    // KERANJANGNYA KOSONG. Angkanya sebenarnya masih hidup di hand-off, tapi
+    // staf tidak bisa tahu itu; yang terlihat cuma kerja yang lenyap.
+    //
+    // Hand-off tetap SEKALI PAKAI seperti semula — yang berubah hanya draf
+    // lokal, yang memang cuma jaring pengaman dan punya masa berlaku sendiri
+    // (DraftBanner menawarkan pemulihan, tidak pernah menuang diam-diam,
+    // SPEC §58/LESSONS #1). Draf dibersihkan di tempat yang benar: SETELAH
+    // pesanan berhasil dibuat, oleh form pesanan itu sendiri.
     router.push(convert.href);
   }
 
@@ -948,6 +985,15 @@ export default function KalkulatorClient({
                     )}
                     {colorLoad?.status === "error" && (
                       <div className="hint" style={{ marginBottom: 6 }}>{m.calcColorLoadFailedNote}</div>
+                    )}
+                    {/* Penggabungan warna WAJIB dikatakan (LESSONS #10). Dikunci
+                        ke lineKey baris yang bertahan, jadi ia otomatis lenyap
+                        begitu baris itu hilang — tidak perlu timer atau
+                        pembersihan manual di setiap jalur lain. */}
+                    {colorMergedNote?.key === lineKey && (
+                      <div className="banner info" style={{ marginBottom: 6 }}>
+                        {m.calcColorMergedNote.replace("{name}", colorMergedNote.name)}
+                      </div>
                     )}
                     <div className={styles.lineControls}>
                       <div className={styles.priceField}>

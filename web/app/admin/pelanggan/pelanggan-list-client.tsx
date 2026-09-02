@@ -36,6 +36,10 @@ import { useCatalogSearch, type CatalogFetchResult } from "@/lib/use-catalog-sea
 import { useAdminMessages } from "@/lib/i18n/provider";
 import { getPelangganPageAdmin, type AdminCustomerRow } from "../actions-customers";
 
+/** Kunci sessionStorage keadaan jelajah — format sama dengan layar daftar
+ *  lain yang memakai persist (mis. cabang.produk.browse). */
+const BROWSE_STATE_KEY = "admin.pelanggan.browse";
+
 type SourceOpt = { id: string; label: string };
 type SalesOpt = { id: string; name: string };
 type PartnerOpt = { id: string; name: string };
@@ -84,6 +88,14 @@ export default function PelangganListClient({
     fetchPage: fetchForHook,
     initial: { products: initialCustomers, hasMore: initialHasMore },
     fallbackErrorMessage: m.common.errorLoad,
+    // Keadaan jelajah DIPERTAHANKAN (audit UI 2026-09-01). Sampai nama
+    // pelanggan menjadi tautan ke /admin/pelanggan/[customerId], daftar ini
+    // memang tidak punya ke mana pun untuk pergi, jadi ketiadaan persist
+    // tidak terasa. Sekarang setiap kali admin membuka satu pelanggan lalu
+    // menekan kembali, pencarian yang baru diketik DAN posisi gulir hilang
+    // — memeriksa lima pelanggan berarti mengetik kata kunci yang sama lima
+    // kali. Pola dan kuncinya sama dengan /cabang/produk.
+    persist: { key: BROWSE_STATE_KEY },
   });
   const { products: rows, hasMore, searching, loadingMore, error } = daftar;
 
