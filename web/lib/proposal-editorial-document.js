@@ -50,6 +50,23 @@ export function selectionMoneyRowCount(handoff) {
  * total). Halaman terakhir SELALU punya minimal satu baris — blok total tidak
  * pernah berdiri sendirian di halaman kosong.
  */
+/**
+ * Sampul memakai produk TERMAHAL (harga satuan tertinggi) yang punya foto —
+ * keputusan owner 2026-09-02 ("A 用最貴的產品當封面"). Dulu dipilih dari
+ * nilai baris (harga × qty), yang bisa memenangkan barang murah ber-qty
+ * banyak di atas sofa utama. Seri harga satuan → nilai baris lebih besar
+ * menang → lalu urutan di daftar. Tanpa foto sama sekali → baris pertama.
+ */
+export function pickCoverRow(rows) {
+    let best = null;
+    for (const row of rows) {
+        if (row.photos.length === 0)
+            continue;
+        if (!best || row.line.unitPrice > best.line.unitPrice || (row.line.unitPrice === best.line.unitPrice && row.amount > best.amount))
+            best = row;
+    }
+    return best ?? rows[0];
+}
 export function paginateSelectionRows(rows, perPage, lastCapacity) {
     const pages = [];
     let remaining = rows;
@@ -255,7 +272,7 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, }) {
     const lh = COMPANY_INFO.letterhead;
     const dateText = new Date(handoff.savedAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
     const who = customerName.trim();
-    const coverRow = rows.filter((row) => row.photos.length > 0).reduce((best, row) => (!best || row.amount > best.amount ? row : best), null) ?? rows[0];
+    const coverRow = pickCoverRow(rows);
     const coverPhoto = coverRow?.photos[0];
     let visiblePage = 1;
     const nextPage = () => ++visiblePage;
