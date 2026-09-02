@@ -2,11 +2,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCabangMessages } from "@/lib/i18n";
 import ProposalDocument from "@/lib/proposal-document";
+import ProposalCustomerFlow from "@/lib/proposal-customer-flow";
 import { loadProposalProducts } from "./actions";
 
 /**
- * Proposal sisi CABANG — dokumen cetak untuk pelanggan (sampul, ringkasan
- * pilihan + harga, lalu satu profil per produk).
+ * Proposal sisi CABANG — dokumen cetak untuk pelanggan.
+ * Urutan customer-facing ditetapkan owner:
+ * sampul -> pilihan produk + jumlah/harga -> profil produk.
  *
  * Halaman ini MEMANG menampilkan harga, dan justru karena itu ia hidup di
  * bawah /cabang yang wajib login staf toko. Aturan "katalog publik tidak
@@ -42,5 +44,9 @@ export default async function ProposalPage() {
   }
   if (!pu) redirect("/");
 
-  return <ProposalDocument loadProducts={loadProposalProducts} backHref="/cabang/kalkulator" />;
+  return (
+    <ProposalCustomerFlow>
+      <ProposalDocument loadProducts={loadProposalProducts} backHref="/cabang/kalkulator" />
+    </ProposalCustomerFlow>
+  );
 }
