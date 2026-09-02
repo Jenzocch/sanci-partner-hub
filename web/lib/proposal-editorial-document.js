@@ -125,7 +125,7 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, }) {
         const products = load.phase === "ready" ? load.products : [];
         return handoff.lines.map((line) => {
             const product = products.find((x) => x.id === line.productId);
-            return { line, product, amount: line.unitPrice * line.qty, photos: product?.photos ?? [], key: `${line.productId}::${line.colorCode ?? ""}` };
+            return { line, product, amount: line.unitPrice * line.qty, photos: product?.photos ?? [], key: line.lineId };
         });
     }, [handoff, load]);
     const stories = useMemo(() => {
