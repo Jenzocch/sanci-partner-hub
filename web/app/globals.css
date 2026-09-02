@@ -1076,3 +1076,37 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
     transition-duration:.001ms !important;scroll-behavior:auto !important;
   }
 }
+
+/* ── Cetak: chrome aplikasi TIDAK PERNAH ikut ke kertas ────────────────────
+   (audit Proposal 2026-09-02 — PDF 7 halaman yang seharusnya 5)
+
+   Dua hal terjadi bersamaan, dan keduanya baru kelihatan di PDF sungguhan:
+
+   1. `.noprint` sebelumnya hanya didefinisikan di DALAM sebuah CSS Module
+      (lib/proposal-document.module.css). Di sana ia di-hash menjadi
+      `.proposal-document_noprint__xxxx`, sedangkan JSX memakainya sebagai
+      kelas GLOBAL polos ("noprint") — aturannya tidak pernah cocok dengan
+      apa pun. Toolbar "Kembali ke Kalkulator / Cetak" ikut tercetak di
+      halaman pertama. Kelas global harus didefinisikan di berkas global:
+      di sinilah `.noprint` sesungguhnya hidup sekarang.
+
+   2. Aturan `@media (max-width:899px)` di atas TIDAK diberi `screen and`,
+      jadi saat mencetak ia diuji terhadap KOTAK HALAMAN (A4 = 794px), bukan
+      lebar layar — dan menyala. Rel samping admin berubah jadi bilah
+      horizontal dan ikut tercetak di atas sampul, `.main` mempertahankan
+      padding 28px/80px-nya. Akibat berantai yang terukur: kaki sampul
+      (break-inside: avoid) terdorong ke halaman 2 sendirian, dan padding
+      bawah 80px `.main` sesudah lembar terakhir yang tepat 297mm melahirkan
+      halaman 7 yang kosong. Keluarga gotcha yang sama dengan LESSONS #48.
+
+   Aturan di bawah mematikan seluruh chrome aplikasi pada kertas, apa pun
+   halamannya: dokumen yang dicetak (Proposal, SO/DO/Invoice) sudah membawa
+   identitas mereknya sendiri, dan tidak ada halaman cetak yang pernah
+   membutuhkan bilah navigasi. Diverifikasi dengan harness Playwright:
+   susunan yang sama persis menghasilkan 7 halaman tanpa blok ini, 5 dengan. */
+@media print{
+  .noprint{display:none !important}
+  .side{display:none !important}
+  .shell{display:block !important}
+  .main{padding:0 !important;max-width:none !important}
+}

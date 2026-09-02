@@ -302,3 +302,10 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **修法**：改用來源列自己的 primary key（`partner_package_items.id`）。同樣跨重試穩定（同一列在重試時 id 不變），但唯一性不再依賴任何別的 constraint。計算機那條 `:calc-item:{productId}:{colorCode}` 保持不變是對的——它的唯一性由同一個檔案裡的購物車合併函式維持，屬於「憑構造」，而且比 array index 更耐重試（使用者在兩次嘗試之間調整列序，index 會錯，語意鍵不會）。
 - **改 key 格式的代價要講清楚**：舊格式已落地的列，新格式認不得。暴露窗口只有「送出失敗且剛好跨越部署」那幾秒，最壞結果是重複列（看得見）。用「更安全的失敗方向」換掉「靜默吞資料」，值得。
 - **驗證要真的驗**：`supabase/test-harness/130_behavior_package_item_key.sql` 在 rollback 交易裡把那條 constraint 拿掉、塞兩列同產品，量出**舊 key 存 1 列、新 key 存 2 列、重試仍 2 列**。T1 是斷言不是示範——哪天舊 key 變安全了，它會 fail 並告訴你這條修正的前提沒了。
+
+### 51. 列印時「全域 class 寫在 CSS Module 裡」永遠不會生效；globals 裡沒加 `screen and` 的斷點會在紙上點燃——兩件事疊在一起，7 頁 PDF 裡有 2 頁是空的〔本專案 2026-09-02，owner 拿 PDF 來問「怎麼會是這樣」〕
+- **機制一**：JSX 寫 `className="noprint"`（全域字串），但 `.noprint{display:none}` 只定義在 `proposal-document.module.css` 裡。CSS Module 會把它 hash 成 `.proposal-document_noprint__xxxx`，跟字串 `noprint` 永遠對不上——**規則存在、看起來正確、從來沒作用過**。工具列（返回／列印按鈕）因此印在封面上方。全域 class 必須在全域檔定義；模組檔裡看到「不帶 `:global()` 的全域 class」就該起疑。
+- **機制二**：`globals.css` 的 `@media (max-width:899px)` 沒有 `screen and`，列印時比對的是**紙張內容框**（A4 = 794px）→ 條件成立 → admin 側欄變成水平列印在第 1 頁頂端，`.main` 的 `padding: 28px … 80px` 也照留。連鎖：封面頁尾（`break-inside: avoid`）被擠到第 2 頁孤零零一塊；最後一張剛好 297mm 的 sheet 後面跟著 80px 底 padding → 憑空多一頁空白的第 7 頁；左右 padding 讓 210mm 的 sheet 右緣被裁。**跟 #48 同一家族**，只是這次犯在 globals 而不是模組。
+- **怎麼證明的（不是用讀的）**：用 Playwright 做一個靜態 harness——模組 CSS 原文 + 同名 class 的 DOM 複製品 + 從 globals 抄來的 admin chrome。結果**逐頁重現** 7 頁（p1 導覽列＋工具列、p2 只剩封面頁尾、p7 全白）；套上修正後 5 頁。修正提交前，再把 **globals.css 裡實際寫入的那段文字**抽出來注入 harness 跑一次——驗的是要 commit 的原文，不是腦中的版本。
+- **修法**：`@media print` 放在 **globals.css**：`.noprint`、`.side`（admin 側欄）隱藏，`.shell{display:block}`、`.main{padding:0;max-width:none}`；cabang 底部導覽的 class 在它自己的 module，所以 `@media print{.nav{display:none}}` 寫在那個 module 裡。模組裡那條死掉的 `.noprint` 改成註解指向 globals，免得下一個人又被它騙。
+- **通用檢查（任何有列印頁的專案）**：① grep 所有 `.module.css` 找不帶 `:global` 卻被當全域用的 class；② grep globals 的 `@media (max-width`／`(min-width` 是否缺 `screen and`，凡是可能影響列印頁的都補；③ **每個列印頁至少真的產一次 PDF 數頁數**——這是唯一能抓到這類問題的方法（#48 已說過一次，這次又應驗）。

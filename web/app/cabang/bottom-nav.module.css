@@ -46,3 +46,11 @@
 .lbl {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+
+/* Cetak: bilah navigasi bawah tidak pernah ikut ke kertas (audit Proposal
+   2026-09-02, pasangan dari blok "Cetak: chrome aplikasi" di globals.css —
+   rel admin disembunyikan di sana; kelas ini milik CSS Module jadi aturannya
+   harus tinggal di sini). */
+@media print {
+  .nav { display: none !important; }
+}

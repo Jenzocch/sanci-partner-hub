@@ -423,7 +423,13 @@
      210mm: area aman datang dari padding 16mm milik `.inner`. Kalau marjin
      @page diberi nilai, lembar 210mm menjadi lebih lebar daripada kotak
      teksnya dan tepi kanan terpotong. */
-  .noprint { display: none !important; }
+  /* `.noprint` TIDAK didefinisikan di sini (dihapus 2026-09-02). Dulu ada,
+     dan itu justru jebakannya: di dalam CSS Module selektor ini di-hash,
+     sedangkan JSX memakai "noprint" sebagai kelas global — aturannya tidak
+     pernah cocok, toolbar ikut tercetak, dan tidak ada yang sadar sampai
+     PDF-nya dilihat. Definisi yang sungguh berlaku ada di app/globals.css
+     (blok "Cetak: chrome aplikasi"), bersama aturan yang menyembunyikan rel
+     navigasi admin. */
   .wrap { background: #fff; }
   .doc { padding: 0; }
   .sheet {
