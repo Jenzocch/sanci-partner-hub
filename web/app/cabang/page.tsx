@@ -38,6 +38,9 @@ export default async function CabangHome() {
     );
   }
   if (!pu) redirect("/");
+  // Tampilan saja — bukan keputusan akses (LESSONS #5); gagal = tanpa email.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const signedInEmail = typeof claimsData?.claims.email === "string" ? claimsData.claims.email : null;
 
   // Embed bisa null bila RLS menyembunyikan baris partner (mis. partner_user
   // berstatus DISABLED membuat fn_pu_partner() null) — jangan crash.
@@ -101,6 +104,15 @@ export default async function CabangHome() {
             </div>
           </>
         )}
+        {/* Siapa yang login (owner 2026-09-02). Nama dari partner_users;
+            email dari klaim JWT (getClaims — verifikasi lokal, tanpa
+            perjalanan ke server Auth) supaya dua staf bernama sama tetap
+            bisa dibedakan. `role` SENGAJA tidak ditampilkan: nilainya selalu
+            'BRANCH_USER' (0001), bukan informasi. */}
+        <div className="who">
+          {m.common.signedInAs} {pu.name}
+          {signedInEmail ? ` · ${signedInEmail}` : ""}
+        </div>
       </div>
 
       {/* Urutan menu mengikuti logika kerja toko: buat pesanan dulu (aksi

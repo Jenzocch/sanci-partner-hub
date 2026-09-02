@@ -5,7 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import LocaleSwitcher from "@/lib/i18n/locale-switcher";
 
-export default function AdminNav() {
+/** `email`: identitas akun yang login, dari layout (getClaims, tampilan
+ *  saja). null = tidak terbaca → blok "Masuk sebagai" tidak dirender sama
+ *  sekali, bukan dirender kosong. */
+export default function AdminNav({ email }: { email: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const m = useAdminMessages();
@@ -73,6 +76,14 @@ export default function AdminNav() {
       <Link href="/admin" className={`navlink${isPartners ? " on" : ""}`}>
         {m.admin.navPartners}
       </Link>
+      {/* Siapa yang sedang login — tepat di atas Keluar, supaya tombol
+          Keluar selalu terbaca sebagai "keluar dari akun INI". */}
+      {email && (
+        <div className="who">
+          <span className="lbl">{m.common.signedInAs}</span>
+          <span className="val">{email}</span>
+        </div>
+      )}
       <LocaleSwitcher />
       <button className="navlink bottom" onClick={signOut}>
         {m.common.signOut}

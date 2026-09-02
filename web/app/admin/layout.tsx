@@ -27,6 +27,15 @@ export default async function AdminLayout({
     .maybeSingle();
   if (!admin) redirect("/");
 
+  // Email akun yang login, HANYA untuk ditampilkan di rel navigasi (owner
+  // 2026-09-02: "login 要看得出來是哪一個帳號"). getClaims() memverifikasi
+  // tanda tangan JWT secara lokal lewat JWKS — tidak ada perjalanan
+  // bolak-balik ke server Auth per halaman (beda dari getUser), dan ini
+  // BUKAN keputusan akses: gerbangnya tetap baris platform_admins di atas +
+  // RLS (LESSONS #5). Gagal membaca = tidak ditampilkan, bukan halaman gagal.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const signedInEmail = typeof claimsData?.claims.email === "string" ? claimsData.claims.email : null;
+
   // Komponen client di bawah /admin membaca teksnya lewat `useAdminMessages()`;
   // bundle-nya diteruskan sekali di sini karena cookie hanya bisa dibaca di
   // server. Halaman server tetap memanggil `getAdminMessages()` sendiri.
@@ -37,7 +46,7 @@ export default async function AdminLayout({
   return (
     <AdminI18nProvider locale={locale} messages={messages}>
       <div className="shell">
-        <AdminNav />
+        <AdminNav email={signedInEmail} />
         <main className="main">{children}</main>
       </div>
     </AdminI18nProvider>

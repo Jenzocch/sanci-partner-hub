@@ -618,6 +618,8 @@ img,svg{max-width:100%}
     border-right:none;border-bottom:1px solid var(--line);
     background:var(--surface);
   }
+  .side .who{margin:0;padding:0 6px;border:0;flex:none;max-width:38vw}
+  .side .who .lbl{display:none}
   /* Frosted bar only where the blur actually works; opaque fallback above. */
   @supports (backdrop-filter:blur(1px)) and (color:color-mix(in srgb,red,blue)){
     .side{
@@ -774,6 +776,7 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 .idcard h2{font-size:calc(var(--fs-hero) - 4px);line-height:var(--lh-tight)}
 .idcard .br{font-size:calc(var(--fs-body) + 1px);font-weight:600;color:var(--brass);margin-top:4px}
 .idcard .addr{font-size:var(--fs-sec);color:var(--ink2);margin-top:10px;line-height:var(--lh)}
+.idcard .who{font-size:var(--fs-caption);color:var(--ink2);margin-top:12px;padding-top:10px;border-top:1px solid var(--line);overflow-wrap:anywhere}
 
 /* System-style list row. Standalone = its own card; inside .ilist = a row
    with inset separators. */
@@ -1036,6 +1039,13 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
    takes the bottom slot instead and lets "Keluar" follow it. */
 .side .langswitch{margin-top:auto;padding:0 12px 6px}
 .side .langswitch+.navlink.bottom{margin-top:0}
+/* "Masuk sebagai <email>" — di atas pemilih bahasa dan Keluar. Mengambil alih
+   peran margin-top:auto dari .langswitch supaya ketiganya tetap satu
+   gerombolan di dasar rel, bukan terpisah di tengah. */
+.side .who{margin-top:auto;display:flex;flex-direction:column;gap:2px;padding:10px 12px 8px;border-top:1px solid var(--line)}
+.side .who .lbl{font-size:var(--fs-caption);color:var(--ink2);letter-spacing:.04em;text-transform:uppercase}
+.side .who .val{font-size:13px;color:var(--ink);overflow-wrap:anywhere;line-height:1.3}
+.side .who+.langswitch{margin-top:0}
 /* In a grouped list (cabang home) it is one row of the card, not a floating
    control: same inset as .biglink, with the same hairline above it. */
 .ilist .langswitch{padding:12px 18px;border-top:1px solid var(--line)}

@@ -419,6 +419,10 @@ const id = {
   loginFailed: "Tidak bisa masuk sekarang. Coba lagi sebentar lagi.",
   signOut: "Keluar",
   signingOut: "Keluar…",
+  // Identitas akun yang sedang login — tampil di rel admin dan kartu toko
+  // cabang (owner 2026-09-02: "login 要看得出來是哪一個帳號"). Satu kunci
+  // untuk dua area: konsep yang sama, satu teks.
+  signedInAs: "Masuk sebagai",
   accountNotLinkedTitle: "Akun belum terdaftar",
   accountNotLinkedBody:
     "Akun Anda berhasil masuk tetapi belum dihubungkan ke partner mana pun. Hubungi SANCI Admin.",
@@ -865,6 +869,7 @@ const en = {
   loginFailed: "Cannot sign in right now. Please try again in a moment.",
   signOut: "Sign out",
   signingOut: "Signing out…",
+  signedInAs: "Signed in as",
   accountNotLinkedTitle: "Account not linked yet",
   accountNotLinkedBody:
     "You are signed in, but your account is not linked to any partner yet. Please contact SANCI Admin.",
@@ -1261,6 +1266,7 @@ const zh = {
   loginFailed: "现在无法登录，请稍后再试。",
   signOut: "退出",
   signingOut: "退出中…",
+  signedInAs: "当前登录",
   accountNotLinkedTitle: "账号还没有开通",
   accountNotLinkedBody:
     "你已经登录成功，但账号还没有关联到任何合作商。请联系 SANCI 管理员。",
