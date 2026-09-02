@@ -1,4 +1,4 @@
-import ProposalEditorialDocument from "@/lib/proposal-editorial-document";
+import ProposalEditorialLayout from "@/lib/proposal-editorial-layout";
 import { loadProposalProductsAdmin } from "./actions";
 
 /**
@@ -9,5 +9,5 @@ import { loadProposalProductsAdmin } from "./actions";
 export const dynamic = "force-dynamic";
 
 export default async function AdminProposalPage() {
-  return <ProposalEditorialDocument loadProducts={loadProposalProductsAdmin} backHref="/admin/kalkulator" />;
+  return <ProposalEditorialLayout loadProducts={loadProposalProductsAdmin} backHref="/admin/kalkulator" />;
 }
