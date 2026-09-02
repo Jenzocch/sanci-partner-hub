@@ -1,0 +1,41 @@
+/* Customer-facing Proposal reading order.
+ *
+ * Owner decision 2026-09-02:
+ *   Cover -> selected products (thumbnail / qty / price) -> product stories.
+ *
+ * ProposalDocument deliberately remains the single renderer for admin/cabang;
+ * this wrapper only changes which document chapters are presented. It avoids
+ * duplicating calculator/pricing/product logic and keeps the already-verified
+ * print/photo pipeline intact.
+ *
+ * Current ProposalDocument child order is stable and explicit:
+ *   1 cover, 2 intro, 3 selection, 4 summary, 5+ product/story/gallery.
+ * Intro and the second price-summary chapter repeat information already shown
+ * on the cover/selection page, so they are omitted from the customer flow.
+ */
+.flow :global(main > section:nth-of-type(2)),
+.flow :global(main > section:nth-of-type(4)) {
+  display: none !important;
+}
+
+/* ProposalDocument numbers pages while building all chapters. Because two
+ * chapters above are intentionally omitted, replace the rendered page-number
+ * text with a CSS counter so the visible document remains 02, 03, 04...
+ * (cover is conceptually page 01 but intentionally prints without a number).
+ */
+.flow :global(main) {
+  counter-reset: proposal-visible-page 1;
+}
+
+.flow :global(main > section:not(:first-of-type):not(:nth-of-type(2)):not(:nth-of-type(4))) {
+  counter-increment: proposal-visible-page;
+}
+
+.flow :global(main > section:not(:first-of-type):not(:nth-of-type(2)):not(:nth-of-type(4)) > div > span:last-child) {
+  font-size: 0 !important;
+}
+
+.flow :global(main > section:not(:first-of-type):not(:nth-of-type(2)):not(:nth-of-type(4)) > div > span:last-child::after) {
+  content: counter(proposal-visible-page, decimal-leading-zero);
+  font-size: 10px;
+}
