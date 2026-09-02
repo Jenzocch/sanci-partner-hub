@@ -5,7 +5,7 @@ import { fetchEffectivePrices } from "@/lib/price-query";
 import { getAdminMessages } from "@/lib/i18n";
 import KalkulatorClient, { type KalkulatorProduct } from "@/lib/kalkulator-client";
 import { getCatalogPageAdmin } from "@/app/admin/catalog-actions";
-import { listActiveColors } from "@/app/admin/actions-colors";
+import { listActiveColorsForAdminCalculator } from "./color-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -145,7 +145,7 @@ export default async function AdminKalkulatorPage() {
           href: "/admin/proposal",
           saveFailed: m.admin.proposalSaveFailed,
         }}
-        fetchColors={listActiveColors}
+        fetchColors={listActiveColorsForAdminCalculator}
       />
     </div>
   );
