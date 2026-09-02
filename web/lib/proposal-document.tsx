@@ -49,6 +49,32 @@ import styles from "./proposal-document.module.css";
 const LOGO = "/brand/sanci-logo.png";
 
 /**
+ * Nama PDF mengikuti pola yang diminta owner:
+ * SANCI-Proposal_<kode pelanggan>_YYYYMMDD-HHmm
+ *
+ * `document.title` adalah nama default yang dipakai Chrome/Edge saat
+ * "Save as PDF". Karakter terlarang nama file dibuang supaya Windows/macOS
+ * tidak mengubah nama itu lagi secara diam-diam.
+ */
+function safeFilenamePart(value: string): string {
+  return (
+    value
+      .trim()
+      .normalize("NFKC")
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^[-.]+|[-.]+$/g, "")
+      .slice(0, 60) || "NO-CODE"
+  );
+}
+
+function printTimestamp(d = new Date()): string {
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
+}
+
+/**
  * Tiga susunan halaman produk yang dipakai bergiliran. Bukan hiasan: tiga
  * halaman berturut-turut yang identik membuat dokumen terbaca sebagai daftar
  * yang panjang, dan mata berhenti memperhatikan. Isinya sama di ketiganya.
@@ -128,6 +154,12 @@ export default function ProposalDocument({
   const [handoff, setHandoff] = useState<ProposalHandoff | null>(null);
   const [ready, setReady] = useState(false);
   const [customerName, setCustomerName] = useState("");
+  /**
+   * Kode pelanggan dipakai untuk NAMA FILE PDF, bukan sebagai sumber data
+   * pelanggan. Proposal hand-off lama belum membawa customer_code, jadi field
+   * ini sengaja bisa diketik staf tanpa mengubah data pesanan/database.
+   */
+  const [customerCode, setCustomerCode] = useState("");
   const [load, setLoad] = useState<LoadState>({ phase: "loading" });
   /** Sedang menyiapkan cetakan (menurunkan resolusi foto) — tombol dikunci. */
   const [printing, setPrinting] = useState(false);
@@ -139,11 +171,18 @@ export default function ProposalDocument({
    * pada resolusi ASLI berapa pun ukuran tampilnya (lihat
    * lib/shrink-photos-for-print.ts). Kegagalan apa pun di jalur ini TIDAK
    * boleh menghalangi mencetak — paling buruk berkasnya lebih besar.
+   *
+   * Tepat sebelum print, title diganti supaya "Save as PDF" mendapat nama
+   * yang bisa dicari ulang. Sesudah dialog print ditutup, title DIKEMBALIKAN
+   * sehingga tab browser tidak menyimpan nama pelanggan sebagai judul tetap.
    */
   async function handlePrint() {
     if (printing) return;
     setPrinting(true);
     let undo: (() => void) | null = null;
+    const originalTitle = document.title;
+    const customerFileKey = safeFilenamePart(customerCode || customerName);
+    document.title = `SANCI-Proposal_${customerFileKey}_${printTimestamp()}`;
     try {
       if (docRef.current) undo = await shrinkPhotosForPrint(docRef.current);
       window.print();
@@ -151,6 +190,7 @@ export default function ProposalDocument({
       window.print();
     } finally {
       undo?.();
+      document.title = originalTitle;
       setPrinting(false);
     }
   }
@@ -350,17 +390,32 @@ export default function ProposalDocument({
 
   return (
     <div className={styles.wrap}>
-      <header className={`${styles.bar} noprint`}>
+      <header
+        className={`${styles.bar} noprint`}
+        style={{ height: "auto", minHeight: 64, flexWrap: "wrap", paddingTop: 8, paddingBottom: 8 }}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element -- aset merek publik */}
         <img src={LOGO} alt={lh.brand} style={{ height: 15, width: "auto", display: "block" }} />
         <span className={styles.barSpacer} />
-        <input
-          className={styles.nameField}
-          value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
-          placeholder={m.proposalCustomerPlaceholder}
-          aria-label={m.proposalForLabel}
-        />
+        <div style={{ display: "flex", flex: "1 1 360px", minWidth: 0, gap: 8 }}>
+          <input
+            className={styles.nameField}
+            style={{ flex: "1 1 220px" }}
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder={m.proposalCustomerPlaceholder}
+            aria-label={m.proposalForLabel}
+          />
+          <input
+            className={styles.nameField}
+            style={{ flex: "0 1 140px" }}
+            value={customerCode}
+            onChange={(e) => setCustomerCode(e.target.value)}
+            placeholder={m.code}
+            aria-label={m.code}
+            autoComplete="off"
+          />
+        </div>
         <Link href={backHref} className={styles.tool}>
           {m.proposalBackCta}
         </Link>
