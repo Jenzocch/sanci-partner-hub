@@ -1,0 +1,7 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">SANCI Partner</title>
+  <rect width="64" height="64" rx="14.08" fill="#16233f"/>
+  <path d="M14 45 L14 27 L32 12 L50 27 L50 45"
+    fill="none" stroke="#c9a961" stroke-width="7"
+    stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
