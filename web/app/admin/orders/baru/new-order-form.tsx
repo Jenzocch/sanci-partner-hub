@@ -36,12 +36,11 @@ import {
 } from "@/lib/orders-shared";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import { readCalcHandoff, clearCalcHandoff, clearCalcDraft, type CalcHandoff } from "@/lib/calculator-shared";
-// Sengaja import lintas area: copyCalcCartItemsToOrder TIDAK bergantung
-// identitas cabang (tanpa getIdentity — menulis dengan client sesi pemanggil;
-// RLS oi_admin_all + short-circuit admin di trg_order_item_price_guard, 0014,
-// membuatnya bekerja penuh untuk sesi admin, termasuk kolom harga). Lihat
-// catatan panjang di fungsinya sendiri.
-import { copyCalcCartItemsToOrder } from "@/app/cabang/pesanan/actions";
+// Jalur tulis baris bersama dua area (lib, bukan milik satu area): menulis
+// dengan client sesi pemanggil — RLS oi_admin_all + short-circuit admin di
+// trg_order_item_price_guard (0014) membuatnya bekerja penuh untuk sesi
+// admin, termasuk kolom harga.
+import { copyPickedItemsToOrder } from "@/lib/copy-picked-items-to-order";
 import { setOrderOffer } from "../../actions-orders";
 import { lookupByRequestId } from "../../actions-lookup";
 import {
@@ -348,7 +347,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
 
   /**
    * Menulis baris "Isi Pesanan" form (picker + prefill hand-off) SETELAH
-   * pesanan berhasil dibuat — lewat copyCalcCartItemsToOrder (impor lintas
+   * pesanan berhasil dibuat — lewat copyPickedItemsToOrder (jalur bersama
    * area yang sudah terbukti aman, lihat catatan pada import di atas;
    * sufiks per barisnya tetap `{rid}:calc-item:{productId}` — karena hanya
    * ada SATU jalur tulis, satu ruang nama sufiks ini cukup dan tidak pernah
@@ -368,10 +367,11 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
       messages: m,
       buttonLabel: m.admin.orderCreateSubmitCta,
       run: () =>
-        copyCalcCartItemsToOrder(
+        // lineId IKUT — lihat catatan sepadan di form cabang (LESSONS #50).
+        copyPickedItemsToOrder(
           orderId,
           orderClientRequestId,
-          itemLines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty, colorCode: l.colorCode }))
+          itemLines.map((l) => ({ lineId: l.lineId, productId: l.productId, unitPrice: l.unitPrice, qty: l.qty, colorCode: l.colorCode }))
         ),
     });
     if (itemsOut.status === "ok") {

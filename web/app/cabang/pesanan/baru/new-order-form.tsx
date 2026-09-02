@@ -16,8 +16,8 @@ import {
 } from "@/lib/orders-shared";
 import { readCalcHandoff, clearCalcHandoff, clearCalcDraft, type CalcHandoff } from "@/lib/calculator-shared";
 import { readCatalogHandoff, clearCatalogHandoff } from "@/lib/catalog-cart";
+import { copyPickedItemsToOrder } from "@/lib/copy-picked-items-to-order";
 import {
-  copyCalcCartItemsToOrder,
   createCustomerAndOrder,
   createCustomerOnly,
   getOrderSummary,
@@ -111,7 +111,7 @@ export default function NewOrderForm({
    * SATU daftar untuk DUA sumber: picker produk DAN prefill hand-off
    * Kalkulator ("Gunakan angka ini" menuangkan baris hand-off ke sini, lihat
    * handleUseCalcHandoff). Satu daftar = satu jalur tulis
-   * (copyCalcCartItemsToOrder di applyPickedItemsIfNeeded) — penulisan baris
+   * (copyPickedItemsToOrder di applyPickedItemsIfNeeded) — penulisan baris
    * yang dulu ada di applyCalcHandoffIfNeeded DIPINDAH ke sana, tidak pernah
    * dobel. State React murni: sengaja TIDAK ikut draf lokal (use-local-draft
    * hanya membaca field ber-`name`; baris pilihan setengah-pulih lebih
@@ -145,7 +145,7 @@ export default function NewOrderForm({
    *
    * Nol jalur tulis baru: baris ini masuk ke `itemLines` yang SAMA dengan
    * picker dan prefill kalkulator, jadi penulisannya tetap satu-satunya
-   * jalur `applyPickedItemsIfNeeded` → `copyCalcCartItemsToOrder`.
+   * jalur `applyPickedItemsIfNeeded` → `copyPickedItemsToOrder`.
    *
    * Disimpan sebagai JUMLAH (bukan kalimat jadi) supaya kalimatnya dirakit
    * saat render — ikut berganti kalau bahasa layar berganti.
@@ -295,7 +295,7 @@ export default function NewOrderForm({
 
   /**
    * Menulis baris "Isi Pesanan" form (picker + prefill hand-off) SETELAH
-   * pesanan berhasil dibuat — lewat copyCalcCartItemsToOrder yang sama
+   * pesanan berhasil dibuat — lewat copyPickedItemsToOrder yang sama
    * dengan jalur hand-off lama (satu-satunya penulis baris bebas ke
    * order_items; sufiks per barisnya tetap `{rid}:calc-item:{productId}` —
    * karena hanya ada SATU jalur tulis, satu ruang nama sufiks ini cukup dan
@@ -315,10 +315,17 @@ export default function NewOrderForm({
       messages: m,
       buttonLabel: m.cabang.createOrderCta,
       run: () =>
-        copyCalcCartItemsToOrder(
+        // lineId IKUT (2026-09-02): idempotency order_items kini PER BARIS.
+        // Sejak picker mengizinkan beberapa baris untuk produk+warna yang
+        // sama, kunci lama `:calc-item:{productId}:{warna}` membuat baris
+        // kedua dst. DITELAN DIAM-DIAM oleh ignoreDuplicates — persis
+        // kegagalan LESSONS #50. copyPickedItemsToOrder memakai
+        // `:calc-line:{lineId}` dan tetap jatuh ke kunci lama hanya untuk
+        // baris tanpa lineId (retry yang berjalan lintas deploy).
+        copyPickedItemsToOrder(
           orderId,
           orderClientRequestId,
-          itemLines.map((l) => ({ productId: l.productId, unitPrice: l.unitPrice, qty: l.qty, colorCode: l.colorCode }))
+          itemLines.map((l) => ({ lineId: l.lineId, productId: l.productId, unitPrice: l.unitPrice, qty: l.qty, colorCode: l.colorCode }))
         ),
     });
     if (itemsOut.status === "ok") {
