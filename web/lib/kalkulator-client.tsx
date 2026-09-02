@@ -10,6 +10,7 @@ import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import DraftBanner from "@/lib/draft-banner";
 import {
   CALC_MAX_DISCOUNT_SLOTS,
+  CALC_FEE_LABEL_MAX,
   CALC_MAX_QTY,
   CALC_DRAFT_DEBOUNCE_MS,
   discountChainMultiplier,
@@ -78,6 +79,8 @@ export default function KalkulatorClient({
   const [discountSlots, setDiscountSlots] = useState<string[]>([""]);
   const [markup, setMarkup] = useState("");
   const [cash, setCash] = useState("");
+  const [feeLabel, setFeeLabel] = useState("");
+  const [feeAmount, setFeeAmount] = useState("");
   const [proposalErr, setProposalErr] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<{
     n: number;
@@ -134,6 +137,8 @@ export default function KalkulatorClient({
       setDiscountSlots(pendingDraft.state.discountSlots.length ? pendingDraft.state.discountSlots : [""]);
       setMarkup(pendingDraft.state.markup);
       setCash(pendingDraft.state.cash);
+      setFeeLabel(pendingDraft.state.feeLabel);
+      setFeeAmount(pendingDraft.state.feeAmount);
     }
     setPendingDraft(null);
     setReady(true);
@@ -150,12 +155,12 @@ export default function KalkulatorClient({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveTimer.current = null;
-      writeCalcDraft(area, { lines, discountSlots, markup, cash });
+      writeCalcDraft(area, { lines, discountSlots, markup, cash, feeLabel, feeAmount });
     }, CALC_DRAFT_DEBOUNCE_MS);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [ready, area, lines, discountSlots, markup, cash]);
+  }, [ready, area, lines, discountSlots, markup, cash, feeLabel, feeAmount]);
 
   const fetchForHook = useCallback(
     async (input: { q: string; category: string | null; offset: number; withCategories?: boolean }): Promise<
@@ -343,12 +348,14 @@ export default function KalkulatorClient({
   const [photoView, setPhotoView] = useState<{ name: string; url: string } | null>(null);
 
   function handleClearCartConfirmed() {
-    setClearedSnapshot({ lines, discountSlots, markup, cash });
+    setClearedSnapshot({ lines, discountSlots, markup, cash, feeLabel, feeAmount });
     const empty: CalcCartState = emptyCartState();
     setLines(empty.lines);
     setDiscountSlots(empty.discountSlots);
     setMarkup(empty.markup);
     setCash(empty.cash);
+    setFeeLabel(empty.feeLabel);
+    setFeeAmount(empty.feeAmount);
     clearCalcDraft(area);
     setConfirmClear(false);
   }
@@ -358,6 +365,8 @@ export default function KalkulatorClient({
     setDiscountSlots(clearedSnapshot.discountSlots.length ? clearedSnapshot.discountSlots : [""]);
     setMarkup(clearedSnapshot.markup);
     setCash(clearedSnapshot.cash);
+    setFeeLabel(clearedSnapshot.feeLabel);
+    setFeeAmount(clearedSnapshot.feeAmount);
     setClearedSnapshot(null);
   }
 
@@ -369,13 +378,19 @@ export default function KalkulatorClient({
   const parsedMarkup = Number.isFinite(parsedMarkupRaw) ? parsedMarkupRaw : 0;
   const markupOutOfRange = markupTrimmed !== "" && (!Number.isFinite(parsedMarkupRaw) || parsedMarkupRaw < 0 || parsedMarkupRaw > 100);
   const parsedCash = parseIDRInput(cash) ?? 0;
+  // Biaya tambahan: nominal kosong/0 = tidak ada (label sendirian diabaikan,
+  // supaya "Ongkir" tanpa angka tidak pernah mencetak baris kosong di Proposal).
+  const parsedFee = Math.max(parseIDRInput(feeAmount) ?? 0, 0);
+  const feeLabelTrimmed = feeLabel.trim();
+  const hasFee = parsedFee > 0;
+  const feeLabelDisplay = feeLabelTrimmed || m.proposalExtraFeeDefault;
 
   const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
   const itemQty = lines.reduce((sum, l) => sum + l.qty, 0);
   const mult = discountChainMultiplier(parsedDiscounts);
   const afterDiscountDisplay = Math.round(subtotal * mult);
   const afterMarkupDisplay = Math.round(subtotal * mult * (1 + parsedMarkup / 100));
-  const finalTotal = computeChainFinal(subtotal, parsedDiscounts, parsedMarkup, parsedCash);
+  const finalTotal = computeChainFinal(subtotal, parsedDiscounts, parsedMarkup, parsedCash, parsedFee);
   const finalDisplay = Math.max(finalTotal, 0);
 
   let discountRunning = subtotal;
@@ -395,6 +410,8 @@ export default function KalkulatorClient({
       totalDiscountAmount,
       markupPct: markupTrimmed === "" ? null : parsedMarkup,
       cashDiscount: parsedCash,
+      extraFeeLabel: hasFee ? feeLabelDisplay : null,
+      extraFeeAmount: hasFee ? parsedFee : 0,
       finalAmount: finalDisplay,
       lines: lines.map((l) => ({
         lineId: l.lineId,
@@ -423,6 +440,8 @@ export default function KalkulatorClient({
       discountPcts: parsedDiscounts,
       markupPct: markupTrimmed === "" ? null : parsedMarkup,
       cashDiscount: parsedCash,
+      extraFeeLabel: hasFee ? feeLabelDisplay : null,
+      extraFeeAmount: hasFee ? parsedFee : 0,
       finalAmount: finalDisplay,
       lines: lines.map((l) => ({
         lineId: l.lineId,
@@ -666,10 +685,21 @@ export default function KalkulatorClient({
               <label htmlFor="calc_markup">{m.calcMarkupFieldLabel}</label>
               <input id="calc_markup" type="text" inputMode="decimal" value={markup} onChange={(e) => setMarkup(e.target.value)} placeholder="0" />
             </div>
-            <div className="field">
+            <div className="field" style={{ marginBottom: 10 }}>
               <label htmlFor="calc_cash">{m.calcCashFieldLabel}</label>
               <input id="calc_cash" type="text" inputMode="numeric" value={cash} onChange={(e) => setCash(e.target.value)} placeholder="Rp 0" />
             </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div className="field" style={{ flex: "1 1 160px", marginBottom: 0 }}>
+                <label htmlFor="calc_fee_label">{m.calcExtraFeeLabelField}</label>
+                <input id="calc_fee_label" type="text" maxLength={CALC_FEE_LABEL_MAX} value={feeLabel} onChange={(e) => setFeeLabel(e.target.value)} placeholder={m.calcExtraFeeLabelPlaceholder} />
+              </div>
+              <div className="field" style={{ flex: "1 1 140px", marginBottom: 0 }}>
+                <label htmlFor="calc_fee_amount">{m.calcExtraFeeAmountField}</label>
+                <input id="calc_fee_amount" type="text" inputMode="numeric" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} placeholder="Rp 0" />
+              </div>
+            </div>
+            <p className="small muted" style={{ marginTop: 6, marginBottom: 0 }}>{m.calcExtraFeeHint}</p>
           </div>
 
           <div className="card">
@@ -686,6 +716,8 @@ export default function KalkulatorClient({
               {discountSteps.length > 0 && <div className={styles.breakdownRow}><span>{m.calcBreakdownTotalDiscount}</span><span>−{formatIDR(totalDiscountAmount)}</span></div>}
               <div className={styles.breakdownRow}><span>{m.calcBreakdownAfterDiscount}</span><span>{formatIDR(afterDiscountDisplay)}</span></div>
               <div className={styles.breakdownRow}><span>{m.calcBreakdownAfterMarkup}</span><span>{formatIDR(afterMarkupDisplay)}</span></div>
+              {parsedCash > 0 && <div className={styles.breakdownRow}><span>{m.proposalCashDiscount}</span><span>−{formatIDR(parsedCash)}</span></div>}
+              {hasFee && <div className={styles.breakdownRow}><span>{feeLabelDisplay}</span><span>+{formatIDR(parsedFee)}</span></div>}
               <div className={`${styles.breakdownRow} ${styles.final}`}><span>{m.finalAmount}</span><span>{formatIDR(finalDisplay)}</span></div>
             </div>
             {proposal && (

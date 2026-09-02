@@ -309,3 +309,9 @@ Audit、created_at 一律 DB `now()`。手機時間不可信。
 - **怎麼證明的（不是用讀的）**：用 Playwright 做一個靜態 harness——模組 CSS 原文 + 同名 class 的 DOM 複製品 + 從 globals 抄來的 admin chrome。結果**逐頁重現** 7 頁（p1 導覽列＋工具列、p2 只剩封面頁尾、p7 全白）；套上修正後 5 頁。修正提交前，再把 **globals.css 裡實際寫入的那段文字**抽出來注入 harness 跑一次——驗的是要 commit 的原文，不是腦中的版本。
 - **修法**：`@media print` 放在 **globals.css**：`.noprint`、`.side`（admin 側欄）隱藏，`.shell{display:block}`、`.main{padding:0;max-width:none}`；cabang 底部導覽的 class 在它自己的 module，所以 `@media print{.nav{display:none}}` 寫在那個 module 裡。模組裡那條死掉的 `.noprint` 改成註解指向 globals，免得下一個人又被它騙。
 - **通用檢查（任何有列印頁的專案）**：① grep 所有 `.module.css` 找不帶 `:global` 卻被當全域用的 class；② grep globals 的 `@media (max-width`／`(min-width` 是否缺 `screen and`，凡是可能影響列印頁的都補；③ **每個列印頁至少真的產一次 PDF 數頁數**——這是唯一能抓到這類問題的方法（#48 已說過一次，這次又應驗）。
+
+### 52. 分頁時「固定每頁 N 列」會被尾端那塊高度會變的東西打破——最後一頁要依尾塊實際高度扣列數，而且只有印出 PDF 量過才知道數字〔本專案 2026-09-02，加「額外費用」列時 harness 抓到的舊病〕
+- **症狀**：Proposal「Pilihan Anda」固定每頁 8 列，總計區塊只放最後一頁。加上「Biaya tambahan」一列後 harness 印出 8 列＋總計 → 2 頁。回頭量才發現**沒加費用之前就已經會溢出**：名稱換 2 行＋型號＋顏色＋尺寸的最壞列高 28.1mm，8 列 224.8mm 對上 227.2mm 的可用高度只剩 2.4mm；總計區塊本身 18.7→61.2mm（0→4 列金額）。也就是說 owner 之前抱怨的「多一頁幾乎空白」有一部分就是它。
+- **修法（`lib/proposal-editorial-document.js`）**：每頁 7 列（剩 30mm 餘裕）；最後一頁容量 = 7 − (金額列 ≥2 ? 1) − (≥3 ? 1)，由 `selectionMoneyRowCount(handoff)` 決定；`paginateSelectionRows` 保證最後一頁至少 1 列（總計永遠不會自己孤零零占一頁）；編號起點改成「前面各頁列數總和」，不能再用 `pageIndex × N`（頁不等長了，會跳號）。
+- **怎麼證明**：Playwright harness 直接 `require` 渲染器**匯出的**分頁函式（transpile 同一個 .js，stub 掉 next/link 等），用它排出 4 種金額列數 × 10 種列數 = 40 份多頁文件印成 PDF，逐份比對 `pdfinfo` 頁數 = 排版頁數、`pdftotext` 抓到 01…N 連號、最後一頁同時有列與 HARGA AKHIR。先 `page.evaluate` 量 `.inner`/列/總計高度（mm）再定常數，不是憑感覺挑 7 或 6。
+- **通用**：凡是「固定每頁 N 項＋最後一頁附帶尾塊」的列印排版，尾塊只要有一個條件式的列（折扣、費用、備註），容量就得是尾塊的函數；常數旁邊把量到的毫米數寫進註解，下一個改 CSS 的人才知道要重量。

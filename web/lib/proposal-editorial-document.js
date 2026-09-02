@@ -9,7 +9,61 @@ import { readProposalHandoff, } from "@/lib/proposal-shared";
 import { shrinkPhotosForPrint } from "@/lib/shrink-photos-for-print";
 import styles from "./proposal-editorial-document.module.css";
 const LOGO = "/brand/sanci-logo.png";
-const SELECTION_ROWS_PER_PAGE = 8;
+/**
+ * Baris "Pilihan Anda" per halaman A4. Diukur dengan harness cetak
+ * (Playwright + pdfinfo, 2026-09-02): halaman muat 253mm konten; kepala
+ * bagian 25.8mm; satu baris TERBURUK (nama 2 baris + kode + warna + ukuran)
+ * 28.1mm. 8 baris (224.8mm) hanya menyisakan 2.4mm — nama sedikit lebih
+ * panjang saja sudah meluber ke halaman baru yang nyaris kosong (keluhan
+ * owner: halaman kosong). 7 baris menyisakan 30mm.
+ */
+export const SELECTION_ROWS_PER_PAGE = 7;
+/**
+ * Halaman TERAKHIR "Pilihan Anda" juga memuat blok total, dan blok itu
+ * tumbuh per baris uang (Subtotal / Diskon / Potongan tunai / Biaya
+ * tambahan): 18.7mm tanpa baris, 39.9mm dengan 2, 50.5mm dengan 3, 61.2mm
+ * dengan 4. Kapasitas baris halaman terakhir dikurangi supaya total tidak
+ * pernah terdorong ke halaman sendiri: 0 baris uang → 7, 2 → 6, ≥3 → 5
+ * (sisa ruang masing-masing ≥11mm pada baris terburuk).
+ */
+export function lastSelectionPageCapacity(moneyRowCount) {
+    return SELECTION_ROWS_PER_PAGE - (moneyRowCount >= 2 ? 1 : 0) - (moneyRowCount >= 3 ? 1 : 0);
+}
+/**
+ * Subtotal hanya dicetak kalau ada sesuatu di antara dia dan Harga Akhir
+ * (diskon/potongan/markup/biaya tambahan). Tanpa itu keduanya angka yang
+ * SAMA persis, dan owner membaca proposal tanpa diskon sebagai "金額一直重複".
+ */
+export function showSubtotalFor(handoff) {
+    return handoff.subtotal !== handoff.finalAmount || handoff.extraFeeAmount > 0;
+}
+/** Jumlah baris uang di blok total (di luar Harga Akhir) — menentukan kapasitas halaman terakhir. */
+export function selectionMoneyRowCount(handoff) {
+    return ((showSubtotalFor(handoff) ? 1 : 0) +
+        (handoff.discountPcts.length > 0 ? 1 : 0) +
+        (handoff.cashDiscount > 0 ? 1 : 0) +
+        (handoff.extraFeeAmount > 0 ? 1 : 0));
+}
+/**
+ * Pecah baris pilihan jadi halaman: halaman penuh memuat `perPage`, halaman
+ * terakhir paling banyak `lastCapacity` (karena berbagi tempat dengan blok
+ * total). Halaman terakhir SELALU punya minimal satu baris — blok total tidak
+ * pernah berdiri sendirian di halaman kosong.
+ */
+export function paginateSelectionRows(rows, perPage, lastCapacity) {
+    const pages = [];
+    let remaining = rows;
+    while (remaining.length > 0) {
+        if (remaining.length <= lastCapacity) {
+            pages.push(remaining);
+            break;
+        }
+        const take = Math.min(perPage, remaining.length - 1);
+        pages.push(remaining.slice(0, take));
+        remaining = remaining.slice(take);
+    }
+    return pages;
+}
 /**
  * Kode produk TIDAK dicetak ulang kalau namanya sudah memuatnya (audit
  * Proposal 2026-09-02, owner: "型號印兩次"). Nama katalog SANCI lazim
@@ -168,12 +222,8 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, }) {
         return Array.from(byProduct.values());
     }, [rows]);
     const storySpreads = useMemo(() => packStorySpreads(stories.filter((s) => s.row.product)), [stories]);
-    const selectionPages = useMemo(() => {
-        const pages = [];
-        for (let i = 0; i < rows.length; i += SELECTION_ROWS_PER_PAGE)
-            pages.push(rows.slice(i, i + SELECTION_ROWS_PER_PAGE));
-        return pages;
-    }, [rows]);
+    const moneyRowCount = handoff ? selectionMoneyRowCount(handoff) : 0;
+    const selectionPages = useMemo(() => paginateSelectionRows(rows, SELECTION_ROWS_PER_PAGE, lastSelectionPageCapacity(moneyRowCount)), [rows, moneyRowCount]);
     const galleryStories = useMemo(() => stories.filter((story) => story.row.product && story.row.photos.length >= 3), [stories]);
     const missingProfiles = load.phase === "ready" ? stories.filter((story) => !story.row.product).map((story) => story.row.line.name) : [];
     async function handlePrint() {
@@ -209,15 +259,13 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, }) {
     const coverPhoto = coverRow?.photos[0];
     let visiblePage = 1;
     const nextPage = () => ++visiblePage;
-    // Subtotal hanya dicetak kalau ada sesuatu di antara dia dan Harga Akhir
-    // (diskon/potongan/markup). Tanpa itu keduanya angka yang SAMA persis,
-    // dan owner membaca proposal tanpa diskon sebagai "金額一直重複".
-    const showSubtotal = handoff.subtotal !== handoff.finalAmount;
-    const totals = (_jsxs("div", { className: styles.totals, children: [showSubtotal && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalSubtotal }), _jsx("strong", { className: styles.num, children: formatIDR(handoff.subtotal) })] })), handoff.discountPcts.length > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalDiscountStep.replace("{pct}", handoff.discountPcts.join("% + ")) }), _jsxs("strong", { className: styles.num, children: ["− ", formatIDR(handoff.totalDiscountAmount)] })] })), handoff.cashDiscount > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalCashDiscount }), _jsxs("strong", { className: styles.num, children: ["− ", formatIDR(handoff.cashDiscount)] })] })), _jsxs("div", { className: styles.moneyFinal, children: [_jsx("span", { children: m.proposalFinalPrice }), _jsx("strong", { className: styles.num, children: formatIDR(handoff.finalAmount) })] })] }));
+    const showSubtotal = showSubtotalFor(handoff);
+    const totals = (_jsxs("div", { className: styles.totals, children: [showSubtotal && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalSubtotal }), _jsx("strong", { className: styles.num, children: formatIDR(handoff.subtotal) })] })), handoff.discountPcts.length > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalDiscountStep.replace("{pct}", handoff.discountPcts.join("% + ")) }), _jsxs("strong", { className: styles.num, children: ["− ", formatIDR(handoff.totalDiscountAmount)] })] })), handoff.cashDiscount > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalCashDiscount }), _jsxs("strong", { className: styles.num, children: ["− ", formatIDR(handoff.cashDiscount)] })] })), handoff.extraFeeAmount > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: handoff.extraFeeLabel || m.proposalExtraFeeDefault }), _jsxs("strong", { className: styles.num, children: ["+ ", formatIDR(handoff.extraFeeAmount)] })] })), _jsxs("div", { className: styles.moneyFinal, children: [_jsx("span", { children: m.proposalFinalPrice }), _jsx("strong", { className: styles.num, children: formatIDR(handoff.finalAmount) })] })] }));
     const storyLabels = { about: m.proposalAboutLabel, size: m.proposalSpecSize, category: m.proposalSpecCategory, colors: m.proposalSpecColorsChosen };
     return (_jsxs("div", { className: styles.wrap, children: [_jsxs("header", { className: `${styles.bar} noprint`, children: [_jsx("img", { src: LOGO, alt: lh.brand, className: styles.barLogo }), _jsx("span", { className: styles.barSpacer }), _jsx("input", { className: styles.nameField, value: customerName, onChange: (e) => setCustomerName(e.target.value), placeholder: m.proposalCustomerPlaceholder, "aria-label": m.proposalForLabel }), _jsx(Link, { href: backHref, className: styles.tool, children: m.proposalBackCta }), _jsx("button", { type: "button", className: `${styles.tool} ${styles.toolPrimary}`, disabled: printing, onClick: handlePrint, children: printing ? m.proposalPrintPreparing : m.proposalPrintCta })] }), _jsxs("main", { className: styles.doc, ref: docRef, children: [_jsx(Sheet, { n: null, className: styles.coverSheet, children: _jsxs("div", { className: styles.coverLayout, children: [_jsxs("div", { className: styles.coverLeft, children: [_jsxs("div", { className: styles.coverBrand, children: [_jsx("img", { src: LOGO, alt: lh.brand }), _jsx("span", { className: styles.coverRule }), _jsx("p", { className: styles.eyebrow, children: m.proposalCoverKicker })] }), _jsxs("div", { className: styles.coverCore, children: [_jsx("h1", { className: styles.coverTitle, children: m.proposalTitle }), _jsx("p", { className: styles.coverSub, children: m.proposalCoverSub })] }), _jsxs("div", { className: styles.coverMeta, children: [who && (_jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalForLabel }), _jsx("p", { className: styles.coverName, children: who })] })), _jsxs("div", { className: styles.coverMetaGrid, children: [_jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalMetaDate }), _jsx("p", { className: styles.metaValue, children: dateText })] }), _jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalContactShowroom }), _jsx("p", { className: styles.metaValue, children: lh.name })] }), _jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalContactLabel }), _jsx("p", { className: `${styles.metaValue} ${styles.contactPhone}`, children: lh.phone ? `WhatsApp · ${lh.phone}` : lh.website })] })] }), _jsx("p", { className: styles.coverThanks, children: m.proposalThanksBody })] })] }), _jsxs("div", { className: styles.coverArt, children: [_jsx(Photo, { src: coverPhoto, alt: coverRow?.line.name ?? lh.brand, className: styles.coverImage, eager: true }), coverRow && (_jsxs("div", { className: styles.coverArtCaption, children: [_jsx("span", { children: String(rows.indexOf(coverRow) + 1).padStart(2, "0") }), _jsxs("div", { children: [_jsx("strong", { children: keepCodesTogether(coverRow.line.name) }), !codeAlreadyInName(coverRow.line.name, coverRow.line.code) && _jsx("small", { children: keepCodesTogether(coverRow.line.code) })] })] }))] })] }) }), selectionPages.map((pageRows, pageIndex) => {
                     const isLast = pageIndex === selectionPages.length - 1;
-                    const start = pageIndex * SELECTION_ROWS_PER_PAGE;
+                    // Halaman tidak lagi seragam (halaman terakhir bisa lebih pendek) — nomor urut dihitung dari halaman-halaman sebelumnya.
+                    const start = selectionPages.slice(0, pageIndex).reduce((n, p) => n + p.length, 0);
                     return (_jsx(Sheet, { n: nextPage(), children: _jsxs("div", { className: styles.selectionPage, children: [_jsxs("div", { className: styles.sectionHead, children: [_jsxs("div", { children: [_jsx("p", { className: styles.eyebrow, children: m.proposalSelectionKicker }), _jsx("h2", { children: m.proposalSelectionTitle })] }), _jsx("p", { children: m.proposalProductsCount.replace("{n}", String(rows.length)) })] }), _jsx("div", { className: styles.selectionList, children: pageRows.map((row, index) => (_jsxs("article", { className: styles.selectionRow, children: [_jsx("span", { className: styles.selectionNo, children: String(start + index + 1).padStart(2, "0") }), _jsx(Photo, { src: row.photos[0], alt: row.line.name, className: styles.selectionPhoto }), _jsxs("div", { className: styles.selectionIdentity, children: [_jsx("strong", { children: keepCodesTogether(row.line.name) }), !codeAlreadyInName(row.line.name, row.line.code) && _jsx("small", { children: keepCodesTogether(row.line.code) }), row.line.colorCode && _jsxs("small", { children: [m.color, ": ", row.line.colorCode] }), row.product?.size && _jsx("small", { children: row.product.size })] }), _jsxs("div", { className: styles.selectionMetric, children: [_jsx("span", { children: m.proposalColQty }), _jsx("strong", { className: styles.num, children: row.line.qty })] }), _jsxs("div", { className: styles.selectionMetric, children: [_jsx("span", { children: m.proposalColUnit }), _jsx("strong", { className: styles.num, children: formatIDR(row.line.unitPrice) })] }), _jsxs("div", { className: `${styles.selectionMetric} ${styles.selectionMetricTotal}`, children: [_jsx("span", { children: m.proposalColTotal }), _jsx("strong", { className: styles.num, children: formatIDR(row.amount) })] })] }, row.key))) }), isLast && _jsx("div", { className: styles.selectionTotals, children: totals })] }) }, `selection-${pageIndex}`));
                 }), storySpreads.map((spread, spreadIndex) => (_jsx(Sheet, { n: nextPage(), children: _jsxs("div", { className: styles.storyPage, children: [_jsxs("div", { className: styles.storyPageHead, children: [_jsx("p", { className: styles.eyebrow, children: m.proposalCollectionKicker }), _jsx("p", { children: spread.items.map((item) => String(item.no).padStart(2, "0")).join(" · ") })] }), spread.kind === "feature" && (_jsx("div", { className: styles.spreadFeature, children: _jsx(ProductStory, { item: spread.items[0], variant: "feature", labels: storyLabels }) })), spread.kind === "leadTrio" && (_jsxs("div", { className: styles.spreadLeadTrio, children: [_jsx(ProductStory, { item: spread.items[0], variant: "lead", labels: storyLabels }), _jsxs("div", { className: styles.spreadSideStack, children: [_jsx(ProductStory, { item: spread.items[1], variant: "compact", labels: storyLabels }), _jsx(ProductStory, { item: spread.items[2], variant: "compact", labels: storyLabels })] })] })), spread.kind === "trio" && (_jsxs("div", { className: styles.spreadTrio, children: [_jsx(ProductStory, { item: spread.items[0], variant: "lead", labels: storyLabels }), _jsxs("div", { className: styles.spreadSideStack, children: [_jsx(ProductStory, { item: spread.items[1], variant: "compact", labels: storyLabels }), _jsx(ProductStory, { item: spread.items[2], variant: "compact", labels: storyLabels })] })] })), spread.kind === "duo" && (_jsx("div", { className: styles.spreadDuo, children: spread.items.map((item) => (_jsx(ProductStory, { item: item, variant: "duo", labels: storyLabels }, item.row.line.productId))) }))] }) }, `story-${spreadIndex}`))), galleryStories.map((story) => {
                     const extra = story.row.photos.slice(1, 5);

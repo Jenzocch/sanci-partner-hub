@@ -23,6 +23,9 @@ export type ProposalHandoff = {
   totalDiscountAmount: number;
   markupPct: number | null;
   cashDiscount: number;
+  /** Biaya tambahan opsional (ongkir dll.); null/0 = tidak dicetak. Sudah termasuk di finalAmount. */
+  extraFeeLabel: string | null;
+  extraFeeAmount: number;
   finalAmount: number;
 };
 
@@ -84,6 +87,8 @@ export function readProposalHandoff(): ProposalHandoff | null {
       totalDiscountAmount: typeof parsed.totalDiscountAmount === "number" ? parsed.totalDiscountAmount : 0,
       markupPct: typeof parsed.markupPct === "number" ? parsed.markupPct : null,
       cashDiscount: typeof parsed.cashDiscount === "number" ? parsed.cashDiscount : 0,
+      extraFeeLabel: typeof parsed.extraFeeLabel === "string" && parsed.extraFeeLabel.trim() ? parsed.extraFeeLabel : null,
+      extraFeeAmount: typeof parsed.extraFeeAmount === "number" && parsed.extraFeeAmount > 0 ? parsed.extraFeeAmount : 0,
       finalAmount: typeof parsed.finalAmount === "number" ? parsed.finalAmount : 0,
     };
   } catch {

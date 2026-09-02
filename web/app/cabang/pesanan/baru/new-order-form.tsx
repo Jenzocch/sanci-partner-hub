@@ -731,6 +731,13 @@ export default function NewOrderForm({
           <p className="small muted" style={{ marginTop: 6, marginBottom: 0 }}>
             {m.cabang.calcHandoffScopeHint}
           </p>
+          {calcHandoff.extraFeeAmount > 0 && (
+            <p className="small" style={{ marginTop: 6, marginBottom: 0 }}>
+              {m.common.calcExtraFeeNotInOffer
+                .replace("{label}", calcHandoff.extraFeeLabel ?? m.common.proposalExtraFeeDefault)
+                .replace("{amount}", formatIDR(calcHandoff.extraFeeAmount))}
+            </p>
+          )}
           <div className="btnrow-inline">
             <button type="button" className="btn sm primary" onClick={handleUseCalcHandoff}>
               {m.cabang.calcHandoffApplyCta}

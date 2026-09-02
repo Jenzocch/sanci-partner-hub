@@ -41,10 +41,22 @@ export function computeChainFinal(
   base: number,
   discountPcts: number[],
   markupPct: number,
-  cashDiscount: number
+  cashDiscount: number,
+  /**
+   * Biaya tambahan opsional (ongkir, pemasangan, dll.) yang diisi manual di
+   * Kalkulator. Ditambahkan SESUDAH seluruh rantai — tidak pernah kena
+   * diskon/markup — dan BUKAN bagian rumus 0015 di database: penawaran
+   * pesanan (setOrderOffer) tidak punya slot untuknya, jadi biaya ini hanya
+   * hidup di Kalkulator dan Proposal. Nilainya sudah rupiah bulat
+   * (parseIDRInput), jadi menambahkannya di luar Math.round tidak mengubah
+   * aturan "satu kali round di akhir" untuk rantainya sendiri.
+   */
+  extraFee: number = 0
 ): number {
-  return Math.round(
-    base * discountChainMultiplier(discountPcts) * (1 + markupPct / 100) - cashDiscount
+  return (
+    Math.round(
+      base * discountChainMultiplier(discountPcts) * (1 + markupPct / 100) - cashDiscount
+    ) + Math.round(extraFee)
   );
 }
 
@@ -90,9 +102,17 @@ export type CalcCartState = {
   discountSlots: string[];
   markup: string;
   cash: string;
+  /**
+   * Biaya tambahan opsional — label bebas ("Ongkir", "Pemasangan") + nominal
+   * mentah. Keduanya boleh kosong; kosong berarti tidak dihitung dan tidak
+   * dicetak di Proposal (permintaan owner: "沒有填 就空白").
+   */
+  feeLabel: string;
+  feeAmount: string;
 };
 
 export const CALC_MAX_DISCOUNT_SLOTS = 6;
+export const CALC_FEE_LABEL_MAX = 60;
 export const CALC_MAX_QTY = 999_999;
 
 /* ------------------------------------------------------------------ *
@@ -115,7 +135,7 @@ export type FetchColorsResult =
 export type FetchColorsFn = (productId: string) => Promise<FetchColorsResult>;
 
 export function emptyCartState(): CalcCartState {
-  return { lines: [], discountSlots: [""], markup: "", cash: "" };
+  return { lines: [], discountSlots: [""], markup: "", cash: "", feeLabel: "", feeAmount: "" };
 }
 
 function cartStateIsEmpty(v: CalcCartState): boolean {
@@ -123,7 +143,9 @@ function cartStateIsEmpty(v: CalcCartState): boolean {
     v.lines.length === 0 &&
     v.discountSlots.every((s) => s.trim() === "") &&
     v.markup.trim() === "" &&
-    v.cash.trim() === ""
+    v.cash.trim() === "" &&
+    v.feeLabel.trim() === "" &&
+    v.feeAmount.trim() === ""
   );
 }
 
@@ -199,6 +221,8 @@ export function readCalcDraft(area: CalcArea): CalcDraft | null {
       discountSlots: discountSlots.length ? discountSlots : [""],
       markup: typeof s.markup === "string" ? s.markup : "",
       cash: typeof s.cash === "string" ? s.cash : "",
+      feeLabel: typeof s.feeLabel === "string" ? s.feeLabel : "",
+      feeAmount: typeof s.feeAmount === "string" ? s.feeAmount : "",
     };
     if (cartStateIsEmpty(state)) return null;
     return { savedAt: parsed.savedAt, state };
@@ -256,6 +280,10 @@ export type CalcHandoff = {
   discountPcts: number[];
   markupPct: number | null;
   cashDiscount: number;
+  /** Label biaya tambahan; null kalau kosong. Lihat computeChainFinal(). */
+  extraFeeLabel: string | null;
+  /** Nominal biaya tambahan; 0 = tidak ada. SUDAH termasuk di finalAmount. */
+  extraFeeAmount: number;
   finalAmount: number;
   lines: CalcHandoffLine[];
 };
@@ -304,6 +332,8 @@ export function readCalcHandoff(area: CalcArea): CalcHandoff | null {
       discountPcts: parsed.discountPcts.filter((n): n is number => typeof n === "number"),
       markupPct: typeof parsed.markupPct === "number" ? parsed.markupPct : null,
       cashDiscount: typeof parsed.cashDiscount === "number" ? parsed.cashDiscount : 0,
+      extraFeeLabel: typeof parsed.extraFeeLabel === "string" && parsed.extraFeeLabel.trim() ? parsed.extraFeeLabel : null,
+      extraFeeAmount: typeof parsed.extraFeeAmount === "number" && parsed.extraFeeAmount > 0 ? parsed.extraFeeAmount : 0,
       finalAmount: typeof parsed.finalAmount === "number" ? parsed.finalAmount : parsed.subtotal,
       lines,
     };
