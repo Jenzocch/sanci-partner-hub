@@ -3,6 +3,8 @@ import "./globals.css";
 import SwRegister from "./sw-register";
 import { getLocale } from "@/lib/i18n";
 
+const BRAND_ICON = "/brand/sanci-partner-mark.svg?v=20260902-1";
+
 export const metadata: Metadata = {
   title: "SANCI Partner System",
   description: "Kolaborasi SANCI dengan toko furnitur mitra",
@@ -12,7 +14,9 @@ export const metadata: Metadata = {
     title: "SANCI Partner System",
   },
   icons: {
-    apple: "/icons/apple-touch-icon.png",
+    icon: [{ url: BRAND_ICON, type: "image/svg+xml" }],
+    shortcut: BRAND_ICON,
+    apple: "/icons/apple-touch-icon.png?v=20260902-1",
   },
 };
 
