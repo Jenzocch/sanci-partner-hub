@@ -69,8 +69,31 @@ Repo → Settings → Secrets and variables → Actions:
 | Nama | Isi | Dipakai untuk |
 |---|---|---|
 | `SUPABASE_DB_URL` | connection string **Session pooler** dengan kata sandi basis data | `pg_dump` |
+
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key | mengunduh isi bucket |
 | `SUPABASE_URL` | *opsional* — hanya kalau URL proyek tidak bisa diturunkan dari `SUPABASE_DB_URL` | Storage API |
+
+### Bentuk `SUPABASE_DB_URL` yang benar
+
+Salin dari Dashboard → **Connect** → **Session pooler**. Nama penggunanya
+**`postgres.<project-ref>`**, bukan `postgres` saja:
+
+```
+postgresql://postgres.abcdefghijklmnop:KATASANDI@aws-0-<region>.pooler.supabase.com:5432/postgres
+```
+
+Dua kesalahan yang paling sering terjadi, dan keduanya dijawab server dengan
+pesan menyesatkan `password authentication failed` (terjadi di run pertama
+2026-09-04):
+
+1. nama pengguna ditulis `postgres` saja padahal hostnya pooler;
+2. teks `[YOUR-PASSWORD]` tidak diganti kata sandi sungguhan.
+
+Alur kerjanya kini memeriksa kedua hal itu lebih dulu dan menjelaskannya
+dengan kalimat yang benar. Kalau kata sandi memuat karakter `@ : / ? # &`,
+karakter itu harus di-*percent-encode* (mis. `@` → `%40`) — atau ganti kata
+sandinya di Dashboard → Settings → Database → Reset database password dengan
+yang tanpa karakter itu.
 
 Ketiganya hanya dibaca oleh GitHub Actions. Kunci `service_role` **tidak
 pernah** masuk ke kode frontend (lihat `docs/SECURITY_AUDIT.md`).

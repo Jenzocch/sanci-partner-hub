@@ -66,12 +66,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pastikan secret terisi
+      - name: Pastikan secret terisi dan bentuknya benar
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           if [ -z "$DB_URL" ]; then
             echo "::error::Secret SUPABASE_DB_URL belum diisi (Settings -> Secrets and variables -> Actions)."
+            exit 1
+          fi
+          # Dua salah ketik yang paling sering terjadi, dijelaskan SEBELUM
+          # server menjawab "password authentication failed" — pesan itu
+          # menyesatkan, karena penyebabnya biasanya bukan kata sandinya.
+          if printf '%s' "$DB_URL" | grep -q '\[YOUR-PASSWORD\]'; then
+            echo "::error::SUPABASE_DB_URL masih memuat teks [YOUR-PASSWORD] — ganti dengan kata sandi basis data yang sungguhan."
+            exit 1
+          fi
+          if printf '%s' "$DB_URL" | grep -q 'pooler\.supabase\.com' \
+             && ! printf '%s' "$DB_URL" | grep -q '://postgres\.[a-z0-9]\{16,\}:'; then
+            echo "::error::Host pooler dipakai, tetapi nama penggunanya bukan postgres.<project-ref>. Salin ulang string dari Dashboard -> Connect -> Session pooler (nama penggunanya BUKAN 'postgres' saja)."
             exit 1
           fi
 
@@ -82,7 +94,14 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
-          pg_dump --version
+          # WAJIB: runner sudah punya klien 16, dan `update-alternatives`
+          # membiarkan /usr/bin/pg_dump menunjuk ke versi 16 itu. pg_dump 16
+          # MENOLAK server 17 ("server version mismatch"), jadi memasang
+          # paketnya saja tidak cukup — jalurnya harus didahulukan. Terbukti
+          # di run pertama: `pg_dump --version` masih menjawab 16.15 sesudah
+          # postgresql-client-17 terpasang.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Ambil cadangan
         env:
@@ -124,6 +143,16 @@ jobs:
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
             echo "Bukan Minggu — berkas Storage dilewati (jadwalnya mingguan)."
+          fi
+
+      - name: Pastikan secret Storage terisi
+        if: steps.gate.outputs.run == 'true'
+        env:
+          SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SERVICE_ROLE_KEY" ]; then
+            echo "::error::Secret SUPABASE_SERVICE_ROLE_KEY belum diisi. Dashboard -> Settings -> API -> service_role, lalu simpan di Settings -> Secrets and variables -> Actions dengan nama PERSIS SUPABASE_SERVICE_ROLE_KEY."
+            exit 1
           fi
 
       - name: Unduh isi bucket
