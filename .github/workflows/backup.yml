@@ -87,6 +87,40 @@ jobs:
             exit 1
           fi
 
+      - name: Laporkan BENTUK kata sandi (kata sandinya sendiri tidak dicetak)
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # Run 5 (2026-09-04) gagal lagi dengan "password authentication
+          # failed" padahal secret-nya baru saja diperbarui. Server tidak bisa
+          # membedakan TIGA hal yang berbeda: kata sandinya memang salah,
+          # kata sandinya benar tetapi ikut terbawa spasi/baris baru waktu
+          # ditempel, atau kata sandi di Dashboard tidak pernah benar-benar
+          # jadi diganti. Langkah ini melaporkan BENTUKNYA — panjang dan jenis
+          # karakter — supaya bisa dicocokkan dengan yang disetel di Dashboard.
+          # Kata sandinya sendiri TIDAK PERNAH dicetak.
+          # `grep` TIDAK bisa dipakai di sini: baris baru di ujung dianggap
+          # penutup baris, bukan isi, jadi lolos tanpa terdeteksi (diuji
+          # 2026-09-04). Menghitung bita non-cetak menangkapnya.
+          ctrl=$(printf '%s' "$DB_URL" | LC_ALL=C tr -d '[:print:]' | wc -c | tr -d ' ')
+          if [ "$ctrl" -ne 0 ]; then
+            echo "::error::SUPABASE_DB_URL memuat $ctrl karakter tak-tercetak (baris baru / carriage return / tab) — biasanya ikut terbawa waktu menempel. Tempel ulang sebagai SATU baris."
+            exit 1
+          fi
+          userinfo="${DB_URL#*://}"   # buang skema
+          userinfo="${userinfo%@*}"   # buang host (memakai @ TERAKHIR)
+          pass="${userinfo#*:}"       # buang nama pengguna
+          echo "Panjang kata sandi di dalam secret: $(printf '%s' "$pass" | wc -c | tr -d ' ') karakter"
+          case "$pass" in
+            *" "*|*"\t"*)
+              echo "::error::Kata sandi di dalam secret memuat spasi — hampir pasti ikut terbawa waktu menempel."
+              exit 1 ;;
+          esac
+          case "$pass" in
+            *[@:/?\#%\&]*)
+              echo "::warning::Kata sandi memuat karakter yang WAJIB di-percent-encode di dalam URL (@ : / ? # % &). Kalau sambungannya gagal, kemungkinan besar itu sebabnya." ;;
+          esac
+
       - name: Pasang klien PostgreSQL 17
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
