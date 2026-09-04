@@ -24,6 +24,18 @@ luar galat "schema public sudah ada" yang memang selalu terjadi, alur kerjanya
 "Verifikasi" di `MANIFEST.txt`, lengkap dengan jumlah view/policy/fungsi/index
 yang ikut pulih. Cadangan tanpa baris itu belum tentu utuh.
 
+Lingkungan verifikasinya lebih dulu dibuat MENYERUPAI proyek Supabase: skema
+`auth` (tabel `auth.users` plus `auth.uid()`/`auth.role()`/`auth.jwt()`) dibuat
+di Postgres kosong itu, dan daftar akun dari `auth-users.csv` dimuat ke
+dalamnya. Alasannya bukan supaya ujiannya lebih mudah lulus, melainkan
+sebaliknya: skema `public` menunjuk keluar ke `auth` — kunci asing ke
+`auth.users`, policy RLS yang memanggil `auth.uid()`. Di Postgres polos
+semuanya gagal dipulihkan, dan bentuk kegagalannya berbahaya — jumlah baris
+tetap COCOK SEMPURNA sementara seluruh kunci asing dan policy RLS hilang
+(diukur: 0 policy, 0 kunci asing, jumlah baris tetap benar). `MANIFEST.txt`
+karena itu ikut mencatat jumlah kunci asing ke `auth.users`; angka nol di situ
+berarti cadangannya tidak seutuh yang terlihat.
+
 Berkas Storage ditelusuri **sampai ke dalam folder**. `object/list` milik
 Supabase hanya mengembalikan satu tingkat — berkas punya `id`, folder `id`-nya
 null — jadi foto yang tersimpan sebagai `product-photos/<order-id>/foto.jpg`
