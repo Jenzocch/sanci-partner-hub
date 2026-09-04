@@ -103,6 +103,36 @@ jobs:
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
           /usr/lib/postgresql/17/bin/pg_dump --version
 
+      - name: Uji sambungan (menerjemahkan pesan galat server)
+        env:
+          PGCONNECT_TIMEOUT: "30"
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # Supavisor (pooler Supabase) menyambung ke basis data sebagai
+          # pengguna `postgres` SESUDAH memakai bagian `.<project-ref>` untuk
+          # memilih tenant. Akibatnya pesan galatnya menyebut user "postgres"
+          # untuk DUA sebab yang sangat berbeda, dan itu menyesatkan (run 1
+          # dan 2 pada 2026-09-04 dua-duanya berhenti di sini):
+          #   - "Tenant or user not found"       -> nama penggunanya salah
+          #   - "password authentication failed" -> KATA SANDI-nya yang salah,
+          #     nama penggunanya sudah benar (tenant ketemu)
+          # Langkah ini menuliskan kesimpulan itu apa adanya supaya tidak ada
+          # yang membuang waktu memperbaiki bagian yang sudah benar.
+          if err=$(psql "$DB_URL" --no-psqlrc -tAc 'select 1' 2>&1); then
+            echo "Sambungan OK."
+            exit 0
+          fi
+          echo "$err"
+          case "$err" in
+            *"Tenant or user not found"*)
+              echo "::error::Nama pengguna salah. Harus postgres.<project-ref> (Dashboard -> Connect -> Session pooler)." ;;
+            *"password authentication failed"*)
+              echo "::error::Nama pengguna SUDAH benar (tenant ditemukan), yang salah KATA SANDI-nya. Setel ulang di Dashboard -> Settings -> Database -> Reset database password, pakai huruf+angka saja, lalu perbarui secret SUPABASE_DB_URL. Kalau kata sandi memuat @ : / ? # % &, karakter itu WAJIB di-percent-encode di dalam URL." ;;
+            *)
+              echo "::error::Tidak bisa menyambung ke basis data. Lihat pesan di atas." ;;
+          esac
+          exit 1
+
       - name: Ambil cadangan
         env:
           PGCONNECT_TIMEOUT: "30"

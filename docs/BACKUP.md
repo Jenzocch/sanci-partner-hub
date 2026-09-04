@@ -82,12 +82,19 @@ Salin dari Dashboard → **Connect** → **Session pooler**. Nama penggunanya
 postgresql://postgres.abcdefghijklmnop:KATASANDI@aws-0-<region>.pooler.supabase.com:5432/postgres
 ```
 
-Dua kesalahan yang paling sering terjadi, dan keduanya dijawab server dengan
-pesan menyesatkan `password authentication failed` (terjadi di run pertama
-2026-09-04):
+Pooler (Supavisor) memakai `.<project-ref>` untuk memilih tenant lalu
+menyambung ke basis data sebagai pengguna `postgres`. Karena itu pesan
+galatnya SELALU menyebut user `"postgres"` — untuk dua sebab yang berbeda:
 
-1. nama pengguna ditulis `postgres` saja padahal hostnya pooler;
-2. teks `[YOUR-PASSWORD]` tidak diganti kata sandi sungguhan.
+| Pesan server | Artinya sebenarnya |
+|---|---|
+| `Tenant or user not found` | nama penggunanya salah (kurang `.<project-ref>`) |
+| `password authentication failed for user "postgres"` | nama pengguna **sudah benar**, **kata sandinya** yang salah |
+
+Alur kerjanya menguji sambungan lebih dulu dan menuliskan terjemahan itu,
+supaya tidak ada yang memperbaiki bagian yang sudah benar. Kata sandi basis
+data bukan kata sandi akun Supabase; kalau lupa, setel ulang di Dashboard →
+Settings → Database → **Reset database password**.
 
 Alur kerjanya kini memeriksa kedua hal itu lebih dulu dan menjelaskannya
 dengan kalimat yang benar. Kalau kata sandi memuat karakter `@ : / ? # &`,
