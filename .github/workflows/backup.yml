@@ -1,0 +1,146 @@
+# Cadangan harian basis data + berkas Storage.
+#
+# KENAPA ADA: paket Supabase Free TIDAK punya cadangan sama sekali (dicek di
+# Dashboard 2026-09-04: "Free Plan does not include project backups"). Alur
+# kerja ini adalah SATU-SATUNYA cadangan yang dimiliki sistem ini sampai
+# proyeknya naik ke paket Pro. Ia sengaja TIDAK menulis apa pun ke Supabase —
+# hanya membaca.
+#
+# APA YANG DIHASILKAN (artifact GitHub, disimpan 90 hari — lebih panjang dari
+# 7 hari milik paket Pro):
+#   db-YYYY-MM-DD/
+#     full.dump        pg_dump -Fc  (skema public: struktur + SELURUH data)
+#     schema.sql       pg_dump -s   (bisa dibaca mata manusia saat diperiksa)
+#     auth-users.csv   id/email/waktu akun (TANPA kata sandi — hash tidak
+#                      pernah ikut; akun dibuat ulang lewat Dashboard)
+#     MANIFEST.txt     jumlah baris per tabel + hasil verifikasi restore
+#   storage-YYYY-MM-DD/  isi ketiga bucket (mingguan / saat diminta)
+#
+# YANG TIDAK TERCAKUP (jujur, jangan sampai dikira ikut):
+#   - kata sandi pengguna (hash auth.users) — akun dibuat ulang manual;
+#   - Edge Function secrets & pengaturan proyek di Dashboard;
+#   - riwayat WAL (tidak ada point-in-time recovery di paket Free).
+#
+# CARA MEMULIHKAN: lihat docs/BACKUP.md.
+name: Backup
+
+on:
+  schedule:
+    # 19:10 UTC = 02:10 WIB — setelah jam kerja, sebelum shift pagi.
+    - cron: "10 19 * * *"
+  workflow_dispatch:
+    inputs:
+      include_storage:
+        description: "Ikut mencadangkan berkas Storage (foto/logo/invoice)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    name: Cadangan basis data
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      # Postgres kosong untuk MEMBUKTIKAN cadangannya benar-benar bisa
+      # dipulihkan. Tanpa langkah ini yang kita punya cuma berkas yang
+      # BENTUKNYA seperti cadangan (LESSONS #7: pesan sukses bukan bukti).
+      verify:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: verify
+          POSTGRES_DB: verify
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+        ports:
+          - 5433:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pastikan secret terisi
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "::error::Secret SUPABASE_DB_URL belum diisi (Settings -> Secrets and variables -> Actions)."
+            exit 1
+          fi
+
+      - name: Pasang klien PostgreSQL 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Ambil cadangan
+        env:
+          PGCONNECT_TIMEOUT: "30"
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: bash scripts/backup-db.sh
+
+      - name: Verifikasi dengan memulihkan ke Postgres kosong
+        env:
+          VERIFY_URL: postgresql://postgres:verify@127.0.0.1:5433/verify
+        run: bash scripts/verify-restore.sh
+
+      - name: Ringkasan
+        run: cat out/db/MANIFEST.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db-${{ github.run_id }}
+          path: out/db
+          retention-days: 90
+          if-no-files-found: error
+
+  storage:
+    name: Cadangan berkas Storage
+    # Mingguan (Minggu) atau saat dijalankan manual dengan centang.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '10 19 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lewati kalau bukan hari Minggu (jadwal harian)
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=${{ inputs.include_storage }}" >> "$GITHUB_OUTPUT"
+          elif [ "$(date -u +%u)" = "7" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Bukan Minggu — berkas Storage dilewati (jadwalnya mingguan)."
+          fi
+
+      - name: Unduh isi bucket
+        if: steps.gate.outputs.run == 'true'
+        env:
+          # URL proyek diturunkan dari nama pengguna pooler (postgres.<ref>)
+          # supaya tidak perlu secret ketiga; SUPABASE_URL boleh dipasang
+          # untuk menimpanya kalau suatu saat bentuknya berubah.
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: bash scripts/backup-storage.sh
+
+      - uses: actions/upload-artifact@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          name: storage-${{ github.run_id }}
+          path: out/storage
+          retention-days: 90
+          if-no-files-found: error
