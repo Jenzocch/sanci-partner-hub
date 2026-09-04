@@ -24,6 +24,17 @@ luar galat "schema public sudah ada" yang memang selalu terjadi, alur kerjanya
 "Verifikasi" di `MANIFEST.txt`, lengkap dengan jumlah view/policy/fungsi/index
 yang ikut pulih. Cadangan tanpa baris itu belum tentu utuh.
 
+Berkas Storage ditelusuri **sampai ke dalam folder**. `object/list` milik
+Supabase hanya mengembalikan satu tingkat — berkas punya `id`, folder `id`-nya
+null — jadi foto yang tersimpan sebagai `product-photos/<order-id>/foto.jpg`
+hanya ikut kalau folder itu ditelusuri satu per satu. `MANIFEST.txt` mencatat
+jumlah berkas DAN jumlah folder tiap bucket supaya angka nol bisa dibaca:
+
+| Yang tertulis di MANIFEST | Artinya |
+|---|---|
+| `0 berkas (0 folder)` | Bucket-nya memang kosong. Alur kerja lolos dengan peringatan — cadangan ini tidak berisi foto apa pun. |
+| `0 berkas (n folder)` | Penelusurannya rusak, bukan bucket yang kosong. Alur kerja **GAGAL**. |
+
 ## Yang TIDAK ikut tercadangkan
 
 Jangan sampai dikira ikut:
