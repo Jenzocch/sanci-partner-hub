@@ -26,8 +26,15 @@ OUT="out/storage"
 mkdir -p "$OUT"
 export API="$SUPABASE_URL/storage/v1"
 AUTH=(-H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY")
+# Run 6 (2026-09-04) berhenti di tengah unduhan: Supabase menjawab 502 satu
+# kali, `curl --fail` keluar dengan kode 22, dan `set -e` membatalkan SELURUH
+# cadangan Storage yang sudah berjalan 1,5 menit. Ratusan berkas diunduh satu
+# per satu, jadi satu gangguan sesaat tidak boleh menggagalkan semuanya.
+# curl mengulang sendiri untuk galat sementara (408/429/500/502/503/504 dan
+# timeout) begitu --retry diberikan.
+RETRY=(--retry 5 --retry-delay 2 --retry-max-time 120 --connect-timeout 30)
 
-BUCKETS=$(curl -sS --fail "${AUTH[@]}" "$API/bucket" | python3 -c 'import sys,json; [print(b["name"]) for b in json.load(sys.stdin)]')
+BUCKETS=$(curl -sS --fail "${RETRY[@]}" "${AUTH[@]}" "$API/bucket" | python3 -c 'import sys,json; [print(b["name"]) for b in json.load(sys.stdin)]')
 echo "→ bucket ditemukan: $(echo "$BUCKETS" | tr "\n" " ")"
 
 # Menelusuri satu bucket SAMPAI KE DALAM FOLDER, lalu menuliskan setiap
@@ -41,7 +48,7 @@ echo "→ bucket ditemukan: $(echo "$BUCKETS" | tr "\n" " ")"
 # Cadangan yang diam-diam kosong lebih berbahaya daripada cadangan yang gagal.
 walk_bucket() {
   BUCKET="$1" python3 - <<'PY'
-import json, os, urllib.request
+import json, os, time, urllib.request
 
 api, bucket = os.environ["API"], os.environ["BUCKET"]
 key = os.environ["SERVICE_ROLE_KEY"]
@@ -53,8 +60,16 @@ def page(prefix, offset):
                                  headers={"apikey": key,
                                           "Authorization": "Bearer " + key,
                                           "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return json.load(r)
+    # Sama seperti curl di atas: 502 sesaat tidak boleh menggagalkan
+    # penelusuran yang sudah berjalan.
+    for percobaan in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return json.load(r)
+        except Exception:
+            if percobaan == 4:
+                raise
+            time.sleep(2 * (percobaan + 1))
 
 pending, seen, files, folders = [""], {""}, [], 0
 while pending:
@@ -98,7 +113,7 @@ for b in $BUCKETS; do
   while IFS= read -r key; do
     [ -z "$key" ] && continue
     mkdir -p "$OUT/$b/$(dirname "$key")"
-    curl -sS --fail "${AUTH[@]}" -o "$OUT/$b/$key" "$API/object/$b/$key"
+    curl -sS --fail "${RETRY[@]}" "${AUTH[@]}" -o "$OUT/$b/$key" "$API/object/$b/$key"
     n=$((n + 1))
   done < "$KEYS_FILE"
   echo "$b: $n berkas ($folders folder)" >> "$OUT/MANIFEST.txt"
