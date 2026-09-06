@@ -4,7 +4,7 @@
 // cache yang tidak pernah berubah berarti logika pembersihan di "activate"
 // tidak pernah menyala dan HTML /offline hasil install lama dipakai selamanya
 // (audit kecepatan muat 2026-08-22 #14).
-const SHELL_CACHE = "sanci-shell-v2";
+const SHELL_CACHE = "sanci-shell-v3";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -69,12 +69,22 @@ self.addEventListener("fetch", (event) => {
 
   // Page navigations: always prefer the network so data is never stale.
   // Cache is only a last resort when there is truly no connection.
+  //
+  // Audit 2026-09-06 (P1): `caches.match(request).then((cached) => cached) ||
+  // caches.match(OFFLINE_URL)` was dead code — `.then(...)` always returns a
+  // Promise object, which is truthy, so the `||` right-hand side never ran.
+  // Reproduced in Node: `Promise || fallback` always evaluates to the
+  // Promise. Since only OFFLINE_URL is ever cached (see install handler
+  // above), `caches.match(request)` misses for every other page, resolves to
+  // `undefined`, and `event.respondWith` received an invalid Response —
+  // users saw the browser's native offline error, never the crafted
+  // /offline card. Fixed by resolving the fallback inside the same .then().
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(
-        () =>
-          caches.match(request).then((cached) => cached) ||
-          caches.match(OFFLINE_URL),
+      fetch(request).catch(() =>
+        caches
+          .match(request)
+          .then((cached) => cached || caches.match(OFFLINE_URL)),
       ),
     );
     return;
