@@ -495,8 +495,7 @@ function fetchOrdersPage_(cfg, token, select, from, pageSize) {
     method: 'get',
     headers: restHeaders_(cfg, token, {
       'Range-Unit': 'items',
-      Range: from + '-' + to,
-      Prefer: 'count=exact'
+      Range: from + '-' + to
     }),
     muteHttpExceptions: true
   });
@@ -628,8 +627,7 @@ function fetchOffersPage_(cfg, token, select, from) {
     method: 'get',
     headers: restHeaders_(cfg, token, {
       'Range-Unit': 'items',
-      Range: from + '-' + (from + PAGE_SIZE - 1),
-      Prefer: 'count=exact'
+      Range: from + '-' + (from + PAGE_SIZE - 1)
     }),
     muteHttpExceptions: true
   });
@@ -647,24 +645,6 @@ function fetchOffersPage_(cfg, token, select, from) {
     return { status: 'error', code: code, body: text };
   }
   return { status: 'ok', rows: JSON.parse(text) };
-}
-
-/** "0-999/12345" → 12345. null kalau server memakai "*" atau header tidak ada. */
-function totalFromContentRange_(res) {
-  var headers = res.getAllHeaders();
-  var value = null;
-  for (var k in headers) {
-    if (Object.prototype.hasOwnProperty.call(headers, k) &&
-        k.toLowerCase() === 'content-range') {
-      value = headers[k];
-      break;
-    }
-  }
-  if (!value) return null;
-  var parts = String(value).split('/');
-  if (parts.length < 2 || parts[1] === '*') return null;
-  var n = parseInt(parts[1], 10);
-  return isNaN(n) ? null : n;
 }
 
 // ── Dokumen (SO/DO/Invoice), item pesanan, dan status kirim ─
