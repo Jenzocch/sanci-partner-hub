@@ -267,6 +267,17 @@ function runSync_() {
       Logger.log('TAB "' + COLORS_TAB_NAME + '" GAGAL: ' + errColors);
     }
   }
+  // Tab "Dokumen" butuh KEDUA tabel 0016. Kalau salah satu belum ada, tab ini
+  // dilewati sepenuhnya (tidak dibuat kosong) — pola sama dengan "Warna".
+  if (docs.available && coverage.available) {
+    try {
+      writeDocumentsTab_(ss, docs.rows, coverage.rows, itemsFetch.rows, orders);
+      archiveTabs++;
+    } catch (errDocs) {
+      archiveFailed++;
+      Logger.log('TAB "' + DOCS_TAB_NAME + '" GAGAL: ' + errDocs);
+    }
+  }
   // colorsFetch.available === false: TIDAK dihitung sebagai archiveFailed —
   // itu bukan kegagalan, hanya migrasi 0025 yang belum jalan (log sudah
   // ditulis oleh fetchProductColors_ di atas).
@@ -278,6 +289,7 @@ function runSync_() {
     'penawaran: ' + countKeys_(offers) + ' baris, ' +
     'dokumen: ' + (docs.available ? countKeys_(docs.byOrder) + ' pesanan berdokumen' : 'belum dimigrasikan') + ', ' +
     'item: ' + itemsFetch.rows.length + ' baris, ' +
+    'baris dokumen: ' + (coverage.available ? coverage.rows.length + ' baris' : 'belum dimigrasikan') + ', ' +
     'warna: ' + (colorsFetch.available ? colorsFetch.rows.length + ' baris' : 'belum dimigrasikan') + ', ' +
     'tab arsip: ' + archiveTabs + ' OK / ' + archiveFailed + ' gagal, ' +
     seconds.toFixed(1) + ' detik. Zona waktu lembar: ' + tz + '.');
@@ -686,11 +698,15 @@ function fetchTableAll_(cfg, token, table, select, orderBy) {
  * hanya satu nomor akan menyembunyikan pengiriman kedua dan seterusnya.
  */
 function fetchDocsByOrderId_(cfg, token) {
-  var out = { byOrder: {}, doDocIds: {}, available: false };
+  var out = { byOrder: {}, doDocIds: {}, rows: [], available: false };
   var res = fetchTableAll_(cfg, token, 'order_documents',
     'id,order_id,doc_type,doc_number,doc_date', 'doc_date.asc,id.asc');
   if (res.status === 'missing-table') return out;
   out.available = true;
+  // Baris mentahnya DISIMPAN, bukan hanya ringkasannya: tab "Dokumen"
+  // membutuhkan tiap dokumen sebagai dirinya sendiri, dan datanya sudah ada
+  // di tangan — membuangnya berarti memintanya lagi nanti tanpa alasan.
+  out.rows = res.rows;
   for (var i = 0; i < res.rows.length; i++) {
     var d = res.rows[i];
     if (!Object.prototype.hasOwnProperty.call(out.byOrder, d.order_id)) {
@@ -724,13 +740,16 @@ function fetchDoCoverage_(cfg, token, doDocIds) {
   var covered = {};
   var res = fetchTableAll_(cfg, token, 'order_document_items',
     'document_id,order_item_id,quantity', 'document_id.asc,order_item_id.asc');
-  if (res.status === 'missing-table') return { covered: covered, available: false };
+  if (res.status === 'missing-table') return { covered: covered, rows: [], available: false };
   for (var i = 0; i < res.rows.length; i++) {
     var r = res.rows[i];
     if (!doDocIds[r.document_id]) continue;   // Invoice/SO tidak menandakan pengiriman
     covered[r.order_item_id] = (covered[r.order_item_id] || 0) + Number(r.quantity || 0);
   }
-  return { covered: covered, available: true };
+  // `covered` menjumlahkan lintas dokumen (dipakai kolom "Sudah DO").
+  // `rows` mempertahankan DOKUMEN MANA tiap kuantitas berasal — itulah yang
+  // membuat satu Surat Jalan bisa disusun ulang utuh di tab "Dokumen".
+  return { covered: covered, rows: res.rows, available: true };
 }
 
 /**
@@ -1023,6 +1042,126 @@ function writeColorsTab_(ss, colors) {
     ]);
   }
   writeArchiveTab_(ss, COLORS_TAB_NAME, COLORS_HEADERS, rows);
+}
+
+var DOCS_TAB_NAME = 'Dokumen';
+var DOC_TYPE_LABEL = { SO: 'SO', DO: 'Surat Jalan (DO)', INVOICE: 'Invoice' };
+
+/**
+ * Satu baris = SATU BARIS ISI dari SATU dokumen (SO / Surat Jalan / Invoice).
+ *
+ * KENAPA TAB INI ADA, padahal nomor DO dan Invoice sudah muncul di tab partner
+ * dan "Item Pesanan": di sana keduanya adalah RINGKASAN PER PESANAN — nomor
+ * DO disambung dengan "+", tanggalnya yang terakhir, kuantitasnya dijumlahkan
+ * lintas semua DO. Ringkasan itu menjawab "pesanan ini sudah terkirim berapa",
+ * tetapi TIDAK bisa menjawab "Surat Jalan DO-002 itu isinya apa saja". Untuk
+ * pengiriman sebagian — yang memang dirancang sejak 0016 — perbedaan itu
+ * adalah seluruh isi dokumennya.
+ *
+ * Tab ini menyimpan tiap dokumen sebagai dirinya sendiri, supaya setiap Surat
+ * Jalan dan Invoice bisa dibaca ulang utuh oleh orang yang tidak bisa
+ * memulihkan pg_dump.
+ *
+ * "Jumlah di Dokumen" vs "Jumlah di Pesanan" sengaja BERDAMPINGAN: selisih
+ * keduanya adalah pengiriman sebagian, dan menaruhnya di satu baris membuat
+ * hal itu terbaca tanpa menghitung apa pun.
+ */
+var DOCS_HEADERS = [
+  'Jenis Dokumen',
+  'No. Dokumen',
+  'Tgl Dokumen',
+  'Nomor Pesanan',
+  'Partner',
+  'Cabang',
+  'Pelanggan',
+  'Kode Produk',
+  'Nama Produk',
+  'Ukuran',
+  'Warna',
+  'Jumlah di Dokumen',
+  'Jumlah di Pesanan',
+  'Harga Satuan (IDR)',
+  'Total Baris (IDR)',
+  'Catatan Dokumen'
+];
+
+function writeDocumentsTab_(ss, docRows, docItemRows, itemRows, orders) {
+  var orderById = {};
+  for (var i = 0; i < orders.length; i++) orderById[orders[i].id] = orders[i];
+  var itemById = {};
+  for (var j = 0; j < itemRows.length; j++) itemById[itemRows[j].id] = itemRows[j];
+
+  // hasOwnProperty, bukan `if (!map[x])`: kuncinya adalah uuid dari data, dan
+  // pola ini sudah menjadi aturan di berkas ini (lihat byPartner di runSync_).
+  var linesByDoc = {};
+  for (var k = 0; k < docItemRows.length; k++) {
+    var li = docItemRows[k];
+    if (!Object.prototype.hasOwnProperty.call(linesByDoc, li.document_id)) {
+      linesByDoc[li.document_id] = [];
+    }
+    linesByDoc[li.document_id].push(li);
+  }
+
+  // Diurutkan di sini, bukan mengandalkan urutan PostgREST: tab ini dibaca
+  // manusia yang mencari satu nomor dokumen, dan urutan tanggal lalu nomor
+  // adalah cara dokumen kertas itu sendiri disimpan di kantor.
+  var sorted = docRows.slice().sort(function (a, b) {
+    var da = a.doc_date || '', db = b.doc_date || '';
+    if (da !== db) return da < db ? -1 : 1;
+    var na = a.doc_number || '', nb = b.doc_number || '';
+    return na === nb ? 0 : (na < nb ? -1 : 1);
+  });
+
+  var rows = [];
+  for (var d = 0; d < sorted.length; d++) {
+    var doc = sorted[d];
+    var o = orderById[doc.order_id];
+    var customer = o ? pickOne_(o.customers) : null;
+    var branch = o ? pickOne_(o.partner_branches) : null;
+    // Dokumen yang pesanannya tidak ikut terbaca TIDAK dilewati (beda dari
+    // "Item Pesanan"): dokumen penjualan yang sudah tercetak dan dikirim ke
+    // pelanggan tetap harus muncul di arsip, walau kolom pesanannya kosong.
+    var kepala = [
+      DOC_TYPE_LABEL[doc.doc_type] || doc.doc_type || '',
+      doc.doc_number || '',
+      toDateOrBlank_(doc.doc_date),
+      (o && o.order_number) || '',
+      (o && pickName_(o.partners)) || '',
+      (branch && branch.name) || '',
+      (customer && customer.full_name) || ''
+    ];
+
+    var lines = linesByDoc[doc.id] || [];
+    if (!lines.length) {
+      // Dokumen tanpa isi seharusnya mustahil — fn_create_order_document (0016)
+      // menulis dokumen dan isinya dalam SATU transaksi justru supaya keadaan
+      // ini tidak ada. Kalau toh muncul, ia DITULIS apa adanya: arsip yang
+      // menyembunyikan kejanggalan lebih buruk daripada arsip yang
+      // menampilkannya (LESSONS #10).
+      rows.push(kepala.concat(['', '', '', '', '', '', '', '', doc.notes || '']));
+      continue;
+    }
+    for (var m = 0; m < lines.length; m++) {
+      var ln = lines[m];
+      var it = itemById[ln.order_item_id];
+      var unit = (it && it.unit_price !== null && it.unit_price !== undefined)
+        ? Number(it.unit_price) : null;
+      var qty = Number(ln.quantity || 0);
+      var unitKosong = unit === null || isNaN(unit);
+      rows.push(kepala.concat([
+        (it && it.code_snapshot) || '',
+        (it && it.name_snapshot) || '',
+        (it && it.custom_size) || '',
+        (it && it.color_code) || '',
+        toNumberOrBlank_(ln.quantity),
+        it ? toNumberOrBlank_(it.quantity) : '',
+        unitKosong ? '' : unit,
+        unitKosong ? '' : unit * qty,
+        doc.notes || ''
+      ]));
+    }
+  }
+  writeArchiveTab_(ss, DOCS_TAB_NAME, DOCS_HEADERS, rows);
 }
 
 // ── Menulis satu tab partner ────────────────────────────────
