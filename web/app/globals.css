@@ -681,7 +681,7 @@ tbody tr{transition:background var(--dur) var(--ease)}
 tbody tr:hover{background:var(--surface2)}
 tr:last-child td{border-bottom:none}
 .num{font-variant-numeric:tabular-nums}
-.rowname{color:inherit;text-decoration:none;display:block;font-weight:500}
+.rowname{color:inherit;text-decoration:none;display:block;font-weight:500;overflow-wrap:anywhere}
 .rowname strong{font-weight:650}
 .rowname:hover strong{text-decoration:underline}
 
@@ -699,6 +699,7 @@ tr:last-child td{border-bottom:none}
 
 .kv{display:grid;grid-template-columns:150px 1fr;gap:10px 16px;font-size:var(--fs-body);margin-bottom:8px}
 .kv dt{color:var(--ink2);font-size:var(--fs-sec)}
+.kv dd{overflow-wrap:anywhere}
 @media (max-width:479px){ .kv{grid-template-columns:1fr;gap:2px 0}
   .kv dd{margin-bottom:10px} }
 
@@ -721,7 +722,7 @@ tr:last-child td{border-bottom:none}
 }
 a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 .staffcard .row1{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
-.staffcard .nm{font-size:calc(var(--fs-body) + 1px);font-weight:650;letter-spacing:-.01em}
+.staffcard .nm{font-size:calc(var(--fs-body) + 1px);font-weight:650;letter-spacing:-.01em;overflow-wrap:anywhere}
 .staffcard .rl{font-size:var(--fs-sec);color:var(--ink2);margin-top:2px}
 .staffcard .ops{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
 
@@ -736,8 +737,8 @@ a.staffcard:hover{background:var(--surface2);box-shadow:var(--shadow)}
 }
 .reccard:hover{background:var(--surface2)}
 .rc-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.rc-title{font-size:calc(var(--fs-body) + 1px);font-weight:650;letter-spacing:-.01em}
-.rc-sub{font-size:var(--fs-sec);color:var(--ink2);margin-top:3px}
+.rc-title{font-size:calc(var(--fs-body) + 1px);font-weight:650;letter-spacing:-.01em;overflow-wrap:anywhere}
+.rc-sub{font-size:var(--fs-sec);color:var(--ink2);margin-top:3px;overflow-wrap:anywhere}
 .rc-meta{font-size:var(--fs-meta);color:var(--faint);margin-top:6px}
 .rc-arrow{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:18px}
 
