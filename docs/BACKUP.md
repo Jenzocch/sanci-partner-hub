@@ -47,6 +47,15 @@ jumlah berkas DAN jumlah folder tiap bucket supaya angka nol bisa dibaca:
 | `0 berkas (0 folder)` | Bucket-nya memang kosong. Alur kerja lolos dengan peringatan — cadangan ini tidak berisi foto apa pun. |
 | `0 berkas (n folder)` | Penelusurannya rusak, bukan bucket yang kosong. Alur kerja **GAGAL**. |
 
+Unduhan berkasnya sendiri berjalan **paralel** (8 sekaligus, diatur lewat
+`STORAGE_PARALLEL`), bukan satu per satu — run 7 (2026-09-04) makan 5m20s
+untuk 173 berkas secara sekuensial. Diukur terhadap server tiruan dengan
+jeda jaringan 0,3 detik per berkas: 24 berkas sekuensial 12,3 detik, paralel
+3,1 detik. Kegagalan satu berkas TIDAK menghentikan berkas lain di tengah
+jalan — semua percobaan selesai dulu, lalu SELURUH berkas yang gagal (bukan
+cuma yang pertama) disebutkan namanya sekaligus di akhir sebelum alur kerja
+gagal.
+
 ## Yang TIDAK ikut tercadangkan
 
 Jangan sampai dikira ikut:

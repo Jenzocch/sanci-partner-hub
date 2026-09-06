@@ -101,25 +101,100 @@ print(folders)
 PY
 }
 
-TOTAL=0
+# Sebelumnya berkas diunduh SATU PER SATU: 173 berkas x ~1,8 detik rata-rata
+# (termasuk overhead TLS per permintaan) = lebih dari 5 menit untuk cadangan
+# mingguan (diukur run 7, 2026-09-04: 5m20s). Foto tidak saling bergantung,
+# jadi tidak ada alasan menunggu satu selesai sebelum memulai yang berikutnya.
+#
+# PARALLEL menentukan berapa unduhan berjalan sekaligus. Bukan asal besar:
+# Supabase sudah pernah membalas 502 sesaat pada trafik SEKUENSIAL (run 6),
+# jadi paralelisme yang terlalu agresif berisiko memperbanyak 502, bukan
+# cuma mempercepat. 8 dipilih sebagai kompromi — diuji tidak memicu galat
+# baru terhadap fixture 24 berkas dengan dua 502 sisipan.
+PARALLEL="${STORAGE_PARALLEL:-8}"
+
 TOTAL_FOLDERS=0
 KEYS_FILE="$(mktemp)"
+TASKS_FILE="$(mktemp)"
+FAIL_FILE="$(mktemp)"
 export KEYS_FILE
-trap 'rm -f "$KEYS_FILE"' EXIT
-: > "$OUT/MANIFEST.txt"
+trap 'rm -f "$KEYS_FILE" "$TASKS_FILE" "$FAIL_FILE"' EXIT
+declare -A BUCKET_COUNT BUCKET_FOLDERS
+
+# Tahap 1: TELUSURI setiap bucket (ringan — daftar nama, bukan isi berkas)
+# dan kumpulkan SELURUH pekerjaan unduhan lintas bucket ke satu berkas
+# sebelum mengunduh apa pun. Ini yang membuat paralelisasi tahap 2 sederhana:
+# satu antrean gabungan, bukan satu pool per bucket.
 for b in $BUCKETS; do
   folders=$(walk_bucket "$b")
+  BUCKET_FOLDERS["$b"]="$folders"
+  TOTAL_FOLDERS=$((TOTAL_FOLDERS + folders))
   n=0
   while IFS= read -r key; do
     [ -z "$key" ] && continue
-    mkdir -p "$OUT/$b/$(dirname "$key")"
-    curl -sS --fail "${RETRY[@]}" "${AUTH[@]}" -o "$OUT/$b/$key" "$API/object/$b/$key"
+    printf '%s\t%s\n' "$b" "$key" >> "$TASKS_FILE"
     n=$((n + 1))
   done < "$KEYS_FILE"
-  echo "$b: $n berkas ($folders folder)" >> "$OUT/MANIFEST.txt"
-  echo "   $b: $n berkas ($folders folder)"
+  BUCKET_COUNT["$b"]=$n
+done
+
+TOTAL_TASKS=$(grep -c . "$TASKS_FILE" || true)
+echo "→ mengunduh $TOTAL_TASKS berkas ($PARALLEL sekaligus)"
+
+# Tahap 2: unduh semuanya PARALEL. Kegagalan SATU berkas ditulis ke
+# FAIL_FILE, bukan menghentikan proses lain di tengah jalan (xargs -P tidak
+# punya cara bersih untuk "berhenti serentak" saat satu worker gagal) —
+# semua percobaan tetap jalan sampai selesai, lalu diperiksa sekaligus di
+# bawah. curl sendiri sudah menangani 502/503/timeout lewat --retry; yang
+# sampai ke FAIL_FILE hanya galat yang BUKAN sementara (401/403/404).
+#
+# Penulisan ke FAIL_FILE dari banyak proses paralel aman TANPA lock: setiap
+# baris pendek (di bawah PIPE_BUF 4096 byte Linux) dan file dibuka mode
+# append (O_APPEND) oleh tiap proses sendiri-sendiri — kernel menjamin satu
+# write() sebesar itu tidak akan terselip di tengah write() proses lain.
+# SENGAJA selalu keluar dengan status 0, apa pun hasil curl-nya — gagal
+# ditulis ke FAIL_FILE, bukan lewat exit code. Dua alasan: (1) proses ini
+# dipanggil lewat `bash -c` baru oleh xargs, yang TIDAK mewarisi
+# `set -euo pipefail` milik skrip induk, jadi tidak ada jaminan otomatis di
+# sini; (2) walau ada jaminan itu, `xargs -P` yang menerima satu saja exit
+# code bukan-nol akan membuat XARGS ITU SENDIRI keluar bukan-nol, dan baris
+# panggilannya (di luar konstruksi if) akan langsung menghentikan skrip lewat
+# `set -e` SEBELUM sempat memeriksa FAIL_FILE — persis kegagalan senyap yang
+# ingin dihindari. Diperiksa dan diuji: FAIL_FILE tetap diperiksa eksplisit
+# tepat sesudah xargs selesai.
+download_one() {
+  local line="$1" b key
+  b="${line%%$'\t'*}"
+  key="${line#*$'\t'}"
+  mkdir -p "$OUT/$b/$(dirname "$key")"
+  if ! curl -sS --fail --retry 5 --retry-delay 2 --retry-max-time 120 --connect-timeout 30 \
+       -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+       -o "$OUT/$b/$key" "$API/object/$b/$key"; then
+    printf '%s\t%s\n' "$b" "$key" >> "$FAIL_FILE"
+  fi
+  return 0
+}
+export -f download_one
+export OUT API SERVICE_ROLE_KEY FAIL_FILE
+
+if [ "$TOTAL_TASKS" -gt 0 ]; then
+  xargs -a "$TASKS_FILE" -d '\n' -P "$PARALLEL" -I{} bash -c 'download_one "$@"' _ {}
+fi
+
+if [ -s "$FAIL_FILE" ]; then
+  echo "::error::$(grep -c . "$FAIL_FILE") berkas gagal diunduh sesudah percobaan ulang (galat bukan sementara — cek izin service_role atau berkas yang mungkin sudah terhapus dari Storage):"
+  cat "$FAIL_FILE"
+  exit 1
+fi
+
+TOTAL=0
+: > "$OUT/MANIFEST.txt"
+for b in $BUCKETS; do
+  n="${BUCKET_COUNT[$b]:-0}"
+  f="${BUCKET_FOLDERS[$b]:-0}"
+  echo "$b: $n berkas ($f folder)" >> "$OUT/MANIFEST.txt"
+  echo "   $b: $n berkas ($f folder)"
   TOTAL=$((TOTAL + n))
-  TOTAL_FOLDERS=$((TOTAL_FOLDERS + folders))
 done
 
 echo "Total: $TOTAL berkas ($(du -sh "$OUT" | cut -f1))" >> "$OUT/MANIFEST.txt"
