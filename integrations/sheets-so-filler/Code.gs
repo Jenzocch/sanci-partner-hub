@@ -369,14 +369,34 @@ function fetchOrderOffer_(cfg, token, orderId) {
     'amount,dp_amount,payment_condition,discount_pcts,markup_pct,cash_discount,final_amount');
   if (full.status === 'ok') return full.rows[0] || null;
   if (full.status === 'missing-table') return null;
+  if (full.status === 'error') return offerFetchFailed_(full);
 
   var mid = fetchOfferRaw_(cfg, token, orderId, 'amount,dp_amount,payment_condition');
   if (mid.status === 'ok') return mid.rows[0] || null;
   if (mid.status === 'missing-table') return null;
+  if (mid.status === 'error') return offerFetchFailed_(mid);
 
   var basic = fetchOfferRaw_(cfg, token, orderId, 'amount');
   if (basic.status === 'ok') return basic.rows[0] || null;
+  if (basic.status === 'error') return offerFetchFailed_(basic);
   return null;
+}
+
+/**
+ * Audit 2026-09-06 (P0): galat SEMENTARA (HTTP 5xx / RLS / timeout)
+ * sebelumnya jatuh ke `return null` — arti yang SAMA dengan "pesanan ini
+ * memang tidak punya penawaran SANCI". Orang yang mengisi SO tidak diberi
+ * tahu apa pun (showSummary_ tidak memuat satu peringatan pun), dan kolom
+ * diskon/DP/kondisi pembayaran ditulis kosong seolah-olah memang begitu —
+ * padahal penawarannya mungkin ADA, servernya yang sedang bermasalah.
+ * Melempar exception di sini (pola yang SAMA dengan fetchOrder_ di atas
+ * untuk galat sejenis) membuat isiDariSistem() menampilkan alert yang jelas,
+ * bukan mengisi tab SO dengan data yang salah tanpa pemberitahuan.
+ */
+function offerFetchFailed_(page) {
+  throw new Error('Gagal membaca penawaran SANCI (HTTP ' + page.code + '): ' + page.body +
+    ' — bukan berarti pesanan ini tidak punya penawaran, tapi galat sementara pada server. ' +
+    'Coba lagi sebentar; jangan lanjutkan mengisi SO sebelum ini berhasil.');
 }
 
 function fetchOfferRaw_(cfg, token, orderId, select) {

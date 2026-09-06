@@ -172,7 +172,14 @@ function runSync_() {
 
   var ordersFetch = fetchAllOrders_(cfg, token);
   var orders = ordersFetch.rows;
-  var offers = fetchOffersByOrderId_(cfg, token);   // {} kalau 0013 belum jalan (amount saja jika 0014 belum jalan)
+  // Audit 2026-09-06 (P0): `null` (beda dari `{}`) berarti pembacaan GAGAL
+  // karena galat sementara — lihat offersFetchFailed_. ctx.offers dijaga
+  // tetap objek supaya kode lain yang membacanya tidak pernah menabrak null;
+  // offersUnavailable di bawah yang memutuskan boleh tidaknya tab per-partner
+  // ditulis ronde ini.
+  var offersRaw = fetchOffersByOrderId_(cfg, token);   // {} kalau 0013 belum jalan; null kalau gagal baca
+  var offersUnavailable = offersRaw === null;
+  var offers = offersUnavailable ? {} : offersRaw;
 
   // Dokumen + item + cakupan DO. Ketiganya opsional: kalau migrasinya belum
   // jalan, kolomnya kosong dan sisa lembar tetap benar (LESSONS #12).
@@ -221,18 +228,31 @@ function runSync_() {
   var tz = ss.getSpreadsheetTimeZone();
   var okTabs = 0, failedTabs = 0, updated = 0, appended = 0;
 
-  for (var p = 0; p < partnerNames.length; p++) {
-    var name = partnerNames[p];
-    // Satu tab bermasalah (nama aneh, lembar terkunci, kuota) tidak boleh
-    // menggagalkan seluruh run — partner lain tetap harus tersinkron.
-    try {
-      var res = writePartnerTab_(ss, name, byPartner[name], ctx);
-      updated += res.updated;
-      appended += res.appended;
-      okTabs++;
-    } catch (err) {
-      failedTabs++;
-      Logger.log('TAB GAGAL "' + name + '": ' + err);
+  if (offersUnavailable) {
+    // Audit 2026-09-06 (P0): menulis tab per-partner sekarang berarti
+    // menimpa kolom Penawaran SANCI/DP/Diskon/dst yang SUDAH BENAR di lembar
+    // dengan kosong, karena order_sanci_offers gagal dibaca (galat sementara,
+    // sudah dilog di offersFetchFailed_). Lebih baik ronde ini TIDAK
+    // menyentuh tab per-partner sama sekali — data lama tetap benar, dan
+    // ronde berikutnya (30 menit lagi) akan mencoba lagi.
+    failedTabs = partnerNames.length;
+    Logger.log('Tab per-partner DILEWATI seluruhnya ronde ini (' + partnerNames.length +
+      ' partner) — order_sanci_offers gagal dibaca, menulis sekarang akan menimpa kolom ' +
+      'harga SANCI yang sudah benar dengan kosong.');
+  } else {
+    for (var p = 0; p < partnerNames.length; p++) {
+      var name = partnerNames[p];
+      // Satu tab bermasalah (nama aneh, lembar terkunci, kuota) tidak boleh
+      // menggagalkan seluruh run — partner lain tetap harus tersinkron.
+      try {
+        var res = writePartnerTab_(ss, name, byPartner[name], ctx);
+        updated += res.updated;
+        appended += res.appended;
+        okTabs++;
+      } catch (err) {
+        failedTabs++;
+        Logger.log('TAB GAGAL "' + name + '": ' + err);
+      }
     }
   }
 
@@ -519,6 +539,7 @@ function fetchOrdersPage_(cfg, token, select, from, pageSize) {
 function fetchOffersByOrderId_(cfg, token) {
   var full = fetchOffersPage_(cfg, token,
     'order_id,amount,dp_amount,payment_condition,discount_pcts,markup_pct,cash_discount,final_amount', 0);
+  if (full.status === 'error') return offersFetchFailed_(full);
   if (full.status === 'missing-table') {
     Logger.log('order_sanci_offers belum ada (migration 0013 belum dijalankan) — ' +
       'kolom Penawaran SANCI dibiarkan kosong.');
@@ -529,11 +550,13 @@ function fetchOffersByOrderId_(cfg, token) {
       'order_id,amount,dp_amount,payment_condition,discount_pcts,markup_pct,cash_discount,final_amount',
       'full', full);
   }
-  // full.status === 'missing-column' → discount_pcts/markup_pct/cash_discount/
-  // final_amount (0015) belum ada. Coba tingkat 0014 (dp_amount/payment_condition).
+  // full.status === 'missing-column' (TERBUKTI, bukan diasumsikan — 'error' sudah
+  // ditangkap di atas) → discount_pcts/markup_pct/cash_discount/final_amount (0015)
+  // belum ada. Coba tingkat 0014 (dp_amount/payment_condition).
   Logger.log('discount_pcts/markup_pct/cash_discount/final_amount belum ada di order_sanci_offers ' +
     '(migrasi 0015 belum dijalankan) — kolom Diskon/Markup/Potongan Tunai/Harga Akhir/Sisa dibiarkan kosong.');
   var mid = fetchOffersPage_(cfg, token, 'order_id,amount,dp_amount,payment_condition', 0);
+  if (mid.status === 'error') return offersFetchFailed_(mid);
   if (mid.status === 'missing-column') {
     Logger.log('dp_amount/payment_condition belum ada di order_sanci_offers ' +
       '(migrasi 0014 belum dijalankan) — kolom Uang Muka/Kondisi Pembayaran dibiarkan kosong.');
@@ -541,6 +564,27 @@ function fetchOffersByOrderId_(cfg, token) {
   }
   if (mid.status === 'missing-table') return {};
   return fetchOffersLoop_(cfg, token, 'order_id,amount,dp_amount,payment_condition', 'mid', mid);
+}
+
+/**
+ * Audit 2026-09-06 (P0): galat SEMENTARA (HTTP 5xx / RLS / timeout) pada
+ * order_sanci_offers sebelumnya jatuh ke cabang "migrasi belum jalan" secara
+ * keliru (kode di atas hanya memeriksa 'missing-table' dan 'ok', sisanya
+ * dianggap 'missing-column'), lalu berakhir sebagai peta KOSONG lewat
+ * fetchOffersLoop_ — dan peta kosong itu ditulis writePartnerTab_ sebagai
+ * kolom Penawaran SANCI/DP/Diskon/Markup/Potongan Tunai/Harga Akhir/Sisa
+ * KOSONG ke SETIAP baris pesanan yang SUDAH ADA di lembar, menimpa nilai
+ * yang sebelumnya benar. Mengembalikan `null` (bukan `{}`) di sini
+ * membedakan "gagal, jangan dipakai" dari "memang tidak ada data" —
+ * runSync_ memeriksa `null` dan MELEWATI penulisan seluruh tab per-partner
+ * ronde ini (tab arsip yang tidak bergantung pada offers tetap disinkron),
+ * bukan menulis kosong menimpa yang benar.
+ */
+function offersFetchFailed_(page) {
+  Logger.log('Gagal membaca order_sanci_offers (HTTP ' + page.code + '): ' + page.body +
+    ' — BUKAN migrasi yang belum jalan (galat sementara). Melewati penulisan tab per-partner ' +
+    'ronde ini supaya kolom Penawaran SANCI yang sudah benar tidak tertimpa kosong.');
+  return null;
 }
 
 function fetchOffersLoop_(cfg, token, select, level, firstPage) {
