@@ -28,8 +28,9 @@
  *
  * Keranjang ini TIDAK pernah menulis ke database. Satu-satunya jalan barangnya
  * sampai ke order_items tetap jalur tulis yang sudah ada: hand-off sekali pakai
- * → daftar "Isi Pesanan" di form pesanan baru → `copyCalcCartItemsToOrder`
- * setelah pesanan berhasil dibuat. Nol jalur tulis baru.
+ * → daftar "Isi Pesanan" di form pesanan baru → `copyPickedItemsToOrder`
+ * (web/lib/copy-picked-items-to-order.ts) setelah pesanan berhasil dibuat.
+ * Nol jalur tulis baru.
  */
 
 import { CALC_MAX_QTY } from "@/lib/calculator-shared";

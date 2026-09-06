@@ -160,7 +160,7 @@ Phase 2 第十二切片（Kalkulator Penawaran，2026-08-20）当时明确决定
 当时的 P2-63/P2-64）——理由是分店端建立订单完全走 Package-based（0008），
 没有任何写入路径接受 client 传入任意品项清单。这不是判断错误，是当时真实
 的系统限制；owner 后来要求补上这个缺口，所以新增了一条独立的写入
-（`copyCalcCartItemsToOrder`，`web/app/cabang/pesanan/actions.ts`），不改
+（`copyPickedItemsToOrder`，`web/lib/copy-picked-items-to-order.ts`），不改
 `createCustomerAndOrder`本身的 Package-based 建单方式，纯粹是订单建立成功
 之后的第二段 best-effort 写入。**没有新 migration**——完全复用 order_items
 既有的分店 INSERT policy 与 `trg_order_item_price_guard`（皆为 0014 既有）：
