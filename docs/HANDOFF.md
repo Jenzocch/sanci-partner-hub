@@ -17,8 +17,13 @@
 cd /workspace/sanci-partner-hub/web
 rm -f tsconfig.tsbuildinfo && npx tsc --noEmit   # 必須 0 錯
 npx eslint .                                      # 必須乾淨
-rm -rf .next && npm run build                     # 必須成功；/offline 必須維持 ○ 1.01 kB
+rm -rf .next && npm run build                     # 必須成功；/offline 見下方基準
 ```
+`/offline` 基準：**1.03 kB / First Load JS 104 kB**（量於 2026-09-07，commit `c9b779f`）。
+數字本身會隨 Next 版本與共用 chunk 微幅漂移，**真正要守的是 `/offline` 的 chunk 裡不出現
+`common.ts` 的字串**（LESSONS #38：那份 231 鍵 × 3 語言不准進每條路由的 bundle）——懷疑時
+`grep -rl "<新加的字串>" .next/static/chunks/app/offline/`，而不是盯著 kB。
+（原本這裡寫 1.01 kB，但在 d2fe7e8 實際 build 就已是 1.02 kB，是過期數字。）
 - 派 agent 開發時：agent 在隔離 worktree、基於**當下的 origin/main tip**、只 commit 不 push；你親自重跑上面三步、親讀安全相關 diff，才 merge + push。
 - ATURAN BESI（migrations/README 有全文）：任何重定義 `fn_audit_row` 的 migration 必須「逐字全文複製＋新增」，用 difflib 逐行比對驗證，不准手寫節錄。
 - `sanci_products` **永遠不准有價格欄位**（0010 鐵則；每個後續 migration 的驗證段都要重申 `PRODUCT_NO_PRICE_COLUMN = 0`）。
