@@ -20,7 +20,14 @@ export default async function ProposalPage() {
   const m = await getCabangMessages();
   const supabase = await createClient();
 
-  const { data: pu, error } = await supabase.from("partner_users").select("id").maybeSingle();
+  // Identitas toko untuk blok "Toko" di sampul (owner 2026-09-07: sampul
+  // tetap SANCI, ditambah kontak toko partner). Dibaca lewat sesi cabang
+  // sendiri — RLS partner_users/partners/partner_branches yang membatasi
+  // barisnya (LESSONS #5), bukan parameter dari client.
+  const { data: pu, error } = await supabase
+    .from("partner_users")
+    .select("id, branch_id, partners:partner_id(name, logo_url, contact_phone)")
+    .maybeSingle();
   if (error) {
     return (
       <main className="pwrap">
@@ -32,5 +39,37 @@ export default async function ProposalPage() {
   }
   if (!pu) redirect("/");
 
-  return <ProposalEditorialLayout loadProducts={loadProposalProducts} backHref="/cabang/kalkulator" />;
+  const partner = pu.partners as unknown as {
+    name: string;
+    logo_url: string | null;
+    contact_phone: string | null;
+  } | null;
+  // Cabang: nama + telepon kontak. Gagal baca = blok toko cukup memakai nama
+  // partner (ini hiasan sampul, bukan data transaksi — tidak perlu
+  // menggagalkan seluruh halaman), tapi galatnya tetap tercatat.
+  const { data: branch, error: branchError } = await supabase
+    .from("partner_branches")
+    .select("name, contact_phone")
+    .eq("id", pu.branch_id)
+    .maybeSingle();
+  if (branchError) console.error("[proposal] partner_branches:", branchError.code, branchError.message);
+
+  const phone = (branch?.contact_phone || partner?.contact_phone || "").trim();
+  const store = partner
+    ? {
+        name: partner.name,
+        branchName: branch?.name ?? null,
+        phone: phone || null,
+        // Tanpa logo → hanya nama teks (keputusan owner 2026-09-07).
+        logoUrl: partner.logo_url || null,
+      }
+    : null;
+
+  return (
+    <ProposalEditorialLayout
+      loadProducts={loadProposalProducts}
+      backHref="/cabang/kalkulator"
+      store={store}
+    />
+  );
 }

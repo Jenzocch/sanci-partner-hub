@@ -56,6 +56,11 @@ const id = {
   proposalThanksBody: "Kami menantikan kesempatan membantu Anda menciptakan rumah yang terasa tepat.",
   proposalContactShowroom: "Showroom",
   proposalContactLabel: "Kontak",
+  // Blok "toko tempat pelanggan memesan" di sampul proposal sisi CABANG
+  // (owner 2026-09-07: sampul tetap SANCI, ditambah kontak Golden Home).
+  // Kata "Toko" dipilih karena pembacanya PELANGGAN — bukan "Partner"/"Cabang"
+  // (istilah internal sistem, GLOSSARY.md).
+  proposalStoreLabel: "Toko",
   proposalProductsCount: "{n} produk dipilih",
   proposalSpecCode: "Kode produk",
   /* Proposal — dokumen cetak untuk pelanggan, dipasang di dua area
@@ -637,6 +642,7 @@ const en = {
   proposalThanksBody: "We look forward to helping you create a home that feels right for you.",
   proposalContactShowroom: "Showroom",
   proposalContactLabel: "Contact",
+  proposalStoreLabel: "Store",
   proposalProductsCount: "{n} products selected",
   proposalSpecCode: "Product code",
   proposalTitle: "Proposal",
@@ -1070,6 +1076,7 @@ const zh = {
   proposalThanksBody: "期待能协助您打造一个真正合适的家。",
   proposalContactShowroom: "展厅",
   proposalContactLabel: "联络方式",
+  proposalStoreLabel: "门店",
   proposalProductsCount: "已选 {n} 件产品",
   proposalSpecCode: "产品编号",
   proposalTitle: "产品提案",
