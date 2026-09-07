@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCabangMessages } from "@/lib/i18n";
 import ProposalEditorialLayout from "@/lib/proposal-editorial-layout";
 import proposalStyles from "@/lib/proposal-editorial-document.module.css";
+import { COMPANY_INFO } from "@/lib/company-info";
 import { loadProposalProducts } from "./actions";
 
 /**
@@ -45,17 +46,19 @@ export default async function ProposalPage() {
     logo_url: string | null;
     contact_phone: string | null;
   } | null;
-  // Cabang: nama + telepon kontak. Gagal baca = blok toko cukup memakai nama
-  // partner (ini hiasan sampul, bukan data transaksi — tidak perlu
-  // menggagalkan seluruh halaman), tapi galatnya tetap tercatat.
+
+  // Cabang: nama + alamat + telepon kontak. Gagal baca = blok toko cukup
+  // memakai nama partner; kegagalan data dekoratif ini tidak menggagalkan
+  // seluruh Proposal, tetapi tetap dicatat.
   const { data: branch, error: branchError } = await supabase
     .from("partner_branches")
-    .select("name, contact_phone")
+    .select("name, address, contact_phone")
     .eq("id", pu.branch_id)
     .maybeSingle();
   if (branchError) console.error("[proposal] partner_branches:", branchError.code, branchError.message);
 
   const phone = (branch?.contact_phone || partner?.contact_phone || "").trim();
+  const branchAddress = (branch?.address || "").trim();
   const store = partner
     ? {
         name: partner.name,
@@ -66,12 +69,39 @@ export default async function ProposalPage() {
       }
     : null;
 
+  const sanciAddress = COMPANY_INFO.letterhead.addressLines.join(" ");
+  const sanciAddressCss = JSON.stringify(sanciAddress);
+  const branchAddressCss = JSON.stringify(branchAddress);
+
   return (
     <>
-      {/* Owner 2026-09-07: keep SANCI contact visible even when a partner
-          store block is present. The base cover-simplification CSS hides
-          meta rows after the date; restore the existing Showroom/Kontak rows. */}
-      <style>{`.${proposalStyles.coverMetaGrid}>div:not(:first-child){display:block;}`}</style>
+      {/* Owner 2026-09-07: keep SANCI contact/address visible even when a
+          partner store block is present. Branch address appears only when
+          partner_branches.address contains a value. */}
+      <style>{`
+        .${proposalStyles.coverMetaGrid}>div:not(:first-child){display:block;}
+        .${proposalStyles.coverMetaGrid}>div:nth-child(2) .${proposalStyles.metaValue}::after{
+          content:${sanciAddressCss};
+          display:block;
+          margin-top:4px;
+          color:var(--warm);
+          font-size:9.5px;
+          line-height:1.45;
+          white-space:normal;
+        }
+        ${branchAddress ? `
+        .${proposalStyles.coverStoreName}::after{
+          content:${branchAddressCss};
+          display:block;
+          margin-top:5px;
+          color:var(--warm);
+          font-family:var(--sans);
+          font-size:9.5px;
+          font-weight:400;
+          line-height:1.45;
+          white-space:normal;
+        }` : ""}
+      `}</style>
       <ProposalEditorialLayout
         loadProducts={loadProposalProducts}
         backHref="/cabang/kalkulator"
