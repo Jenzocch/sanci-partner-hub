@@ -1924,7 +1924,8 @@ Master Data CSV（編碼毀損已修復），**價格完全未觸碰**。
 - [ ] Jenzo 部署後用手機實際測「加到主畫面」＋離線開啟已看過的頁面，確認 PWA #23 的 Service Worker 真的生效（本環境只驗證到路由本身有回應，見上方 #23）
 - [ ] Jenzo 用真帳號登入後，在 1366/1440/1920（desktop）與 360/390/430（mobile）檢查 `/admin`、`/admin/partners/[id]`、`/cabang` 系列頁（本環境已截圖驗證登入頁與 offline 頁在全部寬度無橫向捲動，但這兩頁不吃 sidebar/table/身份卡 規則，見 #20–22）
 - [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0023_customer_order_link.sql`**（阻塞客人連結標為 VERIFIED；回貼 35 項驗證結果核對——`ANON_ORDERS_ROWS` 必須是 0、`RPC_EXEC_ANON` 必須是 2、`TOKEN_ALL_DISTINCT` 必須是 1）
-- [ ] **Jenzo 在 Vercel → Settings → Environment Variables 加 `FONNTE_TOKEN`**（**變數名就是這個，不要加 `NEXT_PUBLIC_` 前綴**）——在他辦好 Fonnte 帳號之前，店員端只會看到 wa.me 那顆按鈕，不會壞
+- [x] ~~Jenzo 在 Vercel 加 `FONNTE_TOKEN`~~ **已貼（2026-09-07，Secret 型別，Production+Preview）**。**剩下要 Jenzo 驗的**：① admin 開任一訂單，「Link untuk Pelanggan」卡片要多出「Kirim link via WhatsApp perusahaan」按鈕（＝token 讀到了）；② 拿一筆真訂單按一次，成功顯示「Terkirim dari nomor perusahaan」，失敗會給 `SP-XXXXX` 代碼回報。**注意**：公司號只給 SANCI（owner 2026-09-07），分店端的按鈕與 Server Action 已整個移除（`0c12806`），Golden Home 照舊用 wa.me——分店看不到那顆按鈕是**正確的**，不是 token 沒讀到。
+- [ ] **Jenzo 用分店帳號開 Kalkulator → Buat Proposal**：封面右欄要有「TOKO」區塊（Golden Home · 分店名 · WhatsApp 分店電話；partner 有 logo 才印 logo），印成 PDF 封面仍是 1 頁（本機 harness 5 案例已驗，真機/真 logo 未驗）。
 - [ ] 之後依 SPEC §90 順序實作（Tests → Security test → Offline test → Self audit → Final verification）
 - [ ] **Jenzo 在 Supabase SQL Editor 執行 `supabase/migrations/0017_customer_code_email.sql`**（阻塞 P2-59 標為 VERIFIED；回貼 24 項驗證結果核對，見該檔頭部）
 - [ ] **Jenzo 在自己電腦跑 `web/scripts/import-customers/run.mjs`**（阻塞 P2-60 標為 VERIFIED；需先完成上一步；照 README.md 兩種憑證方式擇一，回貼結尾摘要——期望新建 33／已完整 1／跳過無電話 2）
