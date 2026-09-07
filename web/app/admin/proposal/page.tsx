@@ -1,4 +1,4 @@
-import ProposalEditorialLayout from "@/lib/proposal-editorial-layout";
+import ProposalSoftGalleryLayout from "@/lib/proposal-soft-gallery-layout";
 import proposalStyles from "@/lib/proposal-editorial-document.module.css";
 import { COMPANY_INFO } from "@/lib/company-info";
 import { loadProposalProductsAdmin } from "./actions";
@@ -31,7 +31,7 @@ export default async function AdminProposalPage() {
           white-space:normal;
         }
       `}</style>
-      <ProposalEditorialLayout loadProducts={loadProposalProductsAdmin} backHref="/admin/kalkulator" />
+      <ProposalSoftGalleryLayout loadProducts={loadProposalProductsAdmin} backHref="/admin/kalkulator" />
     </>
   );
 }
