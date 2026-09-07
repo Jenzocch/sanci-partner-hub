@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   pesan,
+  catatGagal,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
@@ -58,7 +59,7 @@ export async function addPackageItem(
     if (isMissingTable(existingErr.code)) {
       return { error: { message: m.admin.packageItemMigrationMsg } };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("addPackageItem/precheck", { hasil: existingErr })) } };
   }
   if (existing) {
     revalidatePath("/admin/partners/[id]/packages/[packageId]", "page");
@@ -111,7 +112,7 @@ export async function addPackageItem(
       if (written.code === "23505") {
         return { error: { field: "product", message: m.admin.packageItemDuplicate } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("addPackageItem/insert", { hasil: written })) } };
     }
     const check = await recheck();
     if (check.status === "found") {
@@ -155,7 +156,7 @@ export async function updatePackageItemQuantity(
       if (isMissingTable(saved.code)) {
         return { error: { message: m.admin.packageItemMigrationMsg } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("updatePackageItemQuantity", { hasil: saved })) } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }
@@ -183,7 +184,7 @@ export async function removePackageItem(itemId: string): Promise<ActionResult<tr
       if (isMissingTable(removed.code)) {
         return { error: { message: m.admin.packageItemMigrationMsg } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("removePackageItem", { hasil: removed })) } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }

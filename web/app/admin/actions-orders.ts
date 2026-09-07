@@ -15,7 +15,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
+import { pesan, catatGagal, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
 import { parseIDRInput } from "@/lib/orders-shared";
 import { getAdminMessages } from "@/lib/i18n";
 // Tautan pesanan untuk pelanggan (migrasi 0023). `whatsapp-send` HANYA boleh
@@ -153,7 +153,7 @@ export async function markCustomerArrived(
 
   if (fetchErr) {
     if (isMissingColumnError(fetchErr.code)) return { error: { message: m.admin.fulfillmentMigrationOffOrder } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("markCustomerArrived/fetch", { hasil: fetchErr })) } };
   }
   if (!order) return { error: { message: m.admin.orderNotFound } };
   if (order.fulfillment_path !== "SHOWROOM_VISIT") {
@@ -230,7 +230,7 @@ export async function addInternalNote(
     .maybeSingle();
   if (existingErr) {
     if (isMissingTable(existingErr.code)) return { error: { message: m.admin.internalNoteFeatureOffAction } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("addInternalNote/precheck", { hasil: existingErr })) } };
   }
   if (existing) {
     revalidatePath(`/admin/orders/${orderId}`);
@@ -266,7 +266,7 @@ export async function addInternalNote(
         }
         return { error: { message: PESAN.belumPastiBaru } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("addInternalNote/insert", { hasil: written })) } };
     }
     // Jawaban tidak sampai: tanyakan status sebenarnya, jangan INSERT lagi.
     const check = await recheck();
@@ -454,7 +454,7 @@ export async function setOrderOffer(
       if (written.detail.includes("Boleh mengatur diskon")) {
         return { error: { field: "discount_pcts", message: m.admin.orderOfferNoPermissionDiscount } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("setOrderOffer", { hasil: written })) } };
     }
     // Respons hilang. Upsert berkunci order_id aman diulang, tapi JANGAN
     // menyebutnya berhasil tanpa bukti (LESSONS #2/#7) — tanyakan status
@@ -530,7 +530,7 @@ export async function clearOrderOffer(orderId: string): Promise<ActionResult<tru
   if (!removed.ok) {
     if (removed.reason === "db") {
       if (isMissingTable(removed.code)) return { error: { message: m.admin.orderOfferFeatureOffAction } };
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("clearOrderOffer", { hasil: removed })) } };
     }
     // Respons hilang: tanyakan keadaan sebenarnya, jangan menghapus lagi
     // buta-buta dan jangan menebak (LESSONS #2).
@@ -777,7 +777,7 @@ export async function addOrderItem(
   if (!written.ok) {
     if (written.reason === "db") {
       if (isMissingTable(written.code)) return { error: { message: m.admin.orderItemsFeatureOff } };
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("addOrderItem", { hasil: written })) } };
     }
     const { data: recheck } = await supabase
       .from("order_items")
@@ -1017,7 +1017,7 @@ export async function markOrderDeliveredAdmin(
     // cabang (lib/customer-link-card.tsx) — sama seperti markOrderDelivered
     // di app/cabang/pesanan/actions.ts (audit teks 2026-08-28).
     if (isMissingColumnError(fetchErr.code)) return { error: { message: m.common.markDeliveredUnavailableMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("markOrderDeliveredAdmin/fetch", { hasil: fetchErr })) } };
   }
   if (!order) return { error: { message: m.admin.orderNotFound } };
   if (order.delivered_at) {
@@ -1086,7 +1086,7 @@ export async function sendCustomerLinkViaCompanyAdmin(
 
   if (error) {
     if (isMissingColumnError(error.code)) return { error: { message: m.common.custLinkUnavailableMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("sendCustomerLinkViaCompanyAdmin/fetch", { hasil: error })) } };
   }
   if (!order) return { error: { message: m.admin.orderNotFound } };
 
@@ -1263,7 +1263,7 @@ export async function setCustomerPaymentAdmin(
     if (written.detail === "no row returned" || written.code === "42501") {
       return { error: { message: m.admin.orderNotFound } };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("setCustomerPaymentAdmin", { hasil: written })) } };
   }
 
   revalidatePath(`/admin/orders/${orderId}`);

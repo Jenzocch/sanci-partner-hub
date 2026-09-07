@@ -57,6 +57,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   LOOKUP_TIMEOUT_MS,
   pesan,
+  catatGagal,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
@@ -143,7 +144,7 @@ async function verifyPartnerBranchPair(
     .maybeSingle();
   if (error) {
     if (isMissingTableError(error)) return { ok: false, error: { message: m.admin.orderCreateModuleInactive } };
-    return { ok: false, error: { message: PESAN.serverSibuk } };
+    return { ok: false, error: { message: PESAN.serverSibukKode(catatGagal("verifyPartnerBranchPair", { hasil: error })) } };
   }
   const partner = (data?.partners ?? null) as unknown as { id: string; status: string } | null;
   if (
@@ -195,10 +196,10 @@ export async function getPartnerOrderOptions(
       .order("name"),
   ]);
 
-  if (branchErr) return { error: { message: PESAN.serverSibuk } };
+  if (branchErr) return { error: { message: PESAN.serverSibukKode(catatGagal("getPartnerOrderOptions/branches", { hasil: branchErr })) } };
   // partner_packages belum ada (0008 belum jalan) BUKAN kegagalan — form
   // turun ke input nama package manual, pola yang sama dengan halaman cabang.
-  if (packageErr && !isMissingTableError(packageErr)) return { error: { message: PESAN.serverSibuk } };
+  if (packageErr && !isMissingTableError(packageErr)) return { error: { message: PESAN.serverSibukKode(catatGagal("getPartnerOrderOptions/packages", { hasil: packageErr })) } };
 
   return {
     data: {
@@ -232,7 +233,7 @@ export async function getBranchStaffOptions(
       .eq("branch_id", branchId)
       .is("end_at", null),
   ]);
-  if (staffErr || asgErr) return { error: { message: PESAN.serverSibuk } };
+  if (staffErr || asgErr) return { error: { message: PESAN.serverSibukKode(catatGagal("getBranchStaffOptions", { hasil: staffErr ?? asgErr })) } };
 
   const roleByStaff = new Map<string, string>();
   (assignments ?? []).forEach((a: { staff_id: string; role: string }) => roleByStaff.set(a.staff_id, a.role));
@@ -349,7 +350,7 @@ async function resolvePackageAdmin(
       .eq("partner_id", partnerId)
       .maybeSingle();
     if (error) {
-      return { ok: false, error: { field: "package_name", message: PESAN.serverSibuk } };
+      return { ok: false, error: { field: "package_name", message: PESAN.serverSibukKode(catatGagal("resolvePackageAdmin", { hasil: error })) } };
     }
     if (!data || data.status !== "ACTIVE") {
       return { ok: false, error: { field: "package_name", message: m.admin.orderCreatePackageNotFound } };
@@ -410,7 +411,7 @@ async function resolveOrCreateCustomerAdmin(
       .maybeSingle();
     if (error) {
       if (isMissingTableError(error)) return { ok: false, error: { message: m.admin.orderCreateModuleInactive } };
-      return { ok: false, error: { message: PESAN.serverSibuk } };
+      return { ok: false, error: { message: PESAN.serverSibukKode(catatGagal("resolveOrCreateCustomerAdmin/existing", { hasil: error })) } };
     }
     if (!existing) return { ok: false, error: { message: m.admin.orderCreateCustomerGone } };
     return { ok: true, customer: existing };
@@ -464,7 +465,7 @@ async function resolveOrCreateCustomerAdmin(
     return { ok: false, error: { message: PESAN.belumPastiBaru } };
   }
 
-  return { ok: false, error: { message: PESAN.serverSibuk } };
+  return { ok: false, error: { message: PESAN.serverSibukKode(catatGagal("resolveOrCreateCustomerAdmin/insert", { hasil: written })) } };
 }
 
 /* ------------------------------------------------------------------ *
@@ -575,14 +576,14 @@ export async function createOrderForBranch(input: {
   // ── 3. Staf SEBELUM pelanggan (keputusan 0019 — lihat kepala berkas) ──
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: m.admin.orderCreateSalesRequired } };
   const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, input.branchId, input.partnerId);
-  if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
+  if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibukKode(catatGagal("createOrderForBranch/salesCheck", { staffId: input.salesStaffId, branchId: input.branchId })) } };
   if (salesCheck === "invalid") {
     return { error: { field: "sales_staff_id", message: m.admin.orderCreateSalesInvalid } };
   }
   let picStaffId: string | null = null;
   if (input.picStaffId) {
     const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, input.branchId, input.partnerId);
-    if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
+    if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibukKode(catatGagal("createOrderForBranch/picCheck", { staffId: input.picStaffId, branchId: input.branchId })) } };
     if (picCheck === "invalid") {
       return { error: { field: "pic_staff_id", message: m.admin.orderCreatePicInvalid } };
     }
@@ -748,7 +749,7 @@ export async function setOrderInvoicePathAdmin(input: {
     .select("id, status")
     .eq("id", input.orderId)
     .maybeSingle();
-  if (fetchErr) return { error: { message: PESAN.serverSibuk } };
+  if (fetchErr) return { error: { message: PESAN.serverSibukKode(catatGagal("setOrderInvoicePathAdmin/fetch", { hasil: fetchErr })) } };
   if (!order) return { error: { message: m.admin.orderNotFound } };
   if (order.status !== "REGISTERED") {
     return { error: { message: m.admin.orderCreateInvoiceOrderCancelled } };

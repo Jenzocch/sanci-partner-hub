@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CODE_RE, normalizeCode } from "@/lib/validation";
 import {
   pesan,
+  catatGagal,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
@@ -52,7 +53,7 @@ export async function createPackage(
     .maybeSingle();
   if (existingErr) {
     if (isMissingTable(existingErr.code)) return { error: { message: m.admin.packageMigrationMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("createPackage/precheck", { hasil: existingErr })) } };
   }
   if (existing) {
     revalidatePath(`/admin/partners/${partnerId}`);
@@ -97,7 +98,7 @@ export async function createPackage(
       if (written.code === "23505") {
         return { error: { field: "code", message: m.admin.packageCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("createPackage/insert", { hasil: written })) } };
     }
     const check = await recheck();
     if (check.status === "found") {
@@ -145,7 +146,7 @@ export async function updatePackage(
       if (saved.code === "23505") {
         return { error: { field: "code", message: m.admin.packageCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("updatePackage", { hasil: saved })) } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CODE_RE, normalizeCode } from "@/lib/validation";
 import {
   pesan,
+  catatGagal,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
@@ -91,7 +92,7 @@ export async function createBranch(
       if (written.code === "23505") {
         return { error: { field: "code", message: m.admin.branchCodeTaken.replace("{code}", code) } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("createBranch", { hasil: written })) } };
     }
     // Jawaban tidak sampai: pastikan dulu, jangan INSERT ulang (SPEC §61).
     const check = await recheck();
@@ -148,7 +149,7 @@ export async function updateBranch(
   if (!saved.ok) {
     return {
       error: {
-        message: saved.reason === "unconfirmed" ? PESAN.belumPastiUbah : PESAN.serverSibuk,
+        message: saved.reason === "unconfirmed" ? PESAN.belumPastiUbah : PESAN.serverSibukKode(catatGagal("updateBranch", { hasil: saved })),
       },
     };
   }

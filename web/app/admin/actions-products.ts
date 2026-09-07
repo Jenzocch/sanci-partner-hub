@@ -17,7 +17,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductStatus, StockStatus } from "@/lib/catalog-shared";
-import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
+import { pesan, catatGagal, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
 import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
@@ -68,7 +68,7 @@ export async function createProduct(input: {
     .maybeSingle();
   if (existingErr) {
     if (isMissingTable(existingErr.code)) return { error: { message: m.admin.catalogMigrationMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("createProduct/precheck", { hasil: existingErr })) } };
   }
   if (existing) {
     revalidatePath("/admin/produk");
@@ -120,7 +120,7 @@ export async function createProduct(input: {
       if (written.code === "23505") {
         return { error: { field: "code", message: m.admin.productCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("createProduct/insert", { hasil: written })) } };
     }
     // Jawaban tidak sampai: tanyakan status sebenarnya, jangan INSERT lagi.
     const check = await recheck();
@@ -173,7 +173,7 @@ export async function updateProduct(
       if (saved.code === "23505") {
         return { error: { field: "code", message: m.admin.productCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("updateProduct", { hasil: saved })) } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }
@@ -203,7 +203,7 @@ export async function setProductHasColorOptions(id: string, hasColorOptions: boo
     if (saved.reason === "db") {
       if (isMissingTable(saved.code)) return { error: { message: m.admin.catalogMigrationMsg } };
       if (isMissingColumn(saved.code)) return { error: { message: m.admin.productColorOptionFeatureOff } };
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("setProductHasColorOptions", { hasil: saved })) } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }
@@ -284,7 +284,7 @@ export async function setProductPhoto(id: string, photoUrl: string): Promise<Act
     if (saved.reason === "db" && isMissingTable(saved.code)) {
       return { error: { message: m.admin.catalogMigrationMsg } };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("setProductPhoto", { hasil: saved })) } };
   }
 
   revalidatePath("/admin/produk");
@@ -347,7 +347,7 @@ export async function setProductBasePrice(
       .is("partner_id", null);
     if (error) {
       if (isMissingTable(error.code)) return { error: { message: m.admin.catalogMigrationMsg } };
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("setProductBasePrice/delete", { hasil: error })) } };
     }
     return { data: true };
   }
@@ -369,7 +369,7 @@ export async function setProductBasePrice(
   const { data: updated, error: updateError } = await doUpdate();
   if (updateError) {
     if (isMissingTable(updateError.code)) return { error: { message: m.admin.catalogMigrationMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("setProductBasePrice/update", { hasil: updateError })) } };
   }
   if ((updated ?? []).length > 0) return { data: true };
 
@@ -383,11 +383,11 @@ export async function setProductBasePrice(
       // update ulang sekali (bukan error pengguna, LESSONS #21 sekeluarga).
       const { data: retried, error: retryError } = await doUpdate();
       if (retryError || (retried ?? []).length === 0) {
-        return { error: { message: PESAN.serverSibuk } };
+        return { error: { message: PESAN.serverSibukKode(catatGagal("setProductBasePrice/retry", { hasil: retryError })) } };
       }
       return { data: true };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("setProductBasePrice/insert", { hasil: insertError })) } };
   }
   return { data: true };
 }

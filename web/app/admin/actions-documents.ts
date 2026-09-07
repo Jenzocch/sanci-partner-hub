@@ -21,7 +21,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { pesan, safeWrite, isRequestIdConflict } from "@/lib/safe-write";
+import { pesan, catatGagal, safeWrite, isRequestIdConflict } from "@/lib/safe-write";
 import { getAdminMessages } from "@/lib/i18n";
 import type { AdminMessages } from "@/lib/i18n/messages";
 import { DOC_TYPE_PREFIX, fetchItemCoverage, type DocType } from "@/lib/documents-shared";
@@ -194,7 +194,7 @@ export async function createOrderDocument(
     // Gagal membaca baris pesanan = TIDAK membuat dokumen. Melanjutkan dengan
     // daftar kosong akan menerbitkan Surat Order tanpa barang (lihat catatan
     // di resolveSoDefaultItems).
-    if (soDefault === null) return { error: { message: PESAN.serverSibuk } };
+    if (soDefault === null) return { error: { message: PESAN.serverSibukKode(catatGagal("createOrderDocument/soDefault", { orderId })) } };
     items = soDefault;
   }
 
@@ -209,7 +209,7 @@ export async function createOrderDocument(
     .maybeSingle();
   if (existingErr) {
     if (isMissingTable(existingErr.code)) return { error: { message: m.admin.docFeatureOff } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("createOrderDocument/precheck", { hasil: existingErr })) } };
   }
   if (existing) {
     revalidatePath("/admin/orders/[orderId]", "page");
@@ -221,7 +221,7 @@ export async function createOrderDocument(
     .select("order_number")
     .eq("id", orderId)
     .maybeSingle();
-  if (orderErr) return { error: { message: PESAN.serverSibuk } };
+  if (orderErr) return { error: { message: PESAN.serverSibukKode(catatGagal("createOrderDocument/order", { hasil: orderErr })) } };
   if (!order) return { error: { message: m.admin.orderNotFound } };
 
   const prefix = DOC_TYPE_PREFIX[docType];
@@ -235,7 +235,7 @@ export async function createOrderDocument(
       .eq("doc_type", docType);
     if (countErr) {
       if (isMissingTable(countErr.code)) return { error: { message: m.admin.docFeatureOff } };
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("createOrderDocument/count", { hasil: countErr })) } };
     }
     const n = (count ?? 0) + 1;
     const docNumber = n === 1 ? `${prefix}${order.order_number}` : `${prefix}${order.order_number}-${n}`;
@@ -284,7 +284,7 @@ export async function createOrderDocument(
           // pengguna, bukan juga "sudah mendarat" — cukup coba nomor baru).
           continue;
         }
-        return { error: { message: PESAN.serverSibuk } };
+        return { error: { message: PESAN.serverSibukKode(catatGagal("createOrderDocument/insert", { hasil: written })) } };
       }
       // Guard over-shipment (race jarang — sudah divalidasi di atas) atau
       // pelanggaran lain dari RPC: jangan teruskan teks RAISE EXCEPTION

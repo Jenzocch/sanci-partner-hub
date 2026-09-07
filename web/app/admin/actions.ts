@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CODE_RE } from "@/lib/validation";
 import {
   pesan,
+  catatGagal,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
@@ -92,7 +93,7 @@ export async function createPartner(input: {
       if (written.code === "23505") {
         return { error: { field: "code", message: m.admin.partnerCodeTaken.replace("{code}", code) } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("createPartner", { hasil: written })) } };
     }
     // Jawaban tidak sampai: tanyakan status sebenarnya, jangan INSERT lagi (SPEC §61).
     const check = await confirmByRequestId(
@@ -160,7 +161,7 @@ export async function updatePartner(
     if (saved.code === "23505") {
       return { error: { field: "code", message: m.admin.partnerCodeTaken.replace("{code}", code ?? "") } };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("updatePartner", { hasil: saved })) } };
   }
 
   revalidatePath("/admin");
@@ -196,7 +197,7 @@ export async function setPartnerLogo(
     supabase.from("partners").update({ logo_url: logoUrl }).eq("id", id).select("id").single()
   );
   if (!saved.ok) {
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("setPartnerLogo", { hasil: saved })) } };
   }
 
   revalidatePath("/admin");

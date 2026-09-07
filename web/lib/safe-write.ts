@@ -114,16 +114,45 @@ export function kodeLaporan(): string {
 }
 
 /**
+ * `JSON.stringify` MENGHILANGKAN `message` dari objek Error — properti itu
+ * non-enumerable di prototipe Error, dan `PostgrestError` (supabase-js) adalah
+ * subclass Error. Diukur: `JSON.stringify({e: new PostgrestError({message:
+ * "new row violates row-level security policy…", code: "42501"})})` menghasilkan
+ * `{"e":{"name":"PostgrestError","details":null,"hint":null,"code":"42501"}}`
+ * — justru kalimat yang paling menjelaskan penyebabnya yang lenyap, diam-diam,
+ * di log yang tujuannya persis untuk itu. Jadi Error disalin field demi field
+ * di sini, bukan diserahkan ke stringify.
+ */
+function bisaDicatat(nilai: unknown): unknown {
+  if (nilai instanceof Error) {
+    const e = nilai as Error & { code?: unknown; details?: unknown; hint?: unknown };
+    return { nama: e.name, message: e.message, code: e.code, details: e.details, hint: e.hint };
+  }
+  if (nilai && typeof nilai === "object") {
+    // Objek hasil safeWrite ({reason, code, detail}) dan sejenisnya: salin
+    // dangkal supaya Error yang bersarang di dalamnya ikut terurai.
+    const keluar: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(nilai as Record<string, unknown>)) {
+      keluar[k] = v instanceof Error ? bisaDicatat(v) : v;
+    }
+    return keluar;
+  }
+  return nilai;
+}
+
+/**
  * Catat kegagalan ke log server dan kembalikan kode laporannya.
  * `aksi` = nama Server Action + titik gagal (mis. "createCustomerAndOrder/salesCheck").
- * `detail` = apa pun yang membantu owner: code/detail dari safeWrite, id baris,
- * dsb. Jangan memasukkan data pribadi pelanggan (nomor HP, nama) ke sini.
+ * `detail` = apa pun yang membantu owner: hasil safeWrite / objek error
+ * Postgres / id baris. Jangan memasukkan data pribadi pelanggan (nomor HP,
+ * nama) ke sini — log ini untuk melacak KESALAHAN, bukan menyimpan data.
  */
 export function catatGagal(aksi: string, detail: Record<string, unknown> = {}): string {
   const kode = kodeLaporan();
-  console.error(
-    JSON.stringify({ laporan: kode, aksi, ...detail, waktu: new Date().toISOString() })
-  );
+  const isi: Record<string, unknown> = { laporan: kode, aksi };
+  for (const [k, v] of Object.entries(detail)) isi[k] = bisaDicatat(v);
+  isi.waktu = new Date().toISOString();
+  console.error(JSON.stringify(isi));
   return kode;
 }
 

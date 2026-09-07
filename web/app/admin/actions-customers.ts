@@ -28,7 +28,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { pesan, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
+import { pesan, catatGagal, confirmByRequestId, isRequestIdConflict, safeWrite } from "@/lib/safe-write";
 import { normalizePhoneID } from "@/lib/orders-shared";
 import { getAdminMessages } from "@/lib/i18n";
 import type { SupabaseServerClient } from "@/lib/order-create-shared";
@@ -99,7 +99,7 @@ export async function createCustomerAdmin(input: {
     .maybeSingle();
   if (existingErr) {
     if (isMissingTable(existingErr.code)) return { error: { message: m.admin.customerCodeMigrationMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("createCustomerAdmin/precheck", { hasil: existingErr })) } };
   }
   if (existing) {
     revalidatePath("/admin/pelanggan");
@@ -145,7 +145,7 @@ export async function createCustomerAdmin(input: {
         }
         return { error: { message: PESAN.belumPastiBaru } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("createCustomerAdmin/insert", { hasil: written })) } };
     }
     const check = await recheck();
     if (check.status === "found") {
@@ -188,7 +188,7 @@ export async function createCustomerSource(input: {
     .maybeSingle();
   if (existingErr) {
     if (isMissingTable(existingErr.code)) return { error: { message: m.admin.customerCodeMigrationMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("createCustomerSource/precheck", { hasil: existingErr })) } };
   }
   if (existing) {
     revalidatePath("/admin/pelanggan");
@@ -226,7 +226,7 @@ export async function createCustomerSource(input: {
       if (written.code === "23505") {
         return { error: { field: "code", message: m.admin.sourceCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("createCustomerSource/insert", { hasil: written })) } };
     }
     const check = await recheck();
     if (check.status === "found") {
@@ -264,7 +264,7 @@ export async function updateCustomerSource(
       if (saved.code === "23505") {
         return { error: { field: "code", message: m.admin.sourceCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("updateCustomerSource", { hasil: saved })) } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }
@@ -321,7 +321,7 @@ export async function createSalesStaff(input: {
     .maybeSingle();
   if (existingErr) {
     if (isMissingTable(existingErr.code)) return { error: { message: m.admin.customerCodeMigrationMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("createSalesStaff/precheck", { hasil: existingErr })) } };
   }
   if (existing) {
     revalidatePath("/admin/pelanggan");
@@ -359,7 +359,7 @@ export async function createSalesStaff(input: {
       if (written.code === "23505") {
         return { error: { field: "code", message: m.admin.salesCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("createSalesStaff/insert", { hasil: written })) } };
     }
     const check = await recheck();
     if (check.status === "found") {
@@ -397,7 +397,7 @@ export async function updateSalesStaff(
       if (saved.code === "23505") {
         return { error: { field: "code", message: m.admin.salesCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("updateSalesStaff", { hasil: saved })) } };
     }
     return { error: { message: PESAN.belumPastiUbah } };
   }

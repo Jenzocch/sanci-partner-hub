@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pesan, WRITE_TIMEOUT_MS, confirmByRequestId, safeWrite } from "@/lib/safe-write";
+import { pesan, catatGagal, WRITE_TIMEOUT_MS, confirmByRequestId, safeWrite } from "@/lib/safe-write";
 import { getAdminMessages, type AdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
@@ -263,7 +263,7 @@ export async function createPartnerUser(
     .eq("id", input.branchId)
     .eq("partner_id", partnerId)
     .maybeSingle();
-  if (branchErr) return { error: { message: PESAN.serverSibuk } };
+  if (branchErr) return { error: { message: PESAN.serverSibukKode(catatGagal("createPartnerUser/branch", { hasil: branchErr })) } };
   if (!branch) {
     return { error: { field: "branch_id", message: m.admin.userBranchNotFoundOnPartner } };
   }
@@ -500,7 +500,7 @@ export async function resetPartnerUserPassword(
     .select("id, auth_user_id")
     .eq("id", userId)
     .maybeSingle();
-  if (targetErr) return { error: { message: PESAN.serverSibuk } };
+  if (targetErr) return { error: { message: PESAN.serverSibukKode(catatGagal("resetPartnerUserPassword/target", { hasil: targetErr })) } };
   if (!target) return { error: { message: PESAN_RESET.akunTidakAda } };
   if (!target.auth_user_id) return { error: { message: PESAN_RESET.akunTidakLengkap } };
 

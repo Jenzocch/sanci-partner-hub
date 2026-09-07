@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   pesan,
+  catatGagal,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
@@ -132,7 +133,7 @@ export async function createStaff(
       } else if (written.reason === "db" && isStaffCodeFormatError(written)) {
         return { error: { field: "code", message: m.admin.staffCodeInvalidFormat } };
       } else {
-        return { error: { message: PESAN.serverSibuk } };
+        return { error: { message: PESAN.serverSibukKode(catatGagal("createStaff", { hasil: written })) } };
       }
     }
   }
@@ -205,7 +206,7 @@ export async function updateStaff(
     }
     return {
       error: {
-        message: saved.reason === "unconfirmed" ? PESAN.belumPastiUbah : PESAN.serverSibuk,
+        message: saved.reason === "unconfirmed" ? PESAN.belumPastiUbah : PESAN.serverSibukKode(catatGagal("updateStaff", { hasil: saved })),
       },
     };
   }

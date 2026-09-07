@@ -26,7 +26,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { pesan, safeWrite } from "@/lib/safe-write";
+import { pesan, catatGagal, safeWrite } from "@/lib/safe-write";
 import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
@@ -108,7 +108,7 @@ export async function addColor(
       if (written.code === "23505") {
         return { error: { field: "code", message: m.admin.colorCodeTaken } };
       }
-      return { error: { message: PESAN.serverSibuk } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("addColor", { hasil: written })) } };
     }
     // Respons hilang — tanpa client_request_id (lihat catatan kepala berkas),
     // status sebenarnya tidak bisa dipastikan dari sini. Admin diminta
@@ -216,7 +216,7 @@ export async function moveColor(id: string, direction: "up" | "down"): Promise<A
     if (written.reason === "db" && isMissingTable(written.code)) {
       return { error: { message: m.admin.colorMigrationMsg } };
     }
-    return { error: { message: written.reason === "db" ? PESAN.serverSibuk : PESAN.belumPastiUbah } };
+    return { error: { message: written.reason === "db" ? PESAN.serverSibukKode(catatGagal("moveColor", { hasil: written })) : PESAN.belumPastiUbah } };
   }
 
   const { data: after, error: afterError } = await supabase

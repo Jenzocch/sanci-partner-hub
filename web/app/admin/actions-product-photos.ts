@@ -17,7 +17,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { safeWrite, pesan } from "@/lib/safe-write";
+import { safeWrite, pesan, catatGagal } from "@/lib/safe-write";
 import { getAdminMessages } from "@/lib/i18n";
 
 type ActionError = { field?: string; message: string };
@@ -78,7 +78,7 @@ export async function addProductPhoto(productId: string, photoUrl: string): Prom
     if (written.reason === "db" && isMissingTable(written.code)) {
       return { error: { message: m.admin.catalogMigrationMsg } };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("addProductPhoto", { hasil: written })) } };
   }
 
   revalidatePath("/admin/produk");
@@ -223,7 +223,7 @@ export async function moveProductPhoto(
       return { error: { message: m.admin.catalogMigrationMsg } };
     }
     return {
-      error: { message: written.reason === "db" ? PESAN.serverSibuk : PESAN.belumPastiUbah },
+      error: { message: written.reason === "db" ? PESAN.serverSibukKode(catatGagal("moveProductPhoto", { hasil: written })) : PESAN.belumPastiUbah },
     };
   }
 
@@ -272,7 +272,7 @@ export async function deleteProductPhoto(id: string): Promise<ActionResult<true>
   const { error } = await supabase.from("product_photos").delete().eq("id", id);
   if (error) {
     if (isMissingTable(error.code)) return { error: { message: m.admin.catalogMigrationMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    return { error: { message: PESAN.serverSibukKode(catatGagal("deleteProductPhoto", { hasil: error })) } };
   }
 
   revalidatePath("/admin/produk");
