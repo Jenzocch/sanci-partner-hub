@@ -49,7 +49,23 @@ export async function verifyActiveStaffInBranch(
     .eq("branch_id", branchId)
     .is("end_at", null)
     .maybeSingle();
-  if (error) return "error";
+  if (error) {
+    // Pemanggil hanya menerima "error" (tanpa detail) dan menempelkan kode
+    // laporan sendiri (catatGagal). Detail Postgres-nya dicatat DI SINI supaya
+    // owner yang mencari kode itu di log juga melihat penyebab aslinya —
+    // dicocokkan lewat staffId/branchId + waktu (kedua baris log berdekatan).
+    console.error(
+      JSON.stringify({
+        aksi: "verifyActiveStaffInBranch",
+        staffId,
+        branchId,
+        code: error.code,
+        detail: error.message,
+        waktu: new Date().toISOString(),
+      })
+    );
+    return "error";
+  }
   if (!data) return "invalid";
   const staff = data.partner_staff as unknown as { id: string; status: string; partner_id: string } | null;
   return !!staff && staff.status === "ACTIVE" && staff.partner_id === partnerId ? "ok" : "invalid";

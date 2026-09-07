@@ -71,12 +71,61 @@ export function pesan(m: HasCommon, tombol?: string) {
     // Tidak menyebut tombol apa pun ("Coba lagi sebentar lagi") — sengaja
     // tidak ikut disulih.
     serverSibuk: m.common.netServerBusy,
+    /**
+     * `serverSibuk` + kode laporan dari `catatGagal()`. Dipakai di titik
+     * gagal yang penyebabnya SUDAH tercatat di log server — tanpa kode ini,
+     * "Coba lagi sebentar lagi" tidak memberi owner satu pun petunjuk apa
+     * yang sebenarnya terjadi (permintaan owner 2026-09-06).
+     */
+    serverSibukKode: (kode: string) =>
+      `${m.common.netServerBusy} ${m.common.netReportCode.replace("{kode}", kode)}`,
     staleBelumTersimpan: isi(m.common.netStaleNotSaved),
     staleBelumPasti: isi(m.common.netStaleUnsure),
   } as const;
 }
 
 export type PesanJaringan = ReturnType<typeof pesan>;
+
+/* ------------------------------------------------------------------ *
+ * Kode laporan: menjembatani layar pegawai toko dan log server.
+ *
+ * Sebelum ini, Server Action MENELAN `code`/`detail` dari safeWrite dan hanya
+ * mengembalikan "Tidak bisa menyimpan sekarang" — tidak ada console.error
+ * satu pun di app/cabang/**. Owner tidak punya cara tahu ada masalah, apalagi
+ * masalah apa. Sekarang tiap titik gagal generik memanggil `catatGagal()`:
+ * satu baris JSON ke console.error (masuk log Vercel) dengan kode pendek,
+ * dan kode yang SAMA ditempel di pesan layar lewat `PESAN.serverSibukKode`.
+ * Pegawai toko cukup mengirim "SP-K7Q3X" ke SANCI; owner mencari kode itu di
+ * log dan langsung melihat aksi, kode Postgres, dan detailnya.
+ *
+ * Yang TIDAK dilakukan: mengirim detail Postgres ke layar (aturan kepala
+ * berkas tetap berlaku — hanya kodenya yang tampil).
+ * ------------------------------------------------------------------ */
+
+/** 5 karakter tanpa 0/O/1/I supaya tidak salah baca saat diketik ulang. */
+const KODE_ALFABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+export function kodeLaporan(): string {
+  let s = "";
+  for (let i = 0; i < 5; i++) {
+    s += KODE_ALFABET[Math.floor(Math.random() * KODE_ALFABET.length)];
+  }
+  return `SP-${s}`;
+}
+
+/**
+ * Catat kegagalan ke log server dan kembalikan kode laporannya.
+ * `aksi` = nama Server Action + titik gagal (mis. "createCustomerAndOrder/salesCheck").
+ * `detail` = apa pun yang membantu owner: code/detail dari safeWrite, id baris,
+ * dsb. Jangan memasukkan data pribadi pelanggan (nomor HP, nama) ke sini.
+ */
+export function catatGagal(aksi: string, detail: Record<string, unknown> = {}): string {
+  const kode = kodeLaporan();
+  console.error(
+    JSON.stringify({ laporan: kode, aksi, ...detail, waktu: new Date().toISOString() })
+  );
+  return kode;
+}
 
 /* ------------------------------------------------------------------ *
  * Sisi server: membungkus panggilan Supabase

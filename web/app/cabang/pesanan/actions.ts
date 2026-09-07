@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   LOOKUP_TIMEOUT_MS,
   pesan,
+  catatGagal,
   confirmByRequestId,
   isRequestIdConflict,
   safeWrite,
@@ -144,7 +145,8 @@ async function resolvePackage(
     if (error) {
       // Tabel hilang / error lain — jangan crash, tapi juga jangan percaya
       // package_id dari client begitu saja. Turunkan jadi pesan generik.
-      return { ok: false, error: { field: "package_name", message: PESAN.serverSibuk } };
+      const kode = catatGagal("resolvePackage", { code: error.code, detail: error.message });
+      return { ok: false, error: { field: "package_name", message: PESAN.serverSibukKode(kode) } };
     }
     if (!data || data.status !== "ACTIVE") {
       return {
@@ -479,7 +481,8 @@ async function resolveOrCreateCustomer(
       .maybeSingle();
     if (error) {
       if (isMissingTableError(error)) return { ok: false, error: { message: m.cabang.errOrderModuleInactive } };
-      return { ok: false, error: { message: PESAN.serverSibuk } };
+      const kode = catatGagal("resolveCustomer/existing", { code: error.code, detail: error.message });
+      return { ok: false, error: { message: PESAN.serverSibukKode(kode) } };
     }
     if (!existing) {
       return { ok: false, error: { message: m.cabang.errCustomerNotFoundReload } };
@@ -552,7 +555,8 @@ async function resolveOrCreateCustomer(
     return { ok: false, error: { message: PESAN.belumPastiBaru } };
   }
 
-  return { ok: false, error: { message: PESAN.serverSibuk } };
+  const kode = catatGagal("resolveCustomer/insert", { code: written.code, detail: written.detail });
+  return { ok: false, error: { message: PESAN.serverSibukKode(kode) } };
 }
 
 /* ------------------------------------------------------------------ *
@@ -586,7 +590,10 @@ export async function createCustomerOnly(input: {
   let attributedStaffId: string | undefined;
   if (input.salesStaffId) {
     const staffCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
-    if (staffCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
+    if (staffCheck === "error") {
+      const kode = catatGagal("createCustomerOnly/staffCheck", { staffId: input.salesStaffId, branchId: identity.branchId });
+      return { error: { field: "sales_staff_id", message: PESAN.serverSibukKode(kode) } };
+    }
     if (staffCheck === "invalid") {
       return { error: { field: "sales_staff_id", message: m.cabang.errSalesInvalidStaff } };
     }
@@ -743,7 +750,10 @@ export async function createCustomerAndOrder(input: {
   if (!input.salesStaffId) return { error: { field: "sales_staff_id", message: m.cabang.errSalesRequired } };
 
   const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, identity.branchId, identity.partnerId);
-  if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
+  if (salesCheck === "error") {
+    const kode = catatGagal("createCustomerAndOrder/salesCheck", { staffId: input.salesStaffId, branchId: identity.branchId });
+    return { error: { field: "sales_staff_id", message: PESAN.serverSibukKode(kode) } };
+  }
   if (salesCheck === "invalid") {
     return {
       error: { field: "sales_staff_id", message: m.cabang.errSalesInvalidStaff },
@@ -752,7 +762,10 @@ export async function createCustomerAndOrder(input: {
   let picStaffId: string | null = null;
   if (input.picStaffId) {
     const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, identity.branchId, identity.partnerId);
-    if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
+    if (picCheck === "error") {
+      const kode = catatGagal("createCustomerAndOrder/picCheck", { staffId: input.picStaffId, branchId: identity.branchId });
+      return { error: { field: "pic_staff_id", message: PESAN.serverSibukKode(kode) } };
+    }
     if (picCheck === "invalid") {
       return { error: { field: "pic_staff_id", message: m.cabang.errPicInvalidStaff } };
     }
@@ -963,7 +976,8 @@ async function fetchOrderForMutation(
     .maybeSingle();
   if (error) {
     if (isMissingTableError(error)) return { ok: false, error: { message: m.cabang.errOrderModuleInactive } };
-    return { ok: false, error: { message: PESAN.serverSibuk } };
+    const kode = catatGagal("loadMutableOrder", { orderId, code: error.code, detail: error.message });
+    return { ok: false, error: { message: PESAN.serverSibukKode(kode) } };
   }
   if (!data) {
     return { ok: false, error: { message: m.cabang.errOrderNotFoundNoAccess } };
@@ -981,14 +995,16 @@ async function fetchOrderForMutation(
 function updateFailureMessage(
   m: CabangMessages,
   written: { reason: "db"; code?: string; detail: string } | { reason: "unconfirmed" },
-  noRowMsg: string
+  noRowMsg: string,
+  /** Nama aksi untuk log server (kode laporan) — lihat catatGagal di lib/safe-write.ts. */
+  aksi: string
 ): string {
   const PESAN = pesan(m);
   if (written.reason === "unconfirmed") return PESAN.belumPastiUbah;
   if (isMissingColumnError({ code: written.code })) return m.cabang.errFeatureInactive;
   if (isMissingTableError({ code: written.code })) return m.cabang.errOrderModuleInactive;
   if (written.detail === "no row returned") return noRowMsg;
-  return PESAN.serverSibuk;
+  return PESAN.serverSibukKode(catatGagal(aksi, { code: written.code, detail: written.detail }));
 }
 
 export type UpdateOrderResult = { data: { updated: true } } | { error: ActionError };
@@ -1062,14 +1078,20 @@ export async function updateOrder(input: {
   // Staf diverifikasi terhadap cabang PESANAN (bisa beda dari cabang login saat
   // PARTNER_ALL_BRANCHES mengubah pesanan cabang lain) — bukan cabang pengguna.
   const salesCheck = await verifyActiveStaffInBranch(supabase, input.salesStaffId, order.branch_id, order.partner_id);
-  if (salesCheck === "error") return { error: { field: "sales_staff_id", message: PESAN.serverSibuk } };
+  if (salesCheck === "error") {
+    const kode = catatGagal("updateOrder/salesCheck", { orderId: input.orderId, staffId: input.salesStaffId });
+    return { error: { field: "sales_staff_id", message: PESAN.serverSibukKode(kode) } };
+  }
   if (salesCheck === "invalid") {
     return { error: { field: "sales_staff_id", message: m.cabang.errSalesInvalidStaff } };
   }
   let picStaffId: string | null = null;
   if (input.picStaffId) {
     const picCheck = await verifyActiveStaffInBranch(supabase, input.picStaffId, order.branch_id, order.partner_id);
-    if (picCheck === "error") return { error: { field: "pic_staff_id", message: PESAN.serverSibuk } };
+    if (picCheck === "error") {
+      const kode = catatGagal("updateOrder/picCheck", { orderId: input.orderId, staffId: input.picStaffId });
+      return { error: { field: "pic_staff_id", message: PESAN.serverSibukKode(kode) } };
+    }
     if (picCheck === "invalid") {
       return { error: { field: "pic_staff_id", message: m.cabang.errPicInvalidStaff } };
     }
@@ -1095,7 +1117,7 @@ export async function updateOrder(input: {
   if (!written.ok) {
     return {
       error: {
-        message: updateFailureMessage(m, written, m.cabang.errOrderUpdateNoAccess),
+        message: updateFailureMessage(m, written, m.cabang.errOrderUpdateNoAccess, "updateOrder"),
       },
     };
   }
@@ -1146,7 +1168,7 @@ export async function cancelOrder(input: {
   if (!written.ok) {
     return {
       error: {
-        message: updateFailureMessage(m, written, m.cabang.errOrderCancelNoAccess),
+        message: updateFailureMessage(m, written, m.cabang.errOrderCancelNoAccess, "cancelOrder"),
       },
     };
   }
@@ -1205,7 +1227,7 @@ export async function setOrderInvoicePath(input: {
   if (!written.ok) {
     return {
       error: {
-        message: updateFailureMessage(m, written, m.cabang.errInvoiceUploadFailed),
+        message: updateFailureMessage(m, written, m.cabang.errInvoiceUploadFailed, "setOrderInvoicePath"),
       },
     };
   }
@@ -1465,7 +1487,8 @@ export async function setOrderOfferBranch(
     if (written.detail.includes("Boleh mengatur diskon")) {
       return { error: { field: "discount_pcts", message: m.cabang.cabangOfferNoPermissionDiscount } };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    const kode = catatGagal("setOrderOfferBranch", { orderId, code: written.code, detail: written.detail });
+    return { error: { message: PESAN.serverSibukKode(kode) } };
   }
 
   revalidatePath(`/cabang/pesanan/${orderId}`);
@@ -1535,7 +1558,8 @@ export async function markOrderDelivered(
     // harus menjawab pertanyaan itu ("jadi tertandai atau tidak?"), bukan
     // bicara soal link pelanggan seperti dulu (audit teks 2026-08-28).
     if (isMissingColumnError(fetchErr)) return { error: { message: m.common.markDeliveredUnavailableMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    const kode = catatGagal("markOrderDelivered/fetch", { orderId, code: fetchErr.code, detail: fetchErr.message });
+    return { error: { message: PESAN.serverSibukKode(kode) } };
   }
   if (!order) return { error: { message: m.cabang.errOrderDetailLoadFailed } };
   if (order.delivered_at) {
@@ -1608,7 +1632,8 @@ export async function sendCustomerLinkViaCompany(
 
   if (error) {
     if (isMissingColumnError(error)) return { error: { message: m.common.custLinkUnavailableMsg } };
-    return { error: { message: PESAN.serverSibuk } };
+    const kode = catatGagal("customerLink/fetch", { orderId, code: error.code, detail: error.message });
+    return { error: { message: PESAN.serverSibukKode(kode) } };
   }
   if (!order) return { error: { message: m.cabang.errOrderDetailLoadFailed } };
 
@@ -1842,7 +1867,8 @@ export async function setCustomerPayment(
     if (written.detail === "no row returned" || written.code === "42501") {
       return { error: { message: m.cabang.customerPaymentNoPermissionEdit } };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    const kode = catatGagal("setCustomerPaymentBranch", { orderId, code: written.code, detail: written.detail });
+    return { error: { message: PESAN.serverSibukKode(kode) } };
   }
 
   revalidatePath(`/cabang/pesanan/${orderId}`);

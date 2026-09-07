@@ -15,7 +15,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { pesan, safeWrite } from "@/lib/safe-write";
+import { catatGagal, pesan, safeWrite } from "@/lib/safe-write";
 import { isMissingTableError, normalizePhoneID } from "@/lib/orders-shared";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
 
@@ -116,7 +116,8 @@ export async function updateCustomer(input: {
     if (written.detail === "no row returned") {
       return { error: { message: m.cabang.errNotAllowedMigration } };
     }
-    return { error: { message: PESAN.serverSibuk } };
+    const kode = catatGagal("updateCustomer", { customerId: input.customerId, code: written.code, detail: written.detail });
+    return { error: { message: PESAN.serverSibukKode(kode) } };
   }
 
   revalidatePath(`/cabang/pelanggan/${input.customerId}`);

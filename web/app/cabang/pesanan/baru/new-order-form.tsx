@@ -82,6 +82,9 @@ export default function NewOrderForm({
   const [selectedExisting, setSelectedExisting] = useState(false);
 
   const [errs, setErrs] = useState<Record<string, string>>({});
+  // Kartu formulir — sasaran gulir saat pesan error/jaringan tampil di banner
+  // atas (lihat tampilkanErrorIsian dan cabang onSubmit yang gagal).
+  const cardRef = useRef<HTMLDivElement>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const [partialMsg, setPartialMsg] = useState<string | null>(null);
 
@@ -471,6 +474,35 @@ export default function NewOrderForm({
 
   const customerReady = selectedExisting || lookupState === "not_found" || lookupState === "invalid";
 
+  /**
+   * Server menolak karena satu isian. Selain menandai isian itu merah
+   * (`errs[field]`), gulirkan layar ke isian tersebut — di ponsel, tombol
+   * kirim ada di paling bawah sedangkan isian yang kosong (Sales, Jalur
+   * Pesanan, Package) sudah jauh di atas, jadi tanpa ini yang terlihat cuma
+   * "ditekan tidak terjadi apa-apa" (owner 2026-09-06). Ringkasannya juga
+   * dirender di dekat tombol (lihat `fieldErr` di bawah). Error `_form` tanpa
+   * field: gulirkan ke banner di atas kartu supaya pesannya terbaca.
+   */
+  function tampilkanErrorIsian(err: { field?: string; message: string }) {
+    setErrs({ [err.field || "_form"]: err.message });
+    const form = draft.formRef.current;
+    if (!err.field) {
+      cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+    // Nama input = nama field yang dikembalikan server, kecuali Package yang
+    // saat dropdown tersedia bernama package_id (input teksnya package_name).
+    const el =
+      form?.querySelector<HTMLElement>(`[name="${err.field}"]`) ??
+      (err.field === "package_name" ? form?.querySelector<HTMLElement>('[name="package_id"]') : null);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.focus({ preventScroll: true });
+  }
+
+  /** Error isian pertama (bukan `_form`) — untuk banner ringkasan dekat tombol. */
+  const fieldErr = Object.entries(errs).find(([k]) => k !== "_form");
+
   async function onSubmitCustomerOnly() {
     if (!begin()) return;
     setErrs({});
@@ -513,12 +545,13 @@ export default function NewOrderForm({
     if (out.status !== "ok") {
       release();
       setNetMsg(out.message);
+      cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
       return;
     }
     const res = out.result;
     if ("error" in res) {
       release();
-      setErrs({ [res.error.field || "_form"]: res.error.message });
+      tampilkanErrorIsian(res.error);
       return;
     }
     draft.clear();
@@ -593,6 +626,7 @@ export default function NewOrderForm({
         setPhase("order_success");
       } else {
         setNetMsg(m.cabang.errOrderUnknownAfterConfirm);
+        cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
         release();
       }
       return;
@@ -600,18 +634,20 @@ export default function NewOrderForm({
     if (out.status !== "ok") {
       release();
       setNetMsg(out.message);
+      cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
       return;
     }
     const res = out.result;
     if ("error" in res) {
       release();
-      setErrs({ [res.error.field || "_form"]: res.error.message });
+      tampilkanErrorIsian(res.error);
       return;
     }
     if ("partial" in res) {
       // Pelanggan tersimpan, order gagal — jangan pura-pura sukses (SPEC §70).
       release();
       setPartialMsg(res.partial.message);
+      cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
       setSelectedExisting(true);
       setFoundCustomer({ id: res.partial.customerId, full_name: res.partial.customerName, phone: res.partial.customerPhone });
       setLookupState("found");
@@ -700,7 +736,7 @@ export default function NewOrderForm({
   }
 
   return (
-    <div className="card">
+    <div className="card" ref={cardRef}>
       {netMsg && <div className="banner warn">{netMsg}</div>}
       {partialMsg && <div className="banner bad">{partialMsg}</div>}
       {errs._form && <div className="banner bad">{errs._form}</div>}
@@ -959,6 +995,16 @@ export default function NewOrderForm({
             <div className="hint">{m.cabang.invoiceFieldHint}</div>
           </div>
         </fieldset>
+
+        {/* Ringkasan error isian di dekat tombol — pesan yang sama juga ada
+            (merah) di bawah isiannya; ini supaya yang berdiri di tombol tahu
+            KENAPA tidak jadi terkirim, lalu layar sudah digulirkan ke sana
+            oleh tampilkanErrorIsian(). */}
+        {fieldErr && (
+          <div className="banner bad" role="alert">
+            {m.cabang.formFieldSummary.replace("{pesan}", fieldErr[1])}
+          </div>
+        )}
 
         <div className="btnrow">
           {!selectedExisting && (
