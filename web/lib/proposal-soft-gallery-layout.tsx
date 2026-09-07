@@ -48,6 +48,7 @@ const softGalleryCss = `
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  justify-content: center;
   background:
     radial-gradient(circle at 91% 26%, rgba(214, 201, 183, 0.34) 0 12%, transparent 12.4%),
     linear-gradient(90deg, transparent 0 88%, rgba(229, 221, 210, 0.58) 88% 100%),
@@ -83,13 +84,18 @@ const softGalleryCss = `
 .${proposalStyles.coverImage} {
   position: relative;
   z-index: 1;
+  flex: none;
+  width: 100%;
+  aspect-ratio: 16 / 10;
   background: transparent;
-  padding: 11mm 12mm 10mm;
+  padding: 7mm 8mm 6mm;
 }
 
 .${proposalStyles.coverImage} img {
-  width: 94%;
-  height: 94%;
+  /* The mount already provides the visual breathing room. Shrinking the img
+     again makes white-background catalogue photos look detached and small. */
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
@@ -142,6 +148,7 @@ const softGalleryCss = `
 
 @media screen and (max-width: 720px) {
   .${proposalStyles.coverArt} {
+    min-height: auto;
     background:
       radial-gradient(circle at 94% 20%, rgba(214, 201, 183, 0.28) 0 11%, transparent 11.5%),
       #faf9f7;
