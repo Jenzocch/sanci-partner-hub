@@ -1108,6 +1108,7 @@ export async function sendCustomerLinkViaCompanyAdmin(
       url: customerLinkUrl(origin, row.customer_view_token),
     }),
     actorUserId: gate.userId,
+    messages: m.common,
   });
 
   if (!result.ok) return { error: { message: result.error } };

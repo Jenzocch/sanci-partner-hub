@@ -263,6 +263,36 @@ const id = {
   // menerima pesannya (LESSONS #7 — antrean bukan bukti sampai). Jangan
   // diganti dengan kata yang lebih kuat.
   custLinkSentCompanyMsg: "Terkirim dari nomor perusahaan.",
+  // ── Kegagalan kirim WhatsApp (lib/whatsapp-send.ts) ──────────────
+  // Fonnte menjawab HTTP 200 untuk HAMPIR SEMUA kegagalan nyata (device
+  // mati, kuota habis, nomor tujuan bukan WhatsApp) — alasannya cuma ada di
+  // field `reason` berbahasa Inggris teknis. Dulu string itu ditempel apa
+  // adanya ke layar: pegawai toko membaca "device not connected" dan tidak
+  // tahu harus berbuat apa. Sekarang tiap alasan dipetakan ke kalimat yang
+  // MENYEBUTKAN LANGKAH BERIKUTNYA, dan yang perlu ditindaklanjuti SANCI
+  // membawa kode laporan (owner 2026-09-07: "沒有發送成功要寫出來原因").
+  // Setiap pesan wajib menjawab dua hal: terkirim atau tidak, dan sekarang
+  // harus apa.
+  waErrUnconfigured:
+    "Nomor WhatsApp perusahaan belum aktif, jadi pesan TIDAK terkirim. Kirim dari WhatsApp Anda sendiri dulu, lalu beri tahu SANCI.",
+  waErrBadPhone:
+    "Nomor WhatsApp pelanggan tidak bisa dibaca: \"{phone}\". Pesan TIDAK terkirim — perbaiki dulu nomornya di data pelanggan, lalu kirim lagi.",
+  waErrRateLimit:
+    "Batas {max} pengiriman per jam sudah tercapai, jadi pesan TIDAK terkirim. Kirim dari WhatsApp Anda sendiri, atau coba lagi nanti.",
+  waErrNetwork:
+    "Tidak ada jawaban dari layanan WhatsApp. BELUM PASTI terkirim atau belum — tanyakan dulu ke pelanggan sebelum mengirim ulang, jangan langsung kirim dua kali.",
+  waErrHttp:
+    "Layanan WhatsApp menolak permintaannya (HTTP {status}), jadi pesan TIDAK terkirim. Kirim dari WhatsApp Anda sendiri, dan laporkan ke SANCI.",
+  waErrDeviceOffline:
+    "Nomor WhatsApp perusahaan sedang tidak tersambung, jadi pesan TIDAK terkirim. Kirim dari WhatsApp Anda sendiri sekarang, dan beri tahu SANCI supaya nomornya disambungkan lagi.",
+  waErrQuota:
+    "Kuota pengiriman WhatsApp perusahaan sudah habis, jadi pesan TIDAK terkirim. Kirim dari WhatsApp Anda sendiri sekarang, dan beri tahu SANCI.",
+  waErrToken:
+    "Akun WhatsApp perusahaan ditolak layanannya, jadi pesan TIDAK terkirim. Hanya SANCI yang bisa memperbaiki ini — kirim dari WhatsApp Anda sendiri dulu.",
+  waErrTargetInvalid:
+    "Nomor pelanggan ini sepertinya tidak terdaftar di WhatsApp, jadi pesan TIDAK terkirim. Periksa nomornya di data pelanggan, atau hubungi pelanggan lewat cara lain.",
+  waErrOther:
+    "Layanan WhatsApp tidak jadi mengirim pesannya. Alasan dari layanan: \"{why}\". Kirim dari WhatsApp Anda sendiri, dan laporkan ke SANCI.",
   custLinkSendSelfCta: "Kirim dari WhatsApp saya",
   custLinkNoPhoneMsg: "Pelanggan ini belum punya nomor WhatsApp yang bisa dipakai.",
   // Dipakai HANYA di jalur kirim/salin link (sisi cabang & admin). Untuk
@@ -761,6 +791,26 @@ const en = {
   custLinkSendCompanyCta: "Send link via company WhatsApp",
   custLinkSendingMsg: "Sending…",
   custLinkSentCompanyMsg: "Sent from the company number.",
+  waErrUnconfigured:
+    "The company WhatsApp number is not active yet, so the message was NOT sent. Send from your own WhatsApp for now, then let SANCI know.",
+  waErrBadPhone:
+    "The customer's WhatsApp number could not be read: \"{phone}\". The message was NOT sent — fix the number in the customer record, then send again.",
+  waErrRateLimit:
+    "The limit of {max} sends per hour has been reached, so the message was NOT sent. Send from your own WhatsApp, or try again later.",
+  waErrNetwork:
+    "No answer from the WhatsApp service. It is NOT certain whether the message went out — check with the customer before sending again, don't just send twice.",
+  waErrHttp:
+    "The WhatsApp service rejected the request (HTTP {status}), so the message was NOT sent. Send from your own WhatsApp, and report this to SANCI.",
+  waErrDeviceOffline:
+    "The company WhatsApp number is disconnected, so the message was NOT sent. Send from your own WhatsApp now, and tell SANCI so the number can be reconnected.",
+  waErrQuota:
+    "The company WhatsApp sending quota has run out, so the message was NOT sent. Send from your own WhatsApp now, and let SANCI know.",
+  waErrToken:
+    "The company WhatsApp account was rejected by the service, so the message was NOT sent. Only SANCI can fix this — send from your own WhatsApp for now.",
+  waErrTargetInvalid:
+    "This customer's number does not appear to be registered on WhatsApp, so the message was NOT sent. Check the number in the customer record, or reach the customer another way.",
+  waErrOther:
+    "The WhatsApp service did not send the message. Reason given by the service: \"{why}\". Send from your own WhatsApp, and report this to SANCI.",
   custLinkSendSelfCta: "Send from my WhatsApp",
   custLinkNoPhoneMsg: "This customer has no usable WhatsApp number.",
   custLinkUnavailableMsg: "The customer link cannot be created yet — the feature is not active. Contact SANCI Admin.",
@@ -1170,6 +1220,26 @@ const zh = {
   custLinkSendCompanyCta: "用公司 WhatsApp 发送链接",
   custLinkSendingMsg: "发送中…",
   custLinkSentCompanyMsg: "已从公司号码发出。",
+  waErrUnconfigured:
+    "公司 WhatsApp 号码还没启用，消息没有发出。请先用自己的 WhatsApp 发送，并通知 SANCI。",
+  waErrBadPhone:
+    "客户的 WhatsApp 号码无法识别：“{phone}”。消息没有发出——请先在客户资料里改正号码，再重新发送。",
+  waErrRateLimit:
+    "已达到每小时 {max} 条的发送上限，消息没有发出。请用自己的 WhatsApp 发送，或稍后再试。",
+  waErrNetwork:
+    "WhatsApp 服务没有回应。无法确认是否已发出——请先向客户确认，再决定要不要重发，不要直接发两次。",
+  waErrHttp:
+    "WhatsApp 服务拒绝了这次请求（HTTP {status}），消息没有发出。请用自己的 WhatsApp 发送，并告诉 SANCI。",
+  waErrDeviceOffline:
+    "公司 WhatsApp 号码当前未连接，消息没有发出。请先用自己的 WhatsApp 发送，并通知 SANCI 重新连接号码。",
+  waErrQuota:
+    "公司 WhatsApp 的发送额度已用完，消息没有发出。请先用自己的 WhatsApp 发送，并通知 SANCI。",
+  waErrToken:
+    "公司 WhatsApp 账号被服务方拒绝，消息没有发出。这只能由 SANCI 处理——请先用自己的 WhatsApp 发送。",
+  waErrTargetInvalid:
+    "这个客户号码似乎没有注册 WhatsApp，消息没有发出。请检查客户资料里的号码，或用其他方式联系客户。",
+  waErrOther:
+    "WhatsApp 服务没有发送这条消息。服务方给出的原因：“{why}”。请用自己的 WhatsApp 发送，并告诉 SANCI。",
   custLinkSendSelfCta: "用我的 WhatsApp 发送",
   custLinkNoPhoneMsg: "该客户没有可用的 WhatsApp 号码。",
   custLinkUnavailableMsg: "客户查询链接暂时无法生成——这个功能还没有启用。请联系 SANCI 管理员。",

@@ -1652,6 +1652,7 @@ export async function sendCustomerLinkViaCompany(
       url: customerLinkUrl(origin, row.customer_view_token),
     }),
     actorUserId: identity.identity.userId,
+    messages: m.common,
   });
 
   // Pesan galat dari pengirim SUDAH berbahasa Indonesia dan sudah layak

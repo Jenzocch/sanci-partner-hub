@@ -51,9 +51,36 @@
  * (7) Kegagalan apa pun membuat UI menawarkan jalur cadangan wa.me
  *     (keputusan owner proyek INI — berbeda dari dokumen proyek itu).
  * (8) Setiap kegagalan ditulis ke log runtime dengan awalan `[whatsapp]`.
+ *
+ * ==========================================================================
+ * PERUBAHAN 2026-09-07 (owner: "沒有發送成功要寫出來原因") — nomor Fonnte
+ * sudah aktif, jadi jalur gagal ini sekarang benar-benar bisa kena orang:
+ * ==========================================================================
+ *
+ * (9)  Teksnya TIDAK LAGI ditulis keras dalam Bahasa Indonesia di berkas ini.
+ *      Pemanggil menyodorkan `messages` (CommonMessages) dan setiap kalimat
+ *      datang dari kunci `waErr*` — sebelumnya admin yang memakai layar
+ *      berbahasa Mandarin mendapat satu paragraf Indonesia di tengahnya
+ *      (LESSONS #13, dan satu-satunya berkas yang masih melanggarnya).
+ * (10) Alasan mentah dari Fonnte ("device not connected", "quota exceeded",
+ *      "token invalid") DIPETAKAN ke kalimat yang menyebut langkah
+ *      berikutnya. Pegawai toko tidak bisa berbuat apa-apa dengan istilah
+ *      Inggris teknis; yang ia butuh tahu cuma dua hal — terkirim atau
+ *      tidak, dan sekarang harus apa. Teks aslinya TIDAK hilang: tetap
+ *      masuk log, dan untuk alasan yang tak dikenal juga tetap ditampilkan
+ *      (`waErrOther`) supaya tidak ada kegagalan yang berubah jadi kalimat
+ *      kosong "terjadi kesalahan".
+ * (11) Kegagalan yang HARUS ditangani SANCI (http / network / rejected)
+ *      membawa kode laporan `SP-XXXXX` (lib/safe-write.ts) yang sama dengan
+ *      kegagalan tulis lainnya, jadi owner bisa mencocokkan layar pegawai
+ *      dengan baris log. Kegagalan yang bisa dibereskan pegawai sendiri
+ *      (nomor salah, batas laju, belum dikonfigurasi) TIDAK diberi kode —
+ *      kode yang tidak menunjuk apa-apa hanya jadi bising.
  * ========================================================================== */
 
 import { normalizePhoneID } from "./orders-shared";
+import { catatGagal } from "./safe-write";
+import type { CommonMessages } from "./i18n/messages";
 
 /** Batas waktu satu permintaan ke Fonnte. */
 const FONNTE_TIMEOUT_MS = 10_000;
@@ -68,7 +95,7 @@ export type WhatsappSendResult =
       ok: false;
       /** Untuk percabangan UI. Teks yang ditampilkan tetap `error`. */
       reason: "unconfigured" | "bad-phone" | "http" | "rejected" | "network" | "rate-limit";
-      /** SUDAH berbahasa Indonesia dan SUDAH layak ditampilkan apa adanya. */
+      /** SUDAH diterjemahkan ke bahasa pengguna dan layak ditampilkan apa adanya. */
       error: string;
     };
 
@@ -159,6 +186,36 @@ function snippet(s: string): string {
 }
 
 /**
+ * Menerjemahkan alasan mentah Fonnte jadi kalimat yang menyebut langkah
+ * berikutnya (pelajaran 10).
+ *
+ * Fonnte TIDAK menjanjikan daftar `reason` yang tetap, jadi pencocokannya
+ * sengaja longgar (potongan kata, huruf kecil) dan SELALU punya jalan keluar:
+ * yang tidak cocok tetap menampilkan teks aslinya lewat `waErrOther` —
+ * "tidak dikenali" tidak boleh berubah jadi pesan kosong. Kalau kelak Fonnte
+ * mengubah kata-katanya, yang terjadi paling buruk adalah pesan jatuh ke
+ * `waErrOther`, bukan salah menuduh penyebab.
+ */
+function pesanAlasanFonnte(m: CommonMessages, why: string): string {
+  const w = why.toLowerCase();
+  // Urutan penting: "token" diperiksa sebelum yang lain karena jawaban token
+  // salah kadang juga menyebut device.
+  if (w.includes("token") || w.includes("unauthor") || w.includes("forbidden")) return m.waErrToken;
+  if (w.includes("quota") || w.includes("kuota") || w.includes("saldo") || w.includes("expired") || w.includes("subscription"))
+    return m.waErrQuota;
+  if (w.includes("device") || w.includes("disconnect") || w.includes("not connect") || w.includes("offline") || w.includes("scan"))
+    return m.waErrDeviceOffline;
+  if (w.includes("target") || w.includes("not registered") || w.includes("bukan whatsapp") || w.includes("invalid number") || w.includes("number is not"))
+    return m.waErrTargetInvalid;
+  return m.waErrOther.replace("{why}", why);
+}
+
+/** Menempelkan kode laporan (pelajaran 11) pada kalimat yang sudah jadi. */
+function denganKode(m: CommonMessages, teks: string, aksi: string, detail: Record<string, unknown>): string {
+  return `${teks} ${m.netReportCode.replace("{kode}", catatGagal(aksi, detail))}`;
+}
+
+/**
  * Mengirim SATU pesan WhatsApp lewat Fonnte.
  *
  * TIDAK PERNAH melempar (pelajaran 1). Pemanggil memeriksa `result.ok`.
@@ -169,17 +226,21 @@ export async function sendWhatsappViaFonnte(opts: {
   message: string;
   /** auth.uid() pemanggil — kunci batas laju. */
   actorUserId: string;
+  /**
+   * Teks untuk pengguna, dalam bahasa yang sedang dipakai (pelajaran 9).
+   * WAJIB — bukan opsional dengan cadangan Bahasa Indonesia, supaya pemanggil
+   * yang lupa ketahuan saat build, bukan muncul sebagai kalimat Indonesia di
+   * layar berbahasa lain (pola yang sama dengan `submitSafely`).
+   */
+  messages: CommonMessages;
 }): Promise<WhatsappSendResult> {
   assertServerOnly();
+  const m = opts.messages;
 
   // (4) Token diperiksa DULU: permintaan yang pasti gagal tidak dikirim.
   const token = fonnteToken();
   if (!token) {
-    return {
-      ok: false,
-      reason: "unconfigured",
-      error: "WhatsApp perusahaan belum dikonfigurasi. Kirim dari WhatsApp Anda sendiri dulu.",
-    };
+    return { ok: false, reason: "unconfigured", error: m.waErrUnconfigured };
   }
 
   // (3) Pembersihan nomor lewat SATU sumber kebenaran.
@@ -188,7 +249,9 @@ export async function sendWhatsappViaFonnte(opts: {
     return {
       ok: false,
       reason: "bad-phone",
-      error: `Nomor WhatsApp pelanggan tidak bisa dibaca: "${opts.rawPhone ?? ""}". Perbaiki dulu di data pelanggan.`,
+      // Nilai ASLI yang ditolak ikut ditampilkan (pelajaran 2-②): tanpa itu
+      // pegawai tidak tahu bagian mana dari nomornya yang harus dibetulkan.
+      error: m.waErrBadPhone.replace("{phone}", opts.rawPhone ?? ""),
     };
   }
 
@@ -196,7 +259,7 @@ export async function sendWhatsappViaFonnte(opts: {
     return {
       ok: false,
       reason: "rate-limit",
-      error: `Batas ${RATE_LIMIT_MAX} pengiriman per jam sudah tercapai. Coba lagi nanti, atau kirim dari WhatsApp Anda sendiri.`,
+      error: m.waErrRateLimit.replace("{max}", String(RATE_LIMIT_MAX)),
     };
   }
 
@@ -222,8 +285,7 @@ export async function sendWhatsappViaFonnte(opts: {
     return {
       ok: false,
       reason: "network",
-      error:
-        "Tidak ada jawaban dari layanan WhatsApp (koneksi atau waktu habis). Belum pasti terkirim — cek dulu ke pelanggan sebelum mengirim ulang.",
+      error: denganKode(m, m.waErrNetwork, "whatsapp/network", { err }),
     };
   }
 
@@ -235,7 +297,12 @@ export async function sendWhatsappViaFonnte(opts: {
     return {
       ok: false,
       reason: "http",
-      error: `Layanan WhatsApp menolak permintaan (HTTP ${res.status}). ${snippet(text)}`,
+      // Cuplikan body TIDAK lagi ikut ke layar — bagi pegawai toko itu tidak
+      // bisa ditindaklanjuti; ia tetap ada di log, ditunjuk oleh kode laporan.
+      error: denganKode(m, m.waErrHttp.replace("{status}", String(res.status)), "whatsapp/http", {
+        status: res.status,
+        body: snippet(text),
+      }),
     };
   }
 
@@ -251,7 +318,9 @@ export async function sendWhatsappViaFonnte(opts: {
     return {
       ok: false,
       reason: "rejected",
-      error: `Jawaban layanan WhatsApp tidak bisa dibaca: ${snippet(text)}`,
+      error: denganKode(m, m.waErrOther.replace("{why}", snippet(text)), "whatsapp/non-json", {
+        body: snippet(text),
+      }),
     };
   }
 
@@ -269,7 +338,7 @@ export async function sendWhatsappViaFonnte(opts: {
     return {
       ok: false,
       reason: "rejected",
-      error: `Layanan WhatsApp tidak mengirim pesannya: ${why}`,
+      error: denganKode(m, pesanAlasanFonnte(m, why), "whatsapp/rejected", { why }),
     };
   }
 
