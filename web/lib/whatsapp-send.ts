@@ -233,9 +233,18 @@ export async function sendWhatsappViaFonnte(opts: {
    * layar berbahasa lain (pola yang sama dengan `submitSafely`).
    */
   messages: CommonMessages;
+  /**
+   * Keterangan untuk log — mis. { orderNumber }. TANPA nomor telepon/nama
+   * pelanggan (log bukan tempat menyimpan data pribadi). Dipakai di baris
+   * log SUKSES maupun gagal supaya owner bisa menghitung "nomor perusahaan
+   * sudah mengirim ke pesanan mana saja" langsung dari log Vercel, tanpa
+   * bertanya ke pegawai (permintaan owner 2026-09-07: "成功也寫 log").
+   */
+  context?: Record<string, unknown>;
 }): Promise<WhatsappSendResult> {
   assertServerOnly();
   const m = opts.messages;
+  const ctx = opts.context ?? {};
 
   // (4) Token diperiksa DULU: permintaan yang pasti gagal tidak dikirim.
   const token = fonnteToken();
@@ -285,7 +294,7 @@ export async function sendWhatsappViaFonnte(opts: {
     return {
       ok: false,
       reason: "network",
-      error: denganKode(m, m.waErrNetwork, "whatsapp/network", { err }),
+      error: denganKode(m, m.waErrNetwork, "whatsapp/network", { ...ctx, err }),
     };
   }
 
@@ -300,6 +309,7 @@ export async function sendWhatsappViaFonnte(opts: {
       // Cuplikan body TIDAK lagi ikut ke layar — bagi pegawai toko itu tidak
       // bisa ditindaklanjuti; ia tetap ada di log, ditunjuk oleh kode laporan.
       error: denganKode(m, m.waErrHttp.replace("{status}", String(res.status)), "whatsapp/http", {
+        ...ctx,
         status: res.status,
         body: snippet(text),
       }),
@@ -319,6 +329,7 @@ export async function sendWhatsappViaFonnte(opts: {
       ok: false,
       reason: "rejected",
       error: denganKode(m, m.waErrOther.replace("{why}", snippet(text)), "whatsapp/non-json", {
+        ...ctx,
         body: snippet(text),
       }),
     };
@@ -338,12 +349,18 @@ export async function sendWhatsappViaFonnte(opts: {
     return {
       ok: false,
       reason: "rejected",
-      error: denganKode(m, pesanAlasanFonnte(m, why), "whatsapp/rejected", { why }),
+      error: denganKode(m, pesanAlasanFonnte(m, why), "whatsapp/rejected", { ...ctx, why }),
     };
   }
 
-  return {
-    ok: true,
-    detail: typeof obj.detail === "string" ? obj.detail : null,
-  };
+  const detail = typeof obj.detail === "string" ? obj.detail : null;
+  // Sukses JUGA dicatat (dulu hanya kegagalan): tanpa baris ini owner tidak
+  // bisa membedakan "belum ada yang menekan tombol" dari "sudah terkirim"
+  // di log. `detail` adalah jawaban Fonnte apa adanya ("success! message in
+  // queue") — antrean, bukan bukti sampai (LESSONS #7); jangan ditulis ulang
+  // jadi "delivered".
+  console.log(
+    `[whatsapp] terkirim ${JSON.stringify({ ...ctx, detail, waktu: new Date().toISOString() })}`
+  );
+  return { ok: true, detail };
 }
