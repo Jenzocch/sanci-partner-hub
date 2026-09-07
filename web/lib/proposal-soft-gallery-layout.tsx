@@ -12,8 +12,8 @@ type Props = ComponentProps<typeof ProposalEditorialLayout>;
  * Instead the document meets the source material where it is:
  * - interior paper is nearly white, so baked-white photo edges disappear;
  * - story/gallery photos have no card border, radius or shadow;
- * - the cover stays warmer, while the hero photo area returns to near-white;
- * - quiet architectural geometry lives around the hero rather than tinting it;
+ * - the cover and its photo field share the same white as catalogue assets;
+ * - square, portrait and landscape assets fit without a forced landscape stage;
  * - selection thumbnails stay functional and neutral.
  *
  * This is deliberately a visual-only layer over ProposalEditorialLayout.
@@ -34,68 +34,39 @@ const softGalleryCss = `
   --labelInk: #4a443d;
 }
 
-/* The cover keeps a warmer campaign tone; interior sheets remain near-white. */
+/* Match opaque white catalogue assets across the entire cover. */
 .${proposalStyles.coverSheet} {
-  background: #f4f0e9;
+  background: #ffffff;
 }
 
 /*
- * White-background catalogue images should read as objects, not pasted cards.
- * The hero field is almost white. Decorative geometry stays in the margins so
- * opaque white JPG pixels never need colour-altering blend modes.
+ * The source may include its own white margins and printed product name.
+ * A matching white field removes the pasted-card edge without modifying the
+ * asset, cropping furniture or changing fabric colours with blend modes.
  */
 .${proposalStyles.coverArt} {
   position: relative;
-  isolation: isolate;
+  min-height: 0;
   overflow: hidden;
-  justify-content: center;
-  background:
-    radial-gradient(circle at 91% 26%, rgba(214, 201, 183, 0.34) 0 12%, transparent 12.4%),
-    linear-gradient(90deg, transparent 0 88%, rgba(229, 221, 210, 0.58) 88% 100%),
-    #faf9f7;
+  background: #ffffff;
   border: 0;
-}
-
-.${proposalStyles.coverArt}::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  right: -18mm;
-  bottom: 13mm;
-  width: 78mm;
-  height: 78mm;
-  border: 1px solid rgba(169, 154, 135, 0.28);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.${proposalStyles.coverArt}::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  right: 14mm;
-  top: 14mm;
-  width: 28mm;
-  height: 1px;
-  background: rgba(145, 132, 116, 0.34);
-  pointer-events: none;
 }
 
 .${proposalStyles.coverImage} {
   position: relative;
-  z-index: 1;
-  flex: none;
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  background: transparent;
-  padding: 7mm 8mm 6mm;
+  background: #ffffff;
+  padding: 0;
 }
 
 .${proposalStyles.coverImage} img {
-  /* The mount already provides the visual breathing room. Shrinking the img
-     again makes white-background catalogue photos look detached and small. */
-  width: 100%;
-  height: 100%;
+  /* Intrinsic image dimensions must not enlarge the A4 grid track. */
+  position: absolute;
+  inset: 6mm;
+  width: calc(100% - 12mm);
+  height: calc(100% - 12mm);
   object-fit: contain;
 }
 
@@ -146,21 +117,20 @@ const softGalleryCss = `
   border-color: var(--line);
 }
 
-@media screen and (max-width: 720px) {
-  .${proposalStyles.coverArt} {
-    min-height: auto;
-    background:
-      radial-gradient(circle at 94% 20%, rgba(214, 201, 183, 0.28) 0 11%, transparent 11.5%),
-      #faf9f7;
-  }
-
+/* Screen sheets have natural height below 1100px; reserve a square photo
+   area there. Print continues to use the remaining A4 space. */
+@media screen and (max-width: 1100px) {
   .${proposalStyles.coverImage} {
-    padding: 18px 14px;
+    flex: none;
+    aspect-ratio: 1;
   }
+}
 
+@media screen and (max-width: 720px) {
   .${proposalStyles.coverImage} img {
-    width: 100%;
-    height: 100%;
+    inset: 10px;
+    width: calc(100% - 20px);
+    height: calc(100% - 20px);
   }
 }
 `;
