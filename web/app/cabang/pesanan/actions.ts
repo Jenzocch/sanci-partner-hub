@@ -42,15 +42,11 @@ import {
 // nama cabang" dibuat, TANPA perubahan perilaku (lihat kepala berkas itu).
 import { copyPackageItemsToOrder, verifyActiveStaffInBranch } from "@/lib/order-create-shared";
 import { getCabangMessages, type CabangMessages } from "@/lib/i18n";
-// Tautan pesanan untuk pelanggan (migrasi 0023). `whatsapp-send` HANYA boleh
-// diimpor dari berkas server seperti ini — ia memegang FONNTE_TOKEN.
-import {
-  customerLinkMessage,
-  customerLinkUrl,
-  type CustomerLinkActionResult,
-} from "@/lib/customer-link";
-import { requestOrigin } from "@/lib/request-origin";
-import { sendWhatsappViaFonnte } from "@/lib/whatsapp-send";
+// Tautan pesanan untuk pelanggan (migrasi 0023).
+//
+// `whatsapp-send` SENGAJA TIDAK diimpor di berkas ini — lihat catatan
+// "NOMOR PERUSAHAAN KHUSUS SANCI" di bawah (dekat markOrderDelivered).
+import { type CustomerLinkActionResult } from "@/lib/customer-link";
 
 type ActionError = { field?: string; message: string };
 type ActionResult<T> = { data: T } | { error: ActionError };
@@ -1598,69 +1594,34 @@ export async function markOrderDelivered(
   return { data: { deliveredAt: written.data.delivered_at as string } };
 }
 
-/**
- * Mengirim tautan pelanggan lewat NOMOR PERUSAHAAN (Fonnte).
+/* ------------------------------------------------------------------ *
+ * NOMOR PERUSAHAAN (Fonnte) KHUSUS SANCI — SENGAJA TIDAK ADA DI SINI
+ * ------------------------------------------------------------------ *
  *
- * Alamat dasar tautannya dibaca DI SINI dari header permintaan lewat
- * `requestOrigin()` — SENGAJA bukan parameter. Server Action bisa dipanggil
- * langsung oleh siapa pun yang punya sesi; kalau alamat dasarnya boleh
- * dikirim pemanggil, tautan phishing bisa dikirim ATAS NAMA TOKO ke nomor
- * pelanggannya (lubang yang sudah pernah ditambal di proyek lain).
- * Parameter yang tidak ada tidak bisa disuntik.
- */
-export async function sendCustomerLinkViaCompany(
-  orderId: string
-): Promise<CustomerLinkActionResult<{ detail: string | null }>> {
-  const m = await getCabangMessages();
-  const PESAN = pesan(m);
-  const supabase = await createClient();
-
-  const identity = await getIdentity(supabase);
-  if (identity.status !== "ok") {
-    return { error: { message: identityErrorMessage(m, identity) } };
-  }
-
-  const origin = await requestOrigin();
-
-  // RLS partner_orders yang memutuskan pesanan mana yang terbaca — bukan
-  // pemeriksaan di sini (LESSONS #5).
-  const { data: order, error } = await supabase
-    .from("partner_orders")
-    .select("order_number, customer_view_token, customers:customer_id(full_name, phone_normalized)")
-    .eq("id", orderId)
-    .maybeSingle();
-
-  if (error) {
-    if (isMissingColumnError(error)) return { error: { message: m.common.custLinkUnavailableMsg } };
-    const kode = catatGagal("customerLink/fetch", { orderId, code: error.code, detail: error.message });
-    return { error: { message: PESAN.serverSibukKode(kode) } };
-  }
-  if (!order) return { error: { message: m.cabang.errOrderDetailLoadFailed } };
-
-  const row = order as unknown as {
-    order_number: string;
-    customer_view_token: string;
-    customers: { full_name: string; phone_normalized: string } | { full_name: string; phone_normalized: string }[] | null;
-  };
-  const customer = Array.isArray(row.customers) ? row.customers[0] ?? null : row.customers;
-
-  const result = await sendWhatsappViaFonnte({
-    rawPhone: customer?.phone_normalized ?? null,
-    message: customerLinkMessage({
-      firstName: customer?.full_name?.trim().split(/\s+/)[0] ?? null,
-      orderNumber: row.order_number,
-      url: customerLinkUrl(origin, row.customer_view_token),
-    }),
-    actorUserId: identity.identity.userId,
-    messages: m.common,
-  });
-
-  // Pesan galat dari pengirim SUDAH berbahasa Indonesia dan sudah layak
-  // tampil apa adanya — halaman yang memutuskan untuk menonjolkan tombol
-  // cadangan wa.me sesudahnya.
-  if (!result.ok) return { error: { message: result.error } };
-  return { data: { detail: result.detail } };
-}
+ * Keputusan owner 2026-09-07: "目前這個只用在 sanci 的, golden home 還是照
+ * 他們自己的 whatsapp" — nomor WhatsApp perusahaan (dan kuotanya) milik
+ * SANCI; toko partner mengirim tautan dari WhatsApp MEREKA SENDIRI lewat
+ * tombol wa.me yang sudah ada di kartu tautan.
+ *
+ * Berkas ini DULU punya `sendCustomerLinkViaCompany` yang kembar dengan
+ * versi admin. Fungsi itu DIHAPUS, bukan sekadar tombolnya disembunyikan di
+ * halaman: setiap fungsi yang diekspor dari berkas "use server" adalah
+ * endpoint yang bisa dipanggil siapa pun yang punya sesi cabang — tombol
+ * yang tidak digambar BUKAN gerbang (LESSONS #5/#6, doktrin yang sama
+ * dengan "parameter yang tidak ada tidak bisa disuntik" di
+ * `requestOrigin()`). Selama fungsinya masih ada, satu pengguna cabang bisa
+ * memanggilnya langsung dan mengirim WhatsApp ATAS NAMA SANCI, memakai
+ * kuota SANCI.
+ *
+ * Arah masa depan yang SUDAH disebut owner (2026-09-07): "如果未來要用它們
+ * 的 fonnte 再做" — kalau kelak partner ingin kirim dari nomor perusahaan,
+ * itu berarti tiap partner memakai AKUN FONNTE MEREKA SENDIRI (token dan
+ * nomor milik partner itu), BUKAN ikut memakai token SANCI. Jadi jangan
+ * sekadar mengembalikan fungsi ini: yang dibutuhkan adalah penyimpanan
+ * token per-partner yang aman (bukan env var global — env var hanya bisa
+ * memuat satu token), gerbang izin per-partner, dan `sendWhatsappViaFonnte`
+ * yang menerima token sebagai parameter alih-alih membaca FONNTE_TOKEN.
+ * ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ *
  * Fitur C (cabang) — pemilih warna di modal Isi Pesanan.

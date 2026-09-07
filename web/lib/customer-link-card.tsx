@@ -46,7 +46,16 @@ export default function CustomerLinkCard({
   fonnteConfigured: boolean;
   deliveredAt: string | null;
   canMarkDelivered: boolean;
-  sendViaCompany: () => Promise<CustomerLinkActionResult<{ detail: string | null }>>;
+  /**
+   * OPSIONAL — dan TIDAK diisi sisi cabang. Nomor perusahaan beserta kuotanya
+   * milik SANCI; toko partner mengirim dari WhatsApp mereka sendiri lewat
+   * tombol wa.me (keputusan owner 2026-09-07). Kartu ini dipakai kedua sisi,
+   * jadi jalur perusahaan digambar HANYA kalau pemanggil benar-benar
+   * menyodorkan aksinya. Gerbang sesungguhnya BUKAN di sini melainkan di
+   * server: Server Action-nya memang tidak ada di app/cabang/** (lihat
+   * catatan panjang di app/cabang/pesanan/actions.ts).
+   */
+  sendViaCompany?: () => Promise<CustomerLinkActionResult<{ detail: string | null }>>;
   markDelivered: () => Promise<CustomerLinkActionResult<{ deliveredAt: string }>>;
 }) {
   const router = useRouter();
@@ -79,7 +88,7 @@ export default function CustomerLinkCard({
   }
 
   async function onSendCompany() {
-    if (sending) return;
+    if (sending || !sendViaCompany) return;
     setSending(true);
     setSendMsg(null);
     const out = await submitSafely({
@@ -144,7 +153,7 @@ export default function CustomerLinkCard({
           {m.custLinkCopyCta}
         </button>
 
-        {fonnteConfigured && waHref && (
+        {fonnteConfigured && waHref && sendViaCompany && (
           <button type="button" className="btn sm primary" disabled={sending} onClick={onSendCompany}>
             {sending ? m.custLinkSendingMsg : m.custLinkSendCompanyCta}
           </button>
@@ -152,7 +161,7 @@ export default function CustomerLinkCard({
 
         {waHref && (
           <a
-            className={`btn sm${fonnteConfigured ? "" : " primary"}`}
+            className={`btn sm${fonnteConfigured && sendViaCompany ? "" : " primary"}`}
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"

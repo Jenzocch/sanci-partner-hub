@@ -13,8 +13,7 @@ import { getCabangMessages } from "@/lib/i18n";
 import { customerLinkMessage, customerLinkUrl, waMeUrl } from "@/lib/customer-link";
 import CustomerLinkCard from "@/lib/customer-link-card";
 import { requestOrigin } from "@/lib/request-origin";
-import { isFonnteConfigured } from "@/lib/whatsapp-send";
-import { markOrderDelivered, sendCustomerLinkViaCompany } from "../actions";
+import { markOrderDelivered } from "../actions";
 import PackageContents from "../package-contents";
 import StatusBadge from "../status-badge";
 import OrderDetailActions, { type PackageOption, type StaffOption } from "./order-detail-actions";
@@ -567,10 +566,12 @@ export default async function PesananDetailPage({
 
   // Alamat dasar tautan pelanggan SELALU dari header permintaan — tidak
   // pernah dipaku di kode dan tidak pernah dari client (lihat
-  // lib/request-origin.ts). `isFonnteConfigured()` hanya mengembalikan
-  // boolean; nilai tokennya tidak pernah meninggalkan server (LESSONS #19).
+  // lib/request-origin.ts).
+  //
+  // `isFonnteConfigured()` TIDAK dipanggil di halaman cabang: nomor
+  // perusahaan khusus SANCI (keputusan owner 2026-09-07), jadi status
+  // tokennya tidak relevan di sini sama sekali.
   const origin = await requestOrigin();
-  const fonnteReady = isFonnteConfigured();
 
   return (
     <main className="pwrap">
@@ -774,10 +775,13 @@ export default async function PesananDetailPage({
             customerPhone={customer?.phone_normalized ?? null}
             orderNumber={order.order_number}
             customerName={customer?.full_name ?? m.cabang.orderUnknownCustomer}
-            fonnteConfigured={fonnteReady}
+            // Nomor perusahaan (Fonnte) KHUSUS SANCI — toko partner mengirim
+            // dari WhatsApp mereka sendiri lewat tombol wa.me (keputusan owner
+            // 2026-09-07). `sendViaCompany` sengaja tidak diberikan, dan
+            // Server Action-nya memang tidak ada di app/cabang/**.
+            fonnteConfigured={false}
             deliveredAt={customerLinkResult.deliveredAt}
             canMarkDelivered={canManage}
-            sendViaCompany={sendCustomerLinkViaCompany.bind(null, order.id)}
             markDelivered={markOrderDelivered.bind(null, order.id)}
           />
         )}
