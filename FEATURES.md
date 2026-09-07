@@ -9,9 +9,9 @@
 
 - **Status: VERIFIED（isolated CSS layout）；production authenticated flow: UNVERIFIED。**
 - Owner/module: Jenzo / shared `web/lib/kalkulator.module.css`; dependencies: existing calculator markup and global style tokens.
-- ≥1200px: photo 96px; photo / information / action grid; price 280px (240–320px bounds), Jumlah 16px beside price; short secondary color action; subtotal aligned with information; Hapus top-right. Below 1200px existing layout retained.
-- Verification: `npm run typecheck`, `npm run lint`, `npm run build` all exit 0. Playwright/Edge isolated fixture using actual global/module CSS, with color/no-color and long-name rows: 360/390/430/768/1024/1199/1200/1366/1440/1920px all no horizontal overflow; desktop photo 96px, price 280px, quantity gap 16px. 390/1440px screenshots visually inspected. Fixture is not a signed-in route test.
-- Independent diff review: application change is CSS only, scoped to screen ≥1200px. No TS/TSX, calculation, line identity, color, quantity, price, discount, Proposal/Order handoff, idempotency, data-source, DB/Auth/RLS changes. P0/P1: no changed behavioral path; P2 layout checks above pass; production interaction remains unverified. Deployment: NOT DEPLOYED by this change; submitted on a separate branch.
+- ≥1200px: photo 96px; a compact, individually surfaced photo / information / action card; information width capped at 520px so the price, Jumlah, color, variant action, and subtotal stay in one working area. Price is 280px (240–320px bounds), Jumlah is 16px beside it, the color variant is a short secondary action, subtotal aligns with information, and Hapus stays top-right. Below 1200px existing layout retained.
+- Verification: `npm run typecheck`, `npm run lint`, `npm run build` all exit 0 after the final card revision. Playwright/Edge isolated fixture using actual global/module CSS, with color/no-color and long-name rows: 360/390/430/768/1024/1199/1200/1366/1440/1920px all no horizontal overflow; desktop photo 96px, price 280px, quantity gap 16px. 390/1440px screenshots visually inspected. Fixture is not a signed-in route test.
+- Independent diff review: only scoped CSS plus two button style hooks; no event handlers or data fields changed. Calculation, line identity, color, quantity, price, discount, Proposal/Order handoff, idempotency, data-source, DB/Auth/RLS remain unchanged. P0/P1: no changed behavioral path; P2 layout checks above pass; production interaction remains unverified. Deployment: NOT DEPLOYED by this change; submitted on a separate branch.
 
 | 狀態 | 意義 |
 |---|---|

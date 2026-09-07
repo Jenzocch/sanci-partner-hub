@@ -166,21 +166,28 @@
 @media screen and (min-width: 1200px) {
   .cartLine {
     display: grid;
-    grid-template-columns: 96px minmax(0, 1fr) auto;
+    grid-template-columns: 96px minmax(0, 520px) auto;
     gap: 8px 20px;
     align-items: start;
-    padding: 20px 0;
+    width: fit-content;
+    max-width: 100%;
+    margin: 14px 0;
+    padding: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
   }
-  .lineThumb { width: 96px; height: 96px; grid-column: 1; grid-row: 1 / span 6; }
+  .cartLine:last-child { border-bottom: 1px solid var(--line); }
+  .lineThumb { width: 96px; height: 96px; grid-column: 1; grid-row: 1 / span 6; background: var(--surface); }
   .lineBody, .lineFooter { display: contents; }
   .lineBody > * { grid-column: 2; min-width: 0; }
   .lineName { grid-row: 1; align-self: center; }
-  .lineBody > :global(.field) { max-width: 520px; }
+  .lineBody > :global(.field) { width: 100%; max-width: 520px; }
   .lineControls { gap: 16px; }
   .priceField { flex: 0 1 280px; min-width: 240px; max-width: 320px; }
-  .lineBody > button { justify-self: start; width: auto; max-width: 100%; }
+  .variantAction { justify-self: start; }
   .lineSubtotal { grid-column: 2; overflow-wrap: anywhere; }
-  .lineFooter > button { grid-column: 3; grid-row: 1; align-self: start; }
+  .removeAction { grid-column: 3; grid-row: 1; align-self: start; color: var(--ink2); }
 }
 
 /* ── Warna per slot diskon (permintaan owner 2026-08-22: tiap diskon harus

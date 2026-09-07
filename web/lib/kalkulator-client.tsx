@@ -654,13 +654,13 @@ export default function KalkulatorClient({
                       </div>
                     </div>
                     {colorReady && (
-                      <button type="button" className="btn sm" style={{ marginTop: 8 }} onClick={() => addColorVariant(line)} aria-label={m.calcAddColorVariantAria.replace("{name}", line.name)}>
+                      <button type="button" className={`btn sm ${styles.variantAction}`} style={{ marginTop: 8 }} onClick={() => addColorVariant(line)} aria-label={m.calcAddColorVariantAria.replace("{name}", line.name)}>
                         {m.calcAddColorVariantCta}
                       </button>
                     )}
                     <div className={styles.lineFooter}>
                       <span className={styles.lineSubtotal}>{formatIDR(line.unitPrice * line.qty)}</span>
-                      <button type="button" className="btn sm" onClick={() => removeLine(line.lineId)} aria-label={m.calcRemoveLineAria.replace("{name}", line.name)}>{m.calcRemoveLineCta}</button>
+                      <button type="button" className={`btn sm ${styles.removeAction}`} onClick={() => removeLine(line.lineId)} aria-label={m.calcRemoveLineAria.replace("{name}", line.name)}>{m.calcRemoveLineCta}</button>
                     </div>
                   </div>
                 </div>
