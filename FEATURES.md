@@ -1913,6 +1913,14 @@ Master Data CSV（編碼毀損已修復），**價格完全未觸碰**。
 進去後，小計下方出現「不完整」那句，且建單後價格欄可自己填；⑦詳情頁在 360px
 寬手機上，照片→價格→「Tambah ke Pesanan」不用捲動就看得到。
 
+### Proposal 封面主照片比例修正（2026-09-07）
+
+- **Status: VERIFIED（isolated screen and A4 render）；authenticated production flow: UNVERIFIED。**
+- Scope: shared `web/lib/proposal-soft-gallery-layout.tsx`, used by both `/admin/proposal` and `/cabang/proposal`. Data selection stays the existing `pickCoverRow` path; no handoff, price, product, or print data changes.
+- Cause: the Soft Gallery cover used a tall, flex-filled photo region for normally landscape catalogue assets, and then reduced the image to 94% inside an already padded mount. This created compounded whitespace and made furniture appear to float.
+- Fix: the cover now centers a 16:10 horizontal photo stage, uses the full inner mount area, preserves `object-fit: contain`, and removes the inherited 410px mobile minimum. Furniture remains whole without crop or colour-altering image processing.
+- Verification: typecheck, lint, build all pass after final change. Playwright/Edge fixture with actual module and Soft Gallery CSS at 390px and 1440px: no horizontal overflow; image fills 100% of the mount’s available content area. A4 PDF is one page, rendered and visually inspected. This fixture is not a signed-in production route test.
+
 ## 已知刻意保留的「怪東西」
 
 （看起來沒用但不能刪的東西記在這裡，免得被清掉）
