@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCabangMessages } from "@/lib/i18n";
-import ProposalEditorialLayout from "@/lib/proposal-editorial-layout";
+import ProposalSoftGalleryLayout from "@/lib/proposal-soft-gallery-layout";
 import proposalStyles from "@/lib/proposal-editorial-document.module.css";
 import { COMPANY_INFO } from "@/lib/company-info";
 import { loadProposalProducts } from "./actions";
@@ -102,7 +102,7 @@ export default async function ProposalPage() {
           white-space:normal;
         }` : ""}
       `}</style>
-      <ProposalEditorialLayout
+      <ProposalSoftGalleryLayout
         loadProducts={loadProposalProducts}
         backHref="/cabang/kalkulator"
         store={store}
