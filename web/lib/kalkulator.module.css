@@ -161,6 +161,28 @@
 }
 .lineSubtotal { font-size: var(--fs-sec); font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
 
+/* Desktop: foto / informasi / aksi. Keep the existing DOM and all cart
+   handlers intact; mobile and tablet retain their original flow. */
+@media screen and (min-width: 1200px) {
+  .cartLine {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) auto;
+    gap: 8px 20px;
+    align-items: start;
+    padding: 20px 0;
+  }
+  .lineThumb { width: 96px; height: 96px; grid-column: 1; grid-row: 1 / span 6; }
+  .lineBody, .lineFooter { display: contents; }
+  .lineBody > * { grid-column: 2; min-width: 0; }
+  .lineName { grid-row: 1; align-self: center; }
+  .lineBody > :global(.field) { max-width: 520px; }
+  .lineControls { gap: 16px; }
+  .priceField { flex: 0 1 280px; min-width: 240px; max-width: 320px; }
+  .lineBody > button { justify-self: start; width: auto; max-width: 100%; }
+  .lineSubtotal { grid-column: 2; overflow-wrap: anywhere; }
+  .lineFooter > button { grid-column: 3; grid-row: 1; align-self: start; }
+}
+
 /* ── Warna per slot diskon (permintaan owner 2026-08-22: tiap diskon harus
    bisa dibedakan sekilas). Satu hue per indeks slot, dipakai KONSISTEN di dua
    tempat: baris input (garis kiri + titik pada label) dan baris breakdown
