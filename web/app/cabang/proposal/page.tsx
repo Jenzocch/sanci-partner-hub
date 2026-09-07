@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCabangMessages } from "@/lib/i18n";
 import ProposalEditorialLayout from "@/lib/proposal-editorial-layout";
+import proposalStyles from "@/lib/proposal-editorial-document.module.css";
 import { loadProposalProducts } from "./actions";
 
 /**
@@ -66,10 +67,16 @@ export default async function ProposalPage() {
     : null;
 
   return (
-    <ProposalEditorialLayout
-      loadProducts={loadProposalProducts}
-      backHref="/cabang/kalkulator"
-      store={store}
-    />
+    <>
+      {/* Owner 2026-09-07: keep SANCI contact visible even when a partner
+          store block is present. The base cover-simplification CSS hides
+          meta rows after the date; restore the existing Showroom/Kontak rows. */}
+      <style>{`.${proposalStyles.coverMetaGrid}>div:not(:first-child){display:block;}`}</style>
+      <ProposalEditorialLayout
+        loadProducts={loadProposalProducts}
+        backHref="/cabang/kalkulator"
+        store={store}
+      />
+    </>
   );
 }
