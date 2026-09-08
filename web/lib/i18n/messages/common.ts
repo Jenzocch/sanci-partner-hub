@@ -25,7 +25,6 @@ import { offline } from "./offline";
 
 const id = {
   proposalFinalPrice: "Harga akhir",
-  proposalSummaryOfLabel: "Total untuk produk berikut",
   proposalPrintPreparing: "Menyiapkan…",
   calcPrefillBanner: "{n} produk dibawa dari pesanan ini. Harga satuan sengaja kosong — isi harga yang Anda jual ke pelanggan, lalu tekan \"Buat Proposal\".",
   calcPrefillSkipped: "{n} baris pesanan tidak bisa dibawa karena tidak terhubung ke produk katalog — tambahkan sendiri di tab Produk kalau perlu.",
@@ -35,24 +34,12 @@ const id = {
     "{n} baris pesanan digabung karena produk DAN warnanya sama — jumlahnya sudah dijumlahkan jadi satu baris. Warna yang berbeda tetap dipisah menjadi baris tersendiri.",
   proposalCoverKicker: "Proposal Produk Pelanggan",
   proposalCoverSub: "Pilihan furnitur yang kami siapkan khusus untuk rumah Anda.",
-  proposalIntroTitle: "Sebuah proposal untuk rumah Anda.",
-  proposalIntroNote: "Dokumen ini memuat produk yang dipilih bersama Anda, lengkap dengan spesifikasi, foto, dan harga akhirnya.",
-  proposalMetaNo: "Nomor",
   proposalMetaDate: "Tanggal",
-  proposalMetaBy: "Disiapkan oleh",
-  proposalMetaCount: "Produk dipilih",
   proposalSelectionKicker: "01 / Pilihan Anda",
-  proposalSummaryKicker: "02 / Ringkasan",
-  proposalSummaryTitle: "Ringkasan Harga",
-  proposalSummaryNote: "Angka di atas mengikuti perhitungan sistem SANCI dan ditampilkan di sini sebagai ringkasan untuk pelanggan.",
   proposalCollectionKicker: "03 / Koleksi",
-  proposalCollectionTitle: "Pilihan yang kami siapkan untuk Anda.",
   proposalAboutLabel: "Tentang produk",
-  proposalDetailKicker: "{name} / Rincian",
   proposalGalleryKicker: "{name} / Galeri",
   proposalGalleryTitle: "Detail Produk",
-  proposalFinalKicker: "04 / Akhir",
-  proposalThanksTitle: "Terima kasih.",
   proposalThanksBody: "Kami menantikan kesempatan membantu Anda menciptakan rumah yang terasa tepat.",
   proposalContactShowroom: "Showroom",
   proposalContactLabel: "Kontak",
@@ -62,26 +49,21 @@ const id = {
   // (istilah internal sistem, GLOSSARY.md).
   proposalStoreLabel: "Toko",
   proposalProductsCount: "{n} produk dipilih",
-  proposalSpecCode: "Kode produk",
   /* Proposal — dokumen cetak untuk pelanggan, dipasang di dua area
      (cabang & admin), jadi teksnya milik slice common. */
   proposalTitle: "Proposal",
-  proposalSubtitle: "Pilihan produk yang kami siapkan untuk Anda",
   proposalForLabel: "Disiapkan untuk",
   proposalCustomerPlaceholder: "Nama pelanggan / proyek (opsional)",
   proposalPrintCta: "Cetak / Simpan PDF",
   proposalBackCta: "Kembali ke Kalkulator",
-  proposalColItem: "Produk",
   proposalColQty: "Qty",
   proposalColUnit: "Harga Satuan",
   proposalColTotal: "Total",
   proposalSelectionTitle: "Pilihan Anda",
   proposalSubtotal: "Subtotal",
   proposalDiscountStep: "Diskon {pct}%",
-  proposalMarkup: "Penyesuaian {pct}%",
   proposalCashDiscount: "Potongan tunai",
   proposalExtraFeeDefault: "Biaya tambahan",
-  proposalGrandTotal: "Total",
   proposalSpecSize: "Ukuran",
   proposalSpecCategory: "Kategori",
   // Warna yang dipilih pelanggan (2026-09-01). DUA kunci karena dua
@@ -89,9 +71,6 @@ const id = {
   // baris spesifikasi di halaman produk yang mendaftar SEMUA warna yang
   // dipilih untuk produk itu (bisa lebih dari satu).
   proposalSpecColorsChosen: "Warna dipilih",
-  proposalFootnote:
-    "Harga dalam Rupiah dan belum termasuk ongkos kirim serta pemasangan, kecuali disebutkan lain. " +
-    "Ketersediaan barang dikonfirmasi ulang saat pesanan dibuat.",
   proposalEmptyTitle: "Belum ada yang bisa dicetak",
   proposalEmptyBody:
     "Pilih dulu produknya di Kalkulator Penawaran, lalu tekan \"Buat Proposal\" di keranjang.",
@@ -132,7 +111,6 @@ const id = {
   statusEnded: "Berakhir",
   statusDisabled: "Dinonaktifkan",
   // Keadaan halaman
-  emptyDefault: "Belum ada data.",
   errorLoad: "Gagal memuat data. Muat ulang halaman untuk mencoba lagi.",
   errorSection: "Bagian ini gagal dimuat — muat ulang halaman.",
   required: "Wajib diisi",
@@ -164,7 +142,6 @@ const id = {
   fullName: "Nama Lengkap",
   code: "Kode",
   createdAt: "Dibuat",
-  serverTime: "waktu server",
   language: "Bahasa",
   status: "Status",
   description: "Deskripsi",
@@ -436,7 +413,6 @@ const id = {
   compressCannotProcess:
     "{label} tidak bisa diproses di perangkat ini. Coba pakai gambar yang lebih kecil (di bawah {limitMB} MB).",
 
-
   // Draf lokal (lib/use-local-draft.ts + lib/draft-banner.tsx). {n} diganti
   // angka, {waktu} diganti hasil waktuRelatif().
   dateLocale: "id-ID",
@@ -523,7 +499,6 @@ const id = {
   calcColorPickerPlaceholder: "— pilih warna —",
   calcColorPickerAria: "Pilih warna untuk {name}",
   calcColorLoadFailedNote: "Daftar warna gagal dimuat — bisa tetap dilanjutkan tanpa warna.",
-  calcColorMergedNote: "Digabung dengan baris {name} warna yang sama.",
   calcAddColorVariantCta: "+ Tambah warna lain",
   calcAddColorVariantAria: "Tambah baris warna lain untuk {name}",
   calcDiscountSectionTitle: "Diskon, Markup & Potongan Tunai",
@@ -611,7 +586,6 @@ type Shape = Record<keyof typeof id, string>;
 
 const en = {
   proposalFinalPrice: "Final price",
-  proposalSummaryOfLabel: "Total for the following products",
   proposalPrintPreparing: "Preparing…",
   calcPrefillBanner: "{n} products carried over from this order. Unit prices are deliberately empty — enter what you sell them for, then press \"Create Proposal\".",
   calcPrefillSkipped: "{n} order lines could not be carried over because they are not linked to a catalogue product — add them yourself in the Products tab if needed.",
@@ -621,53 +595,33 @@ const en = {
     "{n} order lines were merged because they are the same product AND colour — their quantities are now one line. Different colours stay as separate lines.",
   proposalCoverKicker: "Customer Product Proposal",
   proposalCoverSub: "A curated selection of furniture prepared for your home.",
-  proposalIntroTitle: "A proposal made for your home.",
-  proposalIntroNote: "This document brings together the products selected with you, along with their specifications, imagery and final price.",
-  proposalMetaNo: "Number",
   proposalMetaDate: "Date",
-  proposalMetaBy: "Prepared by",
-  proposalMetaCount: "Products selected",
   proposalSelectionKicker: "01 / Your Selection",
-  proposalSummaryKicker: "02 / Summary",
-  proposalSummaryTitle: "Price Summary",
-  proposalSummaryNote: "The amount above follows the value calculated by the SANCI system and is shown here as the customer-facing summary.",
   proposalCollectionKicker: "03 / Collection",
-  proposalCollectionTitle: "The selection we prepared for you.",
   proposalAboutLabel: "About the product",
-  proposalDetailKicker: "{name} / Details",
   proposalGalleryKicker: "{name} / Gallery",
   proposalGalleryTitle: "Product Details",
-  proposalFinalKicker: "04 / Final",
-  proposalThanksTitle: "Thank you.",
   proposalThanksBody: "We look forward to helping you create a home that feels right for you.",
   proposalContactShowroom: "Showroom",
   proposalContactLabel: "Contact",
   proposalStoreLabel: "Store",
   proposalProductsCount: "{n} products selected",
-  proposalSpecCode: "Product code",
   proposalTitle: "Proposal",
-  proposalSubtitle: "A selection we have prepared for you",
   proposalForLabel: "Prepared for",
   proposalCustomerPlaceholder: "Customer / project name (optional)",
   proposalPrintCta: "Print / Save PDF",
   proposalBackCta: "Back to Calculator",
-  proposalColItem: "Product",
   proposalColQty: "Qty",
   proposalColUnit: "Unit price",
   proposalColTotal: "Amount",
   proposalSelectionTitle: "Your selection",
   proposalSubtotal: "Subtotal",
   proposalDiscountStep: "Discount {pct}%",
-  proposalMarkup: "Adjustment {pct}%",
   proposalCashDiscount: "Cash discount",
   proposalExtraFeeDefault: "Additional charge",
-  proposalGrandTotal: "Total",
   proposalSpecSize: "Size",
   proposalSpecCategory: "Category",
   proposalSpecColorsChosen: "Colours chosen",
-  proposalFootnote:
-    "Prices are in Rupiah and exclude delivery and installation unless stated otherwise. " +
-    "Availability is reconfirmed when the order is placed.",
   proposalEmptyTitle: "Nothing to print yet",
   proposalEmptyBody:
     "Pick the products in the Offer Calculator first, then press \"Create Proposal\" in the cart.",
@@ -697,7 +651,6 @@ const en = {
   statusSuspended: "Suspended",
   statusEnded: "Ended",
   statusDisabled: "Disabled",
-  emptyDefault: "Nothing here yet.",
   errorLoad: "Could not load the data. Reload the page to try again.",
   errorSection: "This section failed to load — reload the page.",
   required: "Required",
@@ -728,7 +681,6 @@ const en = {
   fullName: "Full name",
   code: "Code",
   createdAt: "Created",
-  serverTime: "server time",
   language: "Language",
   status: "Status",
   description: "Description",
@@ -920,7 +872,6 @@ const en = {
   compressCannotProcess:
     "{label} can't be processed on this device. Try a smaller image (under {limitMB} MB).",
 
-
   dateLocale: "en-GB",
   timeJustNow: "a few seconds ago",
   timeMinutesAgo: "{n} min ago",
@@ -945,7 +896,6 @@ const en = {
   accountNotLinkedTitle: "Account not linked yet",
   accountNotLinkedBody:
     "You are signed in, but your account is not linked to any partner yet. Please contact SANCI Admin.",
-
 
   // Offer Calculator (lib/kalkulator-client.tsx) — moved verbatim from
   // cabang.ts, see the note on the `id` block.
@@ -976,7 +926,6 @@ const en = {
   calcColorPickerPlaceholder: "— choose colour —",
   calcColorPickerAria: "Choose colour for {name}",
   calcColorLoadFailedNote: "Colour list failed to load — you can still continue without a colour.",
-  calcColorMergedNote: "Merged into the {name} line with the same colour.",
   calcAddColorVariantCta: "+ Add another colour",
   calcAddColorVariantAria: "Add another colour line for {name}",
   calcDiscountSectionTitle: "Discount, Markup & Cash Discount",
@@ -1045,7 +994,6 @@ const en = {
 
 const zh = {
   proposalFinalPrice: "最终价格",
-  proposalSummaryOfLabel: "以下产品的总计",
   proposalPrintPreparing: "准备中…",
   calcPrefillBanner: "已从这笔订单带入 {n} 件产品。单价刻意留空 —— 请填入您卖给客户的价格,再按\"制作提案\"。",
   calcPrefillSkipped: "有 {n} 行订单项目无法带入,因为没有连结到目录产品 —— 需要的话请到产品分页自行加入。",
@@ -1055,52 +1003,33 @@ const zh = {
     "有 {n} 行订单项目因为产品和颜色都相同而合并 —— 数量已经加总成一行。颜色不同的仍然各自保留成单独一行。",
   proposalCoverKicker: "客户产品提案",
   proposalCoverSub: "为您的家精心挑选的家具。",
-  proposalIntroTitle: "为您的家准备的提案。",
-  proposalIntroNote: "这份文件汇整了与您一同挑选的产品,包含规格、照片与最终价格。",
-  proposalMetaNo: "编号",
   proposalMetaDate: "日期",
-  proposalMetaBy: "提案单位",
-  proposalMetaCount: "已选产品",
   proposalSelectionKicker: "01 / 您的选择",
-  proposalSummaryKicker: "02 / 摘要",
-  proposalSummaryTitle: "价格摘要",
-  proposalSummaryNote: "上方金额沿用 SANCI 系统的计算结果,在此以客户版摘要呈现。",
   proposalCollectionKicker: "03 / 系列",
-  proposalCollectionTitle: "为您准备的选品。",
   proposalAboutLabel: "关于这件产品",
-  proposalDetailKicker: "{name} / 细节",
   proposalGalleryKicker: "{name} / 图集",
   proposalGalleryTitle: "产品细节",
-  proposalFinalKicker: "04 / 最终",
-  proposalThanksTitle: "谢谢您。",
   proposalThanksBody: "期待能协助您打造一个真正合适的家。",
   proposalContactShowroom: "展厅",
   proposalContactLabel: "联络方式",
   proposalStoreLabel: "门店",
   proposalProductsCount: "已选 {n} 件产品",
-  proposalSpecCode: "产品编号",
   proposalTitle: "产品提案",
-  proposalSubtitle: "为您挑选的产品",
   proposalForLabel: "呈送",
   proposalCustomerPlaceholder: "客户 / 项目名称(可不填)",
   proposalPrintCta: "列印 / 存成 PDF",
   proposalBackCta: "回到计算器",
-  proposalColItem: "产品",
   proposalColQty: "数量",
   proposalColUnit: "单价",
   proposalColTotal: "金额",
   proposalSelectionTitle: "您的选择",
   proposalSubtotal: "小计",
   proposalDiscountStep: "折扣 {pct}%",
-  proposalMarkup: "调整 {pct}%",
   proposalCashDiscount: "现金折扣",
   proposalExtraFeeDefault: "额外费用",
-  proposalGrandTotal: "总计",
   proposalSpecSize: "尺寸",
   proposalSpecCategory: "类别",
   proposalSpecColorsChosen: "已选颜色",
-  proposalFootnote:
-    "价格以印尼盾计算,除另行说明外不含运费与安装费。备货情况于下单时再次确认。",
   proposalEmptyTitle: "还没有可以列印的内容",
   proposalEmptyBody: "请先在方案计算器里选好产品,再到购物车按\"制作提案\"。",
   proposalLoadFailed: "产品详情载入失败,产品介绍页暂时无法显示。",
@@ -1128,7 +1057,6 @@ const zh = {
   statusSuspended: "已暂停",
   statusEnded: "已结束",
   statusDisabled: "已停用",
-  emptyDefault: "暂无数据。",
   errorLoad: "数据加载失败，请刷新页面重试。",
   errorSection: "此部分加载失败 —— 请刷新页面。",
   required: "必填",
@@ -1159,7 +1087,6 @@ const zh = {
   fullName: "姓名",
   code: "编号",
   createdAt: "创建时间",
-  serverTime: "服务器时间",
   language: "语言",
   status: "状态",
   description: "说明",
@@ -1348,7 +1275,6 @@ const zh = {
   compressUnreadable: "无法读取这张图片，请换一张试试。",
   compressCannotProcess: "此设备无法处理{label}，请换一张更小的图片（低于 {limitMB} MB）。",
 
-
   dateLocale: "zh-CN",
   timeJustNow: "几秒前",
   timeMinutesAgo: "{n} 分钟前",
@@ -1373,7 +1299,6 @@ const zh = {
   accountNotLinkedTitle: "账号还没有开通",
   accountNotLinkedBody:
     "你已经登录成功，但账号还没有关联到任何合作商。请联系 SANCI 管理员。",
-
 
   // 方案计算器(lib/kalkulator-client.tsx)—— 原样从 cabang.ts 搬过来,
   // 说明见 `id` 区块的注释。
@@ -1403,7 +1328,6 @@ const zh = {
   calcColorPickerPlaceholder: "— 选择颜色 —",
   calcColorPickerAria: "为{name}选择颜色",
   calcColorLoadFailedNote: "颜色列表载入失败 —— 仍可不选颜色继续。",
-  calcColorMergedNote: "已合并到{name}同颜色的那一行。",
   calcAddColorVariantCta: "+ 加另一个颜色",
   calcAddColorVariantAria: "为{name}加另一行颜色",
   calcDiscountSectionTitle: "折扣、加成与现金折让",
