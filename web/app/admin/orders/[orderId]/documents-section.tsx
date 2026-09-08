@@ -11,8 +11,8 @@ import {
   createOrderDocument,
   updateOrderDocument,
   deleteOrderDocument,
-  getOrderDocumentItemCoverage,
 } from "../../actions-documents";
+import { getOrderDocumentItemCoverageSafe } from "../../actions-document-coverage";
 
 export type OrderDocumentListRow = {
   id: string;
@@ -148,6 +148,7 @@ function DocumentModal({
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [items, setItems] = useState<CoverageItem[]>([]);
   const [qtyByItem, setQtyByItem] = useState<Record<string, string>>({});
 
@@ -158,10 +159,12 @@ function DocumentModal({
   useEffect(() => {
     let cancelled = false;
     setLoadState("loading");
-    getOrderDocumentItemCoverage(orderId, docType, excludeDocumentId)
+    setLoadError(null);
+    getOrderDocumentItemCoverageSafe(orderId, docType, excludeDocumentId)
       .then((res) => {
         if (cancelled) return;
         if ("error" in res) {
+          setLoadError(res.error.message);
           setLoadState("error");
           return;
         }
@@ -185,7 +188,10 @@ function DocumentModal({
       // loadState macet permanen di "loading" — modal menampilkan hint
       // "memuat" selamanya, tanpa pesan error, tanpa tombol coba lagi.
       .catch(() => {
-        if (!cancelled) setLoadState("error");
+        if (!cancelled) {
+          setLoadError(m.common.errorLoad);
+          setLoadState("error");
+        }
       });
     return () => {
       cancelled = true;
@@ -303,11 +309,7 @@ function DocumentModal({
 
           <h3 style={{ fontSize: 14, marginTop: 6, marginBottom: 8 }}>{m.admin.docItemsSectionTitle}</h3>
           {loadState === "loading" && <div className="skeleton" style={{ height: 80 }} />}
-          {/* Gagal memuat coverage bukan bukti migration belum dijalankan.
-              Modal hanya bisa dibuka setelah kartu Dokumen sendiri berhasil
-              dimuat; timeout/RLS/network harus tampil sebagai load failure
-              generik, bukan menyesatkan admin untuk memeriksa migration. */}
-          {loadState === "error" && <div className="banner bad">{m.common.errorLoad}</div>}
+          {loadState === "error" && <div className="banner bad">{loadError ?? m.common.errorLoad}</div>}
           {/* Pesanan tanpa item: tabel kosong berkepala saja membuat admin
               mengira modalnya rusak (laporan owner 2026-08-27, tangkapan
               layar "Pilih Item" hampa) — jelaskan sebabnya dan ke mana harus
