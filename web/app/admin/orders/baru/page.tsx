@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminMessages } from "@/lib/i18n";
+import ScrollToFormError from "@/lib/scroll-to-form-error";
 import NewAdminOrderForm from "./new-order-form";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default async function AdminOrderBaruPage() {
   }
 
   const partners = (partnerRows ?? []).map((p) => ({ id: p.id, name: p.name }));
+  const errorScrollRootId = "admin-order-create-form";
 
   return (
     <div>
@@ -49,7 +51,10 @@ export default async function AdminOrderBaruPage() {
       <p className="footnote" style={{ marginTop: 0, marginBottom: 16 }}>
         {m.admin.orderCreateIntro}
       </p>
-      <NewAdminOrderForm partners={partners} />
+      <div id={errorScrollRootId}>
+        <ScrollToFormError rootId={errorScrollRootId} />
+        <NewAdminOrderForm partners={partners} />
+      </div>
     </div>
   );
 }
