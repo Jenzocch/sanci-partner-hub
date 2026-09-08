@@ -13,6 +13,12 @@ SANCI 家具與合作家具店（Golden Home 等）之間的協作平台（PWA�
 
 治理規則：本專案遵守 audit-jenzo。最小 Diff、不破壞既有功能、完成必附獨立驗證證據、沒完成不得說完成。
 
+## 出事的時候
+
+- `docs/KARTU-DARURAT.md` — 給第一線店員看的一頁紙（印尼文，沒有任何技術詞）。
+- `docs/ROLLBACK.md` — 部署壞了/migration 跑壞了/單筆資料錯了，怎麼判斷屬於哪種、怎麼退回。
+- `docs/BACKUP.md` — 整個資料庫/Storage 從零重建（比 ROLLBACK.md 更重的災難）。
+
 ## 目前狀態（2026-08-13）
 
 | 項目 | 狀態 |

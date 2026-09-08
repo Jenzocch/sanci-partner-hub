@@ -11,6 +11,8 @@
    - **小步 commit + 立刻 push**，工作樹上不留超過一個工作階段的未推變更。
 3. 本環境**連不上 supabase.co**——所有 DB 實況驗證都是「給 owner 一段 SQL → owner 貼回結果 → 逐列核對」。不要假設、不要說「應該沒問題」。
 
+**上線後出大問題**：先看 `docs/ROLLBACK.md`（部署壞了/migration 跑壞了/單筆資料錯了三種情況分開處理），不是 `docs/BACKUP.md`（那份是整庫重建，九成情況用不到那麼重）。第一線店員看的是 `docs/KARTU-DARURAT.md`，跟這份技術文件是分開的兩份。
+
 ## 驗證規矩（merge 前親自跑，agent 的話不能全信）
 
 ```
