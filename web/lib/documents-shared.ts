@@ -85,14 +85,6 @@ export interface ItemCoverage {
   covered: Record<string, number>;
 }
 
-export type ItemCoverageError = {
-  error: true;
-  /** Postgres/PostgREST code dipertahankan agar caller bisa membedakan
-   * schema belum aktif dari timeout/RLS/network/backend failure. */
-  code?: string;
-  detail?: string;
-};
-
 /**
  * Satu-satunya sumber kebenaran untuk "berapa sisa boleh dikirim/ditagih"
  * dipakai KEDUANYA: kartu Dokumen (render pemilih item dengan kolom
@@ -110,19 +102,13 @@ export async function fetchItemCoverage(
   orderId: string,
   docType: DocType,
   excludeDocumentId?: string
-): Promise<ItemCoverage | ItemCoverageError> {
+): Promise<ItemCoverage | { error: true }> {
   const { data: orderItemsData, error: itemsErr } = await supabase
     .from("order_items")
     .select("id, name_snapshot, code_snapshot, quantity")
     .eq("order_id", orderId)
     .order("created_at", { ascending: true });
-  if (itemsErr) {
-    return {
-      error: true,
-      code: itemsErr.code,
-      detail: `${itemsErr.message ?? ""} ${itemsErr.details ?? ""}`.trim(),
-    };
-  }
+  if (itemsErr) return { error: true };
   const orderItems = (orderItemsData ?? []) as PickableOrderItem[];
 
   const covered: Record<string, number> = {};
@@ -136,13 +122,7 @@ export async function fetchItemCoverage(
     .select("id, order_document_items(order_item_id, quantity)")
     .eq("order_id", orderId)
     .eq("doc_type", docType);
-  if (docsErr) {
-    return {
-      error: true,
-      code: docsErr.code,
-      detail: `${docsErr.message ?? ""} ${docsErr.details ?? ""}`.trim(),
-    };
-  }
+  if (docsErr) return { error: true };
 
   for (const doc of (docsData ?? []) as { id: string; order_document_items: { order_item_id: string; quantity: number }[] | null }[]) {
     if (excludeDocumentId && doc.id === excludeDocumentId) continue;
