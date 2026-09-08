@@ -32,6 +32,9 @@ type ActionResult<T> = { data: T } | { error: ActionError };
 function isMissingTable(code: string | undefined): boolean {
   return code === "42P01";
 }
+function isMissingColumn(code: string | undefined): boolean {
+  return code === "42703";
+}
 function isMissingFunction(code: string | undefined): boolean {
   // undefined_function — RPC belum dijalankan (0016 belum di-migrate).
   return code === "42883";
@@ -383,9 +386,23 @@ export async function getOrderDocumentItemCoverage(
   ActionResult<{ items: { id: string; name: string; code: string | null; ordered: number; covered: number }[] }>
 > {
   const m = await getAdminMessages();
+  const PESAN = pesan(m);
   const supabase = await createClient();
   const coverage = await fetchItemCoverage(supabase, orderId, docType, excludeDocumentId);
-  if ("error" in coverage) return { error: { message: m.admin.docFeatureOff } };
+  if ("error" in coverage) {
+    if (isMissingTable(coverage.code) || isMissingColumn(coverage.code)) {
+      return { error: { message: m.admin.docFeatureOff } };
+    }
+    return {
+      error: {
+        message: PESAN.serverSibukKode(
+          catatGagal("getOrderDocumentItemCoverage", {
+            hasil: { code: coverage.code, detail: coverage.detail },
+          })
+        ),
+      },
+    };
+  }
   return {
     data: {
       items: coverage.orderItems.map((it) => ({
