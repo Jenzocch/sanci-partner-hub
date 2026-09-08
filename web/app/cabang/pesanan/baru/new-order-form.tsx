@@ -1002,7 +1002,7 @@ export default function NewOrderForm({
             oleh tampilkanErrorIsian(). */}
         {fieldErr && (
           <div className="banner bad" role="alert">
-            {m.cabang.formFieldSummary.replace("{pesan}", fieldErr[1])}
+            {m.common.formFieldSummary.replace("{pesan}", fieldErr[1])}
           </div>
         )}
 

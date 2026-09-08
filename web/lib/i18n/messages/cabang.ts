@@ -229,12 +229,6 @@ const id = {
   changeCustomerCta: "Ganti Pelanggan",
   newCustomerHint: "Belum ada pelanggan dengan nomor ini — isi nama untuk membuat baru.",
   orderSectionLockedHint: "Isi atau pastikan dulu data pelanggan di atas untuk mengisi bagian ini.",
-  // Ditampilkan di dekat tombol kirim saat server menolak karena SATU isian
-  // (field) — pesan aslinya juga tetap tampil merah di bawah isian itu, tapi
-  // di ponsel isian tersebut sering sudah tergulir jauh di atas tombol,
-  // sehingga terlihat seperti "ditekan tidak terjadi apa-apa" (owner
-  // 2026-09-06: "忘記填要有引導文字"). {pesan} = pesan isian itu.
-  formFieldSummary: "Belum bisa dikirim — ada isian yang perlu dilengkapi: {pesan}",
   invoiceFieldLabel: "Foto/PDF Invoice (opsional)",
   invoiceFieldHint:
     "PNG, JPG, WebP, atau PDF. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim. Diunggah setelah pesanan berhasil dibuat.",
@@ -661,7 +655,6 @@ const en = {
   changeCustomerCta: "Change customer",
   newCustomerHint: "No customer with this number yet — enter a name to create one.",
   orderSectionLockedHint: "Fill in or confirm the customer above before filling in this section.",
-  formFieldSummary: "Not sent yet — one field still needs attention: {pesan}",
   invoiceFieldLabel: "Invoice photo/PDF (optional)",
   invoiceFieldHint:
     "PNG, JPG, WebP, or PDF. Max 5 MB — images are resized automatically before sending. Uploaded after the order is created.",
@@ -1017,7 +1010,6 @@ const zh = {
   changeCustomerCta: "更换客户",
   newCustomerHint: "还没有这个号码的客户 —— 填写姓名来新建一个。",
   orderSectionLockedHint: "请先填好上面的客户信息,才能填这部分。",
-  formFieldSummary: "还不能提交——有一项需要补填：{pesan}",
   invoiceFieldLabel: "Invoice 照片/PDF(选填)",
   invoiceFieldHint: "支持 PNG、JPG、WebP 或 PDF,最大 5 MB —— 图片会自动压缩后再上传,订单创建成功后才会上传。",
   saveCustomerOnlyCta: "仅保存客户",

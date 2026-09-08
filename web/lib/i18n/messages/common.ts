@@ -386,6 +386,13 @@ const id = {
   // yang tertulis di log — pegawai toko cukup menyebut kode ini ke SANCI,
   // tidak perlu menjelaskan apa-apa (permintaan owner 2026-09-06).
   netReportCode: "Kode laporan: {kode} — hubungi SANCI Admin dan sebutkan kode ini supaya cepat dicek.",
+  // Ringkasan di dekat tombol kirim saat server menolak karena SATU isian —
+  // pesan aslinya tetap tampil merah di bawah isian itu, tapi isian tersebut
+  // sering sudah tergulir jauh di atas tombol (LESSONS #53). DI `common`
+  // karena dipakai KEDUA formulir buat-pesanan (cabang dan admin): satu
+  // salinan per sisi persis pola "ubah satu lupa yang lain" yang audit
+  // 2026-09-07 temukan pada formulir ini sendiri.
+  formFieldSummary: "Belum bisa dikirim — ada isian yang perlu dilengkapi: {pesan}",
   // Dua kunci "versi lama" (deteksi di submitSafely, lib/safe-write.ts):
   // halaman dari deployment lama men-submit ke server yang sudah deployment
   // baru → Server Action-nya 404 dan TIDAK PERNAH dijalankan. "Tekan
@@ -858,6 +865,7 @@ const en = {
     "The connection dropped before the server could answer, so we cannot tell yet whether the change was saved. Press \"{tombol}\" again — saving the same change twice does not create a second copy.",
   netServerBusy: "Cannot save right now. Please try again in a moment.",
   netReportCode: "Report code: {kode} — contact SANCI Admin and mention this code so it can be checked quickly.",
+  formFieldSummary: "Not sent yet — one field still needs attention: {pesan}",
   netStaleNotSaved:
     "The app was just updated, but this page is still the old version — the data was NOT saved, and pressing \"{tombol}\" again will not work. Reload this page first (pull the screen down or press the reload button), then fill it in and save again.",
   netStaleUnsure:
@@ -1262,6 +1270,7 @@ const zh = {
     "网络在服务器回应之前就中断了，暂时无法确认修改有没有保存成功。请再按一次“{tombol}”—— 同样的修改保存两次不会产生重复数据。",
   netServerBusy: "现在无法保存，请稍后再试。",
   netReportCode: "报告代码：{kode}——联系 SANCI Admin 并告知这个代码，方便快速排查。",
+  formFieldSummary: "还不能提交——有一项需要补填：{pesan}",
   netStaleNotSaved:
     "应用刚刚更新了，这个页面还是旧版本 —— 数据没有保存，再按“{tombol}”也不会成功。请先刷新页面（下拉屏幕或点刷新按钮），然后重新填写并保存。",
   netStaleUnsure:
