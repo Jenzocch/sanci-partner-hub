@@ -82,6 +82,9 @@ export async function addProductPhoto(productId: string, photoUrl: string): Prom
   }
 
   revalidatePath("/admin/produk");
+  // /p/[productId] (audit 2026-09-08 P2-3): foto galeri baru harus langsung
+  // terlihat pelanggan, bukan menunggu jaring pengaman 24 jam.
+  revalidatePath(`/p/${productId}`);
   return { data: { id: written.data.id } };
 }
 
@@ -254,6 +257,8 @@ export async function moveProductPhoto(
   if (!samaUrutannya) return { error: { message: m.admin.productGalleryMoveFailed } };
 
   revalidatePath("/admin/produk");
+  // /p/[productId] (audit 2026-09-08 P2-3): urutan galeri publik ikut geser.
+  revalidatePath(`/p/${productId}`);
   return { data: tersimpan };
 }
 
@@ -269,12 +274,25 @@ export async function deleteProductPhoto(id: string): Promise<ActionResult<true>
   const m = await getAdminMessages();
   const PESAN = pesan(m);
   const supabase = await createClient();
-  const { error } = await supabase.from("product_photos").delete().eq("id", id);
+  // `product_id` diminta kembali HANYA supaya revalidatePath di bawah bisa
+  // menyasar /p/[productId] yang benar — baris itu sudah terhapus di
+  // Postgres di titik ini juga (RETURNING pada DELETE), bukan dibaca dulu
+  // baru dihapus.
+  const { data, error } = await supabase
+    .from("product_photos")
+    .delete()
+    .eq("id", id)
+    .select("product_id")
+    .maybeSingle();
   if (error) {
     if (isMissingTable(error.code)) return { error: { message: m.admin.catalogMigrationMsg } };
     return { error: { message: PESAN.serverSibukKode(catatGagal("deleteProductPhoto", { hasil: error })) } };
   }
 
   revalidatePath("/admin/produk");
+  // /p/[productId] (audit 2026-09-08 P2-3). `data` bisa null kalau baris itu
+  // sudah terhapus lebih dulu (retry/dua tab) — tidak ada productId untuk
+  // disasar, dan itu tidak apa-apa: tidak ada apa pun yang berubah di sana.
+  if (data?.product_id) revalidatePath(`/p/${data.product_id}`);
   return { data: true };
 }

@@ -1,9 +1,29 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import ProdukPublikClient from "./produk-publik-client";
 import styles from "./produk-publik.module.css";
 
-export const dynamic = "force-dynamic";
+/**
+ * Cache 24 jam (audit 2026-09-08, keputusan owner: produk jarang berubah,
+ * dan admin selalu memicu revalidatePath(`/p/${id}`) begitu produk/foto
+ * disimpan — lihat actions-products.ts/actions-product-photos.ts — jadi
+ * 24 jam ini murni JARING PENGAMAN untuk jalur yang lupa memanggilnya,
+ * BUKAN jeda normal yang akan dialami pelanggan). Sebelumnya halaman ini
+ * `force-dynamic` (selalu query database live) — diganti karena link ini
+ * dibagikan ke banyak pelanggan sekaligus lewat WhatsApp, sering di
+ * jaringan lambat, dan datanya nyaris tidak pernah berubah di antara dua
+ * kunjungan.
+ *
+ * SYARAT supaya `revalidate` ini benar-benar berlaku (bukan cuma tulisan):
+ * halaman TIDAK BOLEH memanggil Dynamic API apa pun (cookies()/headers()) —
+ * itu sebabnya berkas ini memakai `lib/supabase/public.ts` (client TANPA
+ * cookies), bukan `lib/supabase/server.ts` yang dipakai hampir semua rute
+ * lain. Lihat catatan lengkap di kepala berkas itu — termasuk PERUBAHAN
+ * PERILAKU yang datang bersamanya (staf yang sedang login pun sekarang
+ * selalu lihat versi anon halaman ini, bukan versi tersaring
+ * fn_catalog_enabled() partner mereka).
+ */
+export const revalidate = 86400;
 
 /**
  * Halaman PUBLIK satu produk (migration 0022) — root-level route (BUKAN di
@@ -37,7 +57,7 @@ export async function generateMetadata({
   params: Promise<{ productId: string }>;
 }): Promise<Metadata> {
   const { productId } = await params;
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase.from("sanci_products").select("name").eq("id", productId).maybeSingle();
   const name = (data as { name: string } | null)?.name;
   return { title: name ? `${name} — SANCI` : "Produk — SANCI" };
@@ -56,7 +76,7 @@ type PublicProductRow = {
 
 export default async function ProdukPublikPage({ params }: { params: Promise<{ productId: string }> }) {
   const { productId } = await params;
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   // Kolom dipilih EKSPLISIT (lihat catatan kepala berkas) — TIDAK pernah
   // stock_status/harga/kolom internal apa pun.

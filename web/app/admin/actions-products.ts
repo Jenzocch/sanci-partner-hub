@@ -179,6 +179,10 @@ export async function updateProduct(
   }
 
   revalidatePath("/admin/produk");
+  // /p/[productId] (audit 2026-09-08 P2-3) cache 24 jam — name/code/category/
+  // description/size semuanya tampil di sana, jadi perubahan harus langsung
+  // terlihat pelanggan, bukan menunggu jaring pengaman 24 jam.
+  revalidatePath(`/p/${id}`);
   return { data: true };
 }
 
@@ -256,6 +260,9 @@ export async function setProductStatus(
   }
 
   revalidatePath("/admin/produk");
+  // /p/[productId] (audit 2026-09-08 P2-3): status ACTIVE/INACTIVE menentukan
+  // apakah halaman publik itu menampilkan produk ini sama sekali.
+  revalidatePath(`/p/${id}`);
   return { data: true };
 }
 
@@ -288,6 +295,9 @@ export async function setProductPhoto(id: string, photoUrl: string): Promise<Act
   }
 
   revalidatePath("/admin/produk");
+  // /p/[productId] (audit 2026-09-08 P2-3): photo_url adalah foto sampul di
+  // halaman publik itu.
+  revalidatePath(`/p/${id}`);
   return { data: true };
 }
 
