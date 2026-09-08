@@ -385,7 +385,7 @@ const id = {
   // (lib/safe-write.ts `catatGagal`). {kode} = kode pendek yang sama dengan
   // yang tertulis di log — pegawai toko cukup menyebut kode ini ke SANCI,
   // tidak perlu menjelaskan apa-apa (permintaan owner 2026-09-06).
-  netReportCode: "Kode laporan: {kode} — sebutkan kode ini ke SANCI supaya cepat dicek.",
+  netReportCode: "Kode laporan: {kode} — hubungi SANCI Admin dan sebutkan kode ini supaya cepat dicek.",
   // Dua kunci "versi lama" (deteksi di submitSafely, lib/safe-write.ts):
   // halaman dari deployment lama men-submit ke server yang sudah deployment
   // baru → Server Action-nya 404 dan TIDAK PERNAH dijalankan. "Tekan
@@ -857,7 +857,7 @@ const en = {
   netUnsureUpdate:
     "The connection dropped before the server could answer, so we cannot tell yet whether the change was saved. Press \"{tombol}\" again — saving the same change twice does not create a second copy.",
   netServerBusy: "Cannot save right now. Please try again in a moment.",
-  netReportCode: "Report code: {kode} — mention this code to SANCI so it can be checked quickly.",
+  netReportCode: "Report code: {kode} — contact SANCI Admin and mention this code so it can be checked quickly.",
   netStaleNotSaved:
     "The app was just updated, but this page is still the old version — the data was NOT saved, and pressing \"{tombol}\" again will not work. Reload this page first (pull the screen down or press the reload button), then fill it in and save again.",
   netStaleUnsure:
@@ -1261,7 +1261,7 @@ const zh = {
   netUnsureUpdate:
     "网络在服务器回应之前就中断了，暂时无法确认修改有没有保存成功。请再按一次“{tombol}”—— 同样的修改保存两次不会产生重复数据。",
   netServerBusy: "现在无法保存，请稍后再试。",
-  netReportCode: "报告代码：{kode}——把这个代码告诉 SANCI，方便快速排查。",
+  netReportCode: "报告代码：{kode}——联系 SANCI Admin 并告知这个代码，方便快速排查。",
   netStaleNotSaved:
     "应用刚刚更新了，这个页面还是旧版本 —— 数据没有保存，再按“{tombol}”也不会成功。请先刷新页面（下拉屏幕或点刷新按钮），然后重新填写并保存。",
   netStaleUnsure:

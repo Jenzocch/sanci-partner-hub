@@ -250,7 +250,7 @@ export default async function LihatPesananPage({
                   />
                 )}
                 <div className="grow">
-                  <div style={{ fontWeight: 600 }}>{it.name}</div>
+                  <div style={{ fontWeight: 600, overflowWrap: "anywhere" }}>{it.name}</div>
                   {it.code && <div className="small muted code">{it.code}</div>}
                 </div>
                 <div className="num" style={{ flex: "none", color: "var(--ink2)" }}>

@@ -383,7 +383,11 @@ export async function setProductBasePrice(
       // update ulang sekali (bukan error pengguna, LESSONS #21 sekeluarga).
       const { data: retried, error: retryError } = await doUpdate();
       if (retryError || (retried ?? []).length === 0) {
-        return { error: { message: PESAN.serverSibukKode(catatGagal("setProductBasePrice/retry", { hasil: retryError })) } };
+        // retryError bisa null di sini (0 baris ter-update, bukan error
+        // Postgres) — catat itu secara eksplisit, jangan log null polos
+        // yang tidak menjelaskan apa-apa ke orang yang membaca log nanti.
+        const hasil = retryError ?? { alasan: "0 baris ter-update setelah retry" };
+        return { error: { message: PESAN.serverSibukKode(catatGagal("setProductBasePrice/retry", { hasil })) } };
       }
       return { data: true };
     }

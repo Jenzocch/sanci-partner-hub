@@ -60,12 +60,30 @@ export default async function ProdukPublikPage({ params }: { params: Promise<{ p
 
   // Kolom dipilih EKSPLISIT (lihat catatan kepala berkas) — TIDAK pernah
   // stock_status/harga/kolom internal apa pun.
-  const { data, error } = await supabase
-    .from("sanci_products")
-    .select("id, name, code, category, description, size, photo_url")
-    .eq("id", productId)
-    .eq("status", "ACTIVE")
-    .maybeSingle();
+  //
+  // Query galeri TIDAK bergantung pada hasil query produk (hanya butuh
+  // productId dari params) — keduanya dijalankan BERSAMAAN, bukan berurutan,
+  // supaya halaman publik ini (dibagikan staf toko ke pelanggan, sering di
+  // koneksi lambat) tidak menunggu dua round-trip database berturut-turut.
+  // Trade-off yang diterima: kalau productId tidak valid/INACTIVE, query
+  // galeri tetap sempat jalan dan hasilnya dibuang — biaya satu query murah,
+  // lebih murah daripada latensi ganda untuk kasus normal yang jauh lebih
+  // sering terjadi.
+  const [{ data, error }, { data: photosData }] = await Promise.all([
+    supabase
+      .from("sanci_products")
+      .select("id, name, code, category, description, size, photo_url")
+      .eq("id", productId)
+      .eq("status", "ACTIVE")
+      .maybeSingle(),
+    supabase
+      .from("product_photos")
+      .select("photo_url")
+      .eq("product_id", productId)
+      .order("sort_order")
+      .order("created_at")
+      .order("id"),
+  ]);
 
   if (error) {
     return (
@@ -91,15 +109,9 @@ export default async function ProdukPublikPage({ params }: { params: Promise<{ p
 
   const product = data as PublicProductRow;
 
-  // Galeri: kegagalan query di sini adalah DEGRADASI KOSMETIK (foto sampul +
-  // info produk tetap tampil dari query di atas) — bukan kegagalan halaman.
-  const { data: photosData } = await supabase
-    .from("product_photos")
-    .select("photo_url")
-    .eq("product_id", productId)
-    .order("sort_order")
-    .order("created_at")
-    .order("id");
+  // Galeri: kegagalan query ini (kalau ada) adalah DEGRADASI KOSMETIK (foto
+  // sampul + info produk tetap tampil dari query di atas) — bukan kegagalan
+  // halaman, jadi errornya sendiri sengaja tidak diperiksa di sini.
   const galleryUrls = ((photosData ?? []) as { photo_url: string }[]).map((p) => p.photo_url);
   const photos = [product.photo_url, ...galleryUrls].filter((u): u is string => !!u);
 
@@ -109,7 +121,7 @@ export default async function ProdukPublikPage({ params }: { params: Promise<{ p
 
       <ProdukPublikClient name={product.name} photos={photos} />
 
-      <h1 style={{ fontSize: "var(--fs-hero)", lineHeight: "var(--lh-tight)" }}>{product.name}</h1>
+      <h1 style={{ fontSize: "var(--fs-hero)", lineHeight: "var(--lh-tight)", overflowWrap: "anywhere" }}>{product.name}</h1>
       <div className="row" style={{ marginTop: 8, marginBottom: 4 }}>
         {product.code && <span className="code">{product.code}</span>}
       </div>

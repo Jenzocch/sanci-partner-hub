@@ -128,6 +128,12 @@ function bisaDicatat(nilai: unknown): unknown {
     const e = nilai as Error & { code?: unknown; details?: unknown; hint?: unknown };
     return { nama: e.name, message: e.message, code: e.code, details: e.details, hint: e.hint };
   }
+  if (Array.isArray(nilai)) {
+    // Array HARUS ditelusuri terpisah dari objek biasa di bawah — kalau
+    // lewat cabang objek, Object.entries([...]) mengubahnya jadi
+    // {"0":...,"1":...} dan bentuk arraynya hilang diam-diam di log.
+    return nilai.map((v) => (v instanceof Error ? bisaDicatat(v) : v));
+  }
   if (nilai && typeof nilai === "object") {
     // Objek hasil safeWrite ({reason, code, detail}) dan sejenisnya: salin
     // dangkal supaya Error yang bersarang di dalamnya ikut terurai.

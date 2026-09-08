@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CODE_RE } from "@/lib/validation";
+import { likeEscape } from "@/lib/catalog-query";
 import {
   pesan,
   catatGagal,
@@ -53,7 +54,11 @@ export async function createPartner(input: {
     const { data: dup } = await supabase
       .from("partners")
       .select("id, name")
-      .ilike("name", name)
+      // Escape % dan _ — tanpa ini nama partner yang MENGANDUNG karakter
+      // itu (mis. "Toko 100%") bertindak sebagai wildcard ilike, bukan
+      // dicocokkan harfiah (bug UX, bukan celah keamanan — LESSONS pola
+      // yang sama dengan likeEscape() di lib/catalog-query.ts).
+      .ilike("name", likeEscape(name))
       .maybeSingle();
     if (dup) return { duplicate: { id: dup.id, name: dup.name } };
   }
