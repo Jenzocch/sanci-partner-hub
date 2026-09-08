@@ -303,7 +303,11 @@ function DocumentModal({
 
           <h3 style={{ fontSize: 14, marginTop: 6, marginBottom: 8 }}>{m.admin.docItemsSectionTitle}</h3>
           {loadState === "loading" && <div className="skeleton" style={{ height: 80 }} />}
-          {loadState === "error" && <div className="banner bad">{m.admin.docFeatureOff}</div>}
+          {/* Gagal memuat coverage bukan bukti migration belum dijalankan.
+              Modal hanya bisa dibuka setelah kartu Dokumen sendiri berhasil
+              dimuat; timeout/RLS/network harus tampil sebagai load failure
+              generik, bukan menyesatkan admin untuk memeriksa migration. */}
+          {loadState === "error" && <div className="banner bad">{m.common.errorLoad}</div>}
           {/* Pesanan tanpa item: tabel kosong berkepala saja membuat admin
               mengira modalnya rusak (laporan owner 2026-08-27, tangkapan
               layar "Pilih Item" hampa) — jelaskan sebabnya dan ke mana harus
