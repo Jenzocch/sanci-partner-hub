@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminMessages } from "@/lib/i18n";
-import NewAdminOrderForm from "./new-order-form";
+import NewAdminOrderFormWithErrorScroll from "./new-order-form-with-error-scroll";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +49,7 @@ export default async function AdminOrderBaruPage() {
       <p className="footnote" style={{ marginTop: 0, marginBottom: 16 }}>
         {m.admin.orderCreateIntro}
       </p>
-      <NewAdminOrderForm partners={partners} />
+      <NewAdminOrderFormWithErrorScroll partners={partners} />
     </div>
   );
 }
