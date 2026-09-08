@@ -58,7 +58,11 @@ export default async function ProposalPage() {
   if (branchError) console.error("[proposal] partner_branches:", branchError.code, branchError.message);
 
   const phone = (branch?.contact_phone || partner?.contact_phone || "").trim();
-  const branchAddress = (branch?.address || "").trim();
+  // Address berasal dari textarea dan boleh multiline. CSS `content:` tidak
+  // memahami escape JSON `\n` sebagai newline; tanpa normalisasi ia tercetak
+  // sebagai huruf "n"/"rn" di Proposal. Lipat whitespace menjadi satu spasi
+  // sebelum masuk ke CSS supaya dokumen pelanggan selalu terbaca benar.
+  const branchAddress = (branch?.address || "").trim().replace(/\s+/g, " ");
   const store = partner
     ? {
         name: partner.name,
