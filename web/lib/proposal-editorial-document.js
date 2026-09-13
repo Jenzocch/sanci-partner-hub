@@ -9,6 +9,9 @@ import { readProposalHandoff, } from "@/lib/proposal-shared";
 import { shrinkPhotosForPrint } from "@/lib/shrink-photos-for-print";
 import styles from "./proposal-editorial-document.module.css";
 const LOGO = "/brand/sanci-logo.png";
+// Approved fixed cover art. It is deliberately independent of the selected
+// product so cover identity cannot change with cart order or pricing.
+const COVER_LIFESTYLE = "/proposal/cover-lifestyle-reference.png";
 /**
  * Baris "Pilihan Anda" per halaman A4. Diukur dengan harness cetak
  * (Playwright + pdfinfo, 2026-09-02): halaman muat 253mm konten; kepala
@@ -51,11 +54,8 @@ export function selectionMoneyRowCount(handoff) {
  * pernah berdiri sendirian di halaman kosong.
  */
 /**
- * Sampul memakai produk TERMAHAL (harga satuan tertinggi) yang punya foto —
- * keputusan owner 2026-09-02 ("A 用最貴的產品當封面"). Dulu dipilih dari
- * nilai baris (harga × qty), yang bisa memenangkan barang murah ber-qty
- * banyak di atas sofa utama. Seri harga satuan → nilai baris lebih besar
- * menang → lalu urutan di daftar. Tanpa foto sama sekali → baris pertama.
+ * Kept for the product-caption fallback in the editorial document. The cover
+ * itself uses the fixed approved lifestyle image, independent of cart order.
  */
 export function pickCoverRow(rows) {
     let best = null;
@@ -290,7 +290,7 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     const dateText = new Date(handoff.savedAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
     const who = customerName.trim();
     const coverRow = pickCoverRow(rows);
-    const coverPhoto = coverRow?.photos[0];
+    const coverPhoto = COVER_LIFESTYLE;
     let visiblePage = 1;
     const nextPage = () => ++visiblePage;
     const showSubtotal = showSubtotalFor(handoff);
