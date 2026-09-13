@@ -148,6 +148,9 @@ function DocumentModal({
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
+  // Pesan dari server berisi kode laporan (SP-XXXXX, safe-write.ts) yang dibaca
+  // staf lewat telepon; menampilkan teks generik akan membuangnya.
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const [items, setItems] = useState<CoverageItem[]>([]);
   const [qtyByItem, setQtyByItem] = useState<Record<string, string>>({});
 
@@ -158,10 +161,12 @@ function DocumentModal({
   useEffect(() => {
     let cancelled = false;
     setLoadState("loading");
+    setLoadErr(null);
     getOrderDocumentItemCoverage(orderId, docType, excludeDocumentId)
       .then((res) => {
         if (cancelled) return;
         if ("error" in res) {
+          setLoadErr(res.error.message);
           setLoadState("error");
           return;
         }
@@ -187,6 +192,8 @@ function DocumentModal({
       .catch(() => {
         if (!cancelled) setLoadState("error");
       });
+    // Jalur .catch sengaja TIDAK mengisi loadErr: tidak ada respons server,
+    // jadi tidak ada kode laporan — banner jatuh ke teks generik.
     return () => {
       cancelled = true;
     };
@@ -307,7 +314,7 @@ function DocumentModal({
               Modal hanya bisa dibuka setelah kartu Dokumen sendiri berhasil
               dimuat; timeout/RLS/network harus tampil sebagai load failure
               generik, bukan menyesatkan admin untuk memeriksa migration. */}
-          {loadState === "error" && <div className="banner bad">{m.common.errorLoad}</div>}
+          {loadState === "error" && <div className="banner bad">{loadErr || m.common.errorLoad}</div>}
           {/* Pesanan tanpa item: tabel kosong berkepala saja membuat admin
               mengira modalnya rusak (laporan owner 2026-08-27, tangkapan
               layar "Pilih Item" hampa) — jelaskan sebabnya dan ke mana harus

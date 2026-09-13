@@ -83,9 +83,6 @@ const id = {
   accessViewEdit: "Lihat + edit",
   savedMsg: "Tersimpan.",
   tabOverview: "Ringkasan",
-  tabBranches: "Cabang",
-  tabPackages: "Package",
-  tabUsers: "Akun",
   tabPermissions: "Hak Akses",
   tabHistory: "Riwayat",
   tabStaff: "Staf",
@@ -419,7 +416,6 @@ const id = {
   catalogAccessDesc: "Jika terbuka, semua cabang partner ini bisa melihat katalog produk SANCI.",
   catalogOpenLabel: "Terbuka",
   catalogClosedLabel: "Tertutup",
-  catalogSaveFailed: "Tidak bisa menyimpan pengaturan katalog sekarang.",
 
   // ---- Detail Cabang (branches/[branchId]/page.tsx) ----
   branchInfoColCode: "Kode cabang",
@@ -710,8 +706,6 @@ const id = {
   orderOfferPaymentConditionPlaceholder: "Contoh: Full payment, DP 50%",
   orderOfferRemainingLabel: "Sisa Bayar",
   orderOfferDpExceedsAmount: "Uang muka tidak boleh melebihi nilai penawaran.",
-  orderOfferNoPermissionView: "Partner ini belum diizinkan melihat Penawaran SANCI cabangnya — atur di tab Hak Akses.",
-  orderOfferNoPermissionEdit: "Partner ini belum diizinkan mengisi Penawaran SANCI dari cabang.",
 
   // ---- Rantai diskon (0015 — order-offer-form.tsx) ----
   // "Diskon" DIIZINKAN di sini (GLOSSARY.md §"订单层级的折扣链计算") — beda
@@ -768,7 +762,6 @@ const id = {
   orderItemSizeFieldLabel: "Ukuran Custom",
   orderItemUnitPriceFieldLabel: "Harga Satuan (Rp)",
   orderItemLineDiscountFieldLabel: "Potongan Baris (Rp)",
-  orderItemPriceFieldsLockedHint: "Kolom harga hanya bisa diisi kalau partner punya izin \"Boleh mengisi/mengubah Penawaran SANCI\".",
   orderItemSaveFailed: "Tidak bisa menyimpan baris ini sekarang.",
   orderItemDeleteFailed: "Tidak bisa menghapus baris ini sekarang.",
   orderItemLoadFailed:
@@ -814,8 +807,6 @@ const id = {
   docNumberingFailed: "Tidak bisa membuat nomor dokumen sekarang — coba lagi sebentar lagi.",
   docSaveBtn: "Simpan Dokumen",
   docNumberLabel: "Nomor Dokumen",
-  docPrintBtn: "Cetak / Simpan PDF",
-  docBackToOrderBtn: "Kembali ke Pesanan",
 
   // ---- Pelanggan (app/admin/pelanggan/page.tsx) — Phase 2 slice 13, migrasi 0018 ----
   customerCreatedViaSanci: "SANCI langsung",
@@ -1053,9 +1044,6 @@ const en = {
   accessViewEdit: "View + edit",
   savedMsg: "Saved.",
   tabOverview: "Overview",
-  tabBranches: "Branches",
-  tabPackages: "Packages",
-  tabUsers: "Accounts",
   tabPermissions: "Access",
   tabHistory: "History",
   tabStaff: "Staff",
@@ -1368,7 +1356,6 @@ const en = {
   catalogAccessDesc: "If open, every branch of this partner can see the SANCI product catalog.",
   catalogOpenLabel: "Open",
   catalogClosedLabel: "Closed",
-  catalogSaveFailed: "Cannot save the catalog setting right now.",
 
   branchInfoColCode: "Branch code",
   branchInfoColAddress: "Full address",
@@ -1615,8 +1602,6 @@ const en = {
   orderOfferPaymentConditionPlaceholder: "Example: Full payment, DP 50%",
   orderOfferRemainingLabel: "Remaining balance",
   orderOfferDpExceedsAmount: "The down payment cannot exceed the offer amount.",
-  orderOfferNoPermissionView: "This partner isn't allowed to view its branches' SANCI offer yet — set it on the Access tab.",
-  orderOfferNoPermissionEdit: "This partner isn't allowed to set the SANCI offer from a branch yet.",
 
   orderOfferDiscountSectionTitle: "Discount, markup & cash discount",
   orderOfferDiscountHint:
@@ -1667,7 +1652,6 @@ const en = {
   orderItemSizeFieldLabel: "Custom size",
   orderItemUnitPriceFieldLabel: "Unit price (Rp)",
   orderItemLineDiscountFieldLabel: "Line deduction (Rp)",
-  orderItemPriceFieldsLockedHint: "Price fields can only be filled in if the partner has the \"Can set/edit the SANCI offer\" permission.",
   orderItemSaveFailed: "Cannot save this line right now.",
   orderItemDeleteFailed: "Cannot delete this line right now.",
   orderItemLoadFailed:
@@ -1713,8 +1697,6 @@ const en = {
   docNumberingFailed: "Cannot generate a document number right now — try again shortly.",
   docSaveBtn: "Save document",
   docNumberLabel: "Document number",
-  docPrintBtn: "Print / Save PDF",
-  docBackToOrderBtn: "Back to order",
 
   // ---- Customers (app/admin/pelanggan/page.tsx) — Phase 2 slice 13, migration 0018 ----
   customerCreatedViaSanci: "SANCI direct",
@@ -1934,9 +1916,6 @@ const zh = {
   accessViewEdit: "查看和修改",
   savedMsg: "已保存。",
   tabOverview: "概览",
-  tabBranches: "分店",
-  tabPackages: "套装",
-  tabUsers: "账号",
   tabPermissions: "权限",
   tabHistory: "历史记录",
   tabStaff: "员工",
@@ -2202,7 +2181,6 @@ const zh = {
   catalogAccessDesc: "开启后，该合作商的所有分店都可以查看 SANCI 产品目录。",
   catalogOpenLabel: "开放",
   catalogClosedLabel: "关闭",
-  catalogSaveFailed: "现在无法保存产品目录设置。",
 
   branchInfoColCode: "分店编号",
   branchInfoColAddress: "详细地址",
@@ -2431,8 +2409,6 @@ const zh = {
   orderOfferPaymentConditionPlaceholder: "示例：全款、订金 50%",
   orderOfferRemainingLabel: "尾款",
   orderOfferDpExceedsAmount: "订金不能超过方案金额。",
-  orderOfferNoPermissionView: "该合作商还没有查看自己分店 SANCI 方案金额的权限 —— 到「权限」分页设置。",
-  orderOfferNoPermissionEdit: "该合作商的分店还没有填写 SANCI 方案金额的权限。",
 
   orderOfferDiscountSectionTitle: "折扣、加成与现金折让",
   orderOfferDiscountHint:
@@ -2481,7 +2457,6 @@ const zh = {
   orderItemSizeFieldLabel: "定制尺寸",
   orderItemUnitPriceFieldLabel: "单价（Rp）",
   orderItemLineDiscountFieldLabel: "单行扣减金额（Rp）",
-  orderItemPriceFieldsLockedHint: "只有合作商拥有「可以填写／修改 SANCI 方案金额」权限时才能填写价格栏位。",
   orderItemSaveFailed: "现在无法保存这一行。",
   orderItemDeleteFailed: "现在无法删除这一行。",
   orderItemLoadFailed: "这一行加载失败，因此没有打开表单 —— 用旧数值填表会在无人察觉的情况下覆盖别人的修改。",
@@ -2525,8 +2500,6 @@ const zh = {
   docNumberingFailed: "现在无法生成文档编号 —— 请稍后再试。",
   docSaveBtn: "保存文档",
   docNumberLabel: "文档编号",
-  docPrintBtn: "打印／保存 PDF",
-  docBackToOrderBtn: "返回订单",
 
   // ---- 客户（app/admin/pelanggan/page.tsx）—— Phase 2 第十三切片，迁移 0018 ----
   customerCreatedViaSanci: "SANCI 直营",

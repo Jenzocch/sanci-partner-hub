@@ -1,9 +1,29 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import ProdukPublikClient from "./produk-publik-client";
 import styles from "./produk-publik.module.css";
 
-export const dynamic = "force-dynamic";
+/**
+ * Cache 24 jam (audit 2026-09-08, keputusan owner: produk jarang berubah,
+ * dan admin selalu memicu revalidatePath(`/p/${id}`) begitu produk/foto
+ * disimpan — lihat actions-products.ts/actions-product-photos.ts — jadi
+ * 24 jam ini murni JARING PENGAMAN untuk jalur yang lupa memanggilnya,
+ * BUKAN jeda normal yang akan dialami pelanggan). Sebelumnya halaman ini
+ * `force-dynamic` (selalu query database live) — diganti karena link ini
+ * dibagikan ke banyak pelanggan sekaligus lewat WhatsApp, sering di
+ * jaringan lambat, dan datanya nyaris tidak pernah berubah di antara dua
+ * kunjungan.
+ *
+ * SYARAT supaya `revalidate` ini benar-benar berlaku (bukan cuma tulisan):
+ * halaman TIDAK BOLEH memanggil Dynamic API apa pun (cookies()/headers()) —
+ * itu sebabnya berkas ini memakai `lib/supabase/public.ts` (client TANPA
+ * cookies), bukan `lib/supabase/server.ts` yang dipakai hampir semua rute
+ * lain. Lihat catatan lengkap di kepala berkas itu — termasuk PERUBAHAN
+ * PERILAKU yang datang bersamanya (staf yang sedang login pun sekarang
+ * selalu lihat versi anon halaman ini, bukan versi tersaring
+ * fn_catalog_enabled() partner mereka).
+ */
+export const revalidate = 86400;
 
 /**
  * Halaman PUBLIK satu produk (migration 0022) — root-level route (BUKAN di
@@ -37,7 +57,7 @@ export async function generateMetadata({
   params: Promise<{ productId: string }>;
 }): Promise<Metadata> {
   const { productId } = await params;
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase.from("sanci_products").select("name").eq("id", productId).maybeSingle();
   const name = (data as { name: string } | null)?.name;
   return { title: name ? `${name} — SANCI` : "Produk — SANCI" };
@@ -56,16 +76,34 @@ type PublicProductRow = {
 
 export default async function ProdukPublikPage({ params }: { params: Promise<{ productId: string }> }) {
   const { productId } = await params;
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   // Kolom dipilih EKSPLISIT (lihat catatan kepala berkas) — TIDAK pernah
   // stock_status/harga/kolom internal apa pun.
-  const { data, error } = await supabase
-    .from("sanci_products")
-    .select("id, name, code, category, description, size, photo_url")
-    .eq("id", productId)
-    .eq("status", "ACTIVE")
-    .maybeSingle();
+  //
+  // Query galeri TIDAK bergantung pada hasil query produk (hanya butuh
+  // productId dari params) — keduanya dijalankan BERSAMAAN, bukan berurutan,
+  // supaya halaman publik ini (dibagikan staf toko ke pelanggan, sering di
+  // koneksi lambat) tidak menunggu dua round-trip database berturut-turut.
+  // Trade-off yang diterima: kalau productId tidak valid/INACTIVE, query
+  // galeri tetap sempat jalan dan hasilnya dibuang — biaya satu query murah,
+  // lebih murah daripada latensi ganda untuk kasus normal yang jauh lebih
+  // sering terjadi.
+  const [{ data, error }, { data: photosData }] = await Promise.all([
+    supabase
+      .from("sanci_products")
+      .select("id, name, code, category, description, size, photo_url")
+      .eq("id", productId)
+      .eq("status", "ACTIVE")
+      .maybeSingle(),
+    supabase
+      .from("product_photos")
+      .select("photo_url")
+      .eq("product_id", productId)
+      .order("sort_order")
+      .order("created_at")
+      .order("id"),
+  ]);
 
   if (error) {
     return (
@@ -91,15 +129,9 @@ export default async function ProdukPublikPage({ params }: { params: Promise<{ p
 
   const product = data as PublicProductRow;
 
-  // Galeri: kegagalan query di sini adalah DEGRADASI KOSMETIK (foto sampul +
-  // info produk tetap tampil dari query di atas) — bukan kegagalan halaman.
-  const { data: photosData } = await supabase
-    .from("product_photos")
-    .select("photo_url")
-    .eq("product_id", productId)
-    .order("sort_order")
-    .order("created_at")
-    .order("id");
+  // Galeri: kegagalan query ini (kalau ada) adalah DEGRADASI KOSMETIK (foto
+  // sampul + info produk tetap tampil dari query di atas) — bukan kegagalan
+  // halaman, jadi errornya sendiri sengaja tidak diperiksa di sini.
   const galleryUrls = ((photosData ?? []) as { photo_url: string }[]).map((p) => p.photo_url);
   const photos = [product.photo_url, ...galleryUrls].filter((u): u is string => !!u);
 
@@ -109,7 +141,7 @@ export default async function ProdukPublikPage({ params }: { params: Promise<{ p
 
       <ProdukPublikClient name={product.name} photos={photos} />
 
-      <h1 style={{ fontSize: "var(--fs-hero)", lineHeight: "var(--lh-tight)" }}>{product.name}</h1>
+      <h1 style={{ fontSize: "var(--fs-hero)", lineHeight: "var(--lh-tight)", overflowWrap: "anywhere" }}>{product.name}</h1>
       <div className="row" style={{ marginTop: 8, marginBottom: 4 }}>
         {product.code && <span className="code">{product.code}</span>}
       </div>

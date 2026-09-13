@@ -110,6 +110,8 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
   const [picStaffId, setPicStaffId] = useState("");
 
   const [errs, setErrs] = useState<Record<string, string>>({});
+  // Sasaran gulir saat pesan error/jaringan muncul di banner ATAS kartu.
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const [netMsg, setNetMsg] = useState<string | null>(null);
   const [partialMsg, setPartialMsg] = useState<string | null>(null);
   const [invoiceMsg, setInvoiceMsg] = useState<string | null>(null);
@@ -459,6 +461,62 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     if (joined) el.value = joined;
   }
 
+  /**
+   * Server menolak karena satu isian: tandai isian itu merah (`errs[field]`),
+   * lalu GULIRKAN layar ke sana dan fokuskan. Tanpa ini yang terlihat cuma
+   * "ditekan tidak terjadi apa-apa" — isian wajib yang kosong (Cabang, Sales,
+   * Jalur Pesanan, Package) berada jauh di atas tombol kirim (LESSONS #53,
+   * yang menulis bahwa pemeriksaan ini berlaku untuk SETIAP formulir yang
+   * pesan errornya bisa berada di luar layar, bukan hanya sisi cabang).
+   *
+   * BEDA dari kembarannya di /cabang: formulir ini memakai `id` (`ao_*`),
+   * bukan `name`, untuk isian yang paling mungkin ditolak — Cabang/Sales/PIC
+   * adalah <select> yang dikendalikan React tanpa atribut `name` sama sekali.
+   * Menyalin mentah versi cabang (`[name="${field}"]`) akan diam-diam gagal
+   * PERSIS pada isian yang paling sering terlewat. Karena itu pemetaannya
+   * ditulis eksplisit di sini, bukan diabstraksikan bersama versi cabang:
+   * satu penolong bersama tetap perlu menerima pemetaan per-formulir, jadi
+   * tidak lebih sedikit kode — hanya lebih banyak lapisan.
+   */
+  const ERROR_FIELD_TARGET: Record<string, string> = {
+    branch_id: "#ao_branch",
+    phone: "#ao_phone",
+    full_name: "#ao_name",
+    partner_purchase_amount: "#ao_amount",
+    sales_staff_id: "#ao_sales",
+    pic_staff_id: "#ao_pic",
+    fulfillment_path: '[name="fulfillment_path"]',
+    // Dropdown Package dipakai saat daftar package ADA; input teksnya muncul
+    // hanya kalau tidak ada / pilih "Lainnya" — server memakai satu nama
+    // field untuk keduanya, jadi dicoba dropdown dulu lalu input teks.
+    package_name: "#ao_package_id",
+  };
+
+  function tampilkanErrorIsian(err: { field?: string; message: string }) {
+    setErrs({ [err.field || "_form"]: err.message });
+    if (!err.field) {
+      cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+    const form = formRef.current;
+    const sel = ERROR_FIELD_TARGET[err.field];
+    const el =
+      (sel ? form?.querySelector<HTMLElement>(sel) : null) ??
+      (err.field === "package_name" ? form?.querySelector<HTMLElement>("#ao_package") : null) ??
+      form?.querySelector<HTMLElement>(`[name="${err.field}"]`);
+    if (!el) {
+      // Isian tidak ketemu (mis. nama field baru dari server yang belum
+      // dipetakan) — jangan diam: setidaknya bawa layar ke banner atas.
+      cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.focus({ preventScroll: true });
+  }
+
+  /** Error isian pertama (bukan `_form`) — untuk ringkasan di dekat tombol kirim. */
+  const fieldErr = Object.entries(errs).find(([k]) => k !== "_form");
+
   function handleUseExisting() {
     if (!foundCustomer) return;
     setSelectedExisting(true);
@@ -590,7 +648,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
     const res = out.result;
     if ("error" in res) {
       release();
-      setErrs({ [res.error.field || "_form"]: res.error.message });
+      tampilkanErrorIsian(res.error);
       return;
     }
     if ("partial" in res) {
@@ -656,7 +714,7 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
   }
 
   return (
-    <div className="card">
+    <div className="card" ref={cardRef}>
       {netMsg && <div className="banner warn">{netMsg}</div>}
       {partialMsg && <div className="banner bad">{partialMsg}</div>}
       {errs._form && <div className="banner bad">{errs._form}</div>}
@@ -962,6 +1020,16 @@ export default function NewAdminOrderForm({ partners }: { partners: PartnerOptio
             <div className="hint">{m.admin.orderCreateInvoiceFieldHint}</div>
           </div>
         </fieldset>
+
+        {/* Ringkasan error isian di dekat tombol — pesan yang sama juga ada
+            (merah) di bawah isiannya; ini supaya yang berdiri di tombol tahu
+            KENAPA tidak jadi terkirim, lalu layar sudah digulirkan ke sana
+            oleh tampilkanErrorIsian(). */}
+        {fieldErr && (
+          <div className="banner bad" role="alert">
+            {m.common.formFieldSummary.replace("{pesan}", fieldErr[1])}
+          </div>
+        )}
 
         <div className="btnrow">
           <button
