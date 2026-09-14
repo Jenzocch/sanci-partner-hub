@@ -1913,13 +1913,14 @@ Master Data CSV（編碼毀損已修復），**價格完全未觸碰**。
 進去後，小計下方出現「不完整」那句，且建單後價格欄可自己填；⑦詳情頁在 360px
 寬手機上，照片→價格→「Tambah ke Pesanan」不用捲動就看得到。
 
-### Proposal 封面白底與照片比例修正（2026-09-07）
+### Proposal 封面編輯式版型（2026-09-13）
 
 - **Status: VERIFIED（isolated screen and A4 render）；authenticated production flow: UNVERIFIED。**
-- Scope: shared `web/lib/proposal-soft-gallery-layout.tsx`, used by both `/admin/proposal` and `/cabang/proposal`. Existing `pickCoverRow` selection, product/pricing data, handoff, permissions, pagination and print data are unchanged.
-- Fix: the entire cover and its photo field now use opaque white, with no decorative geometry. The photo area fills the available A4 cover space in print; screen sheets at 1100px and below reserve a square photo area. Every source uses `object-fit: contain`, so square, portrait and landscape products remain complete without cropping, filters or colour changes.
-- Limitation: a product name or white margin baked into the supplied source image remains part of that image. CSS cannot remove it without altering the asset; no real production photo was inspected for this change.
-- Verification: the isolated Playwright/Edge fixture loads the actual global CSS, CSS module, editorial renderer and Soft Gallery overrides. All 24 combinations of square/landscape/portrait sources × admin/store data × 390/768/1024/1440px had a white cover, no decoration, contained image and no overflow. Six corresponding one-page A4 PDFs were generated and checked with `pdfinfo`; desktop, mobile and rendered-PDF outputs were visually inspected. This is not a signed-in production-route test.
+- Scope: only the shared cover presentation in `web/lib/proposal-editorial-document.js` and `web/lib/proposal-soft-gallery-layout.tsx`, used by both `/admin/proposal` and `/cabang/proposal`, plus `web/public/proposal/cover-lifestyle-reference.png`, a managed copy of the approved user-supplied lifestyle reference. Selection, product-detail, pagination, product/pricing identity, Proposal/Order handoff, permission queries and print page sequencing are unchanged.
+- Cover: the existing `web/public/brand/sanci-logo.png` wordmark leads a restrained `CUSTOM FURNITURE` / `PROPOSAL` hierarchy with the Indonesian subtitle `Pilihan furnitur yang disusun khusus untuk ruang Anda.` The right column is a fixed local lifestyle scene and deliberately does not depend on product order or price.
+- Existing data only: customer input is presented as `CUSTOMER / PROJECT`; `savedAt` as `SAVED DATE`; the admin cover retains the existing company letterhead contact. On cabang, the server already resolves the authenticated user's own branch and passes partner/branch name plus `branch.contact_phone || partner.contact_phone`; the branch address remains the existing cabang inline presentation. The generic SANCI contact blocks are hidden when that branch block exists, preventing a cabang document from showing a different owner/contact.
+- Responsive and print: the A4 cover keeps a 78mm text column and 72mm tall image column. At 1100px and below it becomes one column, with the image below the metadata. Long customer/project text wraps in the full-width metadata block; no schema field was added for a separate project name.
+- Verification: `npm run typecheck`, `npm run lint`, and `npm run build` completed successfully. An isolated Playwright/Edge fixture uses the actual document CSS module and Soft Gallery override with a long customer name and representative cabang identity. At 1440px and 390px it confirmed a loaded fixed image, exact cover hierarchy/subtitle, no horizontal overflow and no legacy product caption; the 390px and A4 renders were visually inspected. The A4 PDF has one page at 594.96 × 841.92 points according to `pdfinfo`. This is not a signed-in or deployed-route test, and the reference crop should be replaced by a separately supplied/licensed high-resolution original if one becomes available.
 
 ## 已知刻意保留的「怪東西」
 
