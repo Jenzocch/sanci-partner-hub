@@ -30,3 +30,4 @@ Thumbs.db
 *.log
 npm-debug.log*
 web/tsconfig.tsbuildinfo
+.claude/worktrees/
