@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CATALOG_PAGE_SIZE, fetchCatalogCategories, finishCatalogPage } from "@/lib/catalog-query";
 import { attachDisplayPrices } from "@/lib/price-query";
@@ -90,6 +91,11 @@ export default async function ProdukPage() {
         </div>
         <div className="card" style={{ margin: 0 }}>
           <div className="err">{m.common.errorLoad}</div>
+          {/* "Coba lagi" di tempat — tanpa ini satu-satunya jalan ke depan
+              adalah memuat ulang seluruh halaman (audit 2026-09-15). */}
+          <Link href={"/admin/produk"} className="btn sm">
+            {m.common.retry}
+          </Link>
         </div>
       </div>
     );

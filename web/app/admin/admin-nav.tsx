@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { clearAllProposalHandoffs } from "@/lib/proposal-shared";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import LocaleSwitcher from "@/lib/i18n/locale-switcher";
 
@@ -20,6 +21,9 @@ export default function AdminNav({ email }: { email: string | null }) {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       await createClient().auth.signOut();
+      // Penawaran tersimpan dibuang bersama sesi — bukan ditinggalkan untuk
+      // orang berikutnya yang memakai komputer yang sama.
+      clearAllProposalHandoffs();
     } catch {
       return;
     }

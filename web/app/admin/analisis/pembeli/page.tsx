@@ -11,6 +11,7 @@ import {
 } from "@/lib/orders-shared";
 import { catalogIlikeOrFilter } from "@/lib/catalog-query";
 import { getAdminMessages } from "@/lib/i18n";
+import { retryHref } from "@/lib/retry-href";
 import AnalisisTabs from "../tabs";
 
 export const dynamic = "force-dynamic";
@@ -231,6 +232,11 @@ export default async function AdminBuyersPage({
       {queryErr ? (
         <div className="card" style={{ margin: 0 }}>
           <div className="err">{m.common.errorLoad}</div>
+          {/* "Coba lagi" di tempat — tanpa ini satu-satunya jalan ke depan
+              adalah memuat ulang seluruh halaman (audit 2026-09-15). */}
+          <Link href={retryHref("/admin/analisis/pembeli", sp)} className="btn sm">
+            {m.common.retry}
+          </Link>
         </div>
       ) : rows.length === 0 ? (
         <div className="card emptybox">{m.admin.buyersEmpty.replace("{q}", q)}</div>

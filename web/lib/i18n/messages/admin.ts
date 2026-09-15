@@ -473,6 +473,9 @@ const id = {
 
   // ---- Katalog Produk SANCI (produk/page.tsx dan seterusnya) ----
   produkSearchPlaceholder: "Cari nama / kode produk…",
+  // Label TETAP terlihat: placeholder hilang begitu staf mulai mengetik, dan
+  // pembaca layar tidak selalu membacakannya (audit 2026-09-15).
+  produkSearchLabel: "Cari produk (nama atau kode)",
   filterStockAll: "Stok: semua",
   filterCategoryAll: "Kategori: semua",
   produkEmpty: "Belum ada produk.",
@@ -829,6 +832,7 @@ const id = {
   customerTabSources: "Kode Sumber Tamu",
   customerTabSales: "Kode Sales",
   customerSearchPlaceholder: "Cari nama / telepon / kode…",
+  customerSearchLabel: "Cari pelanggan (nama, telepon, atau kode)",
   customerEmpty: "Belum ada pelanggan.",
   customerEmptyFiltered: 'Tidak ada pelanggan yang cocok dengan "{q}".',
   customerColCode: "Kode Pelanggan",
@@ -1420,6 +1424,7 @@ const en = {
   staffAssignmentPartialFail: "The staff record was saved but the branch assignment failed. Contact technical support.",
 
   produkSearchPlaceholder: "Search product name / code…",
+  produkSearchLabel: "Search products (name or code)",
   filterStockAll: "Stock: all",
   filterCategoryAll: "Category: all",
   produkEmpty: "No products yet.",
@@ -1725,6 +1730,7 @@ const en = {
   customerTabSources: "Source Codes",
   customerTabSales: "Sales Codes",
   customerSearchPlaceholder: "Search name / phone / code…",
+  customerSearchLabel: "Search customers (name, phone, or code)",
   customerEmpty: "No customers yet.",
   customerEmptyFiltered: 'No customers match "{q}".',
   customerColCode: "Customer Code",
@@ -2248,6 +2254,7 @@ const zh = {
   staffAssignmentPartialFail: "员工信息已保存，但分店分配失败，请联系技术支持。",
 
   produkSearchPlaceholder: "搜索产品名称 / 编号…",
+  produkSearchLabel: "搜索产品（名称或编号）",
   filterStockAll: "库存：全部",
   filterCategoryAll: "分类：全部",
   produkEmpty: "暂无产品。",
@@ -2534,6 +2541,7 @@ const zh = {
   customerTabSources: "来源代码",
   customerTabSales: "销售员代码",
   customerSearchPlaceholder: "搜索姓名／电话／代码…",
+  customerSearchLabel: "搜索客户（姓名、电话或代码）",
   customerEmpty: "还没有客户。",
   customerEmptyFiltered: '没有符合"{q}"的客户。',
   customerColCode: "客户代码",

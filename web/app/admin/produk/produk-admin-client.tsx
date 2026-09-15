@@ -97,7 +97,11 @@ export default function ProdukAdminClient({
       </div>
 
       <div className="searchrow wide">
+        <label htmlFor="prod_q" className="small muted">
+          {m.admin.produkSearchLabel}
+        </label>
         <input
+          id="prod_q"
           type="search"
           placeholder={m.admin.produkSearchPlaceholder}
           value={katalog.q}

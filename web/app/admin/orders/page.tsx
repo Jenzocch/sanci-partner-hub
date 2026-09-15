@@ -21,6 +21,7 @@ import {
   type CustomerPaymentStatus,
 } from "@/lib/payment-shared";
 import { getAdminMessages } from "@/lib/i18n";
+import { retryHref } from "@/lib/retry-href";
 import FilterSegment from "./filter-segment";
 
 export const dynamic = "force-dynamic";
@@ -637,6 +638,11 @@ export default async function AdminOrdersPage({
       {queryErr ? (
         <div className="card" style={{ margin: 0 }}>
           <div className="err">{m.common.errorLoad}</div>
+          {/* "Coba lagi" di tempat — tanpa ini satu-satunya jalan ke depan
+              adalah memuat ulang seluruh halaman (audit 2026-09-15). */}
+          <Link href={retryHref("/admin/orders", sp)} className="btn sm">
+            {m.common.retry}
+          </Link>
         </div>
       ) : orderRows.length === 0 ? (
         <div className="card emptybox">

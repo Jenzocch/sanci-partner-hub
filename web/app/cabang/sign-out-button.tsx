@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { clearAllProposalHandoffs } from "@/lib/proposal-shared";
 import { useCabangMessages } from "@/lib/i18n/provider";
 
 export default function SignOutButton() {
@@ -20,6 +21,9 @@ export default function SignOutButton() {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       await createClient().auth.signOut();
+      // Penawaran tersimpan dibuang bersama sesi — bukan ditinggalkan untuk
+      // orang berikutnya yang memakai komputer yang sama.
+      clearAllProposalHandoffs();
     } catch {
       setBusy(false);
       return;

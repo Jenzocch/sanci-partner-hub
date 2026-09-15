@@ -56,6 +56,22 @@ const PROPOSAL_KEY_PREFIX = "sanci:proposal:handoff:";
  *  penawaran akan menumpuk tanpa batas di localStorage. */
 const PROPOSAL_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+/** Buang SEMUA penawaran tersimpan di browser ini. Dipanggil saat keluar:
+ *  komputer toko sering dipakai bergantian, dan penawaran berisi harga jual
+ *  ke pelanggan (audit 2026-09-15). */
+export function clearAllProposalHandoffs(): void {
+  try {
+    const mati: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith(PROPOSAL_KEY_PREFIX)) mati.push(key);
+    }
+    for (const key of mati) window.localStorage.removeItem(key);
+  } catch {
+    // localStorage dilarang (private mode) — tidak ada yang perlu dibuang.
+  }
+}
+
 /** Pola sama dengan newCalcLineId() di lib/calculator-shared.ts. */
 export function newProposalId(): string {
   const uuid = globalThis.crypto?.randomUUID?.();
