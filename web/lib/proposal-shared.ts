@@ -15,6 +15,11 @@ export type ProposalLine = {
 };
 
 export type ProposalHandoff = {
+  /** Identitas SATU penawaran. Dipakai sebagai bagian kunci localStorage dan
+   *  dibawa di URL halaman Proposal (`?p=`), supaya dua penawaran yang
+   *  disiapkan berbarengan tidak saling menimpa — lihat catatan di
+   *  PROPOSAL_KEY_PREFIX. */
+  proposalId: string;
   savedAt: number;
   customerName: string;
   lines: ProposalLine[];
@@ -29,7 +34,56 @@ export type ProposalHandoff = {
   finalAmount: number;
 };
 
-const PROPOSAL_HANDOFF_KEY = "sanci:proposal:handoff";
+/**
+ * SATU entri per penawaran, bukan satu entri global.
+ *
+ * Sampai audit 2026-09-15 seluruh browser berbagi SATU kunci
+ * (`sanci:proposal:handoff`). Akibatnya nyata dan sudah bisa terjadi di meja
+ * toko: menyiapkan penawaran untuk pelanggan A, lalu menyiapkan satu lagi
+ * untuk pelanggan B (tab kedua, atau sekadar kembali ke Kalkulator) menimpa
+ * yang pertama — dan menekan muat-ulang di tab penawaran A kemudian
+ * menampilkan isi penawaran B, dengan nama pelanggan A masih tertulis di
+ * layar kalau sudah diketik. Tidak ada satu pun tanda bahwa isinya berganti.
+ *
+ * Yang ini BUKAN celah izin database (RLS tidak disentuh sama sekali);
+ * cakupannya satu browser, dan datanya memang milik orang yang sama.
+ */
+const PROPOSAL_KEY_PREFIX = "sanci:proposal:handoff:";
+
+/** Entri yang lebih tua dari ini dibuang saat menulis entri baru. Handoff
+ *  adalah objek TRANSIT (Kalkulator → Proposal, hitungan menit), jadi umur
+ *  sehari sudah sangat longgar. Tanpa pembersihan ini, satu kunci per
+ *  penawaran akan menumpuk tanpa batas di localStorage. */
+const PROPOSAL_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** Pola sama dengan newCalcLineId() di lib/calculator-shared.ts. */
+export function newProposalId(): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (uuid) return `prop_${uuid}`;
+  return `prop_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/** Buang entri penawaran yang sudah kedaluwarsa (dan entri rusak). */
+function pruneProposalHandoffs(now: number): void {
+  try {
+    const mati: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (!key || !key.startsWith(PROPOSAL_KEY_PREFIX)) continue;
+      try {
+        const raw = window.localStorage.getItem(key);
+        const savedAt = raw ? (JSON.parse(raw) as { savedAt?: unknown }).savedAt : null;
+        if (typeof savedAt !== "number" || now - savedAt > PROPOSAL_MAX_AGE_MS) mati.push(key);
+      } catch {
+        mati.push(key);
+      }
+    }
+    for (const key of mati) window.localStorage.removeItem(key);
+  } catch {
+    // localStorage bisa dilarang total (private mode) — pembersihan ini
+    // kenyamanan, bukan syarat benar.
+  }
+}
 
 function isValidLine(v: unknown): v is ProposalLine {
   if (!v || typeof v !== "object") return false;
@@ -45,18 +99,39 @@ function isValidLine(v: unknown): v is ProposalLine {
   );
 }
 
-export function writeProposalHandoff(h: Omit<ProposalHandoff, "savedAt">): boolean {
+/**
+ * Simpan satu penawaran dan kembalikan `proposalId`-nya — pemanggil WAJIB
+ * membawa id itu ke halaman Proposal (`?p=<id>`), karena tanpa id tidak ada
+ * cara menunjuk penawaran YANG MANA yang harus dibuka.
+ */
+export function writeProposalHandoff(
+  h: Omit<ProposalHandoff, "savedAt" | "proposalId">
+): { ok: true; proposalId: string } | { ok: false } {
+  const now = Date.now();
+  const proposalId = newProposalId();
   try {
-    window.localStorage.setItem(PROPOSAL_HANDOFF_KEY, JSON.stringify({ ...h, savedAt: Date.now() }));
-    return true;
+    pruneProposalHandoffs(now);
+    window.localStorage.setItem(
+      `${PROPOSAL_KEY_PREFIX}${proposalId}`,
+      JSON.stringify({ ...h, proposalId, savedAt: now })
+    );
+    return { ok: true, proposalId };
   } catch {
-    return false;
+    return { ok: false };
   }
 }
 
-export function readProposalHandoff(): ProposalHandoff | null {
+/**
+ * Baca SATU penawaran berdasarkan id-nya. Tanpa id (`?p=` hilang, mis. tautan
+ * lama atau bookmark dari sebelum audit 2026-09-15) hasilnya `null` — halaman
+ * Proposal lalu menampilkan keadaan "belum ada penawaran" dengan tombol
+ * kembali ke Kalkulator, BUKAN penawaran orang lain yang kebetulan tersimpan
+ * terakhir.
+ */
+export function readProposalHandoff(proposalId: string | null): ProposalHandoff | null {
+  if (!proposalId) return null;
   try {
-    const raw = window.localStorage.getItem(PROPOSAL_HANDOFF_KEY);
+    const raw = window.localStorage.getItem(`${PROPOSAL_KEY_PREFIX}${proposalId}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ProposalHandoff>;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.lines)) return null;
@@ -77,6 +152,7 @@ export function readProposalHandoff(): ProposalHandoff | null {
     });
     if (lines.length === 0) return null;
     return {
+      proposalId,
       savedAt: parsed.savedAt,
       customerName: typeof parsed.customerName === "string" ? parsed.customerName : "",
       lines,

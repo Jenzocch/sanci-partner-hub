@@ -205,7 +205,21 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     const [printing, setPrinting] = useState(false);
     const docRef = useRef(null);
     useEffect(() => {
-        const h = readProposalHandoff();
+        // Id penawaran dibaca dari URL (`?p=`) — dituliskan oleh
+        // handleMakeProposal di kalkulator-client.tsx. window.location dipakai
+        // (bukan useSearchParams) karena efek ini memang hanya jalan di
+        // browser dan berkas ini tidak punya pemakai hook Next lain; tanpa id
+        // readProposalHandoff() mengembalikan null dan layar "belum ada
+        // penawaran" muncul, bukan penawaran lain yang tersimpan terakhir
+        // (audit 2026-09-15).
+        let proposalId = null;
+        try {
+            proposalId = new URLSearchParams(window.location.search).get("p");
+        }
+        catch {
+            proposalId = null;
+        }
+        const h = readProposalHandoff(proposalId);
         setHandoff(h);
         setCustomerName(h?.customerName ?? "");
         setReady(true);
