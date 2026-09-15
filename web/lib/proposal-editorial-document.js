@@ -194,15 +194,26 @@ function galleryClass(count) {
  *   loadProducts: (productIds: string[]) => Promise<unknown>,
  *   backHref: string,
  *   store?: { name: string, branchName: string | null, phone: string | null, logoUrl: string | null } | null,
+ *   onSave?: ((input: import("@/app/cabang/proposal/actions-saved").SaveProposalInput)
+ *     => Promise<{ data: import("@/app/cabang/proposal/actions-saved").SavedProposalMeta } | { error: { message: string } }>) | null,
+ *   loadSaved?: ((id: string)
+ *     => Promise<{ data: import("@/app/cabang/proposal/actions-saved").SavedProposalFull } | { error: { message: string } }>) | null,
  * }} props
  */
-export default function ProposalEditorialDocument({ loadProducts, backHref, store = null, }) {
+export default function ProposalEditorialDocument({ loadProducts, backHref, store = null, onSave = null, loadSaved = null, }) {
     const m = useCommonMessages();
     const [handoff, setHandoff] = useState(null);
     const [ready, setReady] = useState(false);
     const [customerName, setCustomerName] = useState("");
     const [load, setLoad] = useState({ phase: "loading" });
     const [printing, setPrinting] = useState(false);
+    // Penawaran tersimpan (0029). `onSave`/`loadSaved` hanya dikirim sisi
+    // CABANG: nomornya berbasis cabang, dan sisi admin tidak punya cabang.
+    // Admin tetap bisa MEMBACA penawaran cabang lewat RLS, tapi tombol
+    // Simpan di sini memang tidak muncul untuknya.
+    const [saving, setSaving] = useState(false);
+    const [savedAs, setSavedAs] = useState(null);
+    const [saveErr, setSaveErr] = useState(null);
     const docRef = useRef(null);
     useEffect(() => {
         // Id penawaran dibaca dari URL (`?p=`) — dituliskan oleh
@@ -219,10 +230,53 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
         catch {
             proposalId = null;
         }
+        // `?saved=<id>` = cetak ulang penawaran yang SUDAH tersimpan di
+        // database. Ia menang atas localStorage: yang diminta adalah arsip
+        // itu, bukan apa pun yang kebetulan masih ada di browser ini.
+        let savedId = null;
+        try {
+            savedId = new URLSearchParams(window.location.search).get("saved");
+        }
+        catch {
+            savedId = null;
+        }
+        if (savedId && loadSaved) {
+            loadSaved(savedId).then((res) => {
+                if ("error" in res) {
+                    setSaveErr(res.error.message);
+                    setReady(true);
+                    return;
+                }
+                const d = res.data;
+                setHandoff({
+                    proposalId: d.id,
+                    savedAt: new Date(d.createdAt).getTime(),
+                    customerName: d.customerName ?? "",
+                    lines: d.lines,
+                    subtotal: d.subtotal,
+                    discountPcts: d.discountPcts,
+                    totalDiscountAmount: d.totalDiscountAmount,
+                    markupPct: d.markupPct,
+                    cashDiscount: d.cashDiscount,
+                    extraFeeLabel: d.extraFeeLabel,
+                    extraFeeAmount: d.extraFeeAmount,
+                    finalAmount: d.finalAmount,
+                    products: d.products ?? undefined,
+                });
+                setCustomerName(d.customerName ?? "");
+                setSavedAs({ number: d.number, version: d.version, validUntil: d.validUntil });
+                setReady(true);
+            }).catch(() => {
+                setSaveErr(m.errorLoad);
+                setReady(true);
+            });
+            return;
+        }
         const h = readProposalHandoff(proposalId);
         setHandoff(h);
         setCustomerName(h?.customerName ?? "");
         setReady(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
         if (!handoff)
@@ -285,6 +339,43 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     const selectionPages = useMemo(() => paginateSelectionRows(rows, SELECTION_ROWS_PER_PAGE, lastSelectionPageCapacity(moneyRowCount)), [rows, moneyRowCount]);
     const galleryStories = useMemo(() => stories.filter((story) => story.row.product && story.row.photos.length >= 3), [stories]);
     const missingProfiles = load.phase === "ready" ? stories.filter((story) => !story.row.product).map((story) => story.row.line.name) : [];
+    async function handleSave() {
+        if (!onSave || saving || !handoff)
+            return;
+        setSaving(true);
+        setSaveErr(null);
+        try {
+            // Nomor yang SUDAH ada dikirim balik = REVISI keluarga itu;
+            // versinya dihitung database, bukan di sini (0029 §3).
+            const res = await onSave({
+                proposalNumber: savedAs?.number ?? null,
+                customerName,
+                subtotal: handoff.subtotal,
+                discountPcts: handoff.discountPcts,
+                totalDiscountAmount: handoff.totalDiscountAmount,
+                markupPct: handoff.markupPct,
+                cashDiscount: handoff.cashDiscount,
+                extraFeeLabel: handoff.extraFeeLabel,
+                extraFeeAmount: handoff.extraFeeAmount,
+                finalAmount: handoff.finalAmount,
+                lines: handoff.lines,
+                products: load.phase === "ready" ? load.products : null,
+            });
+            if ("error" in res) {
+                setSaveErr(res.error.message);
+                return;
+            }
+            setSavedAs({ number: res.data.number, version: res.data.version, validUntil: res.data.validUntil });
+        }
+        catch {
+            // Server Action bisa REJECT (jaringan putus, deploy usang) —
+            // jangan biarkan tombolnya terkunci "Menyimpan…" selamanya.
+            setSaveErr(m.errorLoad);
+        }
+        finally {
+            setSaving(false);
+        }
+    }
     async function handlePrint() {
         if (printing)
             return;
@@ -333,7 +424,14 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     const showSubtotal = showSubtotalFor(handoff);
     const totals = (_jsxs("div", { className: styles.totals, children: [showSubtotal && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalSubtotal }), _jsx("strong", { className: styles.num, children: formatIDR(handoff.subtotal) })] })), handoff.discountPcts.length > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalDiscountStep.replace("{pct}", handoff.discountPcts.join("% + ")) }), _jsxs("strong", { className: styles.num, children: ["− ", formatIDR(handoff.totalDiscountAmount)] })] })), handoff.cashDiscount > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalCashDiscount }), _jsxs("strong", { className: styles.num, children: ["− ", formatIDR(handoff.cashDiscount)] })] })), handoff.extraFeeAmount > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: handoff.extraFeeLabel || m.proposalExtraFeeDefault }), _jsxs("strong", { className: styles.num, children: ["+ ", formatIDR(handoff.extraFeeAmount)] })] })), _jsxs("div", { className: styles.moneyFinal, children: [_jsx("span", { children: m.proposalFinalPrice }), _jsx("strong", { className: styles.num, children: formatIDR(handoff.finalAmount) })] })] }));
     const storyLabels = { about: m.proposalAboutLabel, size: m.proposalSpecSize, category: m.proposalSpecCategory, colors: m.proposalSpecColorsChosen };
-    return (_jsxs("div", { className: styles.wrap, children: [_jsxs("header", { className: `${styles.bar} noprint`, children: [_jsx("img", { src: LOGO, alt: lh.brand, className: styles.barLogo }), _jsx("span", { className: styles.barSpacer }), _jsx("input", { className: styles.nameField, value: customerName, onChange: (e) => setCustomerName(e.target.value), placeholder: m.proposalCustomerPlaceholder, "aria-label": m.proposalForLabel }), _jsx(Link, { href: backHref, className: styles.tool, children: m.proposalBackCta }), _jsx("span", { className: `${styles.printState}${load.phase === "error" || missingProfiles.length > 0 ? ` ${styles.printStateWarn}` : ""}`, "aria-live": "polite", children: load.phase === "loading"
+    return (_jsxs("div", { className: styles.wrap, children: [_jsxs("header", { className: `${styles.bar} noprint`, children: [_jsx("img", { src: LOGO, alt: lh.brand, className: styles.barLogo }), _jsx("span", { className: styles.barSpacer }), _jsx("input", { className: styles.nameField, value: customerName, onChange: (e) => setCustomerName(e.target.value), placeholder: m.proposalCustomerPlaceholder, "aria-label": m.proposalForLabel }), _jsx(Link, { href: backHref, className: styles.tool, children: m.proposalBackCta }), onSave && _jsx("button", { type: "button", className: styles.tool, disabled: saving || load.phase === "loading", onClick: handleSave, children: saving
+                                ? m.proposalStoreSaving
+                                : savedAs
+                                    ? m.proposalStoreRevisionCta
+                                    : m.proposalStoreCta }), savedAs && _jsx("span", { className: styles.printState, children: m.proposalStoreDone
+                                .replace("{number}", savedAs.number)
+                                .replace("{version}", String(savedAs.version))
+                                .replace("{valid}", savedAs.validUntil ?? "-") }), saveErr && _jsx("span", { className: `${styles.printState} ${styles.printStateWarn}`, children: saveErr }), _jsx("span", { className: `${styles.printState}${load.phase === "error" || missingProfiles.length > 0 ? ` ${styles.printStateWarn}` : ""}`, "aria-live": "polite", children: load.phase === "loading"
                                 ? m.proposalPrintDataLoading
                                 : (load.phase === "error" || missingProfiles.length > 0)
                                     ? m.proposalPrintStateIncomplete
