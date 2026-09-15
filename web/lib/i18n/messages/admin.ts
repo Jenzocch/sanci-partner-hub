@@ -122,6 +122,11 @@ const id = {
   partnerLogoHint:
     "PNG, JPG, atau WebP. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim. Biarkan " +
     "kosong kalau tidak ingin mengubah logo.",
+  // Bilah kerja hari ini di /admin (audit 2026-09-15). Tiap label menempel
+  // pada satu filter bayar yang SAMA di /admin/orders.
+  todoUnpaid: "Belum bayar",
+  todoPartial: "Bayar sebagian (DP)",
+  todoNoTotal: "Total belum dicatat",
   partnerSuspendBtn: "Tangguhkan",
   // Konfirmasi arah MERUGIKAN saja — idiom status-toggle berkas ini sendiri
   // (lihat kepala master-data-section.tsx yang mewarisinya): nonaktifkan
@@ -1098,6 +1103,9 @@ const en = {
   partnerLogoHint:
     "PNG, JPG, or WebP. Maximum 5 MB — the image is resized automatically before upload. Leave " +
     "blank if you do not want to change the logo.",
+  todoUnpaid: "Unpaid",
+  todoPartial: "Partly paid (DP)",
+  todoNoTotal: "Total not recorded",
   partnerSuspendBtn: "Suspend",
   partnerSuspendConfirm:
     "Suspend {name}? While suspended, none of this partner's branch users can sign in. It can be reactivated at any time.",
@@ -1973,6 +1981,9 @@ const zh = {
   partnerCodeLockedHint: "合作商处于{status}状态期间编号被锁定。",
   partnerLogoFieldLabel: "Logo（选填）",
   partnerLogoHint: "PNG、JPG 或 WebP 格式。最大 5 MB —— 图片会在上传前自动压缩。留空表示不修改 Logo。",
+  todoUnpaid: "未付款",
+  todoPartial: "已付部分（DP）",
+  todoNoTotal: "尚未记录总额",
   partnerSuspendBtn: "暂停",
   partnerSuspendConfirm:
     "要暂停 {name} 吗？暂停期间，这个合作商底下所有门店帐号都无法登入。随时可以重新启用。",

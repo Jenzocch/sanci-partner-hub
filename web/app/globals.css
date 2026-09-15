@@ -476,6 +476,19 @@ img,svg{max-width:100%}
   .btnrow .btn{width:100%}
 }
 
+/* Bilah "kerja hari ini" di /admin — angka besar + label, tiap petak satu
+   tautan ke daftar pesanan dengan filter yang sama (audit 2026-09-15). */
+.todorow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.todotile{
+  flex:1 1 150px;min-width:140px;display:flex;flex-direction:column;gap:2px;
+  padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface);color:inherit;text-decoration:none;
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease);
+}
+.todotile:hover{border-color:var(--accent);background:var(--surface2)}
+.todonum{font-size:26px;font-weight:650;line-height:1.1;font-variant-numeric:tabular-nums}
+.todolabel{font-size:var(--fs-sec);color:var(--ink2)}
+
 /* Segmented filter control (replaces `btn sm primary` toggle rows) */
 .segmented{
   display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;
