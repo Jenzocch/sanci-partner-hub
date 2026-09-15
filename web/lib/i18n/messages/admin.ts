@@ -123,6 +123,12 @@ const id = {
     "PNG, JPG, atau WebP. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim. Biarkan " +
     "kosong kalau tidak ingin mengubah logo.",
   partnerSuspendBtn: "Tangguhkan",
+  // Konfirmasi arah MERUGIKAN saja — idiom status-toggle berkas ini sendiri
+  // (lihat kepala master-data-section.tsx yang mewarisinya): nonaktifkan
+  // butuh konfirmasi, aktifkan langsung jalan. "Tangguhkan" dulu terlewat
+  // dari idiomnya sendiri (audit 2026-09-15).
+  partnerSuspendConfirm:
+    "Tangguhkan {name}? Selama ditangguhkan, semua pengguna cabang partner ini tidak bisa masuk. Bisa diaktifkan kembali kapan saja.",
   partnerReactivateBtn: "Aktifkan lagi",
   partnerEndPartnershipBtn: "Akhiri kerja sama",
   partnerDeleteDraftBtn: "Hapus draf",
@@ -220,6 +226,8 @@ const id = {
   branchCreateBtn: "Buat Cabang",
   branchEditModalTitle: "Ubah Cabang",
   branchSuspendBtn: "Tangguhkan",
+  branchSuspendConfirm:
+    "Tangguhkan cabang {name}? Selama ditangguhkan, staf cabang ini tidak bisa masuk. Bisa diaktifkan kembali kapan saja.",
   branchReactivateBtn: "Aktifkan lagi",
   branchNameRequired: "Nama cabang wajib diisi.",
   branchAddressRequired: "Alamat lengkap wajib diisi.",
@@ -534,6 +542,12 @@ const id = {
   productGalleryUploading: "Mengunggah foto…",
   productGalleryDeleteAria: "Hapus foto ini",
   productGalleryDeleteFailed: "Foto gagal dihapus.",
+  // Tombol "×"-nya kecil dan duduk di atas fotonya — salah sentuh di ponsel
+  // dulu langsung menghapus, tanpa konfirmasi maupun pembatalan (audit
+  // 2026-09-15). {n}/{total} menyebut foto KE BERAPA, karena dialog sistem
+  // tidak bisa menampilkan gambarnya.
+  productGalleryDeleteConfirm:
+    "Hapus foto ke-{n} dari {total} pada produk ini? Tindakan ini tidak bisa dibatalkan.",
   productGalleryUploadPartialFailed: "{n} dari {total} foto gagal diunggah — coba unggah ulang yang gagal.",
   // Geser urutan foto (panah kiri/kanan per thumbnail — tanpa drag-drop,
   // staf memakai ponsel). Urutan di layar baru berubah setelah server
@@ -1081,6 +1095,8 @@ const en = {
     "PNG, JPG, or WebP. Maximum 5 MB — the image is resized automatically before upload. Leave " +
     "blank if you do not want to change the logo.",
   partnerSuspendBtn: "Suspend",
+  partnerSuspendConfirm:
+    "Suspend {name}? While suspended, none of this partner's branch users can sign in. It can be reactivated at any time.",
   partnerReactivateBtn: "Reactivate",
   partnerEndPartnershipBtn: "End partnership",
   partnerDeleteDraftBtn: "Delete draft",
@@ -1172,6 +1188,8 @@ const en = {
   branchCreateBtn: "Create Branch",
   branchEditModalTitle: "Edit Branch",
   branchSuspendBtn: "Suspend",
+  branchSuspendConfirm:
+    "Suspend branch {name}? While suspended, this branch's staff cannot sign in. It can be reactivated at any time.",
   branchReactivateBtn: "Reactivate",
   branchNameRequired: "Branch name is required.",
   branchAddressRequired: "Full address is required.",
@@ -1453,6 +1471,8 @@ const en = {
   productGalleryUploading: "Uploading photo…",
   productGalleryDeleteAria: "Delete this photo",
   productGalleryDeleteFailed: "The photo failed to delete.",
+  productGalleryDeleteConfirm:
+    "Delete photo {n} of {total} on this product? This cannot be undone.",
   productGalleryUploadPartialFailed: "{n} of {total} photos failed to upload — try re-uploading the failed ones.",
   productGalleryMoveLeftAria: "Move this photo left",
   productGalleryMoveRightAria: "Move this photo right",
@@ -1948,6 +1968,8 @@ const zh = {
   partnerLogoFieldLabel: "Logo（选填）",
   partnerLogoHint: "PNG、JPG 或 WebP 格式。最大 5 MB —— 图片会在上传前自动压缩。留空表示不修改 Logo。",
   partnerSuspendBtn: "暂停",
+  partnerSuspendConfirm:
+    "要暂停 {name} 吗？暂停期间，这个合作商底下所有门店帐号都无法登入。随时可以重新启用。",
   partnerReactivateBtn: "重新启用",
   partnerEndPartnershipBtn: "结束合作",
   partnerDeleteDraftBtn: "删除草稿",
@@ -2032,6 +2054,8 @@ const zh = {
   branchCreateBtn: "新建分店",
   branchEditModalTitle: "修改分店",
   branchSuspendBtn: "暂停",
+  branchSuspendConfirm:
+    "要暂停门店 {name} 吗？暂停期间，这家门店的员工无法登入。随时可以重新启用。",
   branchReactivateBtn: "重新启用",
   branchNameRequired: "分店名称为必填项。",
   branchAddressRequired: "详细地址为必填项。",
@@ -2271,6 +2295,8 @@ const zh = {
   productGalleryUploading: "正在上传照片…",
   productGalleryDeleteAria: "删除这张照片",
   productGalleryDeleteFailed: "照片删除失败。",
+  productGalleryDeleteConfirm:
+    "要删除这个产品的第 {n} 张（共 {total} 张）照片吗？此操作无法撤销。",
   productGalleryUploadPartialFailed: "{total} 张照片中有 {n} 张上传失败 —— 请重新上传失败的照片。",
   productGalleryMoveLeftAria: "把这张照片往左移",
   productGalleryMoveRightAria: "把这张照片往右移",

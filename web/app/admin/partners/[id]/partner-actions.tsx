@@ -181,6 +181,13 @@ export default function PartnerActions({
   }
 
   async function onSuspend() {
+    // Idiom status-toggle berkas INI (dikutip kepala master-data-section.tsx
+    // sebagai asalnya): arah yang merugikan dikonfirmasi, arah yang
+    // memulihkan langsung jalan. "Tangguhkan" satu-satunya arah merugikan di
+    // berkas ini yang dulu melewatkannya — Nonaktifkan dan Hapus sudah punya
+    // dialognya sendiri sejak awal (audit 2026-09-15). Nama partnernya
+    // DISEBUT: satu layar bisa memuat beberapa tombol serupa.
+    if (!confirm(m.admin.partnerSuspendConfirm.replace("{name}", partner.name))) return;
     if (!begin()) return;
     // Hasilnya WAJIB diperiksa, sama seperti tiga saudaranya di berkas ini.
     // Sebelum audit 2026-09-15 baris ini membuang nilai kembaliannya, lalu

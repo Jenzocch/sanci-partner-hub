@@ -131,8 +131,23 @@ export default function ProductGalleryClient({ productId }: { productId: string 
     }
   }
 
-  async function onDelete(photo: GalleryPhoto) {
+  async function onDelete(photo: GalleryPhoto, urutan: number, total: number) {
     if (deletingId) return;
+    // Tombol "×"-nya kecil dan menumpang di atas fotonya sendiri: salah
+    // sentuh di ponsel dulu langsung menghapus, tanpa konfirmasi maupun
+    // pembatalan, dan foto itu harus diunggah ulang (audit 2026-09-15).
+    // Nomor urut yang DISEBUT adalah nomor yang SEDANG TAMPIL di layar —
+    // itu yang dilihat penggunanya saat memutuskan (pola yang sama dengan
+    // konfirmasi hapus baris di order-items-section.tsx, yang sengaja
+    // memakai nama hasil pemuatan terakhir).
+    if (
+      !confirm(
+        m.admin.productGalleryDeleteConfirm
+          .replace("{n}", String(urutan))
+          .replace("{total}", String(total))
+      )
+    )
+      return;
     setDeletingId(photo.id);
     setUploadMsg(null);
     // DB dulu = otoritatif (catatan lengkap di actions-product-photos.ts).
@@ -202,7 +217,7 @@ export default function ProductGalleryClient({ productId }: { productId: string 
                   />
                   <button
                     type="button"
-                    onClick={() => onDelete(p)}
+                    onClick={() => onDelete(p, i + 1, state.photos.length)}
                     disabled={deletingId === p.id || movingId !== null}
                     aria-label={m.admin.productGalleryDeleteAria}
                     style={{ ...THUMB_BTN_STYLE, top: -6, right: -6, color: "var(--bad)" }}

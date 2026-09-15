@@ -80,6 +80,15 @@ export default function BranchActions({ branch }: { branch: Branch }) {
   }
 
   async function onToggleStatus() {
+    // Satu fungsi menangani KEDUA arah, jadi konfirmasinya HANYA dipasang di
+    // arah yang merugikan (ACTIVE → SUSPENDED). Mengaktifkan kembali jalan
+    // langsung — tidak ada yang dirugikan, dan itu memang idiom yang
+    // ditulis di kepala master-data-section.tsx (LESSONS #4).
+    if (
+      branch.status === "ACTIVE" &&
+      !confirm(m.admin.branchSuspendConfirm.replace("{name}", branch.name))
+    )
+      return;
     if (!begin()) return;
     // Kembar dari onSuspend di partner-actions.tsx — DUA-DUANYA dulu membuang
     // nilai kembaliannya (audit 2026-09-15). Tanpa pemeriksaan ini,
