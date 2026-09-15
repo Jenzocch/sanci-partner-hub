@@ -81,8 +81,19 @@ export default function BranchActions({ branch }: { branch: Branch }) {
 
   async function onToggleStatus() {
     if (!begin()) return;
-    await setBranchStatus(branch.id, branch.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE");
+    // Kembar dari onSuspend di partner-actions.tsx — DUA-DUANYA dulu membuang
+    // nilai kembaliannya (audit 2026-09-15). Tanpa pemeriksaan ini,
+    // router.refresh() di bawah membuat layar terlihat berhasil sementara
+    // status cabangnya tidak berubah. `alert` dipakai (bukan banner) karena
+    // tombol ini berdiri di baris daftar, di luar modal — satu-satunya tempat
+    // banner errs._form/netMsg di berkas ini hidup; pola yang SAMA dengan
+    // onActivate/onReactivate di partner-actions.tsx untuk kasus identik.
+    const res = await setBranchStatus(branch.id, branch.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE");
     release();
+    if ("error" in res) {
+      alert(res.error.message);
+      return;
+    }
     router.refresh();
   }
 

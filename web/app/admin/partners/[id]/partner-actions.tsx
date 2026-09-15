@@ -182,8 +182,18 @@ export default function PartnerActions({
 
   async function onSuspend() {
     if (!begin()) return;
-    await setPartnerStatus(partner.id, "SUSPENDED");
+    // Hasilnya WAJIB diperiksa, sama seperti tiga saudaranya di berkas ini.
+    // Sebelum audit 2026-09-15 baris ini membuang nilai kembaliannya, lalu
+    // router.refresh() membuat layar terlihat berhasil sementara partnernya
+    // masih ACTIVE — kegagalan tulis yang diam-diam, persis yang dilarang
+    // LESSONS (jangan pernah menebak hasil tulisan; supabase-js tidak
+    // melempar exception saat gagal).
+    const res = await setPartnerStatus(partner.id, "SUSPENDED");
     release();
+    if ("error" in res) {
+      alert(res.error.message);
+      return;
+    }
     router.refresh();
   }
 

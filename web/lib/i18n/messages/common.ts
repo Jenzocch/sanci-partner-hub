@@ -582,6 +582,8 @@ const id = {
     "Status kirim belum bisa dibaca (fitur dokumen belum aktif), jadi filter kirim tidak diterapkan.",
   ordersPaymentUnavailable:
     "Status bayar belum bisa dibaca (fitur pembayaran pelanggan belum aktif), jadi filter bayar tidak diterapkan.",
+  ordersFulfillmentUnavailable:
+    "Jalur pesanan belum bisa dibaca, jadi filter jalur tidak diterapkan.",
 
   // Riwayat pesanan satu pelanggan — kartu yang sama dipakai halaman detail
   // pelanggan sisi cabang DAN sisi admin (PINDAH dari cabang.ts 2026-09-01).
@@ -995,6 +997,8 @@ const en = {
     "Shipping status cannot be read yet (the documents feature is not active), so the shipping filter was not applied.",
   ordersPaymentUnavailable:
     "Payment status cannot be read yet (the customer payment feature is not active), so the payment filter was not applied.",
+  ordersFulfillmentUnavailable:
+    "The order path cannot be read yet, so the path filter was not applied.",
 
   orderHistoryTitle: "Order history",
   noOrdersForCustomer: "No orders for this customer yet.",
@@ -1393,6 +1397,8 @@ const zh = {
     "暂时读不到发货状态（单据功能还没启用），所以没有套用发货筛选。",
   ordersPaymentUnavailable:
     "暂时读不到付款状态（客户付款功能还没启用），所以没有套用付款筛选。",
+  ordersFulfillmentUnavailable:
+    "暂时读不到订单路径，所以没有套用路径筛选。",
 
   orderHistoryTitle: "订单记录",
   noOrdersForCustomer: "该客户还没有订单。",
