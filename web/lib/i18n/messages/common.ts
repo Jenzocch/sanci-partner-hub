@@ -80,6 +80,15 @@ const id = {
     "Ringkasan di atas tetap lengkap. Halaman profil produk bisa dicoba lagi setelah masalah di atas beres.",
   proposalProfilesPartial:
     "{n} produk tidak punya halaman profil di dokumen ini ({names}) — detailnya tidak bisa diambil, biasanya karena produknya sudah ditarik SANCI. Barisnya TETAP ada di daftar pilihan dan ringkasan harga; hanya halaman profilnya yang dilewati supaya tidak tercetak selembar kosong.",
+  // Keadaan kelengkapan DI SEBELAH tombol cetak (audit 2026-09-15). Dua
+  // banner di atas menjelaskan rinciannya, tapi keduanya `noprint` dan duduk
+  // di DASAR dokumen — orang yang berdiri di tombol cetak tidak melihatnya,
+  // lalu menyerahkan dokumen yang kurang halaman ke pelanggan.
+  proposalPrintDataLoading: "Data produk masih dimuat",
+  proposalPrintStateIncomplete: "Belum lengkap",
+  proposalPrintStateComplete: "Lengkap",
+  proposalPrintConfirmIncomplete:
+    "Dokumen ini belum lengkap — sebagian halaman profil produk tidak ada. Pelanggan akan menerimanya apa adanya. Tetap cetak?",
   // Tiga kunci offline (retry/offlineTitle/offlineBody) hidup di offline.ts
   // (sumber tunggal — lihat komentar di sana; audit 2026-08-22 #12) dan
   // disebar masuk ke sini supaya pemakai lain tetap membaca m.common.*.
@@ -640,6 +649,11 @@ const en = {
     "The summary above is still complete. The product pages can be retried once the problem above is resolved.",
   proposalProfilesPartial:
     "{n} products have no profile page in this document ({names}) — their details could not be fetched, usually because SANCI has withdrawn them. Their rows REMAIN in the selection list and the price summary; only the profile page is skipped so a blank sheet is not printed.",
+  proposalPrintDataLoading: "Product data still loading",
+  proposalPrintStateIncomplete: "Incomplete",
+  proposalPrintStateComplete: "Complete",
+  proposalPrintConfirmIncomplete:
+    "This document is incomplete — some product profile pages are missing. The customer will receive it as it is. Print anyway?",
   ...offline.en,
   loadMoreCta: "Load more",
   appName: "SANCI Partner System",
@@ -1049,6 +1063,11 @@ const zh = {
   proposalProfilesMissing: "上方的摘要仍然完整。上述问题解决后可以再试一次产品介绍页。",
   proposalProfilesPartial:
     "有 {n} 件产品在这份文件里没有介绍页({names})—— 无法取得详细资料,通常是 SANCI 已经下架。它们仍然留在选购清单和价格摘要里,只是跳过介绍页,以免印出一张空白纸。",
+  proposalPrintDataLoading: "产品资料还在载入",
+  proposalPrintStateIncomplete: "尚不完整",
+  proposalPrintStateComplete: "完整",
+  proposalPrintConfirmIncomplete:
+    "这份文件还不完整 —— 有部分产品介绍页缺失。客户会收到现在这个样子。仍要列印吗?",
   ...offline.zh,
   loadMoreCta: "加载更多",
   appName: "SANCI 合作商系统",
