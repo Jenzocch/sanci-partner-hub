@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCommonMessages } from "@/lib/i18n/provider";
 import { formatIDR } from "@/lib/orders-shared";
 import { COMPANY_INFO } from "@/lib/company-info";
-import { readProposalHandoff, } from "@/lib/proposal-shared";
+import { readProposalHandoff, freezeProposalProducts, } from "@/lib/proposal-shared";
 import { shrinkPhotosForPrint } from "@/lib/shrink-photos-for-print";
 import styles from "./proposal-editorial-document.module.css";
 const LOGO = "/brand/sanci-logo.png";
@@ -227,12 +227,23 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     useEffect(() => {
         if (!handoff)
             return;
+        // Penawaran yang profilnya SUDAH dibekukan tidak pernah bertanya lagi
+        // ke katalog: owner 2026-09-15 memutuskan penawaran lama dibekukan,
+        // tidak ikut berubah kalau produknya kemudian diganti nama, harga,
+        // atau fotonya. Jadi dokumen yang sama dicetak ulang minggu depan
+        // tetap sama persis dengan yang sudah dipegang pelanggan.
+        if (handoff.products) {
+            setLoad({ phase: "ready", products: handoff.products });
+            return;
+        }
         let alive = true;
         loadProducts(Array.from(new Set(handoff.lines.map((l) => l.productId))))
             .then((res) => {
             if (!alive)
                 return;
             if (res.ok) {
+                // Pemuatan pertama yang berhasil = titik pembekuan.
+                freezeProposalProducts(handoff.proposalId, res.products);
                 setLoad({ phase: "ready", products: res.products });
                 return;
             }

@@ -32,6 +32,14 @@ export type ProposalHandoff = {
   extraFeeLabel: string | null;
   extraFeeAmount: number;
   finalAmount: number;
+  /**
+   * Profil produk (nama/kode/kategori/deskripsi/ukuran/foto) SEPERTI SAAT
+   * penawaran ini pertama kali dibuka. Owner 2026-09-15: penawaran lama
+   * DIBEKUKAN, tidak ikut berubah kalau produknya kemudian diganti nama,
+   * harga, atau fotonya. Kosong = belum pernah berhasil dimuat, jadi
+   * pemuatannya dicoba (lalu hasilnya dibekukan di sini).
+   */
+  products?: ProposalProduct[];
 };
 
 /**
@@ -182,9 +190,29 @@ export function readProposalHandoff(proposalId: string | null): ProposalHandoff 
       extraFeeLabel: typeof parsed.extraFeeLabel === "string" && parsed.extraFeeLabel.trim() ? parsed.extraFeeLabel : null,
       extraFeeAmount: typeof parsed.extraFeeAmount === "number" && parsed.extraFeeAmount > 0 ? parsed.extraFeeAmount : 0,
       finalAmount: typeof parsed.finalAmount === "number" ? parsed.finalAmount : 0,
+      products: Array.isArray(parsed.products) ? (parsed.products as ProposalProduct[]) : undefined,
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Bekukan profil produk ke dalam penawaran yang SUDAH tersimpan. Dipanggil
+ * sekali, sesudah pemuatan pertama berhasil — sesudah itu dokumen memakai
+ * salinan ini dan tidak pernah bertanya lagi ke katalog.
+ */
+export function freezeProposalProducts(proposalId: string, products: ProposalProduct[]): void {
+  try {
+    const key = `${PROPOSAL_KEY_PREFIX}${proposalId}`;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return;
+    const rec = JSON.parse(raw) as Record<string, unknown>;
+    if (Array.isArray(rec.products)) return; // sudah dibekukan
+    window.localStorage.setItem(key, JSON.stringify({ ...rec, products }));
+  } catch {
+    // Gagal membekukan bukan alasan menggagalkan dokumen — paling buruk
+    // profilnya dimuat ulang saat dibuka lagi.
   }
 }
 
