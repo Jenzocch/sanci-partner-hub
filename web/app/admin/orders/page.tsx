@@ -21,6 +21,7 @@ import {
   type CustomerPaymentStatus,
 } from "@/lib/payment-shared";
 import { getAdminMessages } from "@/lib/i18n";
+import FilterSegment from "./filter-segment";
 
 export const dynamic = "force-dynamic";
 
@@ -603,38 +604,15 @@ export default async function AdminOrdersPage({
         {/* Segmented — bukan <select> (audit 2026-09-08 P2-6, owner arah B):
             tampilan disamakan dengan filter cabang (order-list-client.tsx),
             MEKANISME tetap form GET biasa (URL bisa dibagikan/di-bookmark,
-            bukan React state) — cukup diklik, tetap harus tekan "Cari" untuk
-            menerapkan bersama kata kunci/rentang tanggal, sama seperti
-            <select> sebelumnya. Lihat .seg.radio di globals.css. */}
-        <div className="segmented">
-          {STATUS_OPTIONS.map((o) => (
-            <label key={o.value} className="seg radio">
-              <input type="radio" name="status" value={o.value} defaultChecked={statusFilter === o.value} />
-              {o.label}
-            </label>
-          ))}
-        </div>
-        {jalurAvailable && (
-          <div className="segmented">
-            {JALUR_OPTIONS.map((o) => (
-              <label key={o.value} className="seg radio">
-                <input type="radio" name="jalur" value={o.value} defaultChecked={jalurFilter === o.value} />
-                {o.label}
-              </label>
-            ))}
-          </div>
-        )}
+            bukan React state). Sejak audit 2026-09-15 pilihannya LANGSUNG
+            diterapkan — lihat FilterSegment untuk kenapa "harus tekan Cari"
+            justru salah pada bentuk tombol. Lihat .seg.radio di globals.css. */}
+        <FilterSegment name="status" options={STATUS_OPTIONS} current={statusFilter} />
+        {jalurAvailable && <FilterSegment name="jalur" options={JALUR_OPTIONS} current={jalurFilter} />}
         {/* Status kirim — "mana yang belum dikirim hari ini" adalah pertanyaan
             harian, jadi filternya berdiri sejajar dengan Status dan Jalur,
             bukan bersembunyi di balik kata kunci. */}
-        <div className="segmented">
-          {KIRIM_OPTIONS.map((o) => (
-            <label key={o.value} className="seg radio">
-              <input type="radio" name="kirim" value={o.value} defaultChecked={kirimFilter === o.value} />
-              {o.label}
-            </label>
-          ))}
-        </div>
+        <FilterSegment name="kirim" options={KIRIM_OPTIONS} current={kirimFilter} />
         {/* Status bayar — "mana yang belum lunas" berdiri sejajar dengan
             "mana yang belum dikirim": keduanya pertanyaan harian kantor.
             SELALU ditampilkan (tidak digerbang bayarAvailable seperti Jalur):
@@ -642,14 +620,7 @@ export default async function AdminOrdersPage({
             hanya karena hasilnya nol baris, dan catatan kaki
             ordersPaymentUnavailable sudah menjelaskan kalau fiturnya memang
             belum aktif. */}
-        <div className="segmented">
-          {BAYAR_OPTIONS.map((o) => (
-            <label key={o.value} className="seg radio">
-              <input type="radio" name="bayar" value={o.value} defaultChecked={bayarFilter === o.value} />
-              {o.label}
-            </label>
-          ))}
-        </div>
+        <FilterSegment name="bayar" options={BAYAR_OPTIONS} current={bayarFilter} />
         <label className="small muted">
           {m.admin.ordersDateFromLabel + " "}
           <input type="date" name="dateFrom" defaultValue={dateFrom} className="filter-select" />
