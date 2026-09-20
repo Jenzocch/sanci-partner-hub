@@ -131,12 +131,22 @@ export default function ProductGalleryClient({ productId }: { productId: string 
     }
   }
 
-  async function onDelete(photo: GalleryPhoto) {
+  async function onDelete(photo: GalleryPhoto, position: number) {
     if (deletingId) return;
+    // A thumbnail's × is too easy to hit on touch screens. Ask before the
+    // authoritative DB row is removed; cancel must make no network call.
+    if (!window.confirm(m.admin.productGalleryDeleteConfirm.replace("{n}", String(position)))) return;
     setDeletingId(photo.id);
     setUploadMsg(null);
     // DB dulu = otoritatif (catatan lengkap di actions-product-photos.ts).
-    const res = await deleteProductPhoto(photo.id);
+    let res: Awaited<ReturnType<typeof deleteProductPhoto>>;
+    try {
+      res = await deleteProductPhoto(photo.id);
+    } catch {
+      setDeletingId(null);
+      setUploadMsg(m.admin.productGalleryDeleteFailed);
+      return;
+    }
     if ("error" in res) {
       setDeletingId(null);
       setUploadMsg(res.error.message);
@@ -202,7 +212,7 @@ export default function ProductGalleryClient({ productId }: { productId: string 
                   />
                   <button
                     type="button"
-                    onClick={() => onDelete(p)}
+                    onClick={() => onDelete(p, i + 1)}
                     disabled={deletingId === p.id || movingId !== null}
                     aria-label={m.admin.productGalleryDeleteAria}
                     style={{ ...THUMB_BTN_STYLE, top: -6, right: -6, color: "var(--bad)" }}

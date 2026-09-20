@@ -109,6 +109,7 @@ export default async function ProposalPage() {
       <ProposalSoftGalleryLayout
         loadProducts={loadProposalProducts}
         backHref="/cabang/kalkulator"
+        handoffScope="cabang"
         store={store}
       />
     </>

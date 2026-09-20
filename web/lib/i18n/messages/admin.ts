@@ -123,6 +123,9 @@ const id = {
     "PNG, JPG, atau WebP. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim. Biarkan " +
     "kosong kalau tidak ingin mengubah logo.",
   partnerSuspendBtn: "Tangguhkan",
+  partnerSuspendModalTitle: "Tangguhkan {name}?",
+  partnerSuspendBody: "Partner ini sementara tidak dapat dipakai dalam alur kerja harian. Data dan riwayat tetap tersimpan; admin dapat mengaktifkannya lagi nanti.",
+  partnerSuspendConfirmBtn: "Tangguhkan partner",
   partnerReactivateBtn: "Aktifkan lagi",
   partnerEndPartnershipBtn: "Akhiri kerja sama",
   partnerDeleteDraftBtn: "Hapus draf",
@@ -533,6 +536,7 @@ const id = {
   productGalleryEmpty: "Belum ada foto tambahan.",
   productGalleryUploading: "Mengunggah foto…",
   productGalleryDeleteAria: "Hapus foto ini",
+  productGalleryDeleteConfirm: "Hapus foto tambahan ke-{n}? Tindakan ini tidak dapat dibatalkan.",
   productGalleryDeleteFailed: "Foto gagal dihapus.",
   productGalleryUploadPartialFailed: "{n} dari {total} foto gagal diunggah — coba unggah ulang yang gagal.",
   // Geser urutan foto (panah kiri/kanan per thumbnail — tanpa drag-drop,
@@ -545,6 +549,7 @@ const id = {
 
   // ---- Pesanan Partner — daftar (orders/page.tsx) ----
   ordersFeatureOff: "Fitur pesanan belum aktif — migration database belum dijalankan.",
+  ordersFulfillmentUnavailable: "Filter jalur tidak bisa dipakai sekarang; daftar menampilkan semua jalur.",
   ordersSearchPlaceholder: "Cari no. pesanan / SO / DO / Invoice / customer / telepon / no. PO / produk / sales…",
   filterFulfillmentAll: "Jalur: semua",
   // Label + catatan kaki filter kirim PINDAH ke common.ts (2026-09-01):
@@ -1081,6 +1086,9 @@ const en = {
     "PNG, JPG, or WebP. Maximum 5 MB — the image is resized automatically before upload. Leave " +
     "blank if you do not want to change the logo.",
   partnerSuspendBtn: "Suspend",
+  partnerSuspendModalTitle: "Suspend {name}?",
+  partnerSuspendBody: "This partner is temporarily unavailable for day-to-day work. Its data and history stay saved, and an admin can reactivate it later.",
+  partnerSuspendConfirmBtn: "Suspend partner",
   partnerReactivateBtn: "Reactivate",
   partnerEndPartnershipBtn: "End partnership",
   partnerDeleteDraftBtn: "Delete draft",
@@ -1452,6 +1460,7 @@ const en = {
   productGalleryEmpty: "No additional photos yet.",
   productGalleryUploading: "Uploading photo…",
   productGalleryDeleteAria: "Delete this photo",
+  productGalleryDeleteConfirm: "Delete additional photo {n}? This cannot be undone.",
   productGalleryDeleteFailed: "The photo failed to delete.",
   productGalleryUploadPartialFailed: "{n} of {total} photos failed to upload — try re-uploading the failed ones.",
   productGalleryMoveLeftAria: "Move this photo left",
@@ -1460,6 +1469,7 @@ const en = {
   productGalleryMoveFailed: "The photo order failed to save.",
 
   ordersFeatureOff: "The orders feature is not active yet — the database migration has not been run.",
+  ordersFulfillmentUnavailable: "The fulfillment filter is unavailable right now, so this list shows every fulfillment path.",
   ordersSearchPlaceholder: "Search order / SO / DO / Invoice no. / customer / phone / PO no. / product / sales…",
   filterFulfillmentAll: "Fulfillment: all",
   ordersEmpty: "No orders yet.",
@@ -1948,6 +1958,9 @@ const zh = {
   partnerLogoFieldLabel: "Logo（选填）",
   partnerLogoHint: "PNG、JPG 或 WebP 格式。最大 5 MB —— 图片会在上传前自动压缩。留空表示不修改 Logo。",
   partnerSuspendBtn: "暂停",
+  partnerSuspendModalTitle: "暂停 {name}？",
+  partnerSuspendBody: "该合作商将暂时不能用于日常工作。资料和历史记录会保留，管理员之后可以重新启用。",
+  partnerSuspendConfirmBtn: "暂停合作商",
   partnerReactivateBtn: "重新启用",
   partnerEndPartnershipBtn: "结束合作",
   partnerDeleteDraftBtn: "删除草稿",
@@ -2270,6 +2283,7 @@ const zh = {
   productGalleryEmpty: "还没有附加照片。",
   productGalleryUploading: "正在上传照片…",
   productGalleryDeleteAria: "删除这张照片",
+  productGalleryDeleteConfirm: "删除第 {n} 张附加照片？此操作无法撤销。",
   productGalleryDeleteFailed: "照片删除失败。",
   productGalleryUploadPartialFailed: "{total} 张照片中有 {n} 张上传失败 —— 请重新上传失败的照片。",
   productGalleryMoveLeftAria: "把这张照片往左移",
@@ -2278,6 +2292,7 @@ const zh = {
   productGalleryMoveFailed: "照片顺序保存失败。",
 
   ordersFeatureOff: "订单功能尚未启用 —— 数据库迁移脚本还没有执行。",
+  ordersFulfillmentUnavailable: "目前无法使用交付方式筛选，因此列表显示所有交付方式。",
   ordersSearchPlaceholder: "搜索订单编号 / SO / DO / 发票号 / 客户 / 电话 / PO 号 / 产品 / 销售员…",
   filterFulfillmentAll: "交付方式：全部",
   ordersEmpty: "暂无订单。",

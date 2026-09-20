@@ -187,6 +187,17 @@ export default async function AdminOrdersPage({
   }
   const applyBayar = bayarFilter !== "ALL" && !paymentUnavailable;
 
+  // Jalur harus dipastikan tersedia SEBELUM daftar dibatasi. Versi lama
+  // menyaring sesudah LIMIT dan dapat menyembunyikan pesanan lama yang cocok.
+  // Jika migration/akses belum siap, filter dimatikan dengan jujur; hasil
+  // tidak boleh berubah menjadi daftar kosong palsu.
+  let fulfillmentUnavailable = false;
+  if (jalurFilter !== "ALL") {
+    const probe = await supabase.from("partner_orders").select("fulfillment_path").limit(1);
+    if (probe.error) fulfillmentUnavailable = true;
+  }
+  const applyJalur = jalurFilter !== "ALL" && !fulfillmentUnavailable;
+
   /**
    * Satu bentuk query daftar pesanan: kolom + urutan + filter status/tanggal
    * yang IDENTIK untuk semua jalur pencarian. Dipakai lewat pemanggilan
@@ -198,6 +209,7 @@ export default async function AdminOrdersPage({
     if (statusFilter !== "ALL") qb = qb.eq("status", statusFilter);
     if (gteIso) qb = qb.gte("created_at", gteIso);
     if (lteIso) qb = qb.lte("created_at", lteIso);
+    if (applyJalur) qb = qb.eq("fulfillment_path", jalurFilter);
     // Filter bayar dikerjakan SERVER, bukan di memori seperti filter kirim.
     // Bisa, karena `customer_settled_at` (0026 §2) SETARA PERSIS dengan
     // cabang LUNAS pada customerPaymentStatus: triggernya menghitung ulang
@@ -511,9 +523,8 @@ export default async function AdminOrdersPage({
       );
     }
   }
-  if (jalurAvailable && jalurFilter !== "ALL") {
-    orderRows = orderRows.filter((r) => jalurMap.get(r.id) === jalurFilter);
-  }
+  // Filtering happened in ordersQuery before every LIMIT. jalurMap is now
+  // display-only and must never trim the already complete result window.
 
   // ── 5. Kolom "Bayar" (0026) — pola PERSIS blok Jalur di atas: query
   //      TERPISAH supaya kolom yang belum ada tidak menggagalkan daftar, dan
@@ -739,6 +750,7 @@ export default async function AdminOrdersPage({
               .replace("{cap}", orderRows.length === LIST_LIMIT ? m.admin.ordersShowingCap : "")}
           </div>
           {q && productMatchCapped && <div className="footnote">{m.admin.ordersProductMatchCapped}</div>}
+          {fulfillmentUnavailable && <div className="footnote">{m.admin.ordersFulfillmentUnavailable}</div>}
           {/* Batas pindaian filter kirim DIKATAKAN, bukan hasil terpotong yang
               terlihat lengkap (LESSONS #10). */}
           {kirimFilter !== "ALL" && shippingCapped && (

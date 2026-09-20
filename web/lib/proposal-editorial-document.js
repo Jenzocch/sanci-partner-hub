@@ -194,9 +194,10 @@ function galleryClass(count) {
  *   loadProducts: (productIds: string[]) => Promise<unknown>,
  *   backHref: string,
  *   store?: { name: string, branchName: string | null, phone: string | null, logoUrl: string | null } | null,
+ *   handoffScope: "admin" | "cabang",
  * }} props
  */
-export default function ProposalEditorialDocument({ loadProducts, backHref, store = null, }) {
+export default function ProposalEditorialDocument({ loadProducts, backHref, store = null, handoffScope, }) {
     const m = useCommonMessages();
     const [handoff, setHandoff] = useState(null);
     const [ready, setReady] = useState(false);
@@ -205,11 +206,11 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     const [printing, setPrinting] = useState(false);
     const docRef = useRef(null);
     useEffect(() => {
-        const h = readProposalHandoff();
+        const h = readProposalHandoff(handoffScope);
         setHandoff(h);
         setCustomerName(h?.customerName ?? "");
         setReady(true);
-    }, []);
+    }, [handoffScope]);
     useEffect(() => {
         if (!handoff)
             return;
@@ -261,7 +262,7 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     const galleryStories = useMemo(() => stories.filter((story) => story.row.product && story.row.photos.length >= 3), [stories]);
     const missingProfiles = load.phase === "ready" ? stories.filter((story) => !story.row.product).map((story) => story.row.line.name) : [];
     async function handlePrint() {
-        if (printing)
+        if (printing || load.phase !== "ready" || missingProfiles.length > 0)
             return;
         setPrinting(true);
         let undo = null;

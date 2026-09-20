@@ -31,6 +31,10 @@ export type ProposalHandoff = {
 
 const PROPOSAL_HANDOFF_KEY = "sanci:proposal:handoff";
 
+function keyFor(scope: string): string {
+  return `${PROPOSAL_HANDOFF_KEY}:${scope}`;
+}
+
 function isValidLine(v: unknown): v is ProposalLine {
   if (!v || typeof v !== "object") return false;
   const l = v as Record<string, unknown>;
@@ -45,18 +49,18 @@ function isValidLine(v: unknown): v is ProposalLine {
   );
 }
 
-export function writeProposalHandoff(h: Omit<ProposalHandoff, "savedAt">): boolean {
+export function writeProposalHandoff(scope: string, h: Omit<ProposalHandoff, "savedAt">): boolean {
   try {
-    window.localStorage.setItem(PROPOSAL_HANDOFF_KEY, JSON.stringify({ ...h, savedAt: Date.now() }));
+    window.sessionStorage.setItem(keyFor(scope), JSON.stringify({ ...h, savedAt: Date.now() }));
     return true;
   } catch {
     return false;
   }
 }
 
-export function readProposalHandoff(): ProposalHandoff | null {
+export function readProposalHandoff(scope: string): ProposalHandoff | null {
   try {
-    const raw = window.localStorage.getItem(PROPOSAL_HANDOFF_KEY);
+    const raw = window.sessionStorage.getItem(keyFor(scope));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ProposalHandoff>;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.lines)) return null;

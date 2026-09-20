@@ -13,6 +13,14 @@
 - Verification: `npm run typecheck`, `npm run lint`, `npm run build` all exit 0. Playwright/Edge isolated fixture using actual global/module CSS, with color/no-color and long-name rows: 360/390/430/768/1024/1199/1200/1366/1440/1920px all no horizontal overflow; desktop photo 96px, price 280px, quantity gap 16px. 390/1440px screenshots visually inspected. Fixture is not a signed-in route test.
 - Independent diff review: application change is CSS only, scoped to screen ≥1200px. No TS/TSX, calculation, line identity, color, quantity, price, discount, Proposal/Order handoff, idempotency, data-source, DB/Auth/RLS changes. P0/P1: no changed behavioral path; P2 layout checks above pass; production interaction remains unverified. Deployment: NOT DEPLOYED by this change; submitted on a separate branch.
 
+### Admin UX audit remediation（2026-09-20）
+
+- **Status: UNVERIFIED（local build passed; authenticated production flow not tested）。**
+- Owner/module: admin orders, Proposal hand-off, Partner actions, product gallery; dependencies: existing Supabase schema and Server Actions.
+- Orders: fulfillment-path predicate runs before every capped list query; unavailable column/access gives a visible notice rather than a false empty result. Proposal: tab-scoped `sessionStorage` hand-off is separated by admin/cabang surface; print handler refuses to print while product data is loading, failed, or incomplete. Partner suspend and gallery-photo delete require explicit confirmation; thrown Server Action errors remain visible.
+- Preservation: no migration, RLS/Auth policy, price/discount/finalAmount, lineId/productId/colorCode, Order hand-off, or idempotency contract changed.
+- Verification: `npm run typecheck`, `npm run lint`, and `npm run build` exit 0 locally; `git diff --check` clean. Still required: authenticated browser checks for older fulfillment result, two simultaneous proposal tabs, interrupted Server Actions, and destructive-action cancellation. Deployment: NOT DEPLOYED.
+
 | 狀態 | 意義 |
 |---|---|
 | `NOT_STARTED` | 未動工 |

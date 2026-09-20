@@ -31,7 +31,7 @@ export default async function AdminProposalPage() {
           white-space:normal;
         }
       `}</style>
-      <ProposalSoftGalleryLayout loadProducts={loadProposalProductsAdmin} backHref="/admin/kalkulator" />
+      <ProposalSoftGalleryLayout loadProducts={loadProposalProductsAdmin} backHref="/admin/kalkulator" handoffScope="admin" />
     </>
   );
 }

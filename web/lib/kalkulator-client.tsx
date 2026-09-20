@@ -43,7 +43,7 @@ export type KalkulatorProduct = {
 };
 
 export type KalkulatorConvert = { cta: string; scopeNote: string; href: string };
-export type KalkulatorProposal = { cta: string; href: string; saveFailed: string };
+export type KalkulatorProposal = { cta: string; href: string; saveFailed: string; handoffScope: "admin" | "cabang" };
 export type KalkulatorFetchMessages = {
   notOpened?: string;
   moduleInactive: string;
@@ -403,7 +403,7 @@ export default function KalkulatorClient({
 
   function handleMakeProposal() {
     if (!proposal || lines.length === 0) return;
-    const ok = writeProposalHandoff({
+    const ok = writeProposalHandoff(proposal.handoffScope, {
       customerName: prefill?.customerName ?? "",
       subtotal,
       discountPcts: parsedDiscounts,
