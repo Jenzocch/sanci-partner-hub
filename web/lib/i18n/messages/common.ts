@@ -55,6 +55,12 @@ const id = {
   proposalForLabel: "Disiapkan untuk",
   proposalCustomerPlaceholder: "Nama pelanggan / proyek (opsional)",
   proposalPrintCta: "Cetak / Simpan PDF",
+  // Penawaran tersimpan (0029). Di `common` karena tombolnya hidup di
+  // renderer dokumen yang dipakai kedua sisi.
+  proposalStoreCta: "Simpan penawaran",
+  proposalStoreSaving: "Menyimpan…",
+  proposalStoreDone: "Tersimpan sebagai {number} versi {version}. Berlaku sampai {valid}.",
+  proposalStoreRevisionCta: "Simpan sebagai versi baru",
   proposalBackCta: "Kembali ke Kalkulator",
   proposalColQty: "Qty",
   proposalColUnit: "Harga Satuan",
@@ -80,6 +86,15 @@ const id = {
     "Ringkasan di atas tetap lengkap. Halaman profil produk bisa dicoba lagi setelah masalah di atas beres.",
   proposalProfilesPartial:
     "{n} produk tidak punya halaman profil di dokumen ini ({names}) — detailnya tidak bisa diambil, biasanya karena produknya sudah ditarik SANCI. Barisnya TETAP ada di daftar pilihan dan ringkasan harga; hanya halaman profilnya yang dilewati supaya tidak tercetak selembar kosong.",
+  // Keadaan kelengkapan DI SEBELAH tombol cetak (audit 2026-09-15). Dua
+  // banner di atas menjelaskan rinciannya, tapi keduanya `noprint` dan duduk
+  // di DASAR dokumen — orang yang berdiri di tombol cetak tidak melihatnya,
+  // lalu menyerahkan dokumen yang kurang halaman ke pelanggan.
+  proposalPrintDataLoading: "Data produk masih dimuat",
+  proposalPrintStateIncomplete: "Belum lengkap",
+  proposalPrintStateComplete: "Lengkap",
+  proposalPrintConfirmIncomplete:
+    "Dokumen ini belum lengkap — sebagian halaman profil produk tidak ada. Pelanggan akan menerimanya apa adanya. Tetap cetak?",
   // Tiga kunci offline (retry/offlineTitle/offlineBody) hidup di offline.ts
   // (sumber tunggal — lihat komentar di sana; audit 2026-08-22 #12) dan
   // disebar masuk ke sini supaya pemakai lain tetap membaca m.common.*.
@@ -582,6 +597,8 @@ const id = {
     "Status kirim belum bisa dibaca (fitur dokumen belum aktif), jadi filter kirim tidak diterapkan.",
   ordersPaymentUnavailable:
     "Status bayar belum bisa dibaca (fitur pembayaran pelanggan belum aktif), jadi filter bayar tidak diterapkan.",
+  ordersFulfillmentUnavailable:
+    "Jalur pesanan belum bisa dibaca, jadi filter jalur tidak diterapkan.",
 
   // Riwayat pesanan satu pelanggan — kartu yang sama dipakai halaman detail
   // pelanggan sisi cabang DAN sisi admin (PINDAH dari cabang.ts 2026-09-01).
@@ -617,6 +634,10 @@ const en = {
   proposalForLabel: "Prepared for",
   proposalCustomerPlaceholder: "Customer / project name (optional)",
   proposalPrintCta: "Print / Save PDF",
+  proposalStoreCta: "Save proposal",
+  proposalStoreSaving: "Saving…",
+  proposalStoreDone: "Saved as {number} version {version}. Valid until {valid}.",
+  proposalStoreRevisionCta: "Save as a new version",
   proposalBackCta: "Back to Calculator",
   proposalColQty: "Qty",
   proposalColUnit: "Unit price",
@@ -638,6 +659,11 @@ const en = {
     "The summary above is still complete. The product pages can be retried once the problem above is resolved.",
   proposalProfilesPartial:
     "{n} products have no profile page in this document ({names}) — their details could not be fetched, usually because SANCI has withdrawn them. Their rows REMAIN in the selection list and the price summary; only the profile page is skipped so a blank sheet is not printed.",
+  proposalPrintDataLoading: "Product data still loading",
+  proposalPrintStateIncomplete: "Incomplete",
+  proposalPrintStateComplete: "Complete",
+  proposalPrintConfirmIncomplete:
+    "This document is incomplete — some product profile pages are missing. The customer will receive it as it is. Print anyway?",
   ...offline.en,
   loadMoreCta: "Load more",
   appName: "SANCI Partner System",
@@ -995,6 +1021,8 @@ const en = {
     "Shipping status cannot be read yet (the documents feature is not active), so the shipping filter was not applied.",
   ordersPaymentUnavailable:
     "Payment status cannot be read yet (the customer payment feature is not active), so the payment filter was not applied.",
+  ordersFulfillmentUnavailable:
+    "The order path cannot be read yet, so the path filter was not applied.",
 
   orderHistoryTitle: "Order history",
   noOrdersForCustomer: "No orders for this customer yet.",
@@ -1026,6 +1054,10 @@ const zh = {
   proposalForLabel: "呈送",
   proposalCustomerPlaceholder: "客户 / 项目名称(可不填)",
   proposalPrintCta: "列印 / 存成 PDF",
+  proposalStoreCta: "保存报价",
+  proposalStoreSaving: "保存中…",
+  proposalStoreDone: "已保存为 {number} 第 {version} 版，有效期至 {valid}。",
+  proposalStoreRevisionCta: "另存为新版本",
   proposalBackCta: "回到计算器",
   proposalColQty: "数量",
   proposalColUnit: "单价",
@@ -1045,6 +1077,11 @@ const zh = {
   proposalProfilesMissing: "上方的摘要仍然完整。上述问题解决后可以再试一次产品介绍页。",
   proposalProfilesPartial:
     "有 {n} 件产品在这份文件里没有介绍页({names})—— 无法取得详细资料,通常是 SANCI 已经下架。它们仍然留在选购清单和价格摘要里,只是跳过介绍页,以免印出一张空白纸。",
+  proposalPrintDataLoading: "产品资料还在载入",
+  proposalPrintStateIncomplete: "尚不完整",
+  proposalPrintStateComplete: "完整",
+  proposalPrintConfirmIncomplete:
+    "这份文件还不完整 —— 有部分产品介绍页缺失。客户会收到现在这个样子。仍要列印吗?",
   ...offline.zh,
   loadMoreCta: "加载更多",
   appName: "SANCI 合作商系统",
@@ -1393,6 +1430,8 @@ const zh = {
     "暂时读不到发货状态（单据功能还没启用），所以没有套用发货筛选。",
   ordersPaymentUnavailable:
     "暂时读不到付款状态（客户付款功能还没启用），所以没有套用付款筛选。",
+  ordersFulfillmentUnavailable:
+    "暂时读不到订单路径，所以没有套用路径筛选。",
 
   orderHistoryTitle: "订单记录",
   noOrdersForCustomer: "该客户还没有订单。",

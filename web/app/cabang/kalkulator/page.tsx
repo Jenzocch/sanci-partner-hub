@@ -220,7 +220,6 @@ export default async function KalkulatorPage() {
           cta: m.cabang.calcProposalCta,
           href: "/cabang/proposal",
           saveFailed: m.cabang.proposalSaveFailed,
-          handoffScope: "cabang",
         }}
         fetchColors={listActiveColorsForCabangCalculator}
       />

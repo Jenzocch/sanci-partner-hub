@@ -39,7 +39,7 @@ export default function PartnerActions({
 }) {
   const router = useRouter();
   const m = useAdminMessages();
-  const [modal, setModal] = useState<null | "edit" | "suspend" | "deactivate" | "delete">(null);
+  const [modal, setModal] = useState<null | "edit" | "deactivate" | "delete">(null);
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   // Satu state untuk kedua modal ketik-untuk-konfirmasi (hapus draf DAN akhiri
@@ -50,7 +50,7 @@ export default function PartnerActions({
   const draft = useLocalDraft("partner", partner.id, modal === "edit");
   const locked = partner.status !== "DRAFT";
 
-  function openModal(which: "edit" | "suspend" | "deactivate" | "delete") {
+  function openModal(which: "edit" | "deactivate" | "delete") {
     reset();
     setErrs({});
     setNetMsg(null);
@@ -180,23 +180,27 @@ export default function PartnerActions({
     router.refresh();
   }
 
-  async function onSuspendConfirm() {
+  async function onSuspend() {
+    // Idiom status-toggle berkas INI (dikutip kepala master-data-section.tsx
+    // sebagai asalnya): arah yang merugikan dikonfirmasi, arah yang
+    // memulihkan langsung jalan. "Tangguhkan" satu-satunya arah merugikan di
+    // berkas ini yang dulu melewatkannya — Nonaktifkan dan Hapus sudah punya
+    // dialognya sendiri sejak awal (audit 2026-09-15). Nama partnernya
+    // DISEBUT: satu layar bisa memuat beberapa tombol serupa.
+    if (!confirm(m.admin.partnerSuspendConfirm.replace("{name}", partner.name))) return;
     if (!begin()) return;
-    setErrs({});
-    let res: Awaited<ReturnType<typeof setPartnerStatus>>;
-    try {
-      res = await setPartnerStatus(partner.id, "SUSPENDED");
-    } catch {
-      release();
-      setErrs({ _form: m.common.errorLoad });
-      return;
-    }
+    // Hasilnya WAJIB diperiksa, sama seperti tiga saudaranya di berkas ini.
+    // Sebelum audit 2026-09-15 baris ini membuang nilai kembaliannya, lalu
+    // router.refresh() membuat layar terlihat berhasil sementara partnernya
+    // masih ACTIVE — kegagalan tulis yang diam-diam, persis yang dilarang
+    // LESSONS (jangan pernah menebak hasil tulisan; supabase-js tidak
+    // melempar exception saat gagal).
+    const res = await setPartnerStatus(partner.id, "SUSPENDED");
+    release();
     if ("error" in res) {
-      release();
-      setErrs({ _form: res.error.message });
+      alert(res.error.message);
       return;
     }
-    setModal(null);
     router.refresh();
   }
 
@@ -252,7 +256,7 @@ export default function PartnerActions({
           {m.common.edit}
         </button>
         {partner.status === "ACTIVE" && (
-          <button className="btn sm" onClick={() => openModal("suspend")} disabled={submitting}>
+          <button className="btn sm" onClick={onSuspend} disabled={submitting}>
             {m.admin.partnerSuspendBtn}
           </button>
         )}
@@ -395,24 +399,6 @@ export default function PartnerActions({
                 disabled={submitting || confirmInput.trim().toUpperCase() !== partner.code}
               >
                 {submitting ? m.common.saving : m.admin.partnerDeactivateConfirmBtn}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modal === "suspend" && (
-        <div className="overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="suspend_title">
-            <h2 id="suspend_title">{m.admin.partnerSuspendModalTitle.replace("{name}", partner.name)}</h2>
-            {errs._form && <div className="banner bad">{errs._form}</div>}
-            <p style={{ marginBottom: 6 }}>{m.admin.partnerSuspendBody}</p>
-            <div className="btnrow">
-              <button type="button" className="btn" onClick={closeModal} disabled={submitting}>
-                {m.common.cancel}
-              </button>
-              <button type="button" className="btn danger" onClick={onSuspendConfirm} disabled={submitting}>
-                {submitting ? m.common.saving : m.admin.partnerSuspendConfirmBtn}
               </button>
             </div>
           </div>

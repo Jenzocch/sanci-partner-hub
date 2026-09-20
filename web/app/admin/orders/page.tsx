@@ -21,6 +21,8 @@ import {
   type CustomerPaymentStatus,
 } from "@/lib/payment-shared";
 import { getAdminMessages } from "@/lib/i18n";
+import { retryHref } from "@/lib/retry-href";
+import FilterSegment from "./filter-segment";
 
 export const dynamic = "force-dynamic";
 
@@ -187,16 +189,27 @@ export default async function AdminOrdersPage({
   }
   const applyBayar = bayarFilter !== "ALL" && !paymentUnavailable;
 
-  // Jalur harus dipastikan tersedia SEBELUM daftar dibatasi. Versi lama
-  // menyaring sesudah LIMIT dan dapat menyembunyikan pesanan lama yang cocok.
-  // Jika migration/akses belum siap, filter dimatikan dengan jujur; hasil
-  // tidak boleh berubah menjadi daftar kosong palsu.
-  let fulfillmentUnavailable = false;
+  // Jalur (fulfillment_path, 0009) — pola PERSIS blok bayar di atas, dan
+  // untuk alasan yang sama. Sampai audit 2026-09-15 filter ini dikerjakan DI
+  // MEMORI pada baris yang sudah diambil, jadi LIMIT-nya dihitung SEBELUM
+  // penyaringan: pesanan yang cocok jalurnya tapi berada di luar 50 baris
+  // terbaru tidak pernah muncul, dan karena hasilnya lalu berjumlah < 50,
+  // catatan kaki "(maks. 50)" pun tidak menyala — layarnya terbaca sebagai
+  // "memang tidak ada pesanan seperti itu" (LESSONS #10). `fulfillment_path`
+  // adalah kolom BIASA di tabel yang SAMA dengan daftarnya, jadi ia memang
+  // bisa ditanyakan ke server; tidak ada alasan teknis seperti filter kirim
+  // (yang butuh lintas tabel ke order_documents).
+  //
+  // Probe-nya dipertahankan supaya janji LESSONS #12 tetap dibayar: kolom
+  // yang belum ada TIDAK BOLEH menggagalkan daftar utama. Biayanya hanya
+  // dibayar saat filternya aktif; `jalur=ALL` (kasus normal) tidak menambah
+  // satu pun perjalanan bolak-balik.
+  let jalurUnavailable = false;
   if (jalurFilter !== "ALL") {
     const probe = await supabase.from("partner_orders").select("fulfillment_path").limit(1);
-    if (probe.error) fulfillmentUnavailable = true;
+    if (probe.error) jalurUnavailable = true;
   }
-  const applyJalur = jalurFilter !== "ALL" && !fulfillmentUnavailable;
+  const applyJalur = jalurFilter !== "ALL" && !jalurUnavailable;
 
   /**
    * Satu bentuk query daftar pesanan: kolom + urutan + filter status/tanggal
@@ -209,7 +222,6 @@ export default async function AdminOrdersPage({
     if (statusFilter !== "ALL") qb = qb.eq("status", statusFilter);
     if (gteIso) qb = qb.gte("created_at", gteIso);
     if (lteIso) qb = qb.lte("created_at", lteIso);
-    if (applyJalur) qb = qb.eq("fulfillment_path", jalurFilter);
     // Filter bayar dikerjakan SERVER, bukan di memori seperti filter kirim.
     // Bisa, karena `customer_settled_at` (0026 §2) SETARA PERSIS dengan
     // cabang LUNAS pada customerPaymentStatus: triggernya menghitung ulang
@@ -227,6 +239,7 @@ export default async function AdminOrdersPage({
     // predikat SQL, dan di customerPaymentStatus sebagai JS. Keduanya
     // diturunkan dari trigger yang sama; kalau syarat lunas 0026 berubah,
     // KETIGANYA harus berubah bersamaan.
+    if (applyJalur) qb = qb.eq("fulfillment_path", jalurFilter);
     if (applyBayar) {
       if (bayarFilter === "UNKNOWN") {
         qb = qb.is("customer_total_amount", null);
@@ -485,14 +498,14 @@ export default async function AdminOrdersPage({
     }
   }
 
-  // ── 4. Jalur (fulfillment_path, migration 0009 dikerjakan paralel) — SELALU
-  //      diambil lewat query TERPISAH dari daftar utama supaya kolom yang
-  //      belum ada (42703) tidak pernah bisa menggagalkan query utama itu
-  //      sendiri (LESSONS #12). Kalau kolomnya tersedia, filter Jalur
-  //      diterapkan di memori pada baris yang SUDAH diambil (bukan query DB
-  //      baru dengan LIMIT-nya sendiri) — trade-off sengaja: baris yang cocok
-  //      jalur tertentu tapi berada di luar 50 baris terbaru tidak akan
-  //      muncul. Kalau kolom belum ada, filter dan kolom Jalur di tabel
+  // ── 4. Jalur (fulfillment_path, migration 0009) — query TERPISAH dari
+  //      daftar utama supaya kolom yang belum ada (42703) tidak pernah bisa
+  //      menggagalkan query utama itu sendiri (LESSONS #12). Query ini hanya
+  //      MENGISI KOLOM "Jalur" di tabel; PENYARINGANNYA sendiri sudah
+  //      dikerjakan server di dalam ordersQuery() sejak audit 2026-09-15
+  //      (lihat applyJalur di atas) — dulu di memori di sini, yang membuat
+  //      LIMIT dihitung sebelum penyaringan dan menyembunyikan pesanan lama
+  //      yang cocok. Kalau kolom belum ada, filter dan kolom Jalur di tabel
   //      SAMA SEKALI tidak ditampilkan (bukan ditampilkan kosong).
   // Query ini SEKALIGUS menjadi probe keberadaan kolomnya sendiri (migrasi
   // 0009 sudah production-VERIFIED — probe .limit(1) terpisah yang dulu
@@ -508,10 +521,13 @@ export default async function AdminOrdersPage({
       .select("id, fulfillment_path")
       .in("id", orderRows.map((r) => r.id));
     if (jalurErr) {
-      // Kolom belum ada (42703) ATAU query gagal — jangan biarkan jalurMap
-      // kosong lalu diam-diam menyaring semua baris kalau ada filter Jalur
-      // aktif (LESSONS #10). Jalur degradasinya satu dan sama:
-      // kolom + filter Jalur disembunyikan semua, bukan ditampilkan kosong.
+      // Kolom belum ada (42703) ATAU query gagal. Sejak penyaringannya pindah
+      // ke server (applyJalur), kegagalan DI SINI tidak lagi bisa menyaring
+      // apa pun secara diam-diam — ia hanya membuat kolomnya tidak terbaca.
+      // Jalur degradasinya tetap satu dan sama: kolom + filter Jalur
+      // disembunyikan semua, bukan ditampilkan kosong (LESSONS #10). Kalau
+      // filternya sendiri yang tidak bisa diterapkan, itu dikatakan lewat
+      // catatan kaki ordersFulfillmentUnavailable, bukan didiamkan.
       jalurAvailable = false;
     } else {
       jalurAvailable = true;
@@ -523,9 +539,6 @@ export default async function AdminOrdersPage({
       );
     }
   }
-  // Filtering happened in ordersQuery before every LIMIT. jalurMap is now
-  // display-only and must never trim the already complete result window.
-
   // ── 5. Kolom "Bayar" (0026) — pola PERSIS blok Jalur di atas: query
   //      TERPISAH supaya kolom yang belum ada tidak menggagalkan daftar, dan
   //      kalau gagal, kolomnya SAMA SEKALI tidak ditampilkan (bukan
@@ -592,38 +605,15 @@ export default async function AdminOrdersPage({
         {/* Segmented — bukan <select> (audit 2026-09-08 P2-6, owner arah B):
             tampilan disamakan dengan filter cabang (order-list-client.tsx),
             MEKANISME tetap form GET biasa (URL bisa dibagikan/di-bookmark,
-            bukan React state) — cukup diklik, tetap harus tekan "Cari" untuk
-            menerapkan bersama kata kunci/rentang tanggal, sama seperti
-            <select> sebelumnya. Lihat .seg.radio di globals.css. */}
-        <div className="segmented">
-          {STATUS_OPTIONS.map((o) => (
-            <label key={o.value} className="seg radio">
-              <input type="radio" name="status" value={o.value} defaultChecked={statusFilter === o.value} />
-              {o.label}
-            </label>
-          ))}
-        </div>
-        {jalurAvailable && (
-          <div className="segmented">
-            {JALUR_OPTIONS.map((o) => (
-              <label key={o.value} className="seg radio">
-                <input type="radio" name="jalur" value={o.value} defaultChecked={jalurFilter === o.value} />
-                {o.label}
-              </label>
-            ))}
-          </div>
-        )}
+            bukan React state). Sejak audit 2026-09-15 pilihannya LANGSUNG
+            diterapkan — lihat FilterSegment untuk kenapa "harus tekan Cari"
+            justru salah pada bentuk tombol. Lihat .seg.radio di globals.css. */}
+        <FilterSegment name="status" options={STATUS_OPTIONS} current={statusFilter} />
+        {jalurAvailable && <FilterSegment name="jalur" options={JALUR_OPTIONS} current={jalurFilter} />}
         {/* Status kirim — "mana yang belum dikirim hari ini" adalah pertanyaan
             harian, jadi filternya berdiri sejajar dengan Status dan Jalur,
             bukan bersembunyi di balik kata kunci. */}
-        <div className="segmented">
-          {KIRIM_OPTIONS.map((o) => (
-            <label key={o.value} className="seg radio">
-              <input type="radio" name="kirim" value={o.value} defaultChecked={kirimFilter === o.value} />
-              {o.label}
-            </label>
-          ))}
-        </div>
+        <FilterSegment name="kirim" options={KIRIM_OPTIONS} current={kirimFilter} />
         {/* Status bayar — "mana yang belum lunas" berdiri sejajar dengan
             "mana yang belum dikirim": keduanya pertanyaan harian kantor.
             SELALU ditampilkan (tidak digerbang bayarAvailable seperti Jalur):
@@ -631,14 +621,7 @@ export default async function AdminOrdersPage({
             hanya karena hasilnya nol baris, dan catatan kaki
             ordersPaymentUnavailable sudah menjelaskan kalau fiturnya memang
             belum aktif. */}
-        <div className="segmented">
-          {BAYAR_OPTIONS.map((o) => (
-            <label key={o.value} className="seg radio">
-              <input type="radio" name="bayar" value={o.value} defaultChecked={bayarFilter === o.value} />
-              {o.label}
-            </label>
-          ))}
-        </div>
+        <FilterSegment name="bayar" options={BAYAR_OPTIONS} current={bayarFilter} />
         <label className="small muted">
           {m.admin.ordersDateFromLabel + " "}
           <input type="date" name="dateFrom" defaultValue={dateFrom} className="filter-select" />
@@ -655,6 +638,11 @@ export default async function AdminOrdersPage({
       {queryErr ? (
         <div className="card" style={{ margin: 0 }}>
           <div className="err">{m.common.errorLoad}</div>
+          {/* "Coba lagi" di tempat — tanpa ini satu-satunya jalan ke depan
+              adalah memuat ulang seluruh halaman (audit 2026-09-15). */}
+          <Link href={retryHref("/admin/orders", sp)} className="btn sm">
+            {m.common.retry}
+          </Link>
         </div>
       ) : orderRows.length === 0 ? (
         <div className="card emptybox">
@@ -750,7 +738,6 @@ export default async function AdminOrdersPage({
               .replace("{cap}", orderRows.length === LIST_LIMIT ? m.admin.ordersShowingCap : "")}
           </div>
           {q && productMatchCapped && <div className="footnote">{m.admin.ordersProductMatchCapped}</div>}
-          {fulfillmentUnavailable && <div className="footnote">{m.admin.ordersFulfillmentUnavailable}</div>}
           {/* Batas pindaian filter kirim DIKATAKAN, bukan hasil terpotong yang
               terlihat lengkap (LESSONS #10). */}
           {kirimFilter !== "ALL" && shippingCapped && (
@@ -760,6 +747,7 @@ export default async function AdminOrdersPage({
             <div className="footnote">{m.common.ordersShippingUnavailable}</div>
           )}
           {paymentUnavailable && <div className="footnote">{m.common.ordersPaymentUnavailable}</div>}
+          {jalurUnavailable && <div className="footnote">{m.common.ordersFulfillmentUnavailable}</div>}
         </div>
       )}
     </div>

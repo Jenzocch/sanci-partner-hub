@@ -114,7 +114,11 @@ export default function PelangganListClient({
   return (
     <div>
       <div className="searchrow wide">
+        <label htmlFor="cust_q" className="small muted">
+          {m.admin.customerSearchLabel}
+        </label>
         <input
+          id="cust_q"
           type="search"
           placeholder={m.admin.customerSearchPlaceholder}
           value={daftar.q}

@@ -6,6 +6,7 @@ import AddCustomerButton from "./add-customer-button";
 import MasterDataSection from "./master-data-section";
 import PelangganListClient from "./pelanggan-list-client";
 import { getAdminMessages } from "@/lib/i18n";
+import { retryHref } from "@/lib/retry-href";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,11 @@ export default async function PelangganPage({
         (customersErr ? (
           <div className="card" style={{ margin: 0 }}>
             <div className="err">{m.common.errorLoad}</div>
+            {/* "Coba lagi" di tempat — tanpa ini satu-satunya jalan ke depan
+                adalah memuat ulang seluruh halaman (audit 2026-09-15). */}
+            <Link href={retryHref("/admin/pelanggan", sp)} className="btn sm">
+              {m.common.retry}
+            </Link>
           </div>
         ) : (
           <PelangganListClient

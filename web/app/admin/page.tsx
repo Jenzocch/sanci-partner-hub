@@ -45,12 +45,52 @@ export default async function AdminPartnersPage({
     { data: branches, error: bErr },
     { data: policies, error: polErr },
     { data: users, error: uErr },
+    belumBayar,
+    dpSebagian,
+    totalKosong,
   ] = await Promise.all([
     supabase.from("partners").select("id, name, code, status, logo_url").order("name"),
     supabase.from("partner_branches").select("id, partner_id, name, code, status"),
     supabase.from("partner_access_policies").select("partner_id, visibility_scope, edit_scope"),
     supabase.from("partner_users").select("partner_id, status"),
+    // Tiga pertanyaan harian kantor, DIHITUNG SERVER dengan predikat yang
+    // PERSIS SAMA dengan filter bayar di /admin/orders (ordersQuery() di
+    // app/admin/orders/page.tsx) — angkanya harus setuju dengan daftar yang
+    // dibukanya, kalau tidak ia cuma bikin orang bingung (audit 2026-09-15).
+    // Sengaja HANYA filter yang bisa ditanyakan server: filter "kirim" hidup
+    // lintas tabel ke order_documents dengan batas pindaian, jadi angkanya
+    // tidak bisa dijamin sama dengan daftarnya — tidak ditampilkan di sini.
+    supabase
+      .from("partner_orders")
+      .select("id", { count: "exact", head: true })
+      .is("customer_settled_at", null)
+      .not("customer_total_amount", "is", null)
+      .eq("customer_paid_amount", 0),
+    supabase
+      .from("partner_orders")
+      .select("id", { count: "exact", head: true })
+      .is("customer_settled_at", null)
+      .not("customer_total_amount", "is", null)
+      .gt("customer_paid_amount", 0),
+    supabase
+      .from("partner_orders")
+      .select("id", { count: "exact", head: true })
+      .is("customer_total_amount", null),
   ]);
+
+  /**
+   * Kolom pembayaran (0026) belum ada / query gagal → seluruh bilah
+   * disembunyikan, BUKAN ditampilkan "0" yang terbaca sebagai "tidak ada
+   * yang perlu dikerjakan" (LESSONS #10/#12).
+   */
+  const kerjaHariIni =
+    belumBayar.error || dpSebagian.error || totalKosong.error
+      ? null
+      : [
+          { key: "belum", n: belumBayar.count ?? 0, href: "/admin/orders?bayar=BELUM", label: m.admin.todoUnpaid },
+          { key: "dp", n: dpSebagian.count ?? 0, href: "/admin/orders?bayar=DP", label: m.admin.todoPartial },
+          { key: "kosong", n: totalKosong.count ?? 0, href: "/admin/orders?bayar=UNKNOWN", label: m.admin.todoNoTotal },
+        ];
   // Kegagalan salah satu query pelengkap (cabang/kebijakan/akun) tidak boleh
   // muncul sebagai "0 cabang" / "Belum diatur" yang menyesatkan — itu bukan
   // kesimpulan bisnis, itu query yang gagal (LESSONS #10).
@@ -105,6 +145,20 @@ export default async function AdminPartnersPage({
 
   return (
     <div>
+      {/* Bilah "kerja hari ini" — SENGAJA pendek. Tiap angka adalah tautan ke
+          daftar pesanan dengan filter yang sama persis, jadi angka dan daftar
+          tidak pernah bisa bercerita beda. */}
+      {kerjaHariIni && (
+        <div className="todorow">
+          {kerjaHariIni.map((t) => (
+            <Link key={t.key} href={t.href} className="todotile">
+              <span className="todonum">{t.n}</span>
+              <span className="todolabel">{t.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="worktop">
         <h1>{m.common.partner}</h1>
         <AddPartnerButton />

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCommonMessages } from "@/lib/i18n/provider";
 import { formatIDR } from "@/lib/orders-shared";
 import { COMPANY_INFO } from "@/lib/company-info";
-import { readProposalHandoff, } from "@/lib/proposal-shared";
+import { readProposalHandoff, freezeProposalProducts, } from "@/lib/proposal-shared";
 import { shrinkPhotosForPrint } from "@/lib/shrink-photos-for-print";
 import styles from "./proposal-editorial-document.module.css";
 const LOGO = "/brand/sanci-logo.png";
@@ -194,32 +194,110 @@ function galleryClass(count) {
  *   loadProducts: (productIds: string[]) => Promise<unknown>,
  *   backHref: string,
  *   store?: { name: string, branchName: string | null, phone: string | null, logoUrl: string | null } | null,
- *   handoffScope: "admin" | "cabang",
+ *   onSave?: ((input: import("@/app/cabang/proposal/actions-saved").SaveProposalInput)
+ *     => Promise<{ data: import("@/app/cabang/proposal/actions-saved").SavedProposalMeta } | { error: { message: string } }>) | null,
+ *   loadSaved?: ((id: string)
+ *     => Promise<{ data: import("@/app/cabang/proposal/actions-saved").SavedProposalFull } | { error: { message: string } }>) | null,
  * }} props
  */
-export default function ProposalEditorialDocument({ loadProducts, backHref, store = null, handoffScope, }) {
+export default function ProposalEditorialDocument({ loadProducts, backHref, store = null, onSave = null, loadSaved = null, }) {
     const m = useCommonMessages();
     const [handoff, setHandoff] = useState(null);
     const [ready, setReady] = useState(false);
     const [customerName, setCustomerName] = useState("");
     const [load, setLoad] = useState({ phase: "loading" });
     const [printing, setPrinting] = useState(false);
+    // Penawaran tersimpan (0029). `onSave`/`loadSaved` hanya dikirim sisi
+    // CABANG: nomornya berbasis cabang, dan sisi admin tidak punya cabang.
+    // Admin tetap bisa MEMBACA penawaran cabang lewat RLS, tapi tombol
+    // Simpan di sini memang tidak muncul untuknya.
+    const [saving, setSaving] = useState(false);
+    const [savedAs, setSavedAs] = useState(null);
+    const [saveErr, setSaveErr] = useState(null);
     const docRef = useRef(null);
     useEffect(() => {
-        const h = readProposalHandoff(handoffScope);
+        // Id penawaran dibaca dari URL (`?p=`) — dituliskan oleh
+        // handleMakeProposal di kalkulator-client.tsx. window.location dipakai
+        // (bukan useSearchParams) karena efek ini memang hanya jalan di
+        // browser dan berkas ini tidak punya pemakai hook Next lain; tanpa id
+        // readProposalHandoff() mengembalikan null dan layar "belum ada
+        // penawaran" muncul, bukan penawaran lain yang tersimpan terakhir
+        // (audit 2026-09-15).
+        let proposalId = null;
+        try {
+            proposalId = new URLSearchParams(window.location.search).get("p");
+        }
+        catch {
+            proposalId = null;
+        }
+        // `?saved=<id>` = cetak ulang penawaran yang SUDAH tersimpan di
+        // database. Ia menang atas localStorage: yang diminta adalah arsip
+        // itu, bukan apa pun yang kebetulan masih ada di browser ini.
+        let savedId = null;
+        try {
+            savedId = new URLSearchParams(window.location.search).get("saved");
+        }
+        catch {
+            savedId = null;
+        }
+        if (savedId && loadSaved) {
+            loadSaved(savedId).then((res) => {
+                if ("error" in res) {
+                    setSaveErr(res.error.message);
+                    setReady(true);
+                    return;
+                }
+                const d = res.data;
+                setHandoff({
+                    proposalId: d.id,
+                    savedAt: new Date(d.createdAt).getTime(),
+                    customerName: d.customerName ?? "",
+                    lines: d.lines,
+                    subtotal: d.subtotal,
+                    discountPcts: d.discountPcts,
+                    totalDiscountAmount: d.totalDiscountAmount,
+                    markupPct: d.markupPct,
+                    cashDiscount: d.cashDiscount,
+                    extraFeeLabel: d.extraFeeLabel,
+                    extraFeeAmount: d.extraFeeAmount,
+                    finalAmount: d.finalAmount,
+                    products: d.products ?? undefined,
+                });
+                setCustomerName(d.customerName ?? "");
+                setSavedAs({ number: d.number, version: d.version, validUntil: d.validUntil });
+                setReady(true);
+            }).catch(() => {
+                setSaveErr(m.errorLoad);
+                setReady(true);
+            });
+            return;
+        }
+        const h = readProposalHandoff(proposalId);
         setHandoff(h);
         setCustomerName(h?.customerName ?? "");
         setReady(true);
-    }, [handoffScope]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     useEffect(() => {
         if (!handoff)
             return;
+        // Penawaran yang profilnya SUDAH dibekukan tidak pernah bertanya lagi
+        // ke katalog: owner 2026-09-15 memutuskan penawaran lama dibekukan,
+        // tidak ikut berubah kalau produknya kemudian diganti nama, harga,
+        // atau fotonya. Jadi dokumen yang sama dicetak ulang minggu depan
+        // tetap sama persis dengan yang sudah dipegang pelanggan.
+        if (handoff.products) {
+            setLoad({ phase: "ready", products: handoff.products });
+            return;
+        }
         let alive = true;
         loadProducts(Array.from(new Set(handoff.lines.map((l) => l.productId))))
             .then((res) => {
             if (!alive)
                 return;
             if (res.ok) {
+                // Pemuatan pertama yang berhasil = titik pembekuan.
+                freezeProposalProducts(handoff.proposalId, res.products);
                 setLoad({ phase: "ready", products: res.products });
                 return;
             }
@@ -261,8 +339,57 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     const selectionPages = useMemo(() => paginateSelectionRows(rows, SELECTION_ROWS_PER_PAGE, lastSelectionPageCapacity(moneyRowCount)), [rows, moneyRowCount]);
     const galleryStories = useMemo(() => stories.filter((story) => story.row.product && story.row.photos.length >= 3), [stories]);
     const missingProfiles = load.phase === "ready" ? stories.filter((story) => !story.row.product).map((story) => story.row.line.name) : [];
+    async function handleSave() {
+        if (!onSave || saving || !handoff)
+            return;
+        setSaving(true);
+        setSaveErr(null);
+        try {
+            // Nomor yang SUDAH ada dikirim balik = REVISI keluarga itu;
+            // versinya dihitung database, bukan di sini (0029 §3).
+            const res = await onSave({
+                proposalNumber: savedAs?.number ?? null,
+                customerName,
+                subtotal: handoff.subtotal,
+                discountPcts: handoff.discountPcts,
+                totalDiscountAmount: handoff.totalDiscountAmount,
+                markupPct: handoff.markupPct,
+                cashDiscount: handoff.cashDiscount,
+                extraFeeLabel: handoff.extraFeeLabel,
+                extraFeeAmount: handoff.extraFeeAmount,
+                finalAmount: handoff.finalAmount,
+                lines: handoff.lines,
+                products: load.phase === "ready" ? load.products : null,
+            });
+            if ("error" in res) {
+                setSaveErr(res.error.message);
+                return;
+            }
+            setSavedAs({ number: res.data.number, version: res.data.version, validUntil: res.data.validUntil });
+        }
+        catch {
+            // Server Action bisa REJECT (jaringan putus, deploy usang) —
+            // jangan biarkan tombolnya terkunci "Menyimpan…" selamanya.
+            setSaveErr(m.errorLoad);
+        }
+        finally {
+            setSaving(false);
+        }
+    }
     async function handlePrint() {
-        if (printing || load.phase !== "ready" || missingProfiles.length > 0)
+        if (printing)
+            return;
+        // Data produk masih dimuat → jangan cetak. Tombolnya juga sudah
+        // dinonaktifkan; ini penjaga kedua (mis. Enter pada tombol yang baru
+        // saja aktif) supaya dokumen setengah jadi tidak pernah keluar.
+        if (load.phase === "loading")
+            return;
+        // Tidak lengkap → MINTA persetujuan eksplisit, jangan diam-diam
+        // mencetak. Kedua banner penjelasnya `noprint` dan duduk di dasar
+        // dokumen, jadi orang yang berdiri di tombol ini belum tentu pernah
+        // melihatnya (audit 2026-09-15). Dokumen ini yang dipegang PELANGGAN.
+        const belumLengkap = load.phase === "error" || missingProfiles.length > 0;
+        if (belumLengkap && !window.confirm(m.proposalPrintConfirmIncomplete))
             return;
         setPrinting(true);
         let undo = null;
@@ -297,7 +424,18 @@ export default function ProposalEditorialDocument({ loadProducts, backHref, stor
     const showSubtotal = showSubtotalFor(handoff);
     const totals = (_jsxs("div", { className: styles.totals, children: [showSubtotal && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalSubtotal }), _jsx("strong", { className: styles.num, children: formatIDR(handoff.subtotal) })] })), handoff.discountPcts.length > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalDiscountStep.replace("{pct}", handoff.discountPcts.join("% + ")) }), _jsxs("strong", { className: styles.num, children: ["− ", formatIDR(handoff.totalDiscountAmount)] })] })), handoff.cashDiscount > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: m.proposalCashDiscount }), _jsxs("strong", { className: styles.num, children: ["− ", formatIDR(handoff.cashDiscount)] })] })), handoff.extraFeeAmount > 0 && (_jsxs("div", { className: styles.moneyRow, children: [_jsx("span", { children: handoff.extraFeeLabel || m.proposalExtraFeeDefault }), _jsxs("strong", { className: styles.num, children: ["+ ", formatIDR(handoff.extraFeeAmount)] })] })), _jsxs("div", { className: styles.moneyFinal, children: [_jsx("span", { children: m.proposalFinalPrice }), _jsx("strong", { className: styles.num, children: formatIDR(handoff.finalAmount) })] })] }));
     const storyLabels = { about: m.proposalAboutLabel, size: m.proposalSpecSize, category: m.proposalSpecCategory, colors: m.proposalSpecColorsChosen };
-    return (_jsxs("div", { className: styles.wrap, children: [_jsxs("header", { className: `${styles.bar} noprint`, children: [_jsx("img", { src: LOGO, alt: lh.brand, className: styles.barLogo }), _jsx("span", { className: styles.barSpacer }), _jsx("input", { className: styles.nameField, value: customerName, onChange: (e) => setCustomerName(e.target.value), placeholder: m.proposalCustomerPlaceholder, "aria-label": m.proposalForLabel }), _jsx(Link, { href: backHref, className: styles.tool, children: m.proposalBackCta }), _jsx("button", { type: "button", className: `${styles.tool} ${styles.toolPrimary}`, disabled: printing, onClick: handlePrint, children: printing ? m.proposalPrintPreparing : m.proposalPrintCta })] }), _jsxs("main", { className: styles.doc, ref: docRef, children: [_jsx(Sheet, { n: null, className: styles.coverSheet, children: _jsxs("div", { className: styles.coverLayout, children: [_jsxs("div", { className: styles.coverLeft, children: [_jsxs("div", { className: styles.coverBrand, children: [_jsx("img", { src: LOGO, alt: lh.brand }), _jsx("span", { className: styles.coverRule }), _jsx("p", { className: styles.eyebrow, children: m.proposalCoverKicker })] }), _jsxs("div", { className: styles.coverCore, children: [_jsx("h1", { className: styles.coverTitle, children: m.proposalTitle }), _jsx("p", { className: styles.coverSub, children: m.proposalCoverSub })] }), _jsxs("div", { className: styles.coverMeta, children: [who && (_jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalForLabel }), _jsx("p", { className: styles.coverName, children: who })] })), _jsxs("div", { className: styles.coverMetaGrid, children: [_jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalMetaDate }), _jsx("p", { className: styles.metaValue, children: dateText })] }), _jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalContactShowroom }), _jsx("p", { className: styles.metaValue, children: lh.name })] }), _jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalContactLabel }), _jsx("p", { className: `${styles.metaValue} ${styles.contactPhone}`, children: lh.phone ? `WhatsApp · ${lh.phone}` : lh.website })] })] }), store && (_jsxs("div", { className: styles.coverStore, children: [_jsx("p", { className: styles.metaLabel, children: m.proposalStoreLabel }), store.logoUrl ? _jsx("img", { src: store.logoUrl, alt: store.name ?? "", className: styles.coverStoreLogo, onError: (e) => { e.currentTarget.style.display = "none"; } }) : null, _jsx("p", { className: styles.coverStoreName, children: store.branchName ? `${store.name} · ${store.branchName}` : store.name }), store.phone && _jsx("p", { className: `${styles.metaValue} ${styles.contactPhone}`, children: `WhatsApp · ${store.phone}` })] })), _jsx("p", { className: styles.coverThanks, children: m.proposalThanksBody })] })] }), _jsxs("div", { className: styles.coverArt, children: [_jsx(Photo, { src: coverPhoto, alt: coverRow?.line.name ?? lh.brand, className: styles.coverImage, eager: true }), coverRow && (_jsxs("div", { className: styles.coverArtCaption, children: [_jsx("span", { children: String(rows.indexOf(coverRow) + 1).padStart(2, "0") }), _jsxs("div", { children: [_jsx("strong", { children: keepCodesTogether(coverRow.line.name) }), !codeAlreadyInName(coverRow.line.name, coverRow.line.code) && _jsx("small", { children: keepCodesTogether(coverRow.line.code) })] })] }))] })] }) }), selectionPages.map((pageRows, pageIndex) => {
+    return (_jsxs("div", { className: styles.wrap, children: [_jsxs("header", { className: `${styles.bar} noprint`, children: [_jsx("img", { src: LOGO, alt: lh.brand, className: styles.barLogo }), _jsx("span", { className: styles.barSpacer }), _jsx("input", { className: styles.nameField, value: customerName, onChange: (e) => setCustomerName(e.target.value), placeholder: m.proposalCustomerPlaceholder, "aria-label": m.proposalForLabel }), _jsx(Link, { href: backHref, className: styles.tool, children: m.proposalBackCta }), onSave && _jsx("button", { type: "button", className: styles.tool, disabled: saving || load.phase === "loading", onClick: handleSave, children: saving
+                                ? m.proposalStoreSaving
+                                : savedAs
+                                    ? m.proposalStoreRevisionCta
+                                    : m.proposalStoreCta }), savedAs && _jsx("span", { className: styles.printState, children: m.proposalStoreDone
+                                .replace("{number}", savedAs.number)
+                                .replace("{version}", String(savedAs.version))
+                                .replace("{valid}", savedAs.validUntil ?? "-") }), saveErr && _jsx("span", { className: `${styles.printState} ${styles.printStateWarn}`, children: saveErr }), _jsx("span", { className: `${styles.printState}${load.phase === "error" || missingProfiles.length > 0 ? ` ${styles.printStateWarn}` : ""}`, "aria-live": "polite", children: load.phase === "loading"
+                                ? m.proposalPrintDataLoading
+                                : (load.phase === "error" || missingProfiles.length > 0)
+                                    ? m.proposalPrintStateIncomplete
+                                    : m.proposalPrintStateComplete }), _jsx("button", { type: "button", className: `${styles.tool} ${styles.toolPrimary}`, disabled: printing || load.phase === "loading", onClick: handlePrint, children: printing ? m.proposalPrintPreparing : m.proposalPrintCta })] }), _jsxs("main", { className: styles.doc, ref: docRef, children: [_jsx(Sheet, { n: null, className: styles.coverSheet, children: _jsxs("div", { className: styles.coverLayout, children: [_jsxs("div", { className: styles.coverLeft, children: [_jsxs("div", { className: styles.coverBrand, children: [_jsx("img", { src: LOGO, alt: lh.brand }), _jsx("span", { className: styles.coverRule }), _jsx("p", { className: styles.eyebrow, children: m.proposalCoverKicker })] }), _jsxs("div", { className: styles.coverCore, children: [_jsx("h1", { className: styles.coverTitle, children: m.proposalTitle }), _jsx("p", { className: styles.coverSub, children: m.proposalCoverSub })] }), _jsxs("div", { className: styles.coverMeta, children: [who && (_jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalForLabel }), _jsx("p", { className: styles.coverName, children: who })] })), _jsxs("div", { className: styles.coverMetaGrid, children: [_jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalMetaDate }), _jsx("p", { className: styles.metaValue, children: dateText })] }), _jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalContactShowroom }), _jsx("p", { className: styles.metaValue, children: lh.name })] }), _jsxs("div", { children: [_jsx("p", { className: styles.metaLabel, children: m.proposalContactLabel }), _jsx("p", { className: `${styles.metaValue} ${styles.contactPhone}`, children: lh.phone ? `WhatsApp · ${lh.phone}` : lh.website })] })] }), store && (_jsxs("div", { className: styles.coverStore, children: [_jsx("p", { className: styles.metaLabel, children: m.proposalStoreLabel }), store.logoUrl ? _jsx("img", { src: store.logoUrl, alt: store.name ?? "", className: styles.coverStoreLogo, onError: (e) => { e.currentTarget.style.display = "none"; } }) : null, _jsx("p", { className: styles.coverStoreName, children: store.branchName ? `${store.name} · ${store.branchName}` : store.name }), store.phone && _jsx("p", { className: `${styles.metaValue} ${styles.contactPhone}`, children: `WhatsApp · ${store.phone}` })] })), _jsx("p", { className: styles.coverThanks, children: m.proposalThanksBody })] })] }), _jsxs("div", { className: styles.coverArt, children: [_jsx(Photo, { src: coverPhoto, alt: coverRow?.line.name ?? lh.brand, className: styles.coverImage, eager: true }), coverRow && (_jsxs("div", { className: styles.coverArtCaption, children: [_jsx("span", { children: String(rows.indexOf(coverRow) + 1).padStart(2, "0") }), _jsxs("div", { children: [_jsx("strong", { children: keepCodesTogether(coverRow.line.name) }), !codeAlreadyInName(coverRow.line.name, coverRow.line.code) && _jsx("small", { children: keepCodesTogether(coverRow.line.code) })] })] }))] })] }) }), selectionPages.map((pageRows, pageIndex) => {
                     const isLast = pageIndex === selectionPages.length - 1;
                     // Halaman tidak lagi seragam (halaman terakhir bisa lebih pendek) — nomor urut dihitung dari halaman-halaman sebelumnya.
                     const start = selectionPages.slice(0, pageIndex).reduce((n, p) => n + p.length, 0);

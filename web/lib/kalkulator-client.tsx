@@ -43,7 +43,7 @@ export type KalkulatorProduct = {
 };
 
 export type KalkulatorConvert = { cta: string; scopeNote: string; href: string };
-export type KalkulatorProposal = { cta: string; href: string; saveFailed: string; handoffScope: "admin" | "cabang" };
+export type KalkulatorProposal = { cta: string; href: string; saveFailed: string };
 export type KalkulatorFetchMessages = {
   notOpened?: string;
   moduleInactive: string;
@@ -403,7 +403,7 @@ export default function KalkulatorClient({
 
   function handleMakeProposal() {
     if (!proposal || lines.length === 0) return;
-    const ok = writeProposalHandoff(proposal.handoffScope, {
+    const saved = writeProposalHandoff({
       customerName: prefill?.customerName ?? "",
       subtotal,
       discountPcts: parsedDiscounts,
@@ -423,12 +423,17 @@ export default function KalkulatorClient({
         colorCode: l.colorCode,
       })),
     });
-    if (!ok) {
+    if (!saved.ok) {
       setProposalErr(proposal.saveFailed);
       return;
     }
     setProposalErr(null);
-    router.push(proposal.href);
+    // `?p=` WAJIB: halaman Proposal membuka penawaran berdasarkan id ini,
+    // bukan "entri terakhir yang tersimpan" (audit 2026-09-15 — dua penawaran
+    // berbarengan dulu saling menimpa). Tautan hasilnya juga jadi bisa
+    // dibuka ulang/di-bookmark dan tetap menunjuk penawaran yang sama.
+    const pisah = proposal.href.includes("?") ? "&" : "?";
+    router.push(`${proposal.href}${pisah}p=${encodeURIComponent(saved.proposalId)}`);
   }
 
   function handleConvertToOrder() {

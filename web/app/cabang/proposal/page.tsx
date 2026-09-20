@@ -5,6 +5,7 @@ import ProposalSoftGalleryLayout from "@/lib/proposal-soft-gallery-layout";
 import proposalStyles from "@/lib/proposal-editorial-document.module.css";
 import { COMPANY_INFO } from "@/lib/company-info";
 import { loadProposalProducts } from "./actions";
+import { saveProposal, loadSavedProposal } from "./actions-saved";
 
 /**
  * Proposal sisi CABANG — dokumen cetak untuk pelanggan.
@@ -109,8 +110,9 @@ export default async function ProposalPage() {
       <ProposalSoftGalleryLayout
         loadProducts={loadProposalProducts}
         backHref="/cabang/kalkulator"
-        handoffScope="cabang"
         store={store}
+        onSave={saveProposal}
+        loadSaved={loadSavedProposal}
       />
     </>
   );

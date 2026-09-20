@@ -143,6 +143,15 @@ export default async function CabangHome() {
             <span className="arrow" aria-hidden="true">&rsaquo;</span>
           </Link>
         )}
+        {/* Penawaran tersimpan (0029) DI BAWAH Kalkulator: penawaran dimulai
+            di Kalkulator, jadi arsipnya berdiri tepat di sebelahnya. Tanpa
+            entry ini halamannya ada tapi tidak pernah ditemukan siapa pun. */}
+        {produkVisible && (
+          <Link href="/cabang/proposal/tersimpan" className="biglink">
+            <span className="lbl">{m.cabang.proposalSavedListCta}</span>
+            <span className="arrow" aria-hidden="true">&rsaquo;</span>
+          </Link>
+        )}
         {/* Harga Normal DI BAWAH Kalkulator (rencana 0021 — entry di bawah
             Kalkulator): daftar harga adalah alat pendukung penawaran.
             Gerbang tampil sama dengan Kalkulator/Produk; halamannya sendiri

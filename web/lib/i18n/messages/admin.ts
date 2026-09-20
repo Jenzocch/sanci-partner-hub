@@ -122,10 +122,18 @@ const id = {
   partnerLogoHint:
     "PNG, JPG, atau WebP. Maksimal 5 MB — gambar diperkecil otomatis sebelum dikirim. Biarkan " +
     "kosong kalau tidak ingin mengubah logo.",
+  // Bilah kerja hari ini di /admin (audit 2026-09-15). Tiap label menempel
+  // pada satu filter bayar yang SAMA di /admin/orders.
+  todoUnpaid: "Belum bayar",
+  todoPartial: "Bayar sebagian (DP)",
+  todoNoTotal: "Total belum dicatat",
   partnerSuspendBtn: "Tangguhkan",
-  partnerSuspendModalTitle: "Tangguhkan {name}?",
-  partnerSuspendBody: "Partner ini sementara tidak dapat dipakai dalam alur kerja harian. Data dan riwayat tetap tersimpan; admin dapat mengaktifkannya lagi nanti.",
-  partnerSuspendConfirmBtn: "Tangguhkan partner",
+  // Konfirmasi arah MERUGIKAN saja — idiom status-toggle berkas ini sendiri
+  // (lihat kepala master-data-section.tsx yang mewarisinya): nonaktifkan
+  // butuh konfirmasi, aktifkan langsung jalan. "Tangguhkan" dulu terlewat
+  // dari idiomnya sendiri (audit 2026-09-15).
+  partnerSuspendConfirm:
+    "Tangguhkan {name}? Selama ditangguhkan, semua pengguna cabang partner ini tidak bisa masuk. Bisa diaktifkan kembali kapan saja.",
   partnerReactivateBtn: "Aktifkan lagi",
   partnerEndPartnershipBtn: "Akhiri kerja sama",
   partnerDeleteDraftBtn: "Hapus draf",
@@ -223,6 +231,8 @@ const id = {
   branchCreateBtn: "Buat Cabang",
   branchEditModalTitle: "Ubah Cabang",
   branchSuspendBtn: "Tangguhkan",
+  branchSuspendConfirm:
+    "Tangguhkan cabang {name}? Selama ditangguhkan, staf cabang ini tidak bisa masuk. Bisa diaktifkan kembali kapan saja.",
   branchReactivateBtn: "Aktifkan lagi",
   branchNameRequired: "Nama cabang wajib diisi.",
   branchAddressRequired: "Alamat lengkap wajib diisi.",
@@ -468,6 +478,9 @@ const id = {
 
   // ---- Katalog Produk SANCI (produk/page.tsx dan seterusnya) ----
   produkSearchPlaceholder: "Cari nama / kode produk…",
+  // Label TETAP terlihat: placeholder hilang begitu staf mulai mengetik, dan
+  // pembaca layar tidak selalu membacakannya (audit 2026-09-15).
+  produkSearchLabel: "Cari produk (nama atau kode)",
   filterStockAll: "Stok: semua",
   filterCategoryAll: "Kategori: semua",
   produkEmpty: "Belum ada produk.",
@@ -536,8 +549,13 @@ const id = {
   productGalleryEmpty: "Belum ada foto tambahan.",
   productGalleryUploading: "Mengunggah foto…",
   productGalleryDeleteAria: "Hapus foto ini",
-  productGalleryDeleteConfirm: "Hapus foto tambahan ke-{n}? Tindakan ini tidak dapat dibatalkan.",
   productGalleryDeleteFailed: "Foto gagal dihapus.",
+  // Tombol "×"-nya kecil dan duduk di atas fotonya — salah sentuh di ponsel
+  // dulu langsung menghapus, tanpa konfirmasi maupun pembatalan (audit
+  // 2026-09-15). {n}/{total} menyebut foto KE BERAPA, karena dialog sistem
+  // tidak bisa menampilkan gambarnya.
+  productGalleryDeleteConfirm:
+    "Hapus foto ke-{n} dari {total} pada produk ini? Tindakan ini tidak bisa dibatalkan.",
   productGalleryUploadPartialFailed: "{n} dari {total} foto gagal diunggah — coba unggah ulang yang gagal.",
   // Geser urutan foto (panah kiri/kanan per thumbnail — tanpa drag-drop,
   // staf memakai ponsel). Urutan di layar baru berubah setelah server
@@ -549,7 +567,6 @@ const id = {
 
   // ---- Pesanan Partner — daftar (orders/page.tsx) ----
   ordersFeatureOff: "Fitur pesanan belum aktif — migration database belum dijalankan.",
-  ordersFulfillmentUnavailable: "Filter jalur tidak bisa dipakai sekarang; daftar menampilkan semua jalur.",
   ordersSearchPlaceholder: "Cari no. pesanan / SO / DO / Invoice / customer / telepon / no. PO / produk / sales…",
   filterFulfillmentAll: "Jalur: semua",
   // Label + catatan kaki filter kirim PINDAH ke common.ts (2026-09-01):
@@ -820,6 +837,7 @@ const id = {
   customerTabSources: "Kode Sumber Tamu",
   customerTabSales: "Kode Sales",
   customerSearchPlaceholder: "Cari nama / telepon / kode…",
+  customerSearchLabel: "Cari pelanggan (nama, telepon, atau kode)",
   customerEmpty: "Belum ada pelanggan.",
   customerEmptyFiltered: 'Tidak ada pelanggan yang cocok dengan "{q}".',
   customerColCode: "Kode Pelanggan",
@@ -1085,10 +1103,12 @@ const en = {
   partnerLogoHint:
     "PNG, JPG, or WebP. Maximum 5 MB — the image is resized automatically before upload. Leave " +
     "blank if you do not want to change the logo.",
+  todoUnpaid: "Unpaid",
+  todoPartial: "Partly paid (DP)",
+  todoNoTotal: "Total not recorded",
   partnerSuspendBtn: "Suspend",
-  partnerSuspendModalTitle: "Suspend {name}?",
-  partnerSuspendBody: "This partner is temporarily unavailable for day-to-day work. Its data and history stay saved, and an admin can reactivate it later.",
-  partnerSuspendConfirmBtn: "Suspend partner",
+  partnerSuspendConfirm:
+    "Suspend {name}? While suspended, none of this partner's branch users can sign in. It can be reactivated at any time.",
   partnerReactivateBtn: "Reactivate",
   partnerEndPartnershipBtn: "End partnership",
   partnerDeleteDraftBtn: "Delete draft",
@@ -1180,6 +1200,8 @@ const en = {
   branchCreateBtn: "Create Branch",
   branchEditModalTitle: "Edit Branch",
   branchSuspendBtn: "Suspend",
+  branchSuspendConfirm:
+    "Suspend branch {name}? While suspended, this branch's staff cannot sign in. It can be reactivated at any time.",
   branchReactivateBtn: "Reactivate",
   branchNameRequired: "Branch name is required.",
   branchAddressRequired: "Full address is required.",
@@ -1410,6 +1432,7 @@ const en = {
   staffAssignmentPartialFail: "The staff record was saved but the branch assignment failed. Contact technical support.",
 
   produkSearchPlaceholder: "Search product name / code…",
+  produkSearchLabel: "Search products (name or code)",
   filterStockAll: "Stock: all",
   filterCategoryAll: "Category: all",
   produkEmpty: "No products yet.",
@@ -1460,8 +1483,9 @@ const en = {
   productGalleryEmpty: "No additional photos yet.",
   productGalleryUploading: "Uploading photo…",
   productGalleryDeleteAria: "Delete this photo",
-  productGalleryDeleteConfirm: "Delete additional photo {n}? This cannot be undone.",
   productGalleryDeleteFailed: "The photo failed to delete.",
+  productGalleryDeleteConfirm:
+    "Delete photo {n} of {total} on this product? This cannot be undone.",
   productGalleryUploadPartialFailed: "{n} of {total} photos failed to upload — try re-uploading the failed ones.",
   productGalleryMoveLeftAria: "Move this photo left",
   productGalleryMoveRightAria: "Move this photo right",
@@ -1469,7 +1493,6 @@ const en = {
   productGalleryMoveFailed: "The photo order failed to save.",
 
   ordersFeatureOff: "The orders feature is not active yet — the database migration has not been run.",
-  ordersFulfillmentUnavailable: "The fulfillment filter is unavailable right now, so this list shows every fulfillment path.",
   ordersSearchPlaceholder: "Search order / SO / DO / Invoice no. / customer / phone / PO no. / product / sales…",
   filterFulfillmentAll: "Fulfillment: all",
   ordersEmpty: "No orders yet.",
@@ -1715,6 +1738,7 @@ const en = {
   customerTabSources: "Source Codes",
   customerTabSales: "Sales Codes",
   customerSearchPlaceholder: "Search name / phone / code…",
+  customerSearchLabel: "Search customers (name, phone, or code)",
   customerEmpty: "No customers yet.",
   customerEmptyFiltered: 'No customers match "{q}".',
   customerColCode: "Customer Code",
@@ -1957,10 +1981,12 @@ const zh = {
   partnerCodeLockedHint: "合作商处于{status}状态期间编号被锁定。",
   partnerLogoFieldLabel: "Logo（选填）",
   partnerLogoHint: "PNG、JPG 或 WebP 格式。最大 5 MB —— 图片会在上传前自动压缩。留空表示不修改 Logo。",
+  todoUnpaid: "未付款",
+  todoPartial: "已付部分（DP）",
+  todoNoTotal: "尚未记录总额",
   partnerSuspendBtn: "暂停",
-  partnerSuspendModalTitle: "暂停 {name}？",
-  partnerSuspendBody: "该合作商将暂时不能用于日常工作。资料和历史记录会保留，管理员之后可以重新启用。",
-  partnerSuspendConfirmBtn: "暂停合作商",
+  partnerSuspendConfirm:
+    "要暂停 {name} 吗？暂停期间，这个合作商底下所有门店帐号都无法登入。随时可以重新启用。",
   partnerReactivateBtn: "重新启用",
   partnerEndPartnershipBtn: "结束合作",
   partnerDeleteDraftBtn: "删除草稿",
@@ -2045,6 +2071,8 @@ const zh = {
   branchCreateBtn: "新建分店",
   branchEditModalTitle: "修改分店",
   branchSuspendBtn: "暂停",
+  branchSuspendConfirm:
+    "要暂停门店 {name} 吗？暂停期间，这家门店的员工无法登入。随时可以重新启用。",
   branchReactivateBtn: "重新启用",
   branchNameRequired: "分店名称为必填项。",
   branchAddressRequired: "详细地址为必填项。",
@@ -2237,6 +2265,7 @@ const zh = {
   staffAssignmentPartialFail: "员工信息已保存，但分店分配失败，请联系技术支持。",
 
   produkSearchPlaceholder: "搜索产品名称 / 编号…",
+  produkSearchLabel: "搜索产品（名称或编号）",
   filterStockAll: "库存：全部",
   filterCategoryAll: "分类：全部",
   produkEmpty: "暂无产品。",
@@ -2283,8 +2312,9 @@ const zh = {
   productGalleryEmpty: "还没有附加照片。",
   productGalleryUploading: "正在上传照片…",
   productGalleryDeleteAria: "删除这张照片",
-  productGalleryDeleteConfirm: "删除第 {n} 张附加照片？此操作无法撤销。",
   productGalleryDeleteFailed: "照片删除失败。",
+  productGalleryDeleteConfirm:
+    "要删除这个产品的第 {n} 张（共 {total} 张）照片吗？此操作无法撤销。",
   productGalleryUploadPartialFailed: "{total} 张照片中有 {n} 张上传失败 —— 请重新上传失败的照片。",
   productGalleryMoveLeftAria: "把这张照片往左移",
   productGalleryMoveRightAria: "把这张照片往右移",
@@ -2292,7 +2322,6 @@ const zh = {
   productGalleryMoveFailed: "照片顺序保存失败。",
 
   ordersFeatureOff: "订单功能尚未启用 —— 数据库迁移脚本还没有执行。",
-  ordersFulfillmentUnavailable: "目前无法使用交付方式筛选，因此列表显示所有交付方式。",
   ordersSearchPlaceholder: "搜索订单编号 / SO / DO / 发票号 / 客户 / 电话 / PO 号 / 产品 / 销售员…",
   filterFulfillmentAll: "交付方式：全部",
   ordersEmpty: "暂无订单。",
@@ -2523,6 +2552,7 @@ const zh = {
   customerTabSources: "来源代码",
   customerTabSales: "销售员代码",
   customerSearchPlaceholder: "搜索姓名／电话／代码…",
+  customerSearchLabel: "搜索客户（姓名、电话或代码）",
   customerEmpty: "还没有客户。",
   customerEmptyFiltered: '没有符合"{q}"的客户。',
   customerColCode: "客户代码",

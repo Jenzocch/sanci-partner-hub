@@ -144,7 +144,6 @@ export default async function AdminKalkulatorPage() {
           cta: m.admin.calcProposalCta,
           href: "/admin/proposal",
           saveFailed: m.admin.proposalSaveFailed,
-          handoffScope: "admin",
         }}
         fetchColors={listActiveColorsForAdminCalculator}
       />
