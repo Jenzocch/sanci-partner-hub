@@ -66,7 +66,7 @@ export default async function AdminKalkulatorPage() {
   const [{ data: products, error }, categories] = await Promise.all([
     supabase
       .from("sanci_products")
-      .select("id, name, code, category, photo_url, stock_status")
+      .select("id, name, code, category, photo_url, stock_status, discontinued")
       .eq("status", "ACTIVE")
       .order("name")
       .order("id")
@@ -116,6 +116,7 @@ export default async function AdminKalkulatorPage() {
     category: p.category,
     photoUrl: p.photo_url,
     stockStatus: p.stock_status,
+    discontinued: (p as { discontinued?: boolean }).discontinued === true,
     price: prices?.get(p.id)?.price ?? null,
   }));
 

@@ -67,7 +67,7 @@ export async function getCatalogPageBranch(input: CatalogPageInput): Promise<Cat
   const norm = normalizeCatalogPageInput(input);
   let query = supabase
     .from("sanci_products")
-    .select("id, name, code, category, photo_url, stock_status");
+    .select("id, name, code, category, photo_url, stock_status, discontinued");
   // Semantik pencarian meniru memo `filtered` lama (substring nama ATAU kode
   // ATAU kategori, case-insensitive) — sanitasi di catalogIlikeOrFilter.
   const orFilter = catalogIlikeOrFilter(norm.q, ["name", "code", "category"]);

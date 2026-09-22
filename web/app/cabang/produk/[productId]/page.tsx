@@ -119,7 +119,7 @@ export default async function ProdukDetailPage({ params }: { params: Promise<{ p
     await Promise.all([
       supabase
         .from("sanci_products")
-        .select("id, name, code, category, description, size, photo_url, stock_status, status")
+        .select("id, name, code, category, description, size, photo_url, stock_status, status, discontinued")
         .eq("id", productId)
         .maybeSingle(),
       supabase
@@ -185,6 +185,7 @@ export default async function ProdukDetailPage({ params }: { params: Promise<{ p
     size: row.size,
     photoUrl: row.photo_url,
     stockStatus: row.stock_status,
+    discontinued: (row as { discontinued?: boolean }).discontinued === true,
     price,
     publicUrl,
   };

@@ -28,6 +28,8 @@ export type PickerProduct = {
   category: string | null;
   photoUrl: string | null;
   stockStatus: StockStatus;
+  /** 0030 — akan dihentikan. */
+  discontinued?: boolean;
   price?: number | null;
 };
 
@@ -482,6 +484,7 @@ export default function OrderItemsSection({
                               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 3 }}>
                                 {p.code && <span className="code">{p.code}</span>}
                                 <span className={STOCK_STATUS_CHIP[p.stockStatus]}>{stockStatusLabel({ common: m }, p.stockStatus)}</span>
+                                {p.discontinued && <span className="chip warn">{m.productDiscontinuedChip}</span>}
                                 {inListQty > 0 && <span className="small muted">×{inListQty}</span>}
                               </div>
                             </div>

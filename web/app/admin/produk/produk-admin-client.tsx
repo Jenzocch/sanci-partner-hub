@@ -198,6 +198,7 @@ export default function ProdukAdminClient({
                       punya pilihan warna, tidak mempengaruhi apa pun selain
                       tampilan kartu. */}
                   {p.has_color_options && <span className="chip accent">{m.admin.navColors}</span>}
+                  {p.discontinued && <span className="chip warn">{m.common.productDiscontinuedChip}</span>}
                 </div>
                 {/* marginTop:auto menjepit blok kendali (Status stok + tombol)
                     ke DASAR kartu — semua kartu sebaris menaruh kendalinya di

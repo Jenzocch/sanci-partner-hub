@@ -19,6 +19,8 @@ export type ProdukDetailItem = {
   size: string | null;
   photoUrl: string | null;
   stockStatus: StockStatus;
+  /** 0030 — akan dihentikan. */
+  discontinued?: boolean;
   /** `null` = tanpa Harga Normal untuk toko ini — baris harga TIDAK
    *  ditampilkan sama sekali (bukan "Rp 0", lihat catatan di page.tsx). */
   price: number | null;
@@ -162,8 +164,16 @@ export default function ProdukDetailClient({
       <div className="row" style={{ marginTop: 8, marginBottom: 4 }}>
         {item.code && <span className="code">{item.code}</span>}
         <span className={STOCK_STATUS_CHIP[item.stockStatus]}>{stockStatusLabel(m, item.stockStatus)}</span>
+        {item.discontinued && <span className="chip warn">{m.common.productDiscontinuedChip}</span>}
       </div>
       {item.category && <div className="muted small">{item.category}</div>}
+      {/* 0030 — kalimat utuh, bukan cuma chip: di halaman inilah sales
+          membaca detail sebelum menjanjikan sesuatu ke pelanggan. */}
+      {item.discontinued && (
+        <div className="banner warn" style={{ marginTop: 10 }}>
+          {m.common.productDiscontinuedWarn}
+        </div>
+      )}
 
       {/* Ukuran (0024) — TETAP di atas harga, dan sengaja MENEMPEL padanya.
           Keputusan 0024 ("staf menjawab 'muat tidak di kamarnya' sebelum

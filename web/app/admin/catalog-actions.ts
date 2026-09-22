@@ -149,6 +149,8 @@ export type AdminProdukRow = {
   display_price?: number | null;
   /** Fitur B (migrasi 0025) — lihat catatan opsional di lib/catalog-shared.ts. */
   has_color_options?: boolean;
+  /** 0030 — "akan dihentikan". Opsional: select sempit tidak membawanya. */
+  discontinued?: boolean;
 };
 
 export type AdminProdukPageInput = CatalogPageInput & { stock?: "ALL" | StockStatus };
@@ -163,7 +165,8 @@ const PRODUK_COLS_NARROW = "id, name, code, category, description, size, photo_u
 // terpisah, BUKAN ditulis permanen di PRODUK_COLS_NARROW: kolomnya bisa
 // belum ada (LESSONS #12), dan 42703 pada satu kolom TIDAK BOLEH menjatuhkan
 // seluruh pencarian /admin/produk (yang sudah berjalan sebelum 0025 ada).
-const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options`;
+// `discontinued` (0030) ikut di select LEBAR dengan alasan yang sama.
+const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options, discontinued`;
 
 function isMissingColumnErr(err: { code?: string } | null): boolean {
   return !!err && err.code === "42703";

@@ -90,6 +90,12 @@ export interface SanciProductRow {
    * grid /cabang/produk) memang tidak pernah mengisi field ini sama sekali.
    */
   has_color_options?: boolean;
+  /**
+   * 0030 — "akan dihentikan / 即將停產". OPSIONAL dengan alasan yang sama
+   * dengan has_color_options: select sempit (fallback 42703) tidak
+   * membawanya, dan undefined dibaca sebagai "tidak ditandai".
+   */
+  discontinued?: boolean;
   created_at: string;
   updated_at: string;
 }

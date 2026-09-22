@@ -382,6 +382,7 @@ export default function NewOrderForm({
               category: p.category,
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
+              discontinued: (p as { discontinued?: boolean }).discontinued === true,
               price: p.price ?? null,
             })),
           };

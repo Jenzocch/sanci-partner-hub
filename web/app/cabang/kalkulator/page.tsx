@@ -138,7 +138,7 @@ export default async function KalkulatorPage() {
   const [{ data: products, error: productsError }, categories] = await Promise.all([
     supabase
       .from("sanci_products")
-      .select("id, name, code, category, photo_url, stock_status")
+      .select("id, name, code, category, photo_url, stock_status, discontinued")
       .order("name")
       .order("id")
       .range(0, CATALOG_PAGE_SIZE),
@@ -188,6 +188,7 @@ export default async function KalkulatorPage() {
     category: p.category,
     photoUrl: p.photo_url,
     stockStatus: p.stock_status,
+    discontinued: (p as { discontinued?: boolean }).discontinued === true,
     price: prices?.get(p.id)?.price ?? null,
   }));
 

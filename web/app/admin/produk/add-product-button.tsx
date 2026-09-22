@@ -9,7 +9,7 @@ import DraftBanner from "@/lib/draft-banner";
 import { type StockStatus } from "@/lib/catalog-shared";
 import { useAdminMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
-import { createProduct, setProductBasePrice } from "../actions-products";
+import { createProduct, setProductBasePrice, setProductDiscontinued } from "../actions-products";
 import { lookupByRequestId } from "../actions-lookup";
 import { unggahFotoProduk } from "./upload-product-photo";
 
@@ -20,6 +20,10 @@ export default function AddProductButton() {
   const { submitting, begin, release, reset } = useSubmitGuard();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [netMsg, setNetMsg] = useState<string | null>(null);
+  // Pesan sukses "Simpan & tambah lagi" — modal tetap terbuka untuk produk berikutnya.
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  // Tombol mana yang ditekan: submit biasa menutup modal, "lanjut" tidak.
+  const lanjutRef = useRef(false);
   const requestId = useRef<string | null>(null);
   const draft = useLocalDraft("product", null, open);
 
@@ -29,6 +33,7 @@ export default function AddProductButton() {
     reset();
     setErrs({});
     setNetMsg(null);
+    setSavedMsg(null);
     setOpen(true);
   }
 
@@ -101,8 +106,32 @@ export default function AddProductButton() {
       await unggahFotoProduk(newId, berkas, m);
     }
 
-    setOpen(false);
+    // "Akan dihentikan" (0030) — best-effort SETELAH produk pasti tersimpan,
+    // pola harga dasar di atas. Default false di database, jadi hanya
+    // ditulis kalau dicentang.
+    if (fd.get("discontinued") === "on") {
+      const discRes = await setProductDiscontinued(newId, true);
+      if ("error" in discRes) alert(m.admin.productDiscontinuedSaveFailed);
+    }
+
     router.refresh();
+
+    if (lanjutRef.current) {
+      // Entri massal (mis. 49 produk baru sekaligus): modal TIDAK ditutup.
+      // Kategori sengaja dipertahankan — produk yang dimasukkan berurutan
+      // hampir selalu satu kategori. Semua yang lain dikosongkan.
+      const form = e.currentTarget;
+      const kategori = String(fd.get("category") || "");
+      form.reset();
+      const kat = form.elements.namedItem("category") as HTMLInputElement | null;
+      if (kat) kat.value = kategori;
+      setSavedMsg(m.admin.productSavedAndNext.replace("{name}", String(fd.get("name") || "")));
+      requestId.current = crypto.randomUUID();
+      release();
+      (form.elements.namedItem("name") as HTMLInputElement | null)?.focus();
+      return;
+    }
+    setOpen(false);
   }
 
   if (!open) {
@@ -120,10 +149,15 @@ export default function AddProductButton() {
         {netMsg && <div className="banner warn">{netMsg}</div>}
         {errs._form && <div className="banner bad">{errs._form}</div>}
         <DraftBanner draft={draft.draft} onRestore={draft.restore} onDiscard={draft.discard} />
+        {savedMsg && <div className="banner ok">{savedMsg}</div>}
         <form onSubmit={onSubmit} ref={draft.formRef} onInput={draft.onInput} onChange={draft.onInput}>
+          {/* Dikelompokkan (owner 2026-09-22 "更符合使用者邏輯, 快速清楚"):
+              siapa produknya → berapa & ada atau tidak → detail. Satu-satunya
+              isian wajib (Nama) ada di paling atas dan langsung difokuskan. */}
+          <div className="sectiontitle" style={{ fontSize: "var(--fs-body)" }}>{m.admin.productSecIdentity}</div>
           <div className={`field${errs.name ? " invalid" : ""}`}>
-            <label htmlFor="np_name">{m.admin.productNameFieldLabel}</label>
-            <input id="np_name" name="name" type="text" autoComplete="off" />
+            <label htmlFor="np_name">{m.admin.productNameFieldLabel} *</label>
+            <input id="np_name" name="name" type="text" autoComplete="off" autoFocus />
             {errs.name && <div className="err-text">{errs.name}</div>}
           </div>
           <div className="field">
@@ -134,28 +168,9 @@ export default function AddProductButton() {
             <label htmlFor="np_category">{m.admin.productCategoryFieldLabel}</label>
             <input id="np_category" name="category" type="text" autoComplete="off" />
           </div>
-          {/* Ukuran (0024) — posisi setelah kategori, meniru urutan baris
-              spesifikasi di halaman detail produk (Ukuran di atas harga). */}
-          <div className="field">
-            <label htmlFor="np_size">{m.admin.productSizeFieldLabel}</label>
-            <input id="np_size" name="size" type="text" autoComplete="off" />
-            <div className="hint">{m.admin.productSizeFieldHint}</div>
-          </div>
-          <div className="field">
-            <label htmlFor="np_desc">{m.common.description}</label>
-            <textarea id="np_desc" name="description" placeholder={`${m.common.optional}...`} />
-          </div>
-          <div className="field">
-            <label htmlFor="np_stock">{m.admin.productStockStatusFieldLabel}</label>
-            <select id="np_stock" name="stock_status" defaultValue="AVAILABLE">
-              <option value="AVAILABLE">{m.common.stockAvailable}</option>
-              <option value="LIMITED">{m.common.stockLimited}</option>
-              <option value="OUT_OF_STOCK">{m.common.stockOutOfStock}</option>
-            </select>
-          </div>
-          {/* Harga Dasar SANCI (0021) — opsional; kosong = produk tanpa
-              harga dasar (kalkulator/picker mulai 0 seperti biasa). Ber-
-              atribut name supaya ikut draf lokal seperti field lain. */}
+
+          <div className="sectiontitle" style={{ fontSize: "var(--fs-body)" }}>{m.admin.productSecSelling}</div>
+          {/* Harga Dasar SANCI (0021) — opsional; kosong = produk tanpa harga dasar. */}
           <div className="field">
             <label htmlFor="np_base_price">{m.admin.productBasePriceFieldLabel}</label>
             <input
@@ -171,6 +186,36 @@ export default function AddProductButton() {
             />
             <div className="hint">{m.admin.productBasePriceHint}</div>
           </div>
+          {/* Stok: tiga pilihan satu klik (bukan dropdown dua klik). */}
+          <div className="field">
+            <label>{m.admin.productStockStatusFieldLabel}</label>
+            <div className="segmented">
+              {(["AVAILABLE", "LIMITED", "OUT_OF_STOCK"] as const).map((s) => (
+                <label key={s} className="seg radio">
+                  <input type="radio" name="stock_status" value={s} defaultChecked={s === "AVAILABLE"} />
+                  {s === "AVAILABLE" ? m.common.stockAvailable : s === "LIMITED" ? m.common.stockLimited : m.common.stockOutOfStock}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+              <input type="checkbox" name="discontinued" />
+              {m.admin.productDiscontinuedLabel}
+            </label>
+            <div className="hint">{m.admin.productDiscontinuedHint}</div>
+          </div>
+
+          <div className="sectiontitle" style={{ fontSize: "var(--fs-body)" }}>{m.admin.productSecDetail}</div>
+          <div className="field">
+            <label htmlFor="np_size">{m.admin.productSizeFieldLabel}</label>
+            <input id="np_size" name="size" type="text" autoComplete="off" />
+            <div className="hint">{m.admin.productSizeFieldHint}</div>
+          </div>
+          <div className="field">
+            <label htmlFor="np_desc">{m.common.description}</label>
+            <textarea id="np_desc" name="description" placeholder={`${m.common.optional}...`} />
+          </div>
           <div className="field">
             <label htmlFor="np_photo">{m.admin.productPhotoFieldLabel}</label>
             <input id="np_photo" name="photo" type="file" accept="image/png,image/jpeg,image/webp" />
@@ -180,7 +225,10 @@ export default function AddProductButton() {
             <button type="button" className="btn" onClick={closeModal}>
               {m.common.cancel}
             </button>
-            <button type="submit" className="btn primary" disabled={submitting}>
+            <button type="submit" className="btn" disabled={submitting} onClick={() => (lanjutRef.current = true)}>
+              {m.admin.productSaveAndNextBtn}
+            </button>
+            <button type="submit" className="btn primary" disabled={submitting} onClick={() => (lanjutRef.current = false)}>
               {submitting ? m.common.saving : m.admin.productCreateBtn}
             </button>
           </div>

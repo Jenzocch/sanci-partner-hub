@@ -196,6 +196,32 @@ export async function updateProduct(
  * LESSONS #12 larang. Dipanggil pemanggil SETELAH updateProduct dipastikan
  * sukses (lihat product-actions.tsx), best-effort seperti Harga Dasar SANCI.
  */
+/**
+ * "Akan dihentikan / 即將停產" (0030, owner 2026-09-22). Penulisan TERPISAH
+ * dari updateProduct, persis pola setProductHasColorOptions di bawah: kalau
+ * 0030 belum dijalankan, kolom yang hilang (42703) tidak boleh menjatuhkan
+ * penyimpanan nama/kode/ukuran yang sehat (LESSONS #12).
+ */
+export async function setProductDiscontinued(id: string, discontinued: boolean): Promise<ActionResult<true>> {
+  const m = await getAdminMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+  const saved = await safeWrite(
+    supabase.from("sanci_products").update({ discontinued }).eq("id", id).select("id").single()
+  );
+  if (!saved.ok) {
+    if (saved.reason === "db") {
+      if (isMissingTable(saved.code)) return { error: { message: m.admin.catalogMigrationMsg } };
+      if (isMissingColumn(saved.code)) return { error: { message: m.admin.productDiscontinuedFeatureOff } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("setProductDiscontinued", { hasil: saved })) } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+  revalidatePath("/admin/produk");
+  // Penanda ini dibaca sales di katalog cabang — tidak tampil di /p/[id].
+  return { data: true };
+}
+
 export async function setProductHasColorOptions(id: string, hasColorOptions: boolean): Promise<ActionResult<true>> {
   const m = await getAdminMessages();
   const PESAN = pesan(m);

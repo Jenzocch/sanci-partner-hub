@@ -26,6 +26,8 @@ export type ProdukItem = {
   category: string | null;
   photoUrl: string | null;
   stockStatus: StockStatus;
+  /** 0030 — akan dihentikan. */
+  discontinued?: boolean;
   /**
    * Harga Normal toko ini untuk KARTU (keputusan owner 2026-08-28) — TIGA
    * keadaan, sama seperti kartu /admin/produk (kontrak applyDisplayPrices,
@@ -94,6 +96,7 @@ export default function ProdukListClient({
               category: p.category,
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
+              discontinued: (p as { discontinued?: boolean }).discontinued === true,
               // "in" (bukan `?? null`): TANPA field = query harga gagal,
               // dan itu keadaan yang berbeda dari null "belum ada harga".
               displayPrice: "display_price" in p ? p.display_price : undefined,
@@ -362,6 +365,7 @@ export default function ProdukListClient({
                       )}
                     </div>
                     <span className={STOCK_STATUS_CHIP[it.stockStatus]}>{stockStatusLabel(m, it.stockStatus)}</span>
+                    {it.discontinued && <span className="chip warn">{m.common.productDiscontinuedChip}</span>}
                   </div>
                 </Link>
                 {/* Saudara <Link>, bukan anaknya — lihat catatan handleQuickAdd. */}

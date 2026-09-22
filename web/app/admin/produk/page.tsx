@@ -21,7 +21,8 @@ function isMissingColumnErr(err: { code?: string } | null): boolean {
 // batch pertama halaman ini (yang sudah berjalan sebelum 0025 ada) — sama
 // pola dengan app/admin/catalog-actions.ts::getProdukPageAdmin.
 const PRODUK_COLS_NARROW = "id, name, code, category, description, size, photo_url, stock_status, status";
-const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options`;
+// `discontinued` (0030) ikut di select LEBAR dengan alasan yang sama.
+const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options, discontinued`;
 
 /**
  * /admin/produk — sejak 2026-08-26 pencarian & filter dieksekusi DATABASE

@@ -190,6 +190,10 @@ const id = {
   stockAvailable: "Tersedia",
   stockLimited: "Terbatas",
   stockOutOfStock: "Habis",
+  // 0030 — chip yang dilihat sales: stok boleh masih ada, tapi jangan
+  // menjanjikan pesan ulang. Terpisah dari status stok (lihat 0030).
+  productDiscontinuedChip: "Akan dihentikan",
+  productDiscontinuedWarn: "Produk ini akan dihentikan — jual stok yang ada, jangan janjikan pesan ulang ke pelanggan.",
 
   // Hak akses & peran (dipakai lib/audit-format.ts, juga layar Hak Akses)
   visibilityScope: "Visibilitas",
@@ -740,6 +744,8 @@ const en = {
   stockAvailable: "Available",
   stockLimited: "Limited",
   stockOutOfStock: "Out of stock",
+  productDiscontinuedChip: "Being discontinued",
+  productDiscontinuedWarn: "This product is being discontinued — sell the remaining stock, but do not promise the customer a reorder.",
 
   visibilityScope: "Visibility",
   editScope: "Edit scope",
@@ -1157,6 +1163,8 @@ const zh = {
   stockAvailable: "有货",
   stockLimited: "库存少",
   stockOutOfStock: "缺货",
+  productDiscontinuedChip: "即将停产",
+  productDiscontinuedWarn: "此产品即将停产 —— 可销售现有库存，但不要向客户承诺补货。",
 
   visibilityScope: "可见范围",
   editScope: "修改范围",

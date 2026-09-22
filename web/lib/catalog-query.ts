@@ -109,6 +109,8 @@ export type CatalogProductRow = {
   category: string | null;
   photo_url: string | null;
   stock_status: StockStatus;
+  /** 0030 — akan dihentikan (sales melihat peringatan). */
+  discontinued?: boolean;
   price?: number | null;
   /** Harga untuk DITAMPILKAN di kartu (hanya kalau pemanggil meminta
    *  `withDisplayPrices`). TIGA keadaan, jangan disamakan dengan `price`:

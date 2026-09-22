@@ -39,6 +39,8 @@ export type KalkulatorProduct = {
   category: string | null;
   photoUrl: string | null;
   stockStatus: StockStatus;
+  /** 0030 — akan dihentikan. */
+  discontinued?: boolean;
   price?: number | null;
 };
 
@@ -180,6 +182,7 @@ export default function KalkulatorClient({
               category: p.category,
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
+              discontinued: (p as { discontinued?: boolean }).discontinued === true,
               price: p.price ?? null,
             })),
           };
@@ -560,6 +563,7 @@ export default function KalkulatorClient({
                       <div className={styles.metaRow}>
                         {p.code && <span className="code">{p.code}</span>}
                         <span className={STOCK_STATUS_CHIP[p.stockStatus]}>{stockStatusLabel({ common: m }, p.stockStatus)}</span>
+                        {p.discontinued && <span className="chip warn">{m.productDiscontinuedChip}</span>}
                       </div>
                     </div>
                   </div>

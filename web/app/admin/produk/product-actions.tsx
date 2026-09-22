@@ -12,6 +12,7 @@ import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import {
   getProductBasePrice,
   setProductBasePrice,
+  setProductDiscontinued,
   setProductHasColorOptions,
   setProductStatus,
   setProductStockStatus,
@@ -165,6 +166,12 @@ export default function ProductActions({
     // hanya ditulis kalau nilainya MEMANG berubah, dan kegagalannya cuma
     // peringatan (best-effort, sama pola dengan Harga Dasar SANCI) — tidak
     // membatalkan data produk yang sudah tersimpan.
+    const discontinued = fd.get("discontinued") === "on";
+    if (discontinued !== (product.discontinued ?? false)) {
+      const discRes = await setProductDiscontinued(product.id, discontinued);
+      if ("error" in discRes) alert(discRes.error.message);
+      else onSaved({ discontinued });
+    }
     const hasColorOptions = fd.get("has_color_options") === "on";
     if (hasColorOptions !== (product.has_color_options ?? false)) {
       const colorRes = await setProductHasColorOptions(product.id, hasColorOptions);
@@ -328,6 +335,14 @@ export default function ProductActions({
               {/* Fitur B (0025). Prefill dari baris daftar AMAN sama alasannya
                   dengan size di atas: onSaved({ has_color_options }) di atas
                   menjaga baris daftar tetap segar (LESSONS #45). */}
+              {/* 0030 — pola sama dengan has_color_options di bawah. */}
+              <div className="field">
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+                  <input type="checkbox" name="discontinued" defaultChecked={product.discontinued ?? false} />
+                  {m.admin.productDiscontinuedLabel}
+                </label>
+                <div className="hint">{m.admin.productDiscontinuedHint}</div>
+              </div>
               <div className="field">
                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
                   <input
