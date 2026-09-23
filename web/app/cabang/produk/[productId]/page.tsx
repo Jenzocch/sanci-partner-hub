@@ -20,6 +20,12 @@ type ProductDetailRow = {
   description: string | null;
   /** Ukuran produk (0024) — teks bebas, boleh null. */
   size: string | null;
+  /** Spesifikasi dari price list (0031) — teks bebas, boleh null. */
+  material?: string | null;
+  configuration?: string | null;
+  packing?: string | null;
+  cbm?: string | null;
+  weight?: string | null;
   photo_url: string | null;
   stock_status: StockStatus;
   status: "ACTIVE" | "INACTIVE";
@@ -119,7 +125,7 @@ export default async function ProdukDetailPage({ params }: { params: Promise<{ p
     await Promise.all([
       supabase
         .from("sanci_products")
-        .select("id, name, code, category, description, size, photo_url, stock_status, status, discontinued")
+        .select("id, name, code, category, description, size, material, configuration, packing, cbm, weight, photo_url, stock_status, status, discontinued")
         .eq("id", productId)
         .maybeSingle(),
       supabase
@@ -183,6 +189,13 @@ export default async function ProdukDetailPage({ params }: { params: Promise<{ p
     category: row.category,
     description: row.description,
     size: row.size,
+    specs: {
+      material: row.material ?? null,
+      configuration: row.configuration ?? null,
+      packing: row.packing ?? null,
+      cbm: row.cbm ?? null,
+      weight: row.weight ?? null,
+    },
     photoUrl: row.photo_url,
     stockStatus: row.stock_status,
     discontinued: (row as { discontinued?: boolean }).discontinued === true,

@@ -11,6 +11,10 @@ import { useAdminMessages } from "@/lib/i18n/provider";
 import { formatIDR, parseIDRInput } from "@/lib/orders-shared";
 import {
   getProductBasePrice,
+  getProductExtras,
+  setProductSpecs,
+  type ProductExtras,
+  type ProductSpecs,
   setProductBasePrice,
   setProductDiscontinued,
   setProductHasColorOptions,
@@ -70,6 +74,13 @@ export default function ProductActions({
   const [statusBusy, setStatusBusy] = useState(false);
   const [priceMsg, setPriceMsg] = useState<string | null>(null);
   const [basePrice, setBasePrice] = useState<BasePriceState>({ status: "loading" });
+  // Spesifikasi + catatan internal (0031) — dimuat malas seperti harga
+  // dasar; gagal dimuat = kolom dinonaktifkan (LESSONS #10).
+  const [extras, setExtras] = useState<
+    | { status: "loading" }
+    | { status: "error"; message: string }
+    | { status: "ready"; initial: ProductExtras; specs: ProductSpecs }
+  >({ status: "loading" });
   const draft = useLocalDraft("product", product.id, modal === "edit");
 
   function openEdit() {
@@ -80,6 +91,13 @@ export default function ProductActions({
     setModal("edit");
     // Harga Dasar SANCI dimuat malas per pembukaan modal (0021) — nilai
     // segar tiap kali, bukan cache kartu.
+    setExtras({ status: "loading" });
+    getProductExtras(product.id)
+      .then((res) => {
+        if ("error" in res) setExtras({ status: "error", message: res.error.message });
+        else setExtras({ status: "ready", initial: res.data, specs: res.data.specs });
+      })
+      .catch(() => setExtras({ status: "error", message: m.common.errorLoad }));
     setBasePrice({ status: "loading" });
     getProductBasePrice(product.id)
       .then((res) => {
@@ -166,6 +184,14 @@ export default function ProductActions({
     // hanya ditulis kalau nilainya MEMANG berubah, dan kegagalannya cuma
     // peringatan (best-effort, sama pola dengan Harga Dasar SANCI) — tidak
     // membatalkan data produk yang sudah tersimpan.
+    if (
+      extras.status === "ready" &&
+      (Object.keys(extras.specs) as (keyof ProductSpecs)[]).some((k) => extras.specs[k] !== extras.initial.specs[k])
+    ) {
+      const specRes = await setProductSpecs(product.id, extras.specs);
+      if ("error" in specRes) setPriceMsg(m.admin.productSpecsSaveFailed);
+    }
+
     const discontinued = fd.get("discontinued") === "on";
     if (discontinued !== (product.discontinued ?? false)) {
       const discRes = await setProductDiscontinued(product.id, discontinued);
@@ -358,6 +384,55 @@ export default function ProductActions({
                 <label htmlFor={`ep_desc_${product.id}`}>{m.common.description}</label>
                 <textarea id={`ep_desc_${product.id}`} name="description" defaultValue={product.description || ""} />
               </div>
+              {/* Spesifikasi (0031). SENGAJA tanpa atribut `name` — alasan
+                  sama dengan Harga Dasar di bawah: dimuat async, draf lokal
+                  tidak boleh memulihkan nilai basi ke sini. */}
+              <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
+                <legend style={{ fontWeight: 600, marginBottom: 6 }}>{m.admin.productSpecsTitle}</legend>
+                {extras.status === "loading" && <div className="hint">{m.common.loading}</div>}
+                {extras.status === "error" && <div className="err-text">{extras.message}</div>}
+                {extras.status === "ready" &&
+                  (
+                    [
+                      ["material", m.admin.productSpecMaterial],
+                      ["configuration", m.admin.productSpecConfiguration],
+                      ["packing", m.admin.productSpecPacking],
+                      ["cbm", m.admin.productSpecCbm],
+                      ["weight", m.admin.productSpecWeight],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <div className="field" key={key}>
+                      <label htmlFor={`ep_spec_${key}_${product.id}`}>{label}</label>
+                      <input
+                        id={`ep_spec_${key}_${product.id}`}
+                        type="text"
+                        value={extras.specs[key]}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setExtras((prev) =>
+                            prev.status === "ready" ? { ...prev, specs: { ...prev.specs, [key]: value } } : prev
+                          );
+                        }}
+                      />
+                    </div>
+                  ))}
+              </fieldset>
+              {/* Catatan internal (0031) — hanya dibaca; RLS admin-only. */}
+              {extras.status === "ready" &&
+                (extras.initial.remarks || extras.initial.oldShowroomPrice !== null) && (
+                  <div className="banner" style={{ margin: "0 0 12px" }}>
+                    <div style={{ fontWeight: 600 }}>{m.admin.productInternalTitle}</div>
+                    {extras.initial.oldShowroomPrice !== null && (
+                      <div>
+                        {m.admin.productOldShowroomPrice}: {formatIDR(extras.initial.oldShowroomPrice)}
+                      </div>
+                    )}
+                    {extras.initial.remarks && (
+                      <div className="small" style={{ overflowWrap: "anywhere" }}>{extras.initial.remarks}</div>
+                    )}
+                    <div className="hint">{m.admin.productInternalHint}</div>
+                  </div>
+                )}
               {/* Harga Dasar SANCI (0021). SENGAJA tanpa atribut `name`:
                   input terkontrol yang dimuat async — draf lokal (yang cuma
                   membaca field ber-name) tidak boleh memulihkan nilai basi

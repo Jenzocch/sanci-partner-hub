@@ -458,3 +458,62 @@ export async function setCatalogAccess(partnerId: string, enabled: boolean): Pro
   revalidatePath(`/admin/partners/${partnerId}`);
   return { data: true };
 }
+
+/** Spesifikasi dari price list (0031) — publik, setara `size`. */
+export type ProductSpecs = {
+  material: string;
+  configuration: string;
+  packing: string;
+  cbm: string;
+  weight: string;
+};
+export type ProductExtras = {
+  specs: ProductSpecs;
+  /** 0031 `product_internal_notes` — KHUSUS ADMIN (RLS), hanya dibaca. */
+  remarks: string | null;
+  oldShowroomPrice: number | null;
+};
+
+const SPEC_KEYS = ["material", "configuration", "packing", "cbm", "weight"] as const;
+
+/**
+ * Dimuat MALAS saat modal Ubah dibuka (pola getProductBasePrice) — daftar
+ * /admin/produk tidak ikut membaca kolom-kolom ini. `{ error }` ≠ kosong
+ * (LESSONS #10): pemanggil menonaktifkan kolomnya supaya nilai kosong palsu
+ * tidak tersimpan balik dan menghapus isi.
+ */
+export async function getProductExtras(id: string): Promise<ActionResult<ProductExtras>> {
+  const m = await getAdminMessages();
+  const supabase = await createClient();
+  const [prod, notes] = await Promise.all([
+    supabase.from("sanci_products").select(SPEC_KEYS.join(", ")).eq("id", id).maybeSingle(),
+    supabase.from("product_internal_notes").select("remarks, old_showroom_price").eq("product_id", id).maybeSingle(),
+  ]);
+  if (prod.error) {
+    if (isMissingColumn(prod.error.code)) return { error: { message: m.admin.productSpecsFeatureOff } };
+    return { error: { message: m.common.errorLoad } };
+  }
+  const row = (prod.data ?? {}) as Record<string, string | null>;
+  const specs = Object.fromEntries(SPEC_KEYS.map((k) => [k, row[k] ?? ""])) as ProductSpecs;
+  // Catatan internal best-effort: gagal dibaca tidak menghalangi mengubah spesifikasi.
+  const n = notes.error ? null : (notes.data as { remarks: string | null; old_showroom_price: number | null } | null);
+  return { data: { specs, remarks: n?.remarks ?? null, oldShowroomPrice: n?.old_showroom_price ?? null } };
+}
+
+/** Tulis spesifikasi (0031) — TERPISAH dari updateProduct (LESSONS #12). */
+export async function setProductSpecs(id: string, specs: ProductSpecs): Promise<ActionResult<true>> {
+  const m = await getAdminMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+  const patch = Object.fromEntries(SPEC_KEYS.map((k) => [k, String(specs[k] ?? "").trim() || null]));
+  const saved = await safeWrite(supabase.from("sanci_products").update(patch).eq("id", id).select("id").single());
+  if (!saved.ok) {
+    if (saved.reason === "db") {
+      if (isMissingColumn(saved.code)) return { error: { message: m.admin.productSpecsFeatureOff } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("setProductSpecs", { hasil: saved })) } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+  revalidatePath("/admin/produk");
+  return { data: true };
+}

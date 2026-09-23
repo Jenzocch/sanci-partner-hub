@@ -17,6 +17,14 @@ export type ProdukDetailItem = {
   category: string | null;
   description: string | null;
   size: string | null;
+  /** 0031 — spesifikasi dari price list; kosong = barisnya tidak tampil. */
+  specs?: {
+    material: string | null;
+    configuration: string | null;
+    packing: string | null;
+    cbm: string | null;
+    weight: string | null;
+  };
   photoUrl: string | null;
   stockStatus: StockStatus;
   /** 0030 — akan dihentikan. */
@@ -194,6 +202,24 @@ export default function ProdukDetailClient({
           <span className={styles.speclineValue}>{item.size}</span>
         </div>
       )}
+
+      {item.specs &&
+        (
+          [
+            [m.cabang.produkDetailMaterialLabel, item.specs.material],
+            [m.cabang.produkDetailConfigLabel, item.specs.configuration],
+            [m.cabang.produkDetailPackingLabel, item.specs.packing],
+            [m.cabang.produkDetailCbmLabel, item.specs.cbm],
+            [m.cabang.produkDetailWeightLabel, item.specs.weight],
+          ] as const
+        )
+          .filter(([, value]) => !!value)
+          .map(([label, value]) => (
+            <div key={label} className={`rowline ${styles.specline}`} style={{ marginTop: 8 }}>
+              <span className="muted">{label}</span>
+              <span className={styles.speclineValue}>{value}</span>
+            </div>
+          ))}
 
       {/* Harga Normal (0021) — hanya tampil kalau toko ini punya harga
           efektif (override sendiri atau Harga Dasar SANCI). Tanpa harga =
