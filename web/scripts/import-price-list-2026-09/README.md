@@ -23,3 +23,13 @@ Ukuran dalam meter (`1.8*2.0*30`) dinormalkan ke cm (`180*200*30`).
 
 ## Menjalankan
 Lihat komentar di `run.mjs`. Jalankan tanpa `--jalankan` dulu untuk melihat rencana.
+
+## Satu kode, dua barang (owner 2026-09-23)
+- `TM-CJ2006M` + `TM-CJ2006N`: di Excel sel harga/remarks DIGABUNG (1 harga
+  30.820.000 untuk dua meja) → tetap SATU produk set lama
+  `TM-CJ2006M / TM-CJ2006N`; ukuran & bahan kedua meja ditulis berdua.
+  TM-CJ2006N TIDAK dibuat sebagai produk sendiri.
+- Baris set satu harga (`CE-CJ2001A/B`, `CE-CJ2012A/B`, `DG2553 (left + right)`,
+  `CJ2616 + BJ2616`, `ZY-CJ2301-A/B`) = satu produk, nama bertanda "(Set)".
+- Satu kode dengan jenis barang berbeda (`CE-2109`, `JD09`, `ZRC-1003 Chenyu`)
+  = produk terpisah `-1`/`-2`, nama menyebut jenisnya (mis. "no box").

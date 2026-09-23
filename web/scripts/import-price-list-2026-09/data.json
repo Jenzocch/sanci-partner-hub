@@ -20,7 +20,7 @@
  {
   "action": "insert",
   "code": "AI+ (AI)",
-  "name": "SANCI Mattress (AI+ Series) AI+ (AI)",
+  "name": "SANCI Mattress (AI+ Series) AI+ (AI) (Set)",
   "category": "SANCI Mattress",
   "size": "180*200*31",
   "material": "WHITE",
@@ -11180,7 +11180,7 @@
  {
   "action": "insert",
   "code": "CE-CJ2001A/B",
-  "name": "SANCI Coffee Table CE-CJ2001A/B",
+  "name": "SANCI Coffee Table CE-CJ2001A/B (Set)",
   "category": "Coffee Table",
   "size": "1000*1000*330 / 700*700*435",
   "material": "Ironwork gun powder coating / Ture Marble",
@@ -11324,7 +11324,7 @@
  {
   "action": "insert",
   "code": "CE-CJ2012A/B",
-  "name": "SANCI Coffee Table CE-CJ2012A/B",
+  "name": "SANCI Coffee Table CE-CJ2012A/B (Set)",
   "category": "Coffee Table",
   "size": "1000*1000*320 / 550*550*480",
   "material": "High-density board oak veneer texture paint / Ture Marble / oak veneer",
@@ -11902,8 +11902,8 @@
   "code": "TM-CJ2006M / TM-CJ2006N",
   "name": "SANCI Side Table TM-CJ2006 Set",
   "category": "Coffee Table",
-  "size": "1000*320",
-  "material": "carbon steel hardware / walnut wood-grain finish",
+  "size": "TM-CJ2006M: 1000*320 / TM-CJ2006N: 550*380",
+  "material": "TM-CJ2006M: carbon steel hardware / walnut wood-grain finish / TM-CJ2006N: carbon steel hardware / tempered glass",
   "configuration": null,
   "packing": "1 pc",
   "cbm": null,
@@ -11913,25 +11913,7 @@
   "old_showroom_price": 30820000,
   "photo": null,
   "description": null,
-  "source": "Coffee Table #41"
- },
- {
-  "action": "insert",
-  "code": "TM-CJ2006N",
-  "name": "SANCI Small Round Table TM-CJ2006N",
-  "category": "Coffee Table",
-  "size": "550*380",
-  "material": "carbon steel hardware / tempered glass",
-  "configuration": null,
-  "packing": "1 pc",
-  "cbm": null,
-  "weight": null,
-  "price": null,
-  "remarks": null,
-  "old_showroom_price": null,
-  "photo": "Coffee_Table_042.jpeg",
-  "description": null,
-  "source": "Coffee Table #42"
+  "source": "Coffee Table #41+#42 (1 harga untuk set, sel harga digabung di Excel)"
  },
  {
   "action": "insert",
@@ -13790,7 +13772,7 @@
  {
   "action": "insert",
   "code": "DG2553 (left + right)",
-  "name": "SANCI TV Cabinet DG2553 (left + right)",
+  "name": "SANCI TV Cabinet DG2553 (left + right) (Set)",
   "category": "TV Cabinet",
   "size": "1600*400*300 (left) + 1600*400*300 (right)",
   "material": "Royal white jade crystallised stone",
