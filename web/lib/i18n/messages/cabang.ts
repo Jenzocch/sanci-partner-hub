@@ -485,6 +485,14 @@ const id = {
   customerPaymentSaveBtn: "Simpan Pembayaran",
   customerPaymentLoadFailed: "Data pembayaran gagal dimuat.",
   customerPaymentReadOnlyNote: "Anda hanya bisa melihat, tidak bisa mengubah pembayaran pesanan ini.",
+
+  // ---- Laporan Penjualan cabang (/cabang/analisis, migration 0033) ----
+  // Label kolom/periode ada di common.ts (dipakai bersama sisi admin).
+  homeSalesReport: "Laporan Penjualan",
+  reportTitle: "Laporan Penjualan",
+  reportScopeNote: "Berisi pesanan dari cabang yang boleh Anda lihat.",
+  reportUnpricedNote:
+    "{n} pesanan belum punya Harga Akhir yang bisa dilihat toko ini — dihitung Rp 0 di Penjualan dan tidak masuk Sisa. Tanyakan ke SANCI kalau angkanya seharusnya ada.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -868,6 +876,12 @@ const en = {
   customerPaymentSaveBtn: "Save Payment",
   customerPaymentLoadFailed: "The payment data failed to load.",
   customerPaymentReadOnlyNote: "You can only view this order's payment, not edit it.",
+
+  homeSalesReport: "Sales Report",
+  reportTitle: "Sales Report",
+  reportScopeNote: "Includes orders from the branches you are allowed to see.",
+  reportUnpricedNote:
+    "{n} orders have no Final price this store can see — counted as Rp 0 in Sales and left out of Outstanding. Ask SANCI if the amount should be there.",
 } satisfies Shape;
 
 const zh = {
@@ -1221,6 +1235,12 @@ const zh = {
   customerPaymentSaveBtn: "保存付款",
   customerPaymentLoadFailed: "付款数据加载失败。",
   customerPaymentReadOnlyNote: "您只能查看这笔订单的付款信息,无法修改。",
+
+  homeSalesReport: "销售报表",
+  reportTitle: "销售报表",
+  reportScopeNote: "包含您有权查看的分店的订单。",
+  reportUnpricedNote:
+    "{n} 张订单还没有本店可查看的最终金额 —— 销售额按 0 元计算，也不计入未付余额。如果应该有金额，请联系 SANCI。",
 } satisfies Shape;
 
 export const cabang = { id, en, zh };

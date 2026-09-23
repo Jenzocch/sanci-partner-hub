@@ -1040,6 +1040,21 @@ const id = {
   customerPaymentModalTitle: "Ubah Pembayaran Pelanggan",
   customerPaymentSaveBtn: "Simpan Pembayaran",
   customerPaymentLoadFailed: "Data pembayaran gagal dimuat.",
+
+  // ---- Laporan Penjualan (migration 0033) — dua tab tambahan /admin/analisis ----
+  analyticsTabReport: "Laporan",
+  analyticsTabByBranch: "Per Cabang",
+  reportScopeLabel: "Cakupan",
+  reportScopeAll: "Semua partner",
+  reportScopePartnerAll: "{name} — semua cabang",
+  reportSortLabel: "Urutkan",
+  reportSortSales: "Penjualan terbesar",
+  reportSortOrders: "Pesanan terbanyak",
+  reportSortOutstanding: "Sisa terbesar",
+  reportSortName: "Nama",
+  reportScopeLoadFailed: "Daftar partner/cabang gagal dimuat — pilihan cakupan sementara hanya \"Semua partner\".",
+  reportUnpricedNote: "{n} pesanan belum punya Harga Akhir (Penawaran SANCI) — dihitung Rp 0 di Penjualan dan tidak masuk Sisa.",
+  reportSheetPerBranch: "Per Cabang",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -1954,6 +1969,20 @@ const en = {
   customerPaymentModalTitle: "Edit Customer Payment",
   customerPaymentSaveBtn: "Save Payment",
   customerPaymentLoadFailed: "The payment data failed to load.",
+
+  analyticsTabReport: "Report",
+  analyticsTabByBranch: "By Branch",
+  reportScopeLabel: "Scope",
+  reportScopeAll: "All partners",
+  reportScopePartnerAll: "{name} — all branches",
+  reportSortLabel: "Sort",
+  reportSortSales: "Highest sales",
+  reportSortOrders: "Most orders",
+  reportSortOutstanding: "Highest outstanding",
+  reportSortName: "Name",
+  reportScopeLoadFailed: "The partner/branch list could not be loaded — the scope can only be \"All partners\" for now.",
+  reportUnpricedNote: "{n} orders have no Final price (SANCI Offer) yet — counted as Rp 0 in Sales and left out of Outstanding.",
+  reportSheetPerBranch: "By Branch",
 } satisfies Shape;
 
 const zh = {
@@ -2782,6 +2811,20 @@ const zh = {
   customerPaymentModalTitle: "修改客户付款",
   customerPaymentSaveBtn: "保存付款",
   customerPaymentLoadFailed: "付款数据加载失败。",
+
+  analyticsTabReport: "报表",
+  analyticsTabByBranch: "按分店",
+  reportScopeLabel: "范围",
+  reportScopeAll: "全部合作商",
+  reportScopePartnerAll: "{name} —— 全部分店",
+  reportSortLabel: "排序",
+  reportSortSales: "销售额最高",
+  reportSortOrders: "订单最多",
+  reportSortOutstanding: "未付余额最高",
+  reportSortName: "名称",
+  reportScopeLoadFailed: "合作商/分店列表加载失败 —— 目前范围只能选“全部合作商”。",
+  reportUnpricedNote: "{n} 张订单还没有最终金额（SANCI 方案金额）—— 销售额按 0 元计算，也不计入未付余额。",
+  reportSheetPerBranch: "按分店",
 } satisfies Shape;
 
 export const admin = { id, en, zh };

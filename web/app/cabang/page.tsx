@@ -131,6 +131,15 @@ export default async function CabangHome() {
           <span className="lbl">{m.cabang.homeCustomers}</span>
           <span className="arrow" aria-hidden="true">&rsaquo;</span>
         </Link>
+        {/* Laporan Penjualan (0033) — meninjau pesanan yang SUDAH masuk,
+            jadi berdiri di sebelah Pesanan/Pelanggan, sebelum alat
+            penawaran. Tanpa gerbang di sini: halamannya sendiri yang bilang
+            "belum aktif" kalau migration belum jalan, dan isinya dibatasi
+            RLS, bukan oleh tautan ini (LESSONS #5). */}
+        <Link href="/cabang/analisis" className="biglink">
+          <span className="lbl">{m.cabang.homeSalesReport}</span>
+          <span className="arrow" aria-hidden="true">&rsaquo;</span>
+        </Link>
         {/* Kalkulator DI ATAS Produk (arahan owner 2026-08-24, logika
             pengguna): staf membuka kalkulator SAAT pelanggan di depannya —
             langkah menuju pesanan; katalog produk lebih ke rujukan santai.

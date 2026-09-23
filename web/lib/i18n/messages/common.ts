@@ -610,6 +610,46 @@ const id = {
   // pelanggan sisi cabang DAN sisi admin (PINDAH dari cabang.ts 2026-09-01).
   orderHistoryTitle: "Riwayat Pesanan",
   noOrdersForCustomer: "Belum ada pesanan untuk pelanggan ini.",
+
+  // ---- Laporan Penjualan (migration 0033, owner 2026-09-23) ----
+  // Di `common` karena dipakai DUA area (admin /admin/analisis/laporan &
+  // /cabang/analisis) dan oleh pembuat berkas Excel bersama
+  // (lib/sales-report-shared.ts). "Harga Akhir" = final_amount 0015
+  // (GLOSSARY); "Sisa" = Harga Akhir − dibayar, lantai 0 per pesanan.
+  reportPeriodLabel: "Periode",
+  reportPresetThisMonth: "Bulan ini",
+  reportPresetLastMonth: "Bulan lalu",
+  reportPresetThisYear: "Tahun ini",
+  reportPresetLastYear: "Tahun lalu",
+  reportPresetCustom: "Pilih tanggal",
+  reportGranularityLabel: "Kelompokkan per",
+  reportGranularityMonth: "Bulan",
+  reportGranularityYear: "Tahun",
+  reportDateFromLabel: "Dari tanggal",
+  reportDateToLabel: "Sampai tanggal",
+  reportApply: "Tampilkan",
+  reportExportBtn: "Unduh Excel",
+  reportSummaryTitle: "Ringkasan",
+  reportPeriodTableTitle: "Per Periode",
+  reportColPeriod: "Periode",
+  reportColPartner: "Partner",
+  reportColBranch: "Cabang",
+  reportColOrders: "Pesanan",
+  reportColSales: "Penjualan (Harga Akhir)",
+  reportColQty: "Unit",
+  reportColInvoiced: "Sudah Invoice",
+  reportColPaid: "Dibayar",
+  reportColOutstanding: "Sisa",
+  reportTotal: "Total",
+  reportRangeLine: "{from} s/d {to} · pesanan yang dibatalkan tidak dihitung.",
+  reportInvalidRange: "Tanggal tidak valid — yang ditampilkan bulan ini.",
+  reportEmpty: "Belum ada pesanan pada periode ini.",
+  reportFeatureOff: "Laporan penjualan belum aktif — migration database 0033 belum dijalankan.",
+  reportDateBasisNote:
+    "Penjualan, Unit, Dibayar dan Sisa memakai tanggal pesanan (WIB). Sudah Invoice memakai tanggal Invoice pertama — pesanan bulan lalu bisa muncul di kolom itu bulan ini.",
+  reportSheetDetail: "Detail",
+  reportSheetInfo: "Info",
+  reportCappedNote: "Hasil terpotong di {n} baris — persempit periode atau kelompokkan per tahun supaya semua terhitung.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -1036,6 +1076,41 @@ const en = {
 
   orderHistoryTitle: "Order history",
   noOrdersForCustomer: "No orders for this customer yet.",
+
+  reportPeriodLabel: "Period",
+  reportPresetThisMonth: "This month",
+  reportPresetLastMonth: "Last month",
+  reportPresetThisYear: "This year",
+  reportPresetLastYear: "Last year",
+  reportPresetCustom: "Pick dates",
+  reportGranularityLabel: "Group by",
+  reportGranularityMonth: "Month",
+  reportGranularityYear: "Year",
+  reportDateFromLabel: "From",
+  reportDateToLabel: "To",
+  reportApply: "Show",
+  reportExportBtn: "Download Excel",
+  reportSummaryTitle: "Summary",
+  reportPeriodTableTitle: "By Period",
+  reportColPeriod: "Period",
+  reportColPartner: "Partner",
+  reportColBranch: "Branch",
+  reportColOrders: "Orders",
+  reportColSales: "Sales (Final price)",
+  reportColQty: "Units",
+  reportColInvoiced: "Invoiced",
+  reportColPaid: "Paid",
+  reportColOutstanding: "Outstanding",
+  reportTotal: "Total",
+  reportRangeLine: "{from} to {to} · cancelled orders are not counted.",
+  reportInvalidRange: "Invalid dates — showing this month instead.",
+  reportEmpty: "No orders in this period yet.",
+  reportFeatureOff: "The sales report is not active yet — database migration 0033 has not been run.",
+  reportDateBasisNote:
+    "Sales, Units, Paid and Outstanding use the order date (WIB). Invoiced uses the first Invoice date — an order from last month can appear in that column this month.",
+  reportSheetDetail: "Detail",
+  reportSheetInfo: "Info",
+  reportCappedNote: "The result was cut off at {n} rows — narrow the period or group by year so everything is counted.",
 } satisfies Shape;
 
 const zh = {
@@ -1449,6 +1524,41 @@ const zh = {
 
   orderHistoryTitle: "订单记录",
   noOrdersForCustomer: "该客户还没有订单。",
+
+  reportPeriodLabel: "期间",
+  reportPresetThisMonth: "本月",
+  reportPresetLastMonth: "上月",
+  reportPresetThisYear: "今年",
+  reportPresetLastYear: "去年",
+  reportPresetCustom: "自选日期",
+  reportGranularityLabel: "汇总方式",
+  reportGranularityMonth: "按月",
+  reportGranularityYear: "按年",
+  reportDateFromLabel: "开始日期",
+  reportDateToLabel: "结束日期",
+  reportApply: "查看",
+  reportExportBtn: "下载 Excel",
+  reportSummaryTitle: "汇总",
+  reportPeriodTableTitle: "按期间",
+  reportColPeriod: "期间",
+  reportColPartner: "合作商",
+  reportColBranch: "分店",
+  reportColOrders: "订单数",
+  reportColSales: "销售额（最终金额）",
+  reportColQty: "件数",
+  reportColInvoiced: "已开 Invoice",
+  reportColPaid: "已付款",
+  reportColOutstanding: "未付余额",
+  reportTotal: "合计",
+  reportRangeLine: "{from} 至 {to} · 已取消的订单不计入。",
+  reportInvalidRange: "日期无效 —— 改为显示本月。",
+  reportEmpty: "这个期间还没有订单。",
+  reportFeatureOff: "销售报表尚未启用 —— 数据库迁移脚本 0033 还没有执行。",
+  reportDateBasisNote:
+    "销售额、件数、已付款和未付余额按下单日期（雅加达时间）统计；已开 Invoice 按第一张 Invoice 的日期统计 —— 上个月的订单可能出现在本月的这一栏。",
+  reportSheetDetail: "明细",
+  reportSheetInfo: "说明",
+  reportCappedNote: "结果在 {n} 行处被截断 —— 请缩短期间或改为按年汇总，才能全部计入。",
 } satisfies Shape;
 
 export const common = { id, en, zh };
