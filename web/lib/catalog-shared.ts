@@ -96,6 +96,7 @@ export interface SanciProductRow {
    * membawanya, dan undefined dibaca sebagai "tidak ditandai".
    */
   discontinued?: boolean;
+  b2b_hotel_only?: boolean;
   created_at: string;
   updated_at: string;
 }

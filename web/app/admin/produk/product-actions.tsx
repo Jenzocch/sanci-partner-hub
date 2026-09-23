@@ -16,6 +16,7 @@ import {
   type ProductExtras,
   type ProductSpecs,
   setProductBasePrice,
+  setProductB2bHotelOnly,
   setProductDiscontinued,
   setProductHasColorOptions,
   setProductStatus,
@@ -198,6 +199,12 @@ export default function ProductActions({
       if ("error" in discRes) alert(discRes.error.message);
       else onSaved({ discontinued });
     }
+    const b2bHotelOnly = fd.get("b2b_hotel_only") === "on";
+    if (b2bHotelOnly !== (product.b2b_hotel_only ?? false)) {
+      const b2bRes = await setProductB2bHotelOnly(product.id, b2bHotelOnly);
+      if ("error" in b2bRes) setPriceMsg(b2bRes.error.message);
+      else onSaved({ b2b_hotel_only: b2bHotelOnly });
+    }
     const hasColorOptions = fd.get("has_color_options") === "on";
     if (hasColorOptions !== (product.has_color_options ?? false)) {
       const colorRes = await setProductHasColorOptions(product.id, hasColorOptions);
@@ -368,6 +375,13 @@ export default function ProductActions({
                   {m.admin.productDiscontinuedLabel}
                 </label>
                 <div className="hint">{m.admin.productDiscontinuedHint}</div>
+              </div>
+              <div className="field">
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>
+                  <input type="checkbox" name="b2b_hotel_only" defaultChecked={product.b2b_hotel_only ?? false} />
+                  {m.admin.productB2bHotelLabel}
+                </label>
+                <div className="hint">{m.admin.productB2bHotelHint}</div>
               </div>
               <div className="field">
                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400 }}>

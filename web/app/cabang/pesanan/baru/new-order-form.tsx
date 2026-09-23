@@ -383,6 +383,7 @@ export default function NewOrderForm({
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
               discontinued: (p as { discontinued?: boolean }).discontinued === true,
+              b2bHotelOnly: (p as { b2b_hotel_only?: boolean }).b2b_hotel_only === true,
               price: p.price ?? null,
             })),
           };

@@ -124,7 +124,7 @@ export default async function ProdukPage() {
   const [{ data: products, error: productsError }, categories] = await Promise.all([
     supabase
       .from("sanci_products")
-      .select("id, name, code, category, photo_url, stock_status, discontinued")
+      .select("id, name, code, category, photo_url, stock_status, discontinued, b2b_hotel_only")
       .order("name")
       .order("id")
       .range(0, CATALOG_PAGE_SIZE),
@@ -174,6 +174,7 @@ export default async function ProdukPage() {
     photoUrl: p.photo_url,
     stockStatus: p.stock_status,
     discontinued: (p as { discontinued?: boolean }).discontinued === true,
+    b2bHotelOnly: (p as { b2b_hotel_only?: boolean }).b2b_hotel_only === true,
     displayPrice: "display_price" in p ? p.display_price : undefined,
   }));
 

@@ -66,7 +66,7 @@ export default async function AdminKalkulatorPage() {
   const [{ data: products, error }, categories] = await Promise.all([
     supabase
       .from("sanci_products")
-      .select("id, name, code, category, photo_url, stock_status, discontinued")
+      .select("id, name, code, category, photo_url, stock_status, discontinued, b2b_hotel_only")
       .eq("status", "ACTIVE")
       .order("name")
       .order("id")
@@ -117,6 +117,7 @@ export default async function AdminKalkulatorPage() {
     photoUrl: p.photo_url,
     stockStatus: p.stock_status,
     discontinued: (p as { discontinued?: boolean }).discontinued === true,
+    b2bHotelOnly: (p as { b2b_hotel_only?: boolean }).b2b_hotel_only === true,
     price: prices?.get(p.id)?.price ?? null,
   }));
 

@@ -193,6 +193,8 @@ const id = {
   // 0030 — chip yang dilihat sales: stok boleh masih ada, tapi jangan
   // menjanjikan pesan ulang. Terpisah dari status stok (lihat 0030).
   productDiscontinuedChip: "Akan dihentikan",
+  productB2bHotelChip: "Only For B2B Hotel",
+  productB2bHotelWarn: "Harga produk ini adalah HARGA PROYEK HOTEL (jumlah besar) — jangan ditawarkan ke pelanggan eceran.",
   productDiscontinuedWarn: "Produk ini akan dihentikan — jual stok yang ada, jangan janjikan pesan ulang ke pelanggan.",
 
   // Hak akses & peran (dipakai lib/audit-format.ts, juga layar Hak Akses)
@@ -745,6 +747,8 @@ const en = {
   stockLimited: "Limited",
   stockOutOfStock: "Out of stock",
   productDiscontinuedChip: "Being discontinued",
+  productB2bHotelChip: "Only For B2B Hotel",
+  productB2bHotelWarn: "This price is a HOTEL PROJECT price (bulk orders) — do not quote it to retail customers.",
   productDiscontinuedWarn: "This product is being discontinued — sell the remaining stock, but do not promise the customer a reorder.",
 
   visibilityScope: "Visibility",
@@ -1164,6 +1168,8 @@ const zh = {
   stockLimited: "库存少",
   stockOutOfStock: "缺货",
   productDiscontinuedChip: "即将停产",
+  productB2bHotelChip: "Only For B2B Hotel",
+  productB2bHotelWarn: "此价格是饭店专案价（大数量）—— 不要报给一般零售客人。",
   productDiscontinuedWarn: "此产品即将停产 —— 可销售现有库存，但不要向客户承诺补货。",
 
   visibilityScope: "可见范围",

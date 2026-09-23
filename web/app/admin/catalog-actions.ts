@@ -151,6 +151,7 @@ export type AdminProdukRow = {
   has_color_options?: boolean;
   /** 0030 — "akan dihentikan". Opsional: select sempit tidak membawanya. */
   discontinued?: boolean;
+  b2b_hotel_only?: boolean;
 };
 
 export type AdminProdukPageInput = CatalogPageInput & { stock?: "ALL" | StockStatus };
@@ -166,7 +167,7 @@ const PRODUK_COLS_NARROW = "id, name, code, category, description, size, photo_u
 // belum ada (LESSONS #12), dan 42703 pada satu kolom TIDAK BOLEH menjatuhkan
 // seluruh pencarian /admin/produk (yang sudah berjalan sebelum 0025 ada).
 // `discontinued` (0030) ikut di select LEBAR dengan alasan yang sama.
-const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options, discontinued`;
+const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options, discontinued, b2b_hotel_only`;
 
 function isMissingColumnErr(err: { code?: string } | null): boolean {
   return !!err && err.code === "42703";

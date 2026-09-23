@@ -41,6 +41,8 @@ export type KalkulatorProduct = {
   stockStatus: StockStatus;
   /** 0030 — akan dihentikan. */
   discontinued?: boolean;
+  /** 0032 — harga dasarnya harga proyek hotel. */
+  b2bHotelOnly?: boolean;
   price?: number | null;
 };
 
@@ -183,6 +185,7 @@ export default function KalkulatorClient({
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
               discontinued: (p as { discontinued?: boolean }).discontinued === true,
+              b2bHotelOnly: (p as { b2b_hotel_only?: boolean }).b2b_hotel_only === true,
               price: p.price ?? null,
             })),
           };
@@ -564,6 +567,7 @@ export default function KalkulatorClient({
                         {p.code && <span className="code">{p.code}</span>}
                         <span className={STOCK_STATUS_CHIP[p.stockStatus]}>{stockStatusLabel({ common: m }, p.stockStatus)}</span>
                         {p.discontinued && <span className="chip warn">{m.productDiscontinuedChip}</span>}
+                        {p.b2bHotelOnly && <span className="chip bad">{m.productB2bHotelChip}</span>}
                       </div>
                     </div>
                   </div>

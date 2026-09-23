@@ -28,6 +28,8 @@ export type ProdukItem = {
   stockStatus: StockStatus;
   /** 0030 — akan dihentikan. */
   discontinued?: boolean;
+  /** 0032 — harga dasarnya harga proyek hotel. */
+  b2bHotelOnly?: boolean;
   /**
    * Harga Normal toko ini untuk KARTU (keputusan owner 2026-08-28) — TIGA
    * keadaan, sama seperti kartu /admin/produk (kontrak applyDisplayPrices,
@@ -97,6 +99,7 @@ export default function ProdukListClient({
               photoUrl: p.photo_url,
               stockStatus: p.stock_status,
               discontinued: (p as { discontinued?: boolean }).discontinued === true,
+              b2bHotelOnly: (p as { b2b_hotel_only?: boolean }).b2b_hotel_only === true,
               // "in" (bukan `?? null`): TANPA field = query harga gagal,
               // dan itu keadaan yang berbeda dari null "belum ada harga".
               displayPrice: "display_price" in p ? p.display_price : undefined,
@@ -366,6 +369,7 @@ export default function ProdukListClient({
                     </div>
                     <span className={STOCK_STATUS_CHIP[it.stockStatus]}>{stockStatusLabel(m, it.stockStatus)}</span>
                     {it.discontinued && <span className="chip warn">{m.common.productDiscontinuedChip}</span>}
+                    {it.b2bHotelOnly && <span className="chip bad">{m.common.productB2bHotelChip}</span>}
                   </div>
                 </Link>
                 {/* Saudara <Link>, bukan anaknya — lihat catatan handleQuickAdd. */}

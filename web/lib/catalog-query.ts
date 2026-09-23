@@ -111,6 +111,7 @@ export type CatalogProductRow = {
   stock_status: StockStatus;
   /** 0030 — akan dihentikan (sales melihat peringatan). */
   discontinued?: boolean;
+  b2b_hotel_only?: boolean;
   price?: number | null;
   /** Harga untuk DITAMPILKAN di kartu (hanya kalau pemanggil meminta
    *  `withDisplayPrices`). TIGA keadaan, jangan disamakan dengan `price`:

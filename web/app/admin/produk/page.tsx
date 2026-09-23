@@ -22,7 +22,7 @@ function isMissingColumnErr(err: { code?: string } | null): boolean {
 // pola dengan app/admin/catalog-actions.ts::getProdukPageAdmin.
 const PRODUK_COLS_NARROW = "id, name, code, category, description, size, photo_url, stock_status, status";
 // `discontinued` (0030) ikut di select LEBAR dengan alasan yang sama.
-const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options, discontinued`;
+const PRODUK_COLS_WIDE = `${PRODUK_COLS_NARROW}, has_color_options, discontinued, b2b_hotel_only`;
 
 /**
  * /admin/produk — sejak 2026-08-26 pencarian & filter dieksekusi DATABASE

@@ -125,7 +125,7 @@ export default async function ProdukDetailPage({ params }: { params: Promise<{ p
     await Promise.all([
       supabase
         .from("sanci_products")
-        .select("id, name, code, category, description, size, material, configuration, packing, cbm, weight, photo_url, stock_status, status, discontinued")
+        .select("id, name, code, category, description, size, material, configuration, packing, cbm, weight, photo_url, stock_status, status, discontinued, b2b_hotel_only")
         .eq("id", productId)
         .maybeSingle(),
       supabase
@@ -199,6 +199,7 @@ export default async function ProdukDetailPage({ params }: { params: Promise<{ p
     photoUrl: row.photo_url,
     stockStatus: row.stock_status,
     discontinued: (row as { discontinued?: boolean }).discontinued === true,
+    b2bHotelOnly: (row as { b2b_hotel_only?: boolean }).b2b_hotel_only === true,
     price,
     publicUrl,
   };

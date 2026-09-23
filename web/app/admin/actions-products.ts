@@ -222,6 +222,26 @@ export async function setProductDiscontinued(id: string, discontinued: boolean):
   return { data: true };
 }
 
+/** 0032 — "Only For B2B Hotel": harga dasarnya harga proyek hotel. Pola
+ *  persis setProductDiscontinued (tulis terpisah, LESSONS #12). */
+export async function setProductB2bHotelOnly(id: string, b2bHotelOnly: boolean): Promise<ActionResult<true>> {
+  const m = await getAdminMessages();
+  const PESAN = pesan(m);
+  const supabase = await createClient();
+  const saved = await safeWrite(
+    supabase.from("sanci_products").update({ b2b_hotel_only: b2bHotelOnly }).eq("id", id).select("id").single()
+  );
+  if (!saved.ok) {
+    if (saved.reason === "db") {
+      if (isMissingColumn(saved.code)) return { error: { message: m.admin.productB2bHotelFeatureOff } };
+      return { error: { message: PESAN.serverSibukKode(catatGagal("setProductB2bHotelOnly", { hasil: saved })) } };
+    }
+    return { error: { message: PESAN.belumPastiUbah } };
+  }
+  revalidatePath("/admin/produk");
+  return { data: true };
+}
+
 export async function setProductHasColorOptions(id: string, hasColorOptions: boolean): Promise<ActionResult<true>> {
   const m = await getAdminMessages();
   const PESAN = pesan(m);

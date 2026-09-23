@@ -29,6 +29,8 @@ export type ProdukDetailItem = {
   stockStatus: StockStatus;
   /** 0030 — akan dihentikan. */
   discontinued?: boolean;
+  /** 0032 — harga dasarnya harga proyek hotel. */
+  b2bHotelOnly?: boolean;
   /** `null` = tanpa Harga Normal untuk toko ini — baris harga TIDAK
    *  ditampilkan sama sekali (bukan "Rp 0", lihat catatan di page.tsx). */
   price: number | null;
@@ -173,6 +175,7 @@ export default function ProdukDetailClient({
         {item.code && <span className="code">{item.code}</span>}
         <span className={STOCK_STATUS_CHIP[item.stockStatus]}>{stockStatusLabel(m, item.stockStatus)}</span>
         {item.discontinued && <span className="chip warn">{m.common.productDiscontinuedChip}</span>}
+        {item.b2bHotelOnly && <span className="chip bad">{m.common.productB2bHotelChip}</span>}
       </div>
       {item.category && <div className="muted small">{item.category}</div>}
       {/* 0030 — kalimat utuh, bukan cuma chip: di halaman inilah sales
@@ -180,6 +183,12 @@ export default function ProdukDetailClient({
       {item.discontinued && (
         <div className="banner warn" style={{ marginTop: 10 }}>
           {m.common.productDiscontinuedWarn}
+        </div>
+      )}
+      {/* 0032 — harga di bawah adalah harga proyek hotel, bukan eceran. */}
+      {item.b2bHotelOnly && (
+        <div className="banner warn" style={{ marginTop: 10 }}>
+          {m.common.productB2bHotelWarn}
         </div>
       )}
 
