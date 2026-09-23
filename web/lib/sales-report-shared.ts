@@ -365,7 +365,7 @@ export function buildReportSheets(opts: {
   /** Lembar "per cabang" tambahan (admin). null = tidak ada. */
   perBranchSheetName: string | null;
   scopeLine?: string;
-  /** Catatan tambahan untuk lembar Info (pesanan tanpa Harga Akhir, hasil terpotong). */
+  /** Catatan tambahan untuk lembar Info (pesanan tanpa total pelanggan, hasil terpotong). */
   extraInfo?: string[];
 }): XlsxSheet[] {
   const { labels: L, rows, params, locale, includeInvoice } = opts;

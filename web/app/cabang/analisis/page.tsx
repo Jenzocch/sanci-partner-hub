@@ -22,9 +22,10 @@ export const dynamic = "force-dynamic";
  * Kolom "Sudah Invoice" SENGAJA tidak ditampilkan di sini: order_documents
  * khusus admin (0016), jadi bagi cabang angkanya selalu 0 — menampilkannya
  * berarti bilang "belum ada Invoice" padahal yang benar "tidak terlihat".
- * Harga Akhir hanya terlihat kalau partner diberi izin lihat Penawaran
- * SANCI (can_view_offer, 0014); selebihnya dihitung di catatan
- * `reportUnpricedNote`, bukan diam-diam jadi Rp 0 (LESSONS #10).
+ * Penjualan = total pelanggan (customer_total_amount 0026, keputusan owner
+ * 0034) — ada di partner_orders yang memang boleh dibaca cabang. Pesanan
+ * yang totalnya belum dicatat dihitung di catatan `reportUnpricedNote`,
+ * bukan diam-diam jadi Rp 0 (LESSONS #10).
  */
 function BackRow({ m }: { m: CabangMessages }) {
   return (

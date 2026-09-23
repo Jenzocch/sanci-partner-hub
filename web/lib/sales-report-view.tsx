@@ -231,7 +231,7 @@ export function PeriodTable({
   );
 }
 
-/** Catatan kaki: dasar tanggal, pesanan tanpa Harga Akhir, hasil terpotong. */
+/** Catatan kaki: dasar tanggal, pesanan tanpa total pelanggan, hasil terpotong. */
 export function ReportFootnotes({
   c,
   total,

@@ -55,7 +55,7 @@ dimengerti pegawai toko, bukan istilah formal/teknis.
 | Potongan tunai flat, dikurangi terakhir (0015) | Potongan Tunai | 现金折让 | Cash discount |
 | Nilai yang harus dibayar setelah diskon/markup/potongan tunai (0015) | Harga Akhir | 最终金额 | Final price |
 | Rekap pesanan per bulan/tahun (0033) — admin & cabang | Laporan Penjualan | 销售报表 | Sales Report |
-| Harga Akhir − yang sudah dibayar pelanggan, lantai 0 per pesanan (0033) | Sisa | 未付余额 | Outstanding |
+| Total pelanggan − yang sudah dibayar pelanggan, lantai 0 per pesanan (0034) | Sisa | 未付余额 | Outstanding |
 | Kepemilikan pesanan | Atribusi | 归属 | Attribution |
 | Hak akses | Hak Akses | 权限 | Access |
 | — hanya cabang sendiri | Cabang sendiri | 仅本店 | Own branch |

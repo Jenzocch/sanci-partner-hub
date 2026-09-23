@@ -614,8 +614,9 @@ const id = {
   // ---- Laporan Penjualan (migration 0033, owner 2026-09-23) ----
   // Di `common` karena dipakai DUA area (admin /admin/analisis/laporan &
   // /cabang/analisis) dan oleh pembuat berkas Excel bersama
-  // (lib/sales-report-shared.ts). "Harga Akhir" = final_amount 0015
-  // (GLOSSARY); "Sisa" = Harga Akhir − dibayar, lantai 0 per pesanan.
+  // (lib/sales-report-shared.ts). Penjualan = customer_total_amount 0026
+  // (0034); "Invoice SANCI" = final_amount 0015 pesanan yang di-Invoice;
+  // "Sisa" = total pelanggan − dibayar, lantai 0 per pesanan.
   reportPeriodLabel: "Periode",
   reportPresetThisMonth: "Bulan ini",
   reportPresetLastMonth: "Bulan lalu",
@@ -635,9 +636,9 @@ const id = {
   reportColPartner: "Partner",
   reportColBranch: "Cabang",
   reportColOrders: "Pesanan",
-  reportColSales: "Penjualan (Harga Akhir)",
+  reportColSales: "Penjualan (total pelanggan)",
   reportColQty: "Unit",
-  reportColInvoiced: "Sudah Invoice",
+  reportColInvoiced: "Invoice SANCI",
   reportColPaid: "Dibayar",
   reportColOutstanding: "Sisa",
   reportTotal: "Total",
@@ -1096,9 +1097,9 @@ const en = {
   reportColPartner: "Partner",
   reportColBranch: "Branch",
   reportColOrders: "Orders",
-  reportColSales: "Sales (Final price)",
+  reportColSales: "Sales (customer total)",
   reportColQty: "Units",
-  reportColInvoiced: "Invoiced",
+  reportColInvoiced: "SANCI invoice",
   reportColPaid: "Paid",
   reportColOutstanding: "Outstanding",
   reportTotal: "Total",
@@ -1544,9 +1545,9 @@ const zh = {
   reportColPartner: "合作商",
   reportColBranch: "分店",
   reportColOrders: "订单数",
-  reportColSales: "销售额（最终金额）",
+  reportColSales: "销售额（客户总价）",
   reportColQty: "件数",
-  reportColInvoiced: "已开 Invoice",
+  reportColInvoiced: "SANCI Invoice",
   reportColPaid: "已付款",
   reportColOutstanding: "未付余额",
   reportTotal: "合计",

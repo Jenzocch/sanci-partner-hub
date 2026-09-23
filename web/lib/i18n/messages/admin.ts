@@ -1053,7 +1053,7 @@ const id = {
   reportSortOutstanding: "Sisa terbesar",
   reportSortName: "Nama",
   reportScopeLoadFailed: "Daftar partner/cabang gagal dimuat — pilihan cakupan sementara hanya \"Semua partner\".",
-  reportUnpricedNote: "{n} pesanan belum punya Harga Akhir (Penawaran SANCI) — dihitung Rp 0 di Penjualan dan tidak masuk Sisa.",
+  reportUnpricedNote: "{n} pesanan belum dicatat total pelanggannya — dihitung Rp 0 di Penjualan dan tidak masuk Sisa.",
   reportSheetPerBranch: "Per Cabang",
 } as const;
 
@@ -1981,7 +1981,7 @@ const en = {
   reportSortOutstanding: "Highest outstanding",
   reportSortName: "Name",
   reportScopeLoadFailed: "The partner/branch list could not be loaded — the scope can only be \"All partners\" for now.",
-  reportUnpricedNote: "{n} orders have no Final price (SANCI Offer) yet — counted as Rp 0 in Sales and left out of Outstanding.",
+  reportUnpricedNote: "{n} orders have no customer total recorded yet — counted as Rp 0 in Sales and left out of Outstanding.",
   reportSheetPerBranch: "By Branch",
 } satisfies Shape;
 
@@ -2823,7 +2823,7 @@ const zh = {
   reportSortOutstanding: "未付余额最高",
   reportSortName: "名称",
   reportScopeLoadFailed: "合作商/分店列表加载失败 —— 目前范围只能选“全部合作商”。",
-  reportUnpricedNote: "{n} 张订单还没有最终金额（SANCI 方案金额）—— 销售额按 0 元计算，也不计入未付余额。",
+  reportUnpricedNote: "{n} 张订单还没有记录客户总价 —— 销售额按 0 元计算，也不计入未付余额。",
   reportSheetPerBranch: "按分店",
 } satisfies Shape;
 

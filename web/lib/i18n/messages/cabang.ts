@@ -492,7 +492,7 @@ const id = {
   reportTitle: "Laporan Penjualan",
   reportScopeNote: "Berisi pesanan dari cabang yang boleh Anda lihat.",
   reportUnpricedNote:
-    "{n} pesanan belum punya Harga Akhir yang bisa dilihat toko ini — dihitung Rp 0 di Penjualan dan tidak masuk Sisa. Tanyakan ke SANCI kalau angkanya seharusnya ada.",
+    "{n} pesanan belum dicatat total pelanggannya — dihitung Rp 0 di Penjualan dan tidak masuk Sisa. Isi di halaman pesanan, bagian Pembayaran Pelanggan.",
 } as const;
 
 type Shape = Record<keyof typeof id, string>;
@@ -881,7 +881,7 @@ const en = {
   reportTitle: "Sales Report",
   reportScopeNote: "Includes orders from the branches you are allowed to see.",
   reportUnpricedNote:
-    "{n} orders have no Final price this store can see — counted as Rp 0 in Sales and left out of Outstanding. Ask SANCI if the amount should be there.",
+    "{n} orders have no customer total recorded yet — counted as Rp 0 in Sales and left out of Outstanding. Fill it in on the order page, Customer Payment section.",
 } satisfies Shape;
 
 const zh = {
@@ -1240,7 +1240,7 @@ const zh = {
   reportTitle: "销售报表",
   reportScopeNote: "包含您有权查看的分店的订单。",
   reportUnpricedNote:
-    "{n} 张订单还没有本店可查看的最终金额 —— 销售额按 0 元计算，也不计入未付余额。如果应该有金额，请联系 SANCI。",
+    "{n} 张订单还没有记录客户总价 —— 销售额按 0 元计算，也不计入未付余额。请到订单页的「客户付款」区块填写。",
 } satisfies Shape;
 
 export const cabang = { id, en, zh };
