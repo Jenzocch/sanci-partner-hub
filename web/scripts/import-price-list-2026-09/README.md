@@ -18,7 +18,7 @@ Price list = sumber kebenaran (owner 2026-09-22).
 
 ## Pencocokan dengan produk lama
 Lewat kolom Remarks price list ("Old showroom price, code CX01-R180 …") —
-30 produk lama ↔ 41 baris. Sisanya 907 baris jadi produk baru.
+30 produk lama ↔ 41 baris. Sisanya 906 baris jadi produk baru.
 Ukuran dalam meter (`1.8*2.0*30`) dinormalkan ke cm (`180*200*30`).
 
 ## Menjalankan
