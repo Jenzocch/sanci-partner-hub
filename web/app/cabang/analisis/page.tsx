@@ -6,6 +6,7 @@ import { retryHref } from "@/lib/retry-href";
 import { catatGagal } from "@/lib/safe-write";
 import { fetchSalesReport, parseReportParams, reportQueryString, totalOf } from "@/lib/sales-report-shared";
 import { PeriodTable, RangeLine, ReportFilters, ReportFootnotes, SummaryTiles } from "@/lib/sales-report-view";
+import { canViewInvoiceAmount } from "./can-view-invoice";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +20,9 @@ export const dynamic = "force-dynamic";
  * (fn_can_view_branch: cabang sendiri, atau semua cabang partner kalau
  * kebijakannya PARTNER_ALL_BRANCHES).
  *
- * Kolom "Sudah Invoice" SENGAJA tidak ditampilkan di sini: order_documents
- * khusus admin (0016), jadi bagi cabang angkanya selalu 0 — menampilkannya
- * berarti bilang "belum ada Invoice" padahal yang benar "tidak terlihat".
+ * Kolom "Invoice SANCI" tampil sejak 0035 (cabang boleh membaca kepala
+ * dokumen pesanannya sendiri) — HANYA untuk partner dengan can_view_offer,
+ * karena nilainya Harga Akhir SANCI (lihat can-view-invoice.ts).
  * Penjualan = total pelanggan (customer_total_amount 0026, keputusan owner
  * 0034) — ada di partner_orders yang memang boleh dibaca cabang. Pesanan
  * yang totalnya belum dicatat dihitung di catatan `reportUnpricedNote`,
@@ -63,7 +64,7 @@ export default async function CabangSalesReportPage({
   if (!pu) redirect("/");
 
   const params = parseReportParams(sp);
-  const result = await fetchSalesReport(supabase, params);
+  const [result, showInvoice] = await Promise.all([fetchSalesReport(supabase, params), canViewInvoiceAmount(supabase)]);
   const path = "/cabang/analisis";
 
   if (result.kind === "featureOff") {
@@ -107,8 +108,8 @@ export default async function CabangSalesReportPage({
         <div className="card emptybox">{c.reportEmpty}</div>
       ) : (
         <>
-          <SummaryTiles c={c} total={total} includeInvoice={false} />
-          <PeriodTable c={c} rows={rows} total={total} params={params} includeInvoice={false} />
+          <SummaryTiles c={c} total={total} includeInvoice={showInvoice} />
+          <PeriodTable c={c} rows={rows} total={total} params={params} includeInvoice={showInvoice} />
           <ReportFootnotes
             c={c}
             total={total}

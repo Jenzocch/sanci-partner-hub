@@ -10,6 +10,7 @@ import {
   totalOf,
 } from "@/lib/sales-report-shared";
 import { buildXlsx } from "@/lib/xlsx-lite";
+import { canViewInvoiceAmount } from "../can-view-invoice";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
  * Penjualan cabang. SAMA seperti halamannya: tidak ada parameter
  * partner/cabang yang diterima dari URL (LESSONS #6) — isinya adalah apa
  * pun yang RLS izinkan akun ini baca lewat fn_sales_report (SECURITY
- * INVOKER, 0033). Tanpa kolom Invoice (alasan di app/cabang/analisis/page.tsx).
+ * INVOKER, 0033). Kolom Invoice mengikuti halaman (can-view-invoice.ts).
  */
 function text(body: string, status: number): Response {
   return new Response(body, {
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
   if (!pu) return text("Forbidden", 403);
 
   const params = parseReportParams(Object.fromEntries(new URL(request.url).searchParams.entries()));
-  const result = await fetchSalesReport(supabase, params);
+  const [result, showInvoice] = await Promise.all([fetchSalesReport(supabase, params), canViewInvoiceAmount(supabase)]);
   if (result.kind === "featureOff") return text(m.common.reportFeatureOff, 409);
   if (result.kind === "error") {
     const kode = catatGagal("sales_report_export_cabang", { error: result.error });
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
     rows: result.rows,
     params,
     locale: m.common.dateLocale,
-    includeInvoice: false,
+    includeInvoice: showInvoice,
     perBranchSheetName: null,
     extraInfo: [
       m.cabang.reportScopeNote,
