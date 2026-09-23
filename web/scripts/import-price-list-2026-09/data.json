@@ -828,8 +828,8 @@
   "source": "Mattress #46"
  },
  {
-  "action": "insert",
-  "code": "Supreme Realm",
+  "action": "update",
+  "code": "Zunjie",
   "name": "SANCI Mattress (AI+ Series) Supreme Realm",
   "category": "SANCI Mattress",
   "size": "180*200*25",
@@ -841,7 +841,7 @@
   "price": 73700000,
   "remarks": "Old showroom price, code Zunjie (size 180cm); other sizes: 200 cm: Rp 88,440,000",
   "old_showroom_price": 73700000,
-  "photo": "Mattress_047.png",
+  "photo": null,
   "description": null,
   "source": "Mattress #47"
  },
@@ -1080,8 +1080,8 @@
   "source": "Mattress #60"
  },
  {
-  "action": "insert",
-  "code": "WZ07",
+  "action": "update",
+  "code": "WZ07-R180",
   "name": "SANCI Mattress WZ07",
   "category": "SANCI Mattress",
   "size": "180*200*30",
@@ -1093,7 +1093,7 @@
   "price": 26800000,
   "remarks": "Old showroom price, code WZ07-R180 (size 180cm); other sizes: 160 cm: Rp 25,460,000, 700 cm: Rp 32,160,000",
   "old_showroom_price": 26800000,
-  "photo": "Mattress_061.jpeg",
+  "photo": null,
   "description": null,
   "source": "Mattress #61"
  },
@@ -4932,7 +4932,7 @@
   "source": "Bed #169"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "WMRC583",
   "name": "SANCI Bed WMRC583",
   "category": "Bedstead",
@@ -4945,7 +4945,7 @@
   "price": 26532000,
   "remarks": "Old showroom price, code WMRC583 (size 180cm)",
   "old_showroom_price": 26532000,
-  "photo": "Bed_170.jpeg",
+  "photo": null,
   "description": null,
   "source": "Bed #170"
  },
@@ -7668,8 +7668,8 @@
   "source": "Sofa #133"
  },
  {
-  "action": "insert",
-  "code": "ZY-8885 Ruili",
+  "action": "update",
+  "code": "ZY-8885",
   "name": "SANCI Sofa 3-seat ZY-8885 Ruili",
   "category": "Sofa",
   "size": "286*96*87",
@@ -7681,7 +7681,7 @@
   "price": 81472000,
   "remarks": "Per SET; Old showroom price, code ZY-8885 (size 280cm)",
   "old_showroom_price": 81472000,
-  "photo": "Sofa_134.jpeg",
+  "photo": null,
   "description": null,
   "source": "Sofa #134"
  },
@@ -7722,8 +7722,8 @@
   "source": "Sofa #136"
  },
  {
-  "action": "insert",
-  "code": "ZY-8900 Dario",
+  "action": "update",
+  "code": "ZY-8900",
   "name": "SANCI Sofa 3-seat ZY-8900 Dario",
   "category": "Sofa",
   "size": "333*109*89",
@@ -7735,7 +7735,7 @@
   "price": 104118000,
   "remarks": "Per SET; Old showroom price, code ZY-8900 (size 335cm)",
   "old_showroom_price": 104118000,
-  "photo": "Sofa_137.jpeg",
+  "photo": null,
   "description": null,
   "source": "Sofa #137"
  },
@@ -8118,7 +8118,7 @@
   "source": "Single Chair #19"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "X-2217",
   "name": "SANCI Single Chair X-2217",
   "category": "Chair",
@@ -8131,7 +8131,7 @@
   "price": 33339200,
   "remarks": "Old showroom price, code X-2217 (size 85cm)",
   "old_showroom_price": 33339200,
-  "photo": "Single_Chair_020.jpeg",
+  "photo": null,
   "description": null,
   "source": "Single Chair #20"
  },
@@ -8694,7 +8694,7 @@
   "source": "Dining Chair #19"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "WM-CY01",
   "name": "SANCI Dining Chair WM-CY01",
   "category": "Dining Chair",
@@ -8707,7 +8707,7 @@
   "price": 2251200,
   "remarks": "Old showroom price, code WM-CY01 (size 86cm)",
   "old_showroom_price": 2251200,
-  "photo": "Dining_Chair_020.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #20"
  },
@@ -8748,7 +8748,7 @@
   "source": "Dining Chair #22"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "WM-CY05",
   "name": "SANCI Dining Chair WM-CY05",
   "category": "Dining Chair",
@@ -8761,7 +8761,7 @@
   "price": 3055200,
   "remarks": "Old showroom price, code WM-CY05 (size 84cm)",
   "old_showroom_price": 3055200,
-  "photo": "Dining_Chair_023.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #23"
  },
@@ -8784,7 +8784,7 @@
   "source": "Dining Chair #24"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZCY-5108",
   "name": "SANCI Dining Chair ZCY-5108",
   "category": "Dining Chair",
@@ -8797,7 +8797,7 @@
   "price": 5226000,
   "remarks": "Old showroom price, code ZCY-5108 (size 530cm)",
   "old_showroom_price": 5226000,
-  "photo": "Dining_Chair_025.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #25"
  },
@@ -8910,7 +8910,7 @@
   "source": "Dining Chair #31"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CY2335",
   "name": "SANCI Dining Chair ZY-CY2335",
   "category": "Dining Chair",
@@ -8923,12 +8923,12 @@
   "price": 2848000,
   "remarks": "Old showroom price, code ZY-CY2335 (size 60cm)",
   "old_showroom_price": 2948000,
-  "photo": "Dining_Chair_032.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #32"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CY2338",
   "name": "SANCI Dining Chair ZY-CY2338",
   "category": "Dining Chair",
@@ -8941,12 +8941,12 @@
   "price": 3149000,
   "remarks": "Old showroom price, code ZY-CY2338 (size 60cm)",
   "old_showroom_price": 3149000,
-  "photo": "Dining_Chair_033.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #33"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CY2339",
   "name": "SANCI Dining Chair ZY-CY2339",
   "category": "Dining Chair",
@@ -8959,7 +8959,7 @@
   "price": 3618000,
   "remarks": "Old showroom price, code ZY-CY2339 (size 60cm)",
   "old_showroom_price": 3618000,
-  "photo": "Dining_Chair_034.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #34"
  },
@@ -9162,7 +9162,7 @@
   "source": "Dining Chair #45"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-Y2348",
   "name": "SANCI Dining Chair ZY-Y2348",
   "category": "Dining Chair",
@@ -9175,7 +9175,7 @@
   "price": 4395200,
   "remarks": "Old showroom price, code ZY-Y2348 (size 52cm)",
   "old_showroom_price": 4395200,
-  "photo": "Dining_Chair_046.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #46"
  },
@@ -9234,7 +9234,7 @@
   "source": "Dining Chair #49"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-Y936",
   "name": "SANCI Dining Chair ZY-Y936",
   "category": "Dining Chair",
@@ -9247,12 +9247,12 @@
   "price": 6030000,
   "remarks": "Old showroom price, code ZY-Y936 (size 600cm)",
   "old_showroom_price": 6030000,
-  "photo": "Dining_Chair_050.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #50"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-Y954",
   "name": "SANCI Dining Chair ZY-Y954",
   "category": "Dining Chair",
@@ -9265,7 +9265,7 @@
   "price": 4087000,
   "remarks": "Old showroom price, code ZY-Y954 (size 550cm)",
   "old_showroom_price": 4087000,
-  "photo": "Dining_Chair_051.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Chair #51"
  },
@@ -10314,7 +10314,7 @@
   "source": "Dining Table #58"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CT552",
   "name": "SANCI Extendable Round Dining Table ZY-CT552",
   "category": "Dining Table",
@@ -10327,7 +10327,7 @@
   "price": 33500000,
   "remarks": "Old showroom price, code ZY-CT552 (size 1200cm)",
   "old_showroom_price": 33500000,
-  "photo": "Dining_Table_059.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Table #59"
  },
@@ -10530,7 +10530,7 @@
   "source": "Dining Table #70"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CZ6021",
   "name": "SANCI Extendable Dining Table ZY-CZ6021",
   "category": "Dining Table",
@@ -10543,7 +10543,7 @@
   "price": 25460000,
   "remarks": "Old showroom price, code ZY-CZ6021 (size 1200cm)",
   "old_showroom_price": 25460000,
-  "photo": "Dining_Table_071.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Table #71"
  },
@@ -10638,8 +10638,8 @@
   "source": "Dining Table #76"
  },
  {
-  "action": "insert",
-  "code": "ZY-CZ9065-1",
+  "action": "update",
+  "code": "ZY-CZ9065",
   "name": "SANCI Dining Table ZY-CZ9065 — grey titanium stainless steel",
   "category": "Dining Table",
   "size": "1600*900*760",
@@ -10651,7 +10651,7 @@
   "price": 23184000,
   "remarks": null,
   "old_showroom_price": null,
-  "photo": "Dining_Table_077.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Table #77"
  },
@@ -10782,7 +10782,7 @@
   "source": "Dining Table #84"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CZ9070",
   "name": "SANCI Extendable Dining Table ZY-CZ9070",
   "category": "Dining Table",
@@ -10795,7 +10795,7 @@
   "price": 26544000,
   "remarks": "Old showroom price, code ZY-CZ9070 (size 900cm)",
   "old_showroom_price": 29332600,
-  "photo": "Dining_Table_085.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Table #85"
  },
@@ -10854,8 +10854,8 @@
   "source": "Dining Table #88"
  },
  {
-  "action": "insert",
-  "code": "ZY-CZ9073-1",
+  "action": "update",
+  "code": "ZY-CZ9073",
   "name": "SANCI Dining Table ZY-CZ9073 — mocha black ash solid wood frame",
   "category": "Dining Table",
   "size": "2000*950*750",
@@ -10867,7 +10867,7 @@
   "price": 54768000,
   "remarks": "Old showroom price, code ZY-CZ9073 (size 2400cm)",
   "old_showroom_price": 62846000,
-  "photo": "Dining_Table_089.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Table #89"
  },
@@ -10962,8 +10962,8 @@
   "source": "Dining Table #94"
  },
  {
-  "action": "insert",
-  "code": "ZY-CZ9076-1",
+  "action": "update",
+  "code": "ZY-CZ9076",
   "name": "SANCI Dining Table ZY-CZ9076 — taupe piano gloss fibreglass frame",
   "category": "Dining Table",
   "size": "1600*800*760",
@@ -10975,7 +10975,7 @@
   "price": 39984000,
   "remarks": "Old showroom price, code ZY-CZ9076 (size 1800cm)",
   "old_showroom_price": 42880000,
-  "photo": "Dining_Table_095.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dining Table #95"
  },
@@ -12474,7 +12474,7 @@
   "source": "Coffee Table #73"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CJ1000",
   "name": "SANCI Square Functional Coffee Table ZY-CJ1000",
   "category": "Coffee Table",
@@ -12487,7 +12487,7 @@
   "price": 32830000,
   "remarks": "Old showroom price, code ZY-CJ1000 (size 1000cm)",
   "old_showroom_price": 32830000,
-  "photo": "Coffee_Table_074.jpeg",
+  "photo": null,
   "description": null,
   "source": "Coffee Table #74"
  },
@@ -12960,7 +12960,7 @@
   "source": "Coffee Table #100"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CJ3321",
   "name": "SANCI Coffee Table Combination (set) ZY-CJ3321",
   "category": "Coffee Table",
@@ -12973,7 +12973,7 @@
   "price": 20435000,
   "remarks": "Per SET; Old showroom price, code ZY-CJ3321 (size 800cm)",
   "old_showroom_price": 20435000,
-  "photo": "Coffee_Table_101.jpeg",
+  "photo": null,
   "description": null,
   "source": "Coffee Table #101"
  },
@@ -12996,7 +12996,7 @@
   "source": "Coffee Table #102"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-CJ8873",
   "name": "SANCI Square Table ZY-CJ8873",
   "category": "Coffee Table",
@@ -13009,7 +13009,7 @@
   "price": 27992600,
   "remarks": "Old showroom price, code ZY-CJ8873 (size 110cm)",
   "old_showroom_price": 27992600,
-  "photo": "Coffee_Table_103.jpeg",
+  "photo": null,
   "description": null,
   "source": "Coffee Table #103"
  },
@@ -13302,7 +13302,7 @@
   "source": "Side Table #14"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZBJ-2502",
   "name": "SANCI Side Table ZBJ-2502",
   "category": "Side Table",
@@ -13315,7 +13315,7 @@
   "price": 5226000,
   "remarks": "Old showroom price, code ZBJ-2502 (size 600cm)",
   "old_showroom_price": 5226000,
-  "photo": "Side_Table_015.jpeg",
+  "photo": null,
   "description": null,
   "source": "Side Table #15"
  },
@@ -13338,7 +13338,7 @@
   "source": "Side Table #16"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZBJ-2505",
   "name": "SANCI Side Table ZBJ-2505",
   "category": "Side Table",
@@ -13351,7 +13351,7 @@
   "price": 5226000,
   "remarks": "Old showroom price, code ZBJ-2505 (size 400cm)",
   "old_showroom_price": 5226000,
-  "photo": "Side_Table_017.jpeg",
+  "photo": null,
   "description": null,
   "source": "Side Table #17"
  },
@@ -13536,7 +13536,7 @@
   "source": "Side Table #27"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZY-BJ505",
   "name": "SANCI Leisure Side Table ZY-BJ505",
   "category": "Side Table",
@@ -13549,7 +13549,7 @@
   "price": 9889200,
   "remarks": "Old showroom price, code ZY-BJ505 (size 450cm)",
   "old_showroom_price": 9889200,
-  "photo": "Side_Table_028.jpeg",
+  "photo": null,
   "description": null,
   "source": "Side Table #28"
  },
@@ -15066,7 +15066,7 @@
   "source": "Dressing Table #5"
  },
  {
-  "action": "insert",
+  "action": "update",
   "code": "ZT-003",
   "name": "SANCI Dressing Table + Mirror + Stool ZT-003",
   "category": "Dressing Table",
@@ -15079,7 +15079,7 @@
   "price": 22110000,
   "remarks": "Old showroom price, code ZT-003 (size 1300cm)",
   "old_showroom_price": 22110000,
-  "photo": "Dressing_Table_006.jpeg",
+  "photo": null,
   "description": null,
   "source": "Dressing Table #6"
  },
